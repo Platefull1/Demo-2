@@ -10,6 +10,11 @@ import {
   pickClientContactName,
 } from '@/lib/complaints/contact';
 import { resolveStackUserIdsForTenant } from '@/lib/whatsapp-sessions';
+import {
+  mergeRidersByCanonicalLoja,
+  pickOperationalLojas,
+  resolveToOperationalLojaId,
+} from '@/lib/complaints/loja-match';
 
 /**
  * GET /api/reports/complaints/:runId/review
@@ -70,62 +75,77 @@ export async function GET(
   const slotsUsed = [...new Set(run.complaints.map((c) => c.sessionSlot).filter(Boolean))];
 
   const stackIds = await resolveStackUserIdsForTenant(tenantUserId);
-  const [evidenceMessages, inNameRows, bots, todasLojas, todosRiders] = await Promise.all([
-    allEvidenceIds.length > 0
-      ? prisma.whatsAppMessage.findMany({
-          where: {
-            id: { in: allEvidenceIds },
-            userId: { in: userIds },
-          },
-          select: {
-            id: true,
-            messageType: true,
-            textContent: true,
-            timestamp: true,
-            direction: true,
-          },
-        })
-      : Promise.resolve([]),
-    contactIds.length > 0
-      ? prisma.whatsAppMessage.findMany({
-          where: {
-            userId: { in: userIds },
-            contactId: { in: contactIds },
-            direction: 'IN',
-            timestamp: { gte: run.periodStart, lte: run.periodEnd },
-            contactName: { not: null },
-          },
-          select: { contactId: true, contactName: true, timestamp: true },
-          orderBy: { timestamp: 'asc' },
-        })
-      : Promise.resolve([]),
-    stackIds.length > 0 && slotsUsed.length > 0
-      ? prisma.whatsAppBot.findMany({
-          where: { userId: { in: stackIds }, slot: { in: slotsUsed } },
-          select: { slot: true, label: true },
-        })
-      : Promise.resolve([]),
-    // Todas as lojas do tenant (para o selector manual de loja na UI)
-    prisma.rhLoja.findMany({
-      where: { userId: { in: userIds }, ativo: true },
-      select: { id: true, nome: true },
-      orderBy: { nome: 'asc' },
-    }),
-    // Todos os riders ativos do tenant (filtrado por loja no cliente)
-    prisma.deliveryRider.findMany({
-      where: { userId: { in: userIds }, status: { not: 'inactive' } },
-      select: { id: true, name: true, lojaId: true },
-      orderBy: { name: 'asc' },
-    }),
-  ]);
+  const [evidenceMessages, inNameRows, bots, todasRhLojas, todosRiders, ifoodGroups] =
+    await Promise.all([
+      allEvidenceIds.length > 0
+        ? prisma.whatsAppMessage.findMany({
+            where: {
+              id: { in: allEvidenceIds },
+              userId: { in: userIds },
+            },
+            select: {
+              id: true,
+              messageType: true,
+              textContent: true,
+              timestamp: true,
+              direction: true,
+            },
+          })
+        : Promise.resolve([]),
+      contactIds.length > 0
+        ? prisma.whatsAppMessage.findMany({
+            where: {
+              userId: { in: userIds },
+              contactId: { in: contactIds },
+              direction: 'IN',
+              timestamp: { gte: run.periodStart, lte: run.periodEnd },
+              contactName: { not: null },
+            },
+            select: { contactId: true, contactName: true, timestamp: true },
+            orderBy: { timestamp: 'asc' },
+          })
+        : Promise.resolve([]),
+      stackIds.length > 0 && slotsUsed.length > 0
+        ? prisma.whatsAppBot.findMany({
+            where: { userId: { in: stackIds }, slot: { in: slotsUsed } },
+            select: { slot: true, label: true },
+          })
+        : Promise.resolve([]),
+      prisma.rhLoja.findMany({
+        where: { userId: { in: userIds }, ativo: true },
+        select: { id: true, nome: true },
+        orderBy: { nome: 'asc' },
+      }),
+      prisma.deliveryRider.findMany({
+        where: { userId: { in: userIds }, status: { not: 'inactive' } },
+        select: { id: true, name: true, lojaId: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.iFoodComplaintGroup.findMany({
+        where: { userId: { in: userIds }, ativo: true },
+        select: { lojaNome: true },
+      }),
+    ]);
 
-  // Montar mapa riders por loja (todos os riders, não só os das lojas usadas)
-  const ridersByLojaMap = new Map<string, { id: string; name: string }[]>();
+  // Uma loja por unidade operacional (Ahú/Pilarzinho/Portão/Uberaba) —
+  // evita listar "CALENZANO AHÚ" + "Loja Ahú" juntos; prefer a que tem riders.
+  const riderCounts = new Map<string, number>();
   for (const r of todosRiders) {
-    const list = ridersByLojaMap.get(r.lojaId) ?? [];
-    list.push({ id: r.id, name: r.name });
-    ridersByLojaMap.set(r.lojaId, list);
+    riderCounts.set(r.lojaId, (riderCounts.get(r.lojaId) ?? 0) + 1);
   }
+  const todasLojas = pickOperationalLojas({
+    rhLojas: todasRhLojas,
+    ifoodLojaNomes: ifoodGroups.map((g) => g.lojaNome),
+    riderCounts,
+  });
+
+  // Riders de qualquer variante RH (CALENZANO AHÚ / Loja Ahú) sob o id escolhido
+  const ridersPorLojaMerged = mergeRidersByCanonicalLoja({
+    operationalLojas: todasLojas,
+    allRhLojas: todasRhLojas,
+    riders: todosRiders,
+  });
+  const ridersByLojaMap = new Map(Object.entries(ridersPorLojaMerged));
 
   const sessionLabelBySlot = new Map<number, string>();
   for (const b of bots) {
@@ -177,14 +197,21 @@ export async function GET(
       ? `iFood — ${c.lojaGrupo || 'loja'}`
       : 'Cliente';
 
+    const lojaIdOp = resolveToOperationalLojaId(
+      c.lojaId,
+      todasRhLojas,
+      todasLojas,
+    );
+
     return {
       ...c,
+      lojaId: lojaIdOp,
       contactName,
       contactPhone: isIfood ? '' : formatContactPhone(c.contactId),
       clientLabel,
       sessionLabel,
       origemLabel,
-      ridersDisponiveis: c.lojaId ? (ridersByLojaMap.get(c.lojaId) ?? []) : [],
+      ridersDisponiveis: lojaIdOp ? (ridersByLojaMap.get(lojaIdOp) ?? []) : [],
       evidencias: c.evidenciaMessageIds
         .map((id) => evidenceById.get(id))
         .filter(Boolean)

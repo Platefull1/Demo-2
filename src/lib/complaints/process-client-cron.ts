@@ -18,22 +18,40 @@ import {
   ensureEmAndamentoRun,
   markMessagesComplaintProcessed,
 } from '@/lib/complaints/continuous';
+import {
+  matchLojaFromText,
+  pickOperationalLojas,
+} from '@/lib/complaints/loja-match';
 
 const MAX_CONTACTS_PER_TICK = 8;
 
 async function resolveLojaId(userId: string, lojaSlug: string | null): Promise<string | null> {
   if (!lojaSlug) return null;
-  const slug = lojaSlug.toLowerCase().trim();
   const lojas = await prisma.rhLoja.findMany({
-    where: { userId },
+    where: { userId, ativo: true },
     select: { id: true, nome: true },
   });
-  const found = lojas.find(
-    (l) =>
-      l.nome.toLowerCase().includes(slug) ||
-      slug.includes(l.nome.toLowerCase().replace(/\s+/g, '')),
+  const ifood = await prisma.iFoodComplaintGroup.findMany({
+    where: { userId, ativo: true },
+    select: { lojaNome: true },
+  });
+  const riders = await prisma.deliveryRider.findMany({
+    where: { userId, status: { not: 'inactive' } },
+    select: { lojaId: true },
+  });
+  const riderCounts = new Map<string, number>();
+  for (const r of riders) riderCounts.set(r.lojaId, (riderCounts.get(r.lojaId) ?? 0) + 1);
+
+  const operational = pickOperationalLojas({
+    rhLojas: lojas,
+    ifoodLojaNomes: ifood.map((g) => g.lojaNome),
+    riderCounts,
+  });
+  return (
+    matchLojaFromText(lojaSlug, operational)?.id ??
+    matchLojaFromText(lojaSlug, lojas)?.id ??
+    null
   );
-  return found?.id ?? null;
 }
 
 /** No cron contínuo, só olha o mês atual + anterior (evita queimar histórico antigo). */

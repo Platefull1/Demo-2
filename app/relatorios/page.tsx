@@ -798,7 +798,11 @@ function RelatoriosContent() {
       const res = await fetch(`/api/reports/complaints/complaints/${complaintId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lojaId, lojaIdentificada: Boolean(lojaId) }),
+        body: JSON.stringify({
+          lojaId,
+          lojaIdentificada: Boolean(lojaId),
+          entregadorId: null, // troca de loja limpa o entregador anterior
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -808,7 +812,9 @@ function RelatoriosContent() {
       setReviewData((prev) => {
         if (!prev) return prev;
         const complaints = prev.complaints.map((c) =>
-          c.id === complaintId ? { ...c, lojaId, lojaIdentificada: Boolean(lojaId) } : c,
+          c.id === complaintId
+            ? { ...c, lojaId, lojaIdentificada: Boolean(lojaId), entregadorId: null }
+            : c,
         );
         return { ...prev, complaints };
       });
@@ -1538,17 +1544,31 @@ function RelatoriosContent() {
                                         {c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) && (
                                           <div className="mt-2 flex items-center gap-2">
                                             <label className="text-xs text-gray-500 shrink-0">Entregador:</label>
-                                            <select
-                                              value={c.entregadorId ?? ''}
-                                              onChange={(e) => updateComplaintEntregador(c.id, e.target.value || null)}
-                                              className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
-                                            >
-                                              <option value="">— Não identificado —</option>
-                                              {(reviewData?.ridersPorLoja?.[c.lojaId ?? ''] ?? []).map((r) => (
-                                                <option key={r.id} value={r.id}>{r.name}</option>
-                                              ))}
-                                            </select>
+                                            {!c.lojaId ? (
+                                              <span className="text-xs text-amber-300/80">
+                                                Selecione a loja para listar os entregadores
+                                              </span>
+                                            ) : (
+                                              <select
+                                                value={c.entregadorId ?? ''}
+                                                onChange={(e) => updateComplaintEntregador(c.id, e.target.value || null)}
+                                                className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
+                                              >
+                                                <option value="">— Não identificado —</option>
+                                                {(reviewData?.ridersPorLoja?.[c.lojaId ?? ''] ?? []).map((r) => (
+                                                  <option key={r.id} value={r.id}>{r.name}</option>
+                                                ))}
+                                              </select>
+                                            )}
                                           </div>
+                                        )}
+                                        {c.categoria &&
+                                          CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) &&
+                                          c.lojaId &&
+                                          (reviewData?.ridersPorLoja?.[c.lojaId] ?? []).length === 0 && (
+                                          <p className="mt-1 text-[11px] text-gray-500">
+                                            Nenhum motoboy ativo cadastrado nesta loja no RH.
+                                          </p>
                                         )}
                                         {c.evidencias.length > 0 && (
                                           <div className="mt-2 space-y-1">

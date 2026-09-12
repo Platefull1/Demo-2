@@ -9,15 +9,20 @@ import {
   callComplaintsOpenRouter,
   extractJsonObject,
 } from '@/lib/complaints/openrouter';
+import {
+  matchLojaFromText,
+  pickOperationalLojas,
+  type LojaRef,
+} from '@/lib/complaints/loja-match';
 
 // ---------------------------------------------------------------------------
 // POST /api/reports/complaints/reclassify
 //
-// Reclassifica reclamações existentes sem `categoria` preenchida:
-//   • lojaId  : resolve direto pelo lojaGrupo (iFood) ou por regex no resumo (cliente)
-//   • categoria: IA leve a partir do resumo (não re-processa a conversa inteira)
+// Reclassifica reclamações sem categoria E/OU sem loja:
+//   • lojaId  : iFood via lojaGrupo; cliente via conversa completa + resumo
+//   • categoria: IA leve a partir do resumo
 //
-// Seguro chamar múltiplas vezes — pula quem já tem categoria.
+// Seguro chamar múltiplas vezes — só atualiza o que faltar.
 // ---------------------------------------------------------------------------
 
 const CATEGORIAS_VALIDAS = Object.values(ComplaintCategoria) as string[];
@@ -53,103 +58,170 @@ async function classificarCategoria(resumo: string): Promise<ComplaintCategoria>
   }
 }
 
-/** Tenta resolver lojaId via substring no nome das RhLojas do tenant. */
-async function resolveLojaId(userId: string, hint: string | null): Promise<string | null> {
-  if (!hint) return null;
-  const lojas = await prisma.rhLoja.findMany({
-    where: { userId },
-    select: { id: true, nome: true },
-  });
-  const h = hint.toLowerCase().trim();
-  const found = lojas.find(
-    (l) =>
-      l.nome.toLowerCase().includes(h) ||
-      h.includes(l.nome.toLowerCase().replace(/\s+/g, '')),
-  );
-  return found?.id ?? null;
+/** IA leve: extrai nome da loja a partir do texto da conversa + lista de lojas. */
+async function extrairLojaComIa(
+  texto: string,
+  lojas: LojaRef[],
+): Promise<string | null> {
+  if (!texto.trim() || lojas.length === 0) return null;
+  const nomes = lojas.map((l) => l.nome).join(', ');
+  try {
+    const content = await callComplaintsOpenRouter({
+      system: `Você identifica qual loja de uma pizzaria aparece citada em uma conversa WhatsApp.
+Lojas possíveis: ${nomes}
+Responda APENAS JSON: {"loja":"<nome exato de uma das lojas>"|null}
+Use null se a loja não estiver clara. Não invente.`,
+      user: `Conversa:\n${texto.slice(0, 3500)}`,
+      maxTokens: 80,
+      temperature: 0.1,
+    });
+    const parsed = extractJsonObject(content) as { loja?: unknown };
+    if (typeof parsed.loja !== 'string' || !parsed.loja.trim()) return null;
+    const matched = matchLojaFromText(parsed.loja, lojas);
+    return matched?.id ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function POST() {
   const userIds = await getReportsTenantUserIds();
   if (!userIds) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-  // Busca complaints sem categoria (todos os runs do tenant)
-  const sem = await prisma.complaint.findMany({
-    where: { userId: { in: userIds }, categoria: null },
+  // Sem categoria OU sem loja (histórico já reclassificado por categoria ainda precisa de loja)
+  const pendentes = await prisma.complaint.findMany({
+    where: {
+      userId: { in: userIds },
+      OR: [{ categoria: null }, { lojaId: null }, { lojaIdentificada: false }],
+    },
     select: {
       id: true,
       userId: true,
+      contactId: true,
       resumo: true,
       origem: true,
       lojaGrupo: true,
+      categoria: true,
+      lojaId: true,
+      lojaIdentificada: true,
+      reviewRunId: true,
     },
   });
 
-  if (sem.length === 0) {
-    return NextResponse.json({ ok: true, processados: 0, mensagem: 'Nenhuma reclamação pendente.' });
+  if (pendentes.length === 0) {
+    return NextResponse.json({
+      ok: true,
+      processados: 0,
+      mensagem: 'Nenhuma reclamação pendente de reclassificação.',
+    });
   }
+
+  const runIds = [...new Set(pendentes.map((c) => c.reviewRunId))];
+  const runs = await prisma.complaintReviewRun.findMany({
+    where: { id: { in: runIds } },
+    select: { id: true, periodStart: true, periodEnd: true },
+  });
+  const runById = new Map(runs.map((r) => [r.id, r]));
+
+  const ifoodGroups = await prisma.iFoodComplaintGroup.findMany({
+    where: { userId: { in: userIds }, ativo: true },
+    select: { lojaNome: true },
+  });
+  const ifoodNomes = ifoodGroups.map((g) => g.lojaNome);
+
+  const allRhLojas = await prisma.rhLoja.findMany({
+    where: { userId: { in: userIds }, ativo: true },
+    select: { id: true, nome: true },
+  });
+  const riders = await prisma.deliveryRider.findMany({
+    where: { userId: { in: userIds }, status: { not: 'inactive' } },
+    select: { lojaId: true },
+  });
+  const riderCounts = new Map<string, number>();
+  for (const r of riders) {
+    riderCounts.set(r.lojaId, (riderCounts.get(r.lojaId) ?? 0) + 1);
+  }
+  const operationalLojas = pickOperationalLojas({
+    rhLojas: allRhLojas,
+    ifoodLojaNomes: ifoodNomes,
+    riderCounts,
+  });
 
   let processados = 0;
+  let lojasPreenchidas = 0;
   let erros = 0;
 
-  // Cache de lojas por userId para evitar queries repetidas
-  const lojaCache = new Map<string, { id: string; nome: string }[]>();
-  async function lojasDoTenant(userId: string) {
-    if (!lojaCache.has(userId)) {
-      const lojas = await prisma.rhLoja.findMany({
-        where: { userId },
-        select: { id: true, nome: true },
-      });
-      lojaCache.set(userId, lojas);
-    }
-    return lojaCache.get(userId)!;
-  }
-
-  function matchLoja(
-    lojas: { id: string; nome: string }[],
-    hint: string,
-  ): string | null {
-    const h = hint.toLowerCase().trim();
-    const found = lojas.find(
-      (l) =>
-        l.nome.toLowerCase().includes(h) ||
-        h.includes(l.nome.toLowerCase().replace(/\s+/g, '')),
-    );
-    return found?.id ?? null;
-  }
-
-  for (const c of sem) {
+  for (const c of pendentes) {
     try {
-      // 1. Resolver lojaId
-      let lojaId: string | null = null;
-      let lojaIdentificada = false;
+      const data: {
+        categoria?: ComplaintCategoria;
+        lojaId?: string | null;
+        lojaIdentificada?: boolean;
+      } = {};
 
-      if (c.origem === 'GRUPO_IFOOD' && c.lojaGrupo) {
-        // iFood: lojaGrupo já tem o nome da loja — só fazer o match
-        const lojas = await lojasDoTenant(c.userId);
-        lojaId = matchLoja(lojas, c.lojaGrupo);
-        lojaIdentificada = Boolean(lojaId);
-      } else {
-        // Canal cliente: tenta extrair do resumo padrões como "loja AHU", "Ahú", etc.
-        const lojas = await lojasDoTenant(c.userId);
-        const lojaMatch = lojas.find((l) =>
-          c.resumo.toLowerCase().includes(l.nome.toLowerCase().replace(/\s+/g, ' ').trim()),
-        );
-        if (lojaMatch) {
-          lojaId = lojaMatch.id;
-          lojaIdentificada = true;
+      // Categoria
+      if (!c.categoria) {
+        data.categoria = await classificarCategoria(c.resumo);
+      }
+
+      // Loja
+      if (!c.lojaId || c.lojaIdentificada === false) {
+        let lojaId: string | null = null;
+
+        if (c.origem === 'GRUPO_IFOOD' && c.lojaGrupo) {
+          lojaId = matchLojaFromText(c.lojaGrupo, operationalLojas)?.id ?? null;
+          if (!lojaId) {
+            lojaId = matchLojaFromText(c.lojaGrupo, allRhLojas)?.id ?? null;
+          }
+        } else {
+          // 1) resumo
+          lojaId = matchLojaFromText(c.resumo, operationalLojas)?.id ?? null;
+
+          // 2) mensagens da conversa
+          if (!lojaId) {
+            const run = runById.get(c.reviewRunId);
+            const msgs = await prisma.whatsAppMessage.findMany({
+              where: {
+                userId: c.userId,
+                contactId: c.contactId,
+                ...(run
+                  ? { timestamp: { gte: run.periodStart, lte: run.periodEnd } }
+                  : {}),
+              },
+              select: { textContent: true, direction: true },
+              orderBy: { timestamp: 'asc' },
+              take: 80,
+            });
+            const transcript = msgs
+              .map((m) => m.textContent?.trim())
+              .filter(Boolean)
+              .join('\n');
+
+            lojaId = matchLojaFromText(transcript, operationalLojas)?.id ?? null;
+
+            // 3) IA na conversa se ainda não achou
+            if (!lojaId && transcript.length > 20) {
+              lojaId = await extrairLojaComIa(transcript, operationalLojas);
+            }
+          }
+        }
+
+        if (lojaId) {
+          data.lojaId = lojaId;
+          data.lojaIdentificada = true;
+          lojasPreenchidas++;
         }
       }
 
-      // 2. Classificar categoria via IA
-      const categoria = await classificarCategoria(c.resumo);
+      if (Object.keys(data).length === 0) {
+        processados++;
+        continue;
+      }
 
-      // 3. Atualizar complaint
       await prisma.complaint.update({
         where: { id: c.id },
-        data: { categoria, lojaId, lojaIdentificada },
+        data,
       });
-
       processados++;
     } catch {
       erros++;
@@ -158,9 +230,10 @@ export async function POST() {
 
   return NextResponse.json({
     ok: true,
-    total: sem.length,
+    total: pendentes.length,
     processados,
+    lojasPreenchidas,
     erros,
-    mensagem: `${processados} de ${sem.length} reclamações reclassificadas${erros ? ` (${erros} com erro)` : ''}.`,
+    mensagem: `${processados} processadas; ${lojasPreenchidas} lojas preenchidas automaticamente${erros ? ` (${erros} com erro)` : ''}.`,
   });
 }
