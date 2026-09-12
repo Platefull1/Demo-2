@@ -224,18 +224,31 @@ const CATEGORIA_COLORS: Record<string, string> = {
 // Categorias que requerem seleção de entregador
 const CATEGORIAS_COM_ENTREGADOR = ['PIZZA_VIRADA', 'ESQUECEU_BEBIDA', 'PEDIDO_ERRADO'];
 
-function groupByLoja(complaints: ComplaintReviewItem[]): Record<string, ComplaintReviewItem[]> {
+function groupByLoja(
+  complaints: ComplaintReviewItem[],
+  lojas: LojaOption[],
+): Record<string, ComplaintReviewItem[]> {
+  const lojaById = new Map(lojas.map((l) => [l.id, l.nome]));
   const groups: Record<string, ComplaintReviewItem[]> = {};
   for (const c of complaints) {
-    const key = c.lojaGrupo || (c.lojaIdentificada === false ? '⚠ Sem loja identificada' : 'Sem loja');
+    // Prioridade: nome resolvido via lojaId → lojaGrupo (iFood) → fallback
+    const nomeLoja =
+      (c.lojaId ? lojaById.get(c.lojaId) : null) ??
+      c.lojaGrupo ??
+      null;
+    const key = nomeLoja
+      ? nomeLoja
+      : c.lojaIdentificada === false
+        ? '⚠ Sem loja identificada'
+        : 'Sem loja';
     (groups[key] ??= []).push(c);
   }
-  // Ordenar: "Sem loja identificada" por último
+  // Ordenar: "Sem loja identificada" por último, resto alfabético
   return Object.fromEntries(
     Object.entries(groups).sort(([a], [b]) => {
       if (a.startsWith('⚠')) return 1;
       if (b.startsWith('⚠')) return -1;
-      return a.localeCompare(b);
+      return a.localeCompare(b, 'pt-BR');
     })
   );
 }
@@ -1421,7 +1434,7 @@ function RelatoriosContent() {
                         <p className="text-sm text-gray-500">Nenhuma reclamação neste run.</p>
                       ) : (
                         <div>
-                          {Object.entries(groupByLoja(reviewData.complaints)).map(([lojaKey, lojaComplaints]) => (
+                          {Object.entries(groupByLoja(reviewData.complaints, reviewData.lojas ?? [])).map(([lojaKey, lojaComplaints]) => (
                             <div key={lojaKey}>
                               <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4 flex items-center gap-2">
                                 <span className="w-4 h-px bg-[#2a2a2e]" />
