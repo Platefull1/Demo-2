@@ -18,13 +18,14 @@ import {
   Download,
   MessageSquareWarning,
   FileText,
-  ChevronDown,
-  ChevronUp,
   CheckSquare,
   Square,
   MessagesSquare,
   Trash2,
   Settings2,
+  Store,
+  Users,
+  UserRound,
 } from 'lucide-react';
 import ToolProtection from '@/components/auth/ToolProtection';
 import { SystemTool } from '@/types/admin';
@@ -224,33 +225,87 @@ const CATEGORIA_COLORS: Record<string, string> = {
 // Categorias que requerem seleção de entregador
 const CATEGORIAS_COM_ENTREGADOR = ['PIZZA_VIRADA', 'ESQUECEU_BEBIDA', 'PEDIDO_ERRADO'];
 
-function groupByLoja(
+type ReviewCanalFilter = 'todas' | 'conversas' | 'grupos' | 'semLoja';
+
+interface LojaGroup {
+  lojaKey: string;
+  items: ComplaintReviewItem[];
+}
+
+interface OrganizedReview {
+  conversasPorLoja: LojaGroup[];
+  semLoja: ComplaintReviewItem[];
+  gruposPorLoja: LojaGroup[];
+  counts: {
+    conversas: number;
+    semLoja: number;
+    grupos: number;
+    total: number;
+  };
+  lojaNames: string[];
+}
+
+function resolveLojaNome(
+  c: ComplaintReviewItem,
+  lojaById: Map<string, string>,
+): string | null {
+  return (c.lojaId ? lojaById.get(c.lojaId) : null) ?? c.lojaGrupo ?? null;
+}
+
+function toSortedLojaGroups(
+  map: Record<string, ComplaintReviewItem[]>,
+): LojaGroup[] {
+  return Object.entries(map)
+    .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+    .map(([lojaKey, items]) => ({ lojaKey, items }));
+}
+
+/** Separa conversas 1:1, sem loja e grupos iFood — nunca mistura canais. */
+function organizeReviewComplaints(
   complaints: ComplaintReviewItem[],
   lojas: LojaOption[],
-): Record<string, ComplaintReviewItem[]> {
+): OrganizedReview {
   const lojaById = new Map(lojas.map((l) => [l.id, l.nome]));
-  const groups: Record<string, ComplaintReviewItem[]> = {};
+  const conversasMap: Record<string, ComplaintReviewItem[]> = {};
+  const gruposMap: Record<string, ComplaintReviewItem[]> = {};
+  const semLoja: ComplaintReviewItem[] = [];
+
   for (const c of complaints) {
-    // Prioridade: nome resolvido via lojaId → lojaGrupo (iFood) → fallback
-    const nomeLoja =
-      (c.lojaId ? lojaById.get(c.lojaId) : null) ??
-      c.lojaGrupo ??
-      null;
-    const key = nomeLoja
-      ? nomeLoja
-      : c.lojaIdentificada === false
-        ? '⚠ Sem loja identificada'
-        : 'Sem loja';
-    (groups[key] ??= []).push(c);
+    if (c.origem === 'GRUPO_IFOOD') {
+      const nome = resolveLojaNome(c, lojaById) ?? 'Grupo sem loja';
+      (gruposMap[nome] ??= []).push(c);
+      continue;
+    }
+
+    const nome = resolveLojaNome(c, lojaById);
+    if (!nome || c.lojaIdentificada === false) {
+      semLoja.push(c);
+      continue;
+    }
+    (conversasMap[nome] ??= []).push(c);
   }
-  // Ordenar: "Sem loja identificada" por último, resto alfabético
-  return Object.fromEntries(
-    Object.entries(groups).sort(([a], [b]) => {
-      if (a.startsWith('⚠')) return 1;
-      if (b.startsWith('⚠')) return -1;
-      return a.localeCompare(b, 'pt-BR');
-    })
-  );
+
+  const conversasPorLoja = toSortedLojaGroups(conversasMap);
+  const gruposPorLoja = toSortedLojaGroups(gruposMap);
+  const lojaNames = Array.from(
+    new Set([
+      ...conversasPorLoja.map((g) => g.lojaKey),
+      ...gruposPorLoja.map((g) => g.lojaKey),
+    ]),
+  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+  return {
+    conversasPorLoja,
+    semLoja,
+    gruposPorLoja,
+    counts: {
+      conversas: conversasPorLoja.reduce((n, g) => n + g.items.length, 0),
+      semLoja: semLoja.length,
+      grupos: gruposPorLoja.reduce((n, g) => n + g.items.length, 0),
+      total: complaints.length,
+    },
+    lojaNames,
+  };
 }
 
 const inputCls =
@@ -309,6 +364,601 @@ function Modal({
           </button>
         </div>
         {children}
+      </div>
+    </div>
+  );
+}
+
+function ComplaintReviewCard({
+  c,
+  lojas,
+  ridersPorLoja,
+  runId,
+  togglingComplaintId,
+  onToggleConfirm,
+  onUpdateLoja,
+  onUpdateEntregador,
+  onOpenConversation,
+}: {
+  c: ComplaintReviewItem;
+  lojas: LojaOption[];
+  ridersPorLoja: Record<string, { id: string; name: string }[]>;
+  runId: string;
+  togglingComplaintId: string | null;
+  onToggleConfirm: (id: string, next: boolean) => void;
+  onUpdateLoja: (id: string, lojaId: string | null) => void;
+  onUpdateEntregador: (id: string, entregadorId: string | null) => void;
+  onOpenConversation: (runId: string, contactId: string) => void;
+}) {
+  const isGrupo = c.origem === 'GRUPO_IFOOD';
+
+  return (
+    <li
+      className={`rounded-xl border p-4 transition-colors ${
+        c.confirmadoPorHumano
+          ? 'border-amber-500/30 bg-amber-500/[0.04]'
+          : 'border-[#2a2a2e] bg-[#0d0d0f]'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          disabled={togglingComplaintId === c.id}
+          onClick={() => onToggleConfirm(c.id, !c.confirmadoPorHumano)}
+          className="mt-0.5 shrink-0 text-amber-400 disabled:opacity-50"
+          aria-label={c.confirmadoPorHumano ? 'Remover da ata' : 'Incluir na ata'}
+        >
+          {togglingComplaintId === c.id ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : c.confirmadoPorHumano ? (
+            <CheckSquare className="w-5 h-5" />
+          ) : (
+            <Square className="w-5 h-5 text-gray-500" />
+          )}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium text-white">
+              {c.clientLabel ||
+                `${c.contactName || (isGrupo ? 'Grupo' : 'Cliente')} — ${c.contactPhone || c.contactId}`}
+            </span>
+            {c.sessionLabel && (
+              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e]">
+                {c.sessionLabel}
+              </span>
+            )}
+            <span
+              className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                isGrupo
+                  ? 'bg-orange-500/10 text-orange-300 border-orange-500/25'
+                  : 'bg-sky-500/10 text-sky-300 border-sky-500/25'
+              }`}
+            >
+              {isGrupo ? c.origemLabel || 'Grupo iFood' : 'Cliente'}
+            </span>
+            <span className="text-xs text-gray-500">
+              {new Date(c.dataOcorrencia).toLocaleDateString('pt-BR', {
+                timeZone: 'America/Sao_Paulo',
+              })}
+            </span>
+            {c.numeroPedido && (
+              <span className="text-xs text-amber-300/90">Pedido {c.numeroPedido}</span>
+            )}
+            {c.categoria && (
+              <span
+                className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${
+                  CATEGORIA_COLORS[c.categoria] ??
+                  'bg-gray-500/10 text-gray-300 border-gray-500/25'
+                }`}
+              >
+                {CATEGORIA_LABELS[c.categoria] ?? c.categoria}
+              </span>
+            )}
+            {c.confirmadoPorHumano && (
+              <span className="text-xs text-green-400/90">Na ata</span>
+            )}
+          </div>
+
+          {c.lojaIdentificada === false && lojas.length > 0 && (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                <AlertCircle className="w-3 h-3" />
+                Loja não identificada
+              </span>
+              <select
+                value={c.lojaId ?? ''}
+                onChange={(e) => onUpdateLoja(c.id, e.target.value || null)}
+                className="flex-1 min-w-[160px] bg-[#0a0a0a] border border-amber-500/30 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/60"
+              >
+                <option value="">— Selecione a loja —</option>
+                {lojas.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <p className="text-sm text-gray-300 mt-1.5">{c.resumo}</p>
+
+          {c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) && (
+            <div className="mt-2 flex items-center gap-2">
+              <label className="text-xs text-gray-500 shrink-0">Entregador:</label>
+              {!c.lojaId ? (
+                <span className="text-xs text-amber-300/80">
+                  Selecione a loja para listar os entregadores
+                </span>
+              ) : (
+                <select
+                  value={c.entregadorId ?? ''}
+                  onChange={(e) => onUpdateEntregador(c.id, e.target.value || null)}
+                  className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
+                >
+                  <option value="">— Não identificado —</option>
+                  {(ridersPorLoja[c.lojaId] ?? []).map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+          {c.categoria &&
+            CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) &&
+            c.lojaId &&
+            (ridersPorLoja[c.lojaId] ?? []).length === 0 && (
+              <p className="mt-1 text-[11px] text-gray-500">
+                Nenhum motoboy ativo cadastrado nesta loja no RH.
+              </p>
+            )}
+
+          {c.evidencias.length > 0 && (
+            <div className="mt-2 space-y-1">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">
+                {isGrupo ? 'Evidências (grupo iFood)' : 'Evidências (cliente)'}
+              </p>
+              {c.evidencias.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="text-xs text-gray-400 pl-2 border-l border-[#2a2a2e]"
+                >
+                  {ev.hasMedia ||
+                  ev.messageType === 'image' ||
+                  ev.messageType === 'sticker' ? (
+                    <ConversationMedia
+                      messageId={ev.id}
+                      messageType={ev.messageType}
+                    />
+                  ) : (
+                    <p>
+                      {ev.messageType !== 'text' && (
+                        <span className="text-amber-400/80 mr-1">[{ev.messageType}]</span>
+                      )}
+                      {ev.snippet}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onOpenConversation(runId, c.contactId)}
+            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-300/90 hover:text-amber-200"
+          >
+            <MessagesSquare className="w-3.5 h-3.5" />
+            Ver conversa completa
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function ReviewSectionHeader({
+  icon,
+  title,
+  count,
+  accent,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  count: number;
+  accent?: 'sky' | 'amber' | 'orange';
+}) {
+  const accentCls =
+    accent === 'amber'
+      ? 'border-amber-500/25 bg-amber-500/10 text-amber-200'
+      : accent === 'orange'
+        ? 'border-orange-500/25 bg-orange-500/10 text-orange-200'
+        : 'border-sky-500/25 bg-sky-500/10 text-sky-200';
+
+  return (
+    <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 ${accentCls}`}>
+      <span className="shrink-0 opacity-90">{icon}</span>
+      <h4 className="text-sm font-semibold">{title}</h4>
+      <span className="text-xs opacity-70">({count})</span>
+    </div>
+  );
+}
+
+function LojaSubheader({ name, count }: { name: string; count: number }) {
+  return (
+    <div className="flex items-center gap-2 mt-4 mb-2">
+      <Store className="w-3.5 h-3.5 text-gray-500" />
+      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
+        {name}
+      </span>
+      <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1a1a1e] text-gray-400 border border-[#2a2a2e]">
+        {count}
+      </span>
+      <span className="flex-1 h-px bg-[#2a2a2e]" />
+    </div>
+  );
+}
+
+function ReviewModal({
+  loading,
+  data,
+  togglingComplaintId,
+  generatingId,
+  downloadingId,
+  onClose,
+  onToggleConfirm,
+  onBatchConfirm,
+  onUpdateLoja,
+  onUpdateEntregador,
+  onOpenConversation,
+  onGenerateAta,
+  onDownloadAta,
+}: {
+  loading: boolean;
+  data: ComplaintReviewData | null;
+  togglingComplaintId: string | null;
+  generatingId: string | null;
+  downloadingId: string | null;
+  onClose: () => void;
+  onToggleConfirm: (id: string, next: boolean) => void;
+  onBatchConfirm: (ids: string[], next: boolean) => void;
+  onUpdateLoja: (id: string, lojaId: string | null) => void;
+  onUpdateEntregador: (id: string, entregadorId: string | null) => void;
+  onOpenConversation: (runId: string, contactId: string) => void;
+  onGenerateAta: (runId: string) => void;
+  onDownloadAta: (runId: string) => void;
+}) {
+  const [canal, setCanal] = useState<ReviewCanalFilter>('todas');
+  const [lojaFilter, setLojaFilter] = useState<string | null>(null);
+
+  const organized = useMemo(
+    () =>
+      data
+        ? organizeReviewComplaints(data.complaints, data.lojas ?? [])
+        : null,
+    [data],
+  );
+
+  // Reset filters when opening another run
+  useEffect(() => {
+    setCanal('todas');
+    setLojaFilter(null);
+  }, [data?.id]);
+
+  const visibleIds = useMemo(() => {
+    if (!organized) return [] as string[];
+    const ids: string[] = [];
+    const matchLoja = (key: string) => !lojaFilter || lojaFilter === key;
+
+    if (canal === 'todas' || canal === 'conversas') {
+      for (const g of organized.conversasPorLoja) {
+        if (matchLoja(g.lojaKey)) ids.push(...g.items.map((i) => i.id));
+      }
+    }
+    if ((canal === 'todas' || canal === 'semLoja') && !lojaFilter) {
+      ids.push(...organized.semLoja.map((i) => i.id));
+    }
+    if (canal === 'todas' || canal === 'grupos') {
+      for (const g of organized.gruposPorLoja) {
+        if (matchLoja(g.lojaKey)) ids.push(...g.items.map((i) => i.id));
+      }
+    }
+    return ids;
+  }, [organized, canal, lojaFilter]);
+
+  const visibleSelectedCount = useMemo(() => {
+    if (!data) return 0;
+    const set = new Set(visibleIds);
+    return data.complaints.filter((c) => set.has(c.id) && c.confirmadoPorHumano).length;
+  }, [data, visibleIds]);
+
+  const cardProps = data
+    ? {
+        lojas: data.lojas ?? [],
+        ridersPorLoja: data.ridersPorLoja ?? {},
+        runId: data.id,
+        togglingComplaintId,
+        onToggleConfirm,
+        onUpdateLoja,
+        onUpdateEntregador,
+        onOpenConversation,
+      }
+    : null;
+
+  const showConversas = canal === 'todas' || canal === 'conversas';
+  const showSemLoja = (canal === 'todas' || canal === 'semLoja') && !lojaFilter;
+  const showGrupos = canal === 'todas' || canal === 'grupos';
+
+  const conversasFiltered =
+    organized?.conversasPorLoja.filter((g) => !lojaFilter || g.lojaKey === lojaFilter) ?? [];
+  const gruposFiltered =
+    organized?.gruposPorLoja.filter((g) => !lojaFilter || g.lojaKey === lojaFilter) ?? [];
+
+  const canalTabs: { id: ReviewCanalFilter; label: string; count: number }[] = organized
+    ? [
+        { id: 'todas', label: 'Todas', count: organized.counts.total },
+        { id: 'conversas', label: 'Conversas', count: organized.counts.conversas },
+        { id: 'grupos', label: 'Grupos', count: organized.counts.grupos },
+        { id: 'semLoja', label: 'Sem loja', count: organized.counts.semLoja },
+      ]
+    : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-5">
+      <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl w-full max-w-6xl h-[min(92vh,920px)] shadow-2xl flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="shrink-0 flex items-start justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#2a2a2e]">
+          <div className="min-w-0">
+            <h2 className="text-base sm:text-lg font-semibold text-white truncate">
+              {data
+                ? `Revisão — ${periodLabel(data.periodStart)}`
+                : 'Revisão de reclamações'}
+            </h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Marque o que entra na ata. Conversas e grupos ficam separados; atribua loja quando
+              faltar.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 shrink-0">
+            {data && (
+              <span className="hidden sm:inline text-xs font-medium text-amber-300/90 tabular-nums">
+                {data.confirmadasCount} de {data.complaints.length} na ata
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#2a2a2e] transition-colors"
+              aria-label="Fechar"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        {!loading && data && organized && (
+          <div className="shrink-0 px-5 sm:px-6 py-3 border-b border-[#2a2a2e] space-y-3 bg-[#0d0d0f]">
+            <div className="flex flex-wrap gap-1.5">
+              {canalTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => {
+                    setCanal(tab.id);
+                    if (tab.id === 'semLoja') setLojaFilter(null);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    canal === tab.id
+                      ? 'bg-amber-500/15 text-amber-200 border-amber-500/35'
+                      : 'bg-[#1a1a1e] text-gray-400 border-[#2a2a2e] hover:text-gray-200'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="tabular-nums opacity-70">{tab.count}</span>
+                </button>
+              ))}
+            </div>
+
+            {canal !== 'semLoja' && organized.lojaNames.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-gray-500 mr-1">
+                  Loja
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLojaFilter(null)}
+                  className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                    !lojaFilter
+                      ? 'bg-white/10 text-white border-white/20'
+                      : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
+                  }`}
+                >
+                  Todas
+                </button>
+                {organized.lojaNames.map((nome) => (
+                  <button
+                    key={nome}
+                    type="button"
+                    onClick={() => setLojaFilter(nome)}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                      lojaFilter === nome
+                        ? 'bg-sky-500/15 text-sky-200 border-sky-500/35'
+                        : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
+                    }`}
+                  >
+                    <Store className="w-3 h-3 opacity-70" />
+                    {nome}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={visibleIds.length === 0}
+                onClick={() => onBatchConfirm(visibleIds, true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-green-300 border border-green-500/25 bg-green-500/10 hover:bg-green-500/15 disabled:opacity-40"
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Incluir todas desta visão
+              </button>
+              <button
+                type="button"
+                disabled={visibleIds.length === 0}
+                onClick={() => onBatchConfirm(visibleIds, false)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-gray-400 border border-[#2a2a2e] hover:text-gray-200 disabled:opacity-40"
+              >
+                <Square className="w-3.5 h-3.5" />
+                Limpar desta visão
+              </button>
+              <span className="text-[11px] text-gray-500 ml-auto tabular-nums">
+                {visibleSelectedCount}/{visibleIds.length} selecionadas nesta visão
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4">
+          {loading || !cardProps ? (
+            <div className="flex items-center justify-center py-24">
+              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+            </div>
+          ) : !organized || organized.counts.total === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-16">
+              Nenhuma reclamação neste período.
+            </p>
+          ) : (
+            <div className="space-y-8">
+              {showConversas && (
+                <section className="space-y-3">
+                  <ReviewSectionHeader
+                    icon={<UserRound className="w-4 h-4" />}
+                    title="Conversas com clientes"
+                    count={conversasFiltered.reduce((n, g) => n + g.items.length, 0)}
+                    accent="sky"
+                  />
+                  {conversasFiltered.length === 0 ? (
+                    <p className="text-xs text-gray-500 pl-1">
+                      Nenhuma conversa neste filtro.
+                    </p>
+                  ) : (
+                    conversasFiltered.map((g) => (
+                      <div key={`conv-${g.lojaKey}`}>
+                        <LojaSubheader name={g.lojaKey} count={g.items.length} />
+                        <ul className="space-y-2.5">
+                          {g.items.map((c) => (
+                            <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
+                          ))}
+                        </ul>
+                      </div>
+                    ))
+                  )}
+                </section>
+              )}
+
+              {showSemLoja && (
+                <section className="space-y-3">
+                  <ReviewSectionHeader
+                    icon={<AlertCircle className="w-4 h-4" />}
+                    title="Sem loja identificada"
+                    count={organized.semLoja.length}
+                    accent="amber"
+                  />
+                  {organized.semLoja.length === 0 ? (
+                    <p className="text-xs text-gray-500 pl-1">
+                      Todas as conversas já têm loja.
+                    </p>
+                  ) : (
+                    <ul className="space-y-2.5">
+                      {organized.semLoja.map((c) => (
+                        <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+
+              {showGrupos && (
+                <section className="space-y-3">
+                  <ReviewSectionHeader
+                    icon={<Users className="w-4 h-4" />}
+                    title="Grupos iFood"
+                    count={gruposFiltered.reduce((n, g) => n + g.items.length, 0)}
+                    accent="orange"
+                  />
+                  {gruposFiltered.length === 0 ? (
+                    <p className="text-xs text-gray-500 pl-1">
+                      Nenhum registro de grupo neste filtro.
+                    </p>
+                  ) : (
+                    gruposFiltered.map((g) => (
+                      <div key={`grp-${g.lojaKey}`}>
+                        <LojaSubheader name={g.lojaKey} count={g.items.length} />
+                        <ul className="space-y-2.5">
+                          {g.items.map((c) => (
+                            <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
+                          ))}
+                        </ul>
+                      </div>
+                    ))
+                  )}
+                </section>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="shrink-0 flex flex-wrap items-center gap-2 px-5 sm:px-6 py-3.5 border-t border-[#2a2a2e] bg-[#0d0d0f]">
+          {data && (
+            <span className="text-xs text-gray-400 tabular-nums mr-auto">
+              <span className="text-amber-300 font-medium">{data.confirmadasCount}</span>
+              {' '}incluídas de {data.complaints.length}
+            </span>
+          )}
+          {data && (
+            <>
+              <button
+                type="button"
+                disabled={data.confirmadasCount < 1 || generatingId === data.id}
+                onClick={() => onGenerateAta(data.id)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {generatingId === data.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <FileText className="w-3.5 h-3.5" />
+                )}
+                {data.hasAta ? 'Regenerar ata' : 'Gerar ata'}
+              </button>
+              <button
+                type="button"
+                disabled={!data.hasAta || downloadingId === data.id}
+                onClick={() => onDownloadAta(data.id)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e] hover:border-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {downloadingId === data.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Download className="w-3.5 h-3.5" />
+                )}
+                Baixar ata
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex items-center px-3 py-2 rounded-xl text-xs font-semibold text-gray-300 border border-[#2a2a2e] hover:bg-[#1a1a1e] transition-colors"
+          >
+            Fechar
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -706,12 +1356,6 @@ function RelatoriosContent() {
   }
 
   async function openReview(runId: string) {
-    if (reviewRunId === runId) {
-      setReviewRunId(null);
-      setReviewData(null);
-      return;
-    }
-
     setReviewRunId(runId);
     setLoadingReview(true);
     setReviewData(null);
@@ -729,6 +1373,22 @@ function RelatoriosContent() {
       setReviewRunId(null);
     } finally {
       setLoadingReview(false);
+    }
+  }
+
+  function closeReview() {
+    setReviewRunId(null);
+    setReviewData(null);
+    setLoadingReview(false);
+  }
+
+  async function batchToggleConfirm(ids: string[], next: boolean) {
+    if (!reviewData || ids.length === 0) return;
+    const targets = reviewData.complaints.filter(
+      (c) => ids.includes(c.id) && c.confirmadoPorHumano !== next,
+    );
+    for (const c of targets) {
+      await toggleComplaintConfirm(c.id, next);
     }
   }
 
@@ -1361,11 +2021,7 @@ function RelatoriosContent() {
                                 onClick={() => openReview(run.id)}
                                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1a1a1e] text-gray-200 border border-[#2a2a2e] hover:border-amber-500/30 transition-colors"
                               >
-                                {reviewRunId === run.id ? (
-                                  <ChevronUp className="w-3.5 h-3.5" />
-                                ) : (
-                                  <ChevronDown className="w-3.5 h-3.5" />
-                                )}
+                                <CheckSquare className="w-3.5 h-3.5" />
                                 Revisar
                               </button>
                             )}
@@ -1412,218 +2068,6 @@ function RelatoriosContent() {
                   </tbody>
                 </table>
               </div>
-
-              {reviewRunId && (
-                <div className="border-t border-[#2a2a2e] p-4 md:p-6 bg-[#0d0d0f]">
-                  {loadingReview ? (
-                    <div className="flex items-center justify-center py-10">
-                      <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
-                    </div>
-                  ) : reviewData ? (
-                    <div className="space-y-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-semibold text-white">
-                            Revisão — {periodLabel(reviewData.periodStart)}
-                          </h3>
-                          <p className="text-xs text-gray-500 mt-1">
-                            Marque quais reclamações entram na ata. Canal Cliente usa mensagens IN;
-                            canal iFood usa os registros do atendente no grupo da loja.
-                          </p>
-                        </div>
-                        <p className="text-xs text-amber-300/90">
-                          {reviewData.confirmadasCount} de {reviewData.complaints.length} incluídas
-                        </p>
-                      </div>
-
-                      {reviewData.complaints.length === 0 ? (
-                        <p className="text-sm text-gray-500">Nenhuma reclamação neste run.</p>
-                      ) : (
-                        <div>
-                          {Object.entries(groupByLoja(reviewData.complaints, reviewData.lojas ?? [])).map(([lojaKey, lojaComplaints]) => (
-                            <div key={lojaKey}>
-                              <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-4 flex items-center gap-2">
-                                <span className="w-4 h-px bg-[#2a2a2e]" />
-                                {lojaKey}
-                                <span className="text-gray-600">({lojaComplaints.length})</span>
-                                <span className="flex-1 h-px bg-[#2a2a2e]" />
-                              </h4>
-                              <ul className="space-y-3">
-                                {lojaComplaints.map((c) => (
-                                  <li
-                                    key={c.id}
-                                    className="rounded-xl border border-[#2a2a2e] bg-[#111113] p-4"
-                                  >
-                                    <div className="flex items-start gap-3">
-                                      <button
-                                        type="button"
-                                        disabled={togglingComplaintId === c.id}
-                                        onClick={() =>
-                                          toggleComplaintConfirm(c.id, !c.confirmadoPorHumano)
-                                        }
-                                        className="mt-0.5 shrink-0 text-amber-400 disabled:opacity-50"
-                                        aria-label={
-                                          c.confirmadoPorHumano
-                                            ? 'Remover da ata'
-                                            : 'Incluir na ata'
-                                        }
-                                      >
-                                        {togglingComplaintId === c.id ? (
-                                          <Loader2 className="w-5 h-5 animate-spin" />
-                                        ) : c.confirmadoPorHumano ? (
-                                          <CheckSquare className="w-5 h-5" />
-                                        ) : (
-                                          <Square className="w-5 h-5 text-gray-500" />
-                                        )}
-                                      </button>
-                                      <div className="min-w-0 flex-1">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                          <span className="text-sm font-medium text-white">
-                                            {c.clientLabel || `${c.contactName || 'Cliente'} — ${c.contactPhone || c.contactId}`}
-                                          </span>
-                                          {c.sessionLabel && (
-                                            <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e]">
-                                              {c.sessionLabel}
-                                            </span>
-                                          )}
-                                          <span
-                                            className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                                              c.origem === 'GRUPO_IFOOD'
-                                                ? 'bg-orange-500/10 text-orange-300 border-orange-500/25'
-                                                : 'bg-sky-500/10 text-sky-300 border-sky-500/25'
-                                            }`}
-                                          >
-                                            {c.origemLabel || (c.origem === 'GRUPO_IFOOD' ? 'iFood' : 'Cliente')}
-                                          </span>
-                                          <span className="text-xs text-gray-500">
-                                            {new Date(c.dataOcorrencia).toLocaleDateString('pt-BR', {
-                                              timeZone: 'America/Sao_Paulo',
-                                            })}
-                                          </span>
-                                          {c.numeroPedido && (
-                                            <span className="text-xs text-amber-300/90">
-                                              Pedido {c.numeroPedido}
-                                            </span>
-                                          )}
-                                          {c.confirmadoPorHumano && (
-                                            <span className="text-xs text-green-400/90">
-                                              Incluir na ata
-                                            </span>
-                                          )}
-                                          {c.categoria && (
-                                            <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                                              CATEGORIA_COLORS[c.categoria] ?? 'bg-gray-500/10 text-gray-300 border-gray-500/25'
-                                            }`}>
-                                              {CATEGORIA_LABELS[c.categoria] ?? c.categoria}
-                                            </span>
-                                          )}
-                                          {c.lojaIdentificada === false && (
-                                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">
-                                              <AlertCircle className="w-3 h-3" />
-                                              Loja não identificada
-                                            </span>
-                                          )}
-                                        </div>
-                                        {/* Selector manual de loja */}
-                                        {c.lojaIdentificada === false && (reviewData?.lojas ?? []).length > 0 && (
-                                          <div className="mt-1.5 flex items-center gap-2">
-                                            <label className="text-xs text-gray-500 shrink-0">Loja:</label>
-                                            <select
-                                              value={c.lojaId ?? ''}
-                                              onChange={(e) => updateComplaintLoja(c.id, e.target.value || null)}
-                                              className="flex-1 bg-[#0a0a0a] border border-amber-500/30 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/60"
-                                            >
-                                              <option value="">— Selecione a loja —</option>
-                                              {(reviewData?.lojas ?? []).map((l) => (
-                                                <option key={l.id} value={l.id}>{l.nome}</option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                        )}
-                                        <p className="text-sm text-gray-300 mt-1.5">{c.resumo}</p>
-                                        {c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) && (
-                                          <div className="mt-2 flex items-center gap-2">
-                                            <label className="text-xs text-gray-500 shrink-0">Entregador:</label>
-                                            {!c.lojaId ? (
-                                              <span className="text-xs text-amber-300/80">
-                                                Selecione a loja para listar os entregadores
-                                              </span>
-                                            ) : (
-                                              <select
-                                                value={c.entregadorId ?? ''}
-                                                onChange={(e) => updateComplaintEntregador(c.id, e.target.value || null)}
-                                                className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
-                                              >
-                                                <option value="">— Não identificado —</option>
-                                                {(reviewData?.ridersPorLoja?.[c.lojaId ?? ''] ?? []).map((r) => (
-                                                  <option key={r.id} value={r.id}>{r.name}</option>
-                                                ))}
-                                              </select>
-                                            )}
-                                          </div>
-                                        )}
-                                        {c.categoria &&
-                                          CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) &&
-                                          c.lojaId &&
-                                          (reviewData?.ridersPorLoja?.[c.lojaId] ?? []).length === 0 && (
-                                          <p className="mt-1 text-[11px] text-gray-500">
-                                            Nenhum motoboy ativo cadastrado nesta loja no RH.
-                                          </p>
-                                        )}
-                                        {c.evidencias.length > 0 && (
-                                          <div className="mt-2 space-y-1">
-                                            <p className="text-xs text-gray-500 uppercase tracking-wide">
-                                              {c.origem === 'GRUPO_IFOOD'
-                                                ? 'Evidências (grupo iFood)'
-                                                : 'Evidências (cliente)'}
-                                            </p>
-                                            {c.evidencias.map((ev) => (
-                                              <div
-                                                key={ev.id}
-                                                className="text-xs text-gray-400 pl-2 border-l border-[#2a2a2e]"
-                                              >
-                                                {ev.hasMedia || ev.messageType === 'image' || ev.messageType === 'sticker' ? (
-                                                  <ConversationMedia
-                                                    messageId={ev.id}
-                                                    messageType={ev.messageType}
-                                                  />
-                                                ) : (
-                                                  <p>
-                                                    {ev.messageType !== 'text' && (
-                                                      <span className="text-amber-400/80 mr-1">
-                                                        [{ev.messageType}]
-                                                      </span>
-                                                    )}
-                                                    {ev.snippet}
-                                                  </p>
-                                                )}
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                        <button
-                                          type="button"
-                                          onClick={() =>
-                                            reviewData.id && openConversation(reviewData.id, c.contactId)
-                                          }
-                                          className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-300/90 hover:text-amber-200"
-                                        >
-                                          <MessagesSquare className="w-3.5 h-3.5" />
-                                          Ver conversa completa
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ) : null}
-                </div>
-              )}
             </div>
           )}
           </div>
@@ -1983,8 +2427,26 @@ function RelatoriosContent() {
         </Modal>
       )}
 
+      {reviewRunId && (
+        <ReviewModal
+          loading={loadingReview}
+          data={reviewData}
+          togglingComplaintId={togglingComplaintId}
+          generatingId={generatingId}
+          downloadingId={downloadingId}
+          onClose={closeReview}
+          onToggleConfirm={toggleComplaintConfirm}
+          onBatchConfirm={batchToggleConfirm}
+          onUpdateLoja={updateComplaintLoja}
+          onUpdateEntregador={updateComplaintEntregador}
+          onOpenConversation={openConversation}
+          onGenerateAta={handleGenerateAta}
+          onDownloadAta={handleDownloadAta}
+        />
+      )}
+
       {(loadingConversation || conversation) && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
           <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl w-full max-w-3xl shadow-2xl my-6">
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2e]">
               <h2 className="text-base font-semibold text-white">
