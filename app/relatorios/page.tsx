@@ -462,6 +462,7 @@ function RelatoriosContent() {
   const [loadingWppGroups, setLoadingWppGroups] = useState(false);
   const [savingIfoodGroup, setSavingIfoodGroup] = useState(false);
   const [deletingIfoodGroupId, setDeletingIfoodGroupId] = useState<string | null>(null);
+  const [reclassifying, setReclassifying] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<ReportRow | null>(null);
@@ -793,6 +794,28 @@ function RelatoriosContent() {
       });
     } catch {
       alert('Falha de rede ao salvar a loja.');
+    }
+  }
+
+  async function handleReclassify() {
+    if (reclassifying) return;
+    setReclassifying(true);
+    try {
+      const res = await fetch('/api/reports/complaints/reclassify', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || 'Não foi possível reclassificar.');
+        return;
+      }
+      alert(data.mensagem || 'Reclassificação concluída.');
+      // Recarrega os dados de revisão se algum run estiver aberto
+      if (reviewRunId) {
+        void openReview(reviewRunId);
+      }
+    } catch {
+      alert('Falha de rede ao reclassificar.');
+    } finally {
+      setReclassifying(false);
     }
   }
 
@@ -1190,6 +1213,24 @@ function RelatoriosContent() {
                   })}
                 </ul>
               )}
+            </div>
+
+            {/* Reclassificação retroativa */}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={reclassifying}
+                onClick={handleReclassify}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e] hover:border-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title="Classifica por categoria e loja as reclamações que ainda não foram classificadas"
+              >
+                {reclassifying ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Settings2 className="w-3.5 h-3.5" />
+                )}
+                {reclassifying ? 'Reclassificando…' : 'Reclassificar histórico'}
+              </button>
             </div>
 
             {loadingComplaints ? (
