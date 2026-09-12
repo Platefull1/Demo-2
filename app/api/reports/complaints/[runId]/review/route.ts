@@ -123,9 +123,26 @@ export async function GET(
       }),
       prisma.iFoodComplaintGroup.findMany({
         where: { userId: { in: userIds }, ativo: true },
-        select: { lojaNome: true },
+        select: { lojaNome: true, groupWhatsAppId: true },
       }),
     ]);
+
+  const normalizeGroupContactId = (raw: string): string => {
+    const s = String(raw || '').trim();
+    if (!s) return '';
+    if (s.includes('@g.us')) {
+      const m = s.match(/[\w.-]+@g\.us/i);
+      return (m ? m[0] : s).toLowerCase();
+    }
+    const digits = s.replace(/\D/g, '');
+    return digits ? `${digits}@g.us` : s.toLowerCase();
+  };
+
+  const ifoodGroupIds = new Set(
+    ifoodGroups
+      .map((g) => normalizeGroupContactId(g.groupWhatsAppId))
+      .filter(Boolean),
+  );
 
   // Uma loja por unidade operacional (Ahú/Pilarzinho/Portão/Uberaba) —
   // evita listar "CALENZANO AHÚ" + "Loja Ahú" juntos; prefer a que tem riders.
@@ -184,17 +201,27 @@ export async function GET(
   }
 
   const complaints = run.complaints.map((c) => {
-    const isIfood = c.origem === 'GRUPO_IFOOD';
+    const contactId = String(c.contactId || '');
+    const contactIdNorm = normalizeGroupContactId(contactId);
+    const isIfood =
+      c.origem === 'GRUPO_IFOOD' ||
+      contactId.includes('@g.us') ||
+      (contactIdNorm !== '' && ifoodGroupIds.has(contactIdNorm));
+    const matchedGroup = isIfood
+      ? ifoodGroups.find(
+          (g) => normalizeGroupContactId(g.groupWhatsAppId) === contactIdNorm,
+        )
+      : null;
     const contactName = isIfood
-      ? c.lojaGrupo || c.contactName
+      ? c.lojaGrupo || matchedGroup?.lojaNome || c.contactName
       : clientNameByContact.get(c.contactId) ?? null;
     const clientLabel = isIfood
-      ? `iFood — ${c.lojaGrupo || c.contactName || 'loja'}`
+      ? `iFood — ${c.lojaGrupo || matchedGroup?.lojaNome || c.contactName || 'loja'}`
       : formatClientHeading(contactName, c.contactId);
     const sessionLabel =
       sessionLabelBySlot.get(c.sessionSlot) || `Sessão ${c.sessionSlot}`;
     const origemLabel = isIfood
-      ? `iFood — ${c.lojaGrupo || 'loja'}`
+      ? `iFood — ${c.lojaGrupo || matchedGroup?.lojaNome || 'loja'}`
       : 'Cliente';
 
     const lojaIdOp = resolveToOperationalLojaId(
@@ -205,6 +232,9 @@ export async function GET(
 
     return {
       ...c,
+      // Normaliza origem na resposta para a UI separar canais mesmo com legado.
+      origem: isIfood ? 'GRUPO_IFOOD' : c.origem || 'CLIENTE',
+      lojaGrupo: c.lojaGrupo || matchedGroup?.lojaNome || null,
       lojaId: lojaIdOp,
       contactName,
       contactPhone: isIfood ? '' : formatContactPhone(c.contactId),

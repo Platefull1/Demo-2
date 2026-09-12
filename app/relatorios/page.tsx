@@ -252,6 +252,17 @@ function resolveLojaNome(
   return (c.lojaId ? lojaById.get(c.lojaId) : null) ?? c.lojaGrupo ?? null;
 }
 
+/** Grupo iFood: origem explícita, JID de grupo ou lojaGrupo preenchido (legado). */
+function isGrupoComplaint(c: ComplaintReviewItem): boolean {
+  if (String(c.origem || '').toUpperCase() === 'GRUPO_IFOOD') return true;
+  if (c.lojaGrupo && String(c.lojaGrupo).trim()) return true;
+  const contactId = String(c.contactId || '');
+  if (contactId.includes('@g.us')) return true;
+  const label = String(c.origemLabel || '').toLowerCase();
+  if (label.includes('ifood')) return true;
+  return false;
+}
+
 function toSortedLojaGroups(
   map: Record<string, ComplaintReviewItem[]>,
 ): LojaGroup[] {
@@ -271,8 +282,8 @@ function organizeReviewComplaints(
   const semLoja: ComplaintReviewItem[] = [];
 
   for (const c of complaints) {
-    if (c.origem === 'GRUPO_IFOOD') {
-      const nome = resolveLojaNome(c, lojaById) ?? 'Grupo sem loja';
+    if (isGrupoComplaint(c)) {
+      const nome = resolveLojaNome(c, lojaById) ?? c.lojaGrupo ?? 'Grupo sem loja';
       (gruposMap[nome] ??= []).push(c);
       continue;
     }
@@ -390,7 +401,7 @@ function ComplaintReviewCard({
   onUpdateEntregador: (id: string, entregadorId: string | null) => void;
   onOpenConversation: (runId: string, contactId: string) => void;
 }) {
-  const isGrupo = c.origem === 'GRUPO_IFOOD';
+  const isGrupo = isGrupoComplaint(c);
 
   return (
     <li
@@ -762,7 +773,15 @@ function ReviewModal({
               ))}
             </div>
 
-            {canal !== 'semLoja' && organized.lojaNames.length > 0 && (
+            {canal !== 'semLoja' && (() => {
+              const chipLojas =
+                canal === 'grupos'
+                  ? organized.gruposPorLoja.map((g) => g.lojaKey)
+                  : canal === 'conversas'
+                    ? organized.conversasPorLoja.map((g) => g.lojaKey)
+                    : organized.lojaNames;
+              if (chipLojas.length === 0) return null;
+              return (
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[10px] uppercase tracking-wider text-gray-500 mr-1">
                   Loja
@@ -778,7 +797,7 @@ function ReviewModal({
                 >
                   Todas
                 </button>
-                {organized.lojaNames.map((nome) => (
+                {chipLojas.map((nome) => (
                   <button
                     key={nome}
                     type="button"
@@ -794,7 +813,8 @@ function ReviewModal({
                   </button>
                 ))}
               </div>
-            )}
+              );
+            })()}
 
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -893,7 +913,9 @@ function ReviewModal({
                   />
                   {gruposFiltered.length === 0 ? (
                     <p className="text-xs text-gray-500 pl-1">
-                      Nenhum registro de grupo neste filtro.
+                      {organized.counts.grupos === 0
+                        ? 'Nenhuma reclamação de grupo iFood neste período. Confira se os grupos estão cadastrados e se o monitoramento já processou as mensagens.'
+                        : 'Nenhum registro de grupo neste filtro de loja.'}
                     </p>
                   ) : (
                     gruposFiltered.map((g) => (
