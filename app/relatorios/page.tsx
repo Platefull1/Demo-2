@@ -141,6 +141,11 @@ interface ComplaintConversation {
   messages: ComplaintConversationMessage[];
 }
 
+interface LojaOption {
+  id: string;
+  nome: string;
+}
+
 interface ComplaintReviewData {
   id: string;
   periodStart: string;
@@ -149,6 +154,8 @@ interface ComplaintReviewData {
   confirmadasCount: number;
   hasAta: boolean;
   complaints: ComplaintReviewItem[];
+  lojas: LojaOption[];
+  ridersPorLoja: Record<string, { id: string; name: string }[]>;
 }
 
 interface ReportForm {
@@ -1498,6 +1505,22 @@ function RelatoriosContent() {
                                             </span>
                                           )}
                                         </div>
+                                        {/* Selector manual de loja */}
+                                        {c.lojaIdentificada === false && (reviewData?.lojas ?? []).length > 0 && (
+                                          <div className="mt-1.5 flex items-center gap-2">
+                                            <label className="text-xs text-gray-500 shrink-0">Loja:</label>
+                                            <select
+                                              value={c.lojaId ?? ''}
+                                              onChange={(e) => updateComplaintLoja(c.id, e.target.value || null)}
+                                              className="flex-1 bg-[#0a0a0a] border border-amber-500/30 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/60"
+                                            >
+                                              <option value="">— Selecione a loja —</option>
+                                              {(reviewData?.lojas ?? []).map((l) => (
+                                                <option key={l.id} value={l.id}>{l.nome}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        )}
                                         <p className="text-sm text-gray-300 mt-1.5">{c.resumo}</p>
                                         {c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) && (
                                           <div className="mt-2 flex items-center gap-2">
@@ -1508,7 +1531,7 @@ function RelatoriosContent() {
                                               className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
                                             >
                                               <option value="">— Não identificado —</option>
-                                              {(c.ridersDisponiveis ?? []).map((r) => (
+                                              {(reviewData?.ridersPorLoja?.[c.lojaId ?? ''] ?? []).map((r) => (
                                                 <option key={r.id} value={r.id}>{r.name}</option>
                                               ))}
                                             </select>

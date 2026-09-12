@@ -68,10 +68,9 @@ export async function GET(
   const contactIds = [...new Set(run.complaints.map((c) => c.contactId))];
   const allEvidenceIds = [...new Set(run.complaints.flatMap((c) => c.evidenciaMessageIds))];
   const slotsUsed = [...new Set(run.complaints.map((c) => c.sessionSlot).filter(Boolean))];
-  const lojaIdsUsadas = [...new Set(run.complaints.map((c) => c.lojaId).filter(Boolean) as string[])];
 
   const stackIds = await resolveStackUserIdsForTenant(tenantUserId);
-  const [evidenceMessages, inNameRows, bots, ridersByLoja] = await Promise.all([
+  const [evidenceMessages, inNameRows, bots, todasLojas, todosRiders] = await Promise.all([
     allEvidenceIds.length > 0
       ? prisma.whatsAppMessage.findMany({
           where: {
@@ -106,18 +105,23 @@ export async function GET(
           select: { slot: true, label: true },
         })
       : Promise.resolve([]),
-    lojaIdsUsadas.length > 0
-      ? prisma.deliveryRider.findMany({
-          where: { lojaId: { in: lojaIdsUsadas }, status: { not: 'inactive' } },
-          select: { id: true, name: true, lojaId: true },
-          orderBy: { name: 'asc' },
-        })
-      : Promise.resolve([]),
+    // Todas as lojas do tenant (para o selector manual de loja na UI)
+    prisma.rhLoja.findMany({
+      where: { userId: { in: userIds }, ativo: true },
+      select: { id: true, nome: true },
+      orderBy: { nome: 'asc' },
+    }),
+    // Todos os riders ativos do tenant (filtrado por loja no cliente)
+    prisma.deliveryRider.findMany({
+      where: { userId: { in: userIds }, status: { not: 'inactive' } },
+      select: { id: true, name: true, lojaId: true },
+      orderBy: { name: 'asc' },
+    }),
   ]);
 
-  // Montar mapa riders por loja
+  // Montar mapa riders por loja (todos os riders, não só os das lojas usadas)
   const ridersByLojaMap = new Map<string, { id: string; name: string }[]>();
-  for (const r of ridersByLoja) {
+  for (const r of todosRiders) {
     const list = ridersByLojaMap.get(r.lojaId) ?? [];
     list.push({ id: r.id, name: r.name });
     ridersByLojaMap.set(r.lojaId, list);
@@ -196,10 +200,18 @@ export async function GET(
 
   const confirmadasCount = complaints.filter((c) => c.confirmadoPorHumano).length;
 
+  // Mapa de riders serializado por lojaId (para filtro client-side)
+  const ridersPorLoja: Record<string, { id: string; name: string }[]> = {};
+  for (const [lojaId, riders] of ridersByLojaMap) {
+    ridersPorLoja[lojaId] = riders;
+  }
+
   return NextResponse.json({
     ...run,
     complaints,
     confirmadasCount,
     hasAta: Boolean(run.ataStoragePath),
+    lojas: todasLojas,
+    ridersPorLoja,
   });
 }
