@@ -58,6 +58,7 @@ import { createBaileysWppClient } from '../src/baileys/wppClientShim.js';
 import { setupBaileysMessagePipeline } from '../src/baileys/messagePipeline.js';
 import { initScheduler } from '../src/tarefas/scheduler.js';
 import sessionManager from '../src/wpp/sessionManager.js';
+import { applyIaAtivaInMemory } from '../src/wpp/iaAtivaLive.js';
 import logger from '../src/utils/logger.js';
 import { sendWorkerPort } from '../src/services/pm2.service.js';
 
@@ -215,6 +216,29 @@ function startHttpServer(boundUserId, boundSlot) {
         return sendJson(result.success ? 200 : 503, result);
       }
 
+      if (req.method === 'POST' && url === '/ia-ativa') {
+        let raw = '';
+        for await (const chunk of req) raw += chunk;
+        let body = {};
+        try {
+          body = JSON.parse(raw || '{}');
+        } catch {
+          return sendJson(400, { success: false, error: 'JSON inválido' });
+        }
+        if (typeof body.iaAtiva !== 'boolean') {
+          return sendJson(400, { success: false, error: 'Campo "iaAtiva" (boolean) obrigatório' });
+        }
+        const on = applyIaAtivaInMemory(boundUserId, boundSlot, body.iaAtiva);
+        return sendJson(200, {
+          success: true,
+          userId: boundUserId,
+          slot: boundSlot,
+          iaAtiva: on,
+          mode: on ? 'atendimento' : 'somente-envio',
+          provider: 'baileys',
+        });
+      }
+
       return sendJson(404, { success: false, error: 'Not found' });
     } catch (err) {
       return sendJson(500, { success: false, error: err?.message || String(err) });
@@ -223,7 +247,7 @@ function startHttpServer(boundUserId, boundSlot) {
 
   server.listen(PORT, '127.0.0.1', () => {
     logger.info(
-      `[baileys-real] 🌐 Mini-HTTP em http://127.0.0.1:${PORT} (GET /health /qr /groups /check-number, POST /send)`,
+      `[baileys-real] 🌐 Mini-HTTP em http://127.0.0.1:${PORT} (GET /health /qr /groups /check-number, POST /send /ia-ativa)`,
     );
   });
 

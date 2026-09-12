@@ -35,6 +35,7 @@ if (!envLoaded) {
 import { startClient, sendMessage, listGroups } from "../src/wpp/index.js";
 import { initScheduler } from "../src/tarefas/scheduler.js";
 import sessionManager from "../src/wpp/sessionManager.js";
+import { applyIaAtivaInMemory } from "../src/wpp/iaAtivaLive.js";
 import logger from "../src/utils/logger.js";
 import http from "http";
 import { sendWorkerPort } from "../src/services/pm2.service.js";
@@ -160,11 +161,31 @@ function startSendOnlyHttpServer(boundUserId, boundSlot) {
       return sendJson(result.success ? 200 : 503, result);
     }
 
+    if (req.method === 'POST' && req.url === '/ia-ativa') {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      let body = {};
+      try { body = JSON.parse(raw || '{}'); } catch {
+        return sendJson(400, { success: false, error: 'JSON inválido' });
+      }
+      if (typeof body.iaAtiva !== 'boolean') {
+        return sendJson(400, { success: false, error: 'Campo "iaAtiva" (boolean) obrigatório' });
+      }
+      const on = applyIaAtivaInMemory(boundUserId, boundSlot, body.iaAtiva);
+      return sendJson(200, {
+        success: true,
+        userId: boundUserId,
+        slot: boundSlot,
+        iaAtiva: on,
+        mode: on ? 'atendimento' : 'somente-envio',
+      });
+    }
+
     return sendJson(404, { success: false, error: 'Not found' });
   });
 
   server.listen(port, '127.0.0.1', () => {
-    logger.info(`[whatsapp-worker] 🌐 Mini-HTTP somente-envio em http://127.0.0.1:${port} (POST /send, GET /groups)`);
+    logger.info(`[whatsapp-worker] 🌐 Mini-HTTP somente-envio em http://127.0.0.1:${port} (POST /send, POST /ia-ativa, GET /groups)`);
   });
 
   server.on('error', (err) => {

@@ -10,6 +10,7 @@ import { handleJobFlow } from '../wpp/jobApplicationFlow.js';
 import * as tarefaHandler from '../tarefas/tarefaHandler.js';
 import { recordWhatsAppMessage, markIaOutbound } from '../wpp/messageArchive.js';
 import sessionManager from '../wpp/sessionManager.js';
+import { isIaAtivaLive } from '../wpp/iaAtivaLive.js';
 import { WhatsAppBotModel, BotSettingsModel } from '../db/models.js';
 import { sendToGPT, formatConversationHistory } from '../ai/chat.js';
 import logger from '../utils/logger.js';
@@ -88,7 +89,8 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
       logger.warn(`[baileys/messageArchive] ${err?.message}`);
     }
 
-    if (!sessionManager.getIaAtiva(userId, slot)) {
+    // Fonte de verdade = banco (toggle na plataforma), não só o --mode do start.
+    if (!(await isIaAtivaLive(userId, slot))) {
       return;
     }
 

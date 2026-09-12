@@ -92,6 +92,26 @@ class SessionManager {
     return this.sessionIaAtiva.get(key) === true;
   }
 
+  /**
+   * Atualiza iaAtiva/mode em memória sem reiniciar o client.
+   * Usado quando a plataforma liga/desliga a IA via PATCH.
+   * @param {string} userId
+   * @param {number} slot
+   * @param {boolean} iaAtiva
+   */
+  setIaAtiva(userId, slot, iaAtiva) {
+    const normalizedUserId = this.normalizeUserId(userId);
+    const key = this.getKey(normalizedUserId, slot);
+    const on = iaAtiva === true;
+    this.sessionIaAtiva.set(key, on);
+    this.sessionModes.set(key, on ? 'atendimento' : 'somente-envio');
+    logger.wpp(
+      normalizedUserId,
+      slot,
+      `🔄 setIaAtiva: ${on} (mode=${on ? 'atendimento' : 'somente-envio'})`,
+    );
+  }
+
   isSendOnly(userId, slot) {
     return !this.getIaAtiva(userId, slot);
   }

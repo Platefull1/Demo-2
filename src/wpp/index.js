@@ -9,6 +9,7 @@ import { WhatsAppBotModel, BotSettingsModel } from '../db/models.js';
 import { sendToGPT, formatConversationHistory } from '../ai/chat.js';
 import * as tarefaHandler from '../tarefas/tarefaHandler.js';
 import { recordWhatsAppMessage, markIaOutbound } from './messageArchive.js';
+import { isIaAtivaLive } from './iaAtivaLive.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
@@ -653,7 +654,8 @@ function setupMessageListener(client, userId, slot) {
     // Histórico de reclamações: mensagem crua, antes do debounce. Nunca bloqueia o bot.
     recordWhatsAppMessage(message, client, userId, slot);
 
-    if (!sessionManager.getIaAtiva(userId, slot)) {
+    // Fonte de verdade = banco (toggle na plataforma), não só o --mode do start.
+    if (!(await isIaAtivaLive(userId, slot))) {
       return;
     }
 

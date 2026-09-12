@@ -13,7 +13,8 @@ function parseSlot(raw: string): number | null {
 
 /**
  * PATCH /api/whatsapp-sessions/slot/:slot
- * Atualiza label / iaAtiva / iaPrompt / monitorarReclamacoes sem mexer na conexão.
+ * Atualiza label / iaAtiva / iaPrompt / monitorarReclamacoes.
+ * Quando iaAtiva muda, propaga para o worker na VPS (hot-reload da memória).
  */
 export async function PATCH(
   req: NextRequest,
@@ -68,7 +69,23 @@ export async function PATCH(
     data,
   });
 
-  return NextResponse.json({ session: mapBotToDto(bot) });
+  let workerSync: Record<string, unknown> | null = null;
+  if (typeof data.iaAtiva === 'boolean' && data.iaAtiva !== existing.iaAtiva) {
+    const vps = await callWhatsAppVpsSession(stackUser.id, slot, 'ia-ativa', {
+      body: { iaAtiva: data.iaAtiva },
+      timeoutMs: 15_000,
+    });
+    workerSync = {
+      ok: vps.ok,
+      workerSynced: vps.data.workerSynced === true,
+      message: vps.data.message,
+    };
+  }
+
+  return NextResponse.json({
+    session: mapBotToDto(bot),
+    workerSync,
+  });
 }
 
 /**

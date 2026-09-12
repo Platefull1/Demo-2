@@ -1030,6 +1030,80 @@ function wipeSessionAuthDirs(userId, slot) {
 }
 
 /**
+ * POST /api/sessions/:userId/ia-ativa?slot=N
+ * Body: { iaAtiva: boolean }
+ * Propaga o toggle da plataforma para a memória do worker (sem reiniciar QR).
+ */
+export async function syncSessionIaAtiva(req, res) {
+  try {
+    const { userId } = req.params;
+    if (!userId || typeof userId !== 'string' || !userId.trim()) {
+      return res.status(400).json({ success: false, message: 'userId inválido' });
+    }
+
+    const iaAtiva = req.body?.iaAtiva;
+    if (typeof iaAtiva !== 'boolean') {
+      return res.status(400).json({ success: false, message: 'Campo "iaAtiva" (boolean) obrigatório' });
+    }
+
+    const normalizedUserId = userId.trim();
+    const slot = resolveAnySlot(req, 1);
+    const origin = workerHttpOrigin(slot);
+
+    // Persiste no banco (idempotente se a plataforma já gravou).
+    await WhatsAppBotModel.saveDurableConfig(normalizedUserId, slot, { iaAtiva }).catch((err) => {
+      logger.warn(`[syncSessionIaAtiva] saveDurableConfig: ${err?.message || err}`);
+    });
+
+    try {
+      const proxyRes = await fetch(`${origin}/ia-ativa`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ iaAtiva }),
+      });
+      const data = await proxyRes.json().catch(() => ({}));
+      if (proxyRes.ok) {
+        return res.json({
+          success: true,
+          slot,
+          iaAtiva,
+          mode: iaAtiva ? 'atendimento' : 'somente-envio',
+          workerSynced: true,
+          ...data,
+        });
+      }
+      logger.warn(
+        `[syncSessionIaAtiva] Worker ${origin} respondeu ${proxyRes.status}: ${data?.error || data?.message || ''}`,
+      );
+      return res.status(200).json({
+        success: true,
+        slot,
+        iaAtiva,
+        workerSynced: false,
+        message:
+          'Config salva no banco; worker não sincronizou agora (será lido do banco na próxima mensagem).',
+        workerStatus: proxyRes.status,
+        workerError: data?.error || data?.message,
+      });
+    } catch (proxyErr) {
+      logger.warn(`[syncSessionIaAtiva] Proxy falhou (${origin}): ${proxyErr.message}`);
+      return res.status(200).json({
+        success: true,
+        slot,
+        iaAtiva,
+        workerSynced: false,
+        message:
+          'Config salva no banco; worker offline — IA entra na próxima mensagem após o worker voltar.',
+        detail: proxyErr.message,
+      });
+    }
+  } catch (error) {
+    logger.error('[syncSessionIaAtiva]', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+/**
  * POST /api/sessions/:userId/delete?slot=N
  * Para worker, apaga tokens no disco e remove a linha do banco.
  */

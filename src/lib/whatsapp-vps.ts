@@ -110,7 +110,7 @@ export async function callWhatsAppVps(
 export async function callWhatsAppVpsSession(
   userId: string,
   slot: number,
-  action: 'start' | 'stop' | 'delete' | 'qr' | 'status' | 'groups' | 'send',
+  action: 'start' | 'stop' | 'delete' | 'qr' | 'status' | 'groups' | 'send' | 'ia-ativa',
   options: { search?: string; timeoutMs?: number; body?: Record<string, unknown> } = {},
 ): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
   const base = getVpsBaseUrl();
@@ -126,7 +126,11 @@ async function fetchVps(
 ): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
   const method =
     options.method ||
-    (action === 'start' || action === 'stop' || action === 'delete' || action === 'send'
+    (action === 'start' ||
+    action === 'stop' ||
+    action === 'delete' ||
+    action === 'send' ||
+    action === 'ia-ativa'
       ? 'POST'
       : 'GET');
   const timeoutMs =
