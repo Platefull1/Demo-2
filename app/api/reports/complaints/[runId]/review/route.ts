@@ -52,6 +52,10 @@ export async function GET(
           sessionSlot: true,
           origem: true,
           lojaGrupo: true,
+          categoria: true,
+          lojaId: true,
+          lojaIdentificada: true,
+          entregadorId: true,
         },
       },
     },
@@ -64,9 +68,10 @@ export async function GET(
   const contactIds = [...new Set(run.complaints.map((c) => c.contactId))];
   const allEvidenceIds = [...new Set(run.complaints.flatMap((c) => c.evidenciaMessageIds))];
   const slotsUsed = [...new Set(run.complaints.map((c) => c.sessionSlot).filter(Boolean))];
+  const lojaIdsUsadas = [...new Set(run.complaints.map((c) => c.lojaId).filter(Boolean) as string[])];
 
   const stackIds = await resolveStackUserIdsForTenant(tenantUserId);
-  const [evidenceMessages, inNameRows, bots] = await Promise.all([
+  const [evidenceMessages, inNameRows, bots, ridersByLoja] = await Promise.all([
     allEvidenceIds.length > 0
       ? prisma.whatsAppMessage.findMany({
           where: {
@@ -101,7 +106,22 @@ export async function GET(
           select: { slot: true, label: true },
         })
       : Promise.resolve([]),
+    lojaIdsUsadas.length > 0
+      ? prisma.deliveryRider.findMany({
+          where: { lojaId: { in: lojaIdsUsadas }, status: { not: 'inactive' } },
+          select: { id: true, name: true, lojaId: true },
+          orderBy: { name: 'asc' },
+        })
+      : Promise.resolve([]),
   ]);
+
+  // Montar mapa riders por loja
+  const ridersByLojaMap = new Map<string, { id: string; name: string }[]>();
+  for (const r of ridersByLoja) {
+    const list = ridersByLojaMap.get(r.lojaId) ?? [];
+    list.push({ id: r.id, name: r.name });
+    ridersByLojaMap.set(r.lojaId, list);
+  }
 
   const sessionLabelBySlot = new Map<number, string>();
   for (const b of bots) {
@@ -160,6 +180,7 @@ export async function GET(
       clientLabel,
       sessionLabel,
       origemLabel,
+      ridersDisponiveis: c.lojaId ? (ridersByLojaMap.get(c.lojaId) ?? []) : [],
       evidencias: c.evidenciaMessageIds
         .map((id) => evidenceById.get(id))
         .filter(Boolean)

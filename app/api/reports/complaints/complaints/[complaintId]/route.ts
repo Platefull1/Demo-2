@@ -6,6 +6,10 @@ import { getReportsTenantUserIds } from '@/lib/reports-tenant-auth';
 
 type PatchBody = {
   confirmadoPorHumano?: boolean;
+  categoria?: string | null;
+  lojaId?: string | null;
+  lojaIdentificada?: boolean;
+  entregadorId?: string | null;
 };
 
 /**
@@ -30,9 +34,16 @@ export async function PATCH(
     return NextResponse.json({ error: 'Body JSON inválido.' }, { status: 400 });
   }
 
-  if (typeof body.confirmadoPorHumano !== 'boolean') {
+  const hasValidField =
+    typeof body.confirmadoPorHumano === 'boolean' ||
+    'categoria' in body ||
+    'lojaId' in body ||
+    typeof body.lojaIdentificada === 'boolean' ||
+    'entregadorId' in body;
+
+  if (!hasValidField) {
     return NextResponse.json(
-      { error: 'Informe confirmadoPorHumano (boolean).' },
+      { error: 'Informe ao menos um campo válido para atualizar.' },
       { status: 400 },
     );
   }
@@ -46,13 +57,27 @@ export async function PATCH(
     return NextResponse.json({ error: 'Reclamação não encontrada.' }, { status: 404 });
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const updateData: Record<string, any> = {};
+  if (typeof body.confirmadoPorHumano === 'boolean')
+    updateData.confirmadoPorHumano = body.confirmadoPorHumano;
+  if ('categoria' in body) updateData.categoria = body.categoria ?? null;
+  if ('lojaId' in body) updateData.lojaId = body.lojaId ?? null;
+  if (typeof body.lojaIdentificada === 'boolean')
+    updateData.lojaIdentificada = body.lojaIdentificada;
+  if ('entregadorId' in body) updateData.entregadorId = body.entregadorId ?? null;
+
   const updated = await prisma.complaint.update({
     where: { id: complaintId },
-    data: { confirmadoPorHumano: body.confirmadoPorHumano },
+    data: updateData,
     select: {
       id: true,
       confirmadoPorHumano: true,
       reviewRunId: true,
+      categoria: true,
+      lojaId: true,
+      lojaIdentificada: true,
+      entregadorId: true,
     },
   });
 
