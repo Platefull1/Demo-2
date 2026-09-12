@@ -38,14 +38,18 @@ export async function GET(
           createdAt: true,
         },
       },
-      comparison: {
+      comparisons: {
+        orderBy: [{ lojaNome: 'asc' }, { categoria: 'asc' }],
         select: {
           id: true,
+          lojaId: true,
+          lojaNome: true,
+          categoria: true,
+          contagemMesAtual: true,
+          contagemMesAnterior: true,
+          variacaoAbsoluta: true,
+          variacaoPercentual: true,
           previousRunId: true,
-          recorrentes: true,
-          novos: true,
-          resolvidos: true,
-          resumoTexto: true,
           createdAt: true,
         },
       },

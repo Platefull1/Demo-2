@@ -1860,7 +1860,7 @@ model ComplaintReviewRun {
   ataStoragePath   String?
   executadoEm      DateTime             @default(now())
   complaints       Complaint[]
-  comparison       ComplaintComparison?
+  comparisons      ComplaintComparison[]
 
   @@index([userId, executadoEm])
   @@index([userId, periodStart, status])
@@ -1886,6 +1886,15 @@ model IFoodComplaintGroup {
   @@map("ifood_complaint_groups")
 }
 
+enum ComplaintCategoria {
+  QUALIDADE
+  PIZZA_VIRADA
+  ESQUECEU_BEBIDA
+  PEDIDO_ERRADO
+  PEDIDO_ATRASADO
+  OUTROS
+}
+
 /// Reclamação detectada pela IA em uma conversa (contactId) de um ComplaintReviewRun.
 model Complaint {
   id                  String             @id @default(cuid())
@@ -1907,6 +1916,12 @@ model Complaint {
   origem              String             @default("CLIENTE")
   /// lojaSlug/lojaNome quando origem=GRUPO_IFOOD
   lojaGrupo           String?
+  categoria           ComplaintCategoria?
+  /// FK soft para RhLoja (string livre — sem constraint FK formal)
+  lojaId              String?
+  lojaIdentificada    Boolean              @default(false)
+  /// FK soft para DeliveryRider (string livre — sem constraint FK formal)
+  entregadorId        String?
   /// Vany (ou humano) revisa e confirma depois
   confirmadoPorHumano Boolean            @default(false)
   createdAt           DateTime           @default(now())
@@ -1964,22 +1979,28 @@ model BonificacaoTrimestre {
   @@map("bonificacao_trimestres")
 }
 
-/// Comparação do run atual com o mês imediatamente anterior (para ata).
+/// Comparação mês a mês por loja × categoria (uma linha por combinação).
 model ComplaintComparison {
-  id            String             @id @default(cuid())
-  reviewRunId   String             @unique
-  reviewRun     ComplaintReviewRun @relation(fields: [reviewRunId], references: [id], onDelete: Cascade)
-  /// null se for o primeiro mês com dado (sem comparação possível)
-  previousRunId String?
-  /// temas/clientes que reclamaram nos dois meses
-  recorrentes   Json
-  /// reclamações desse mês que não existiam no mês anterior
-  novos         Json
-  /// temas do mês passado que sumiram este mês
-  resolvidos    Json
-  /// parágrafo em linguagem natural pra colar na ata
-  resumoTexto   String             @db.Text
-  createdAt     DateTime           @default(now())
+  id                  String             @id @default(cuid())
+  reviewRunId         String
+  reviewRun           ComplaintReviewRun @relation(fields: [reviewRunId], references: [id], onDelete: Cascade)
+  previousRunId       String?
+  /// ID da RhLoja
+  lojaId              String
+  /// Nome da loja em texto para o documento
+  lojaNome            String
+  categoria           ComplaintCategoria
+  contagemMesAtual    Int
+  contagemMesAnterior Int                @default(0)
+  /// contagemMesAtual - contagemMesAnterior
+  variacaoAbsoluta    Int
+  /// null se contagemMesAnterior = 0
+  variacaoPercentual  Float?
+  /// fallback textual, opcional
+  resumoTexto         String?            @db.Text
+  createdAt           DateTime           @default(now())
 
+  @@unique([reviewRunId, lojaId, categoria])
+  @@index([reviewRunId])
   @@map("complaint_comparisons")
 }

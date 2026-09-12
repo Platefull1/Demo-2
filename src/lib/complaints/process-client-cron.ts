@@ -21,6 +21,21 @@ import {
 
 const MAX_CONTACTS_PER_TICK = 8;
 
+async function resolveLojaId(userId: string, lojaSlug: string | null): Promise<string | null> {
+  if (!lojaSlug) return null;
+  const slug = lojaSlug.toLowerCase().trim();
+  const lojas = await prisma.rhLoja.findMany({
+    where: { userId },
+    select: { id: true, nome: true },
+  });
+  const found = lojas.find(
+    (l) =>
+      l.nome.toLowerCase().includes(slug) ||
+      slug.includes(l.nome.toLowerCase().replace(/\s+/g, '')),
+  );
+  return found?.id ?? null;
+}
+
 /** No cron contínuo, só olha o mês atual + anterior (evita queimar histórico antigo). */
 function continuousLookbackStart(): Date {
   return previousMonthPeriod().start;
@@ -166,6 +181,7 @@ export async function classifyCooledClientContact(params: {
   }
 
   const sessionSlot = unprocessed[0]?.sessionSlot ?? params.monitoredSlots[0] ?? 1;
+  const lojaId = await resolveLojaId(params.userId, result.lojaSlug);
 
   await prisma.complaint.create({
     data: {
@@ -180,6 +196,9 @@ export async function classifyCooledClientContact(params: {
       sessionSlot,
       origem: 'CLIENTE',
       lojaGrupo: null,
+      categoria: result.categoria ?? 'OUTROS',
+      lojaId: lojaId ?? null,
+      lojaIdentificada: Boolean(lojaId),
     },
   });
 

@@ -238,6 +238,15 @@ async function classifyIfoodGroupContact(params: {
       continue;
     }
 
+    const lojaIdIfood = await (async () => {
+      const lojas = await prisma.rhLoja.findMany({
+        where: { userId: params.userId },
+        select: { id: true, nome: true },
+      });
+      const slug = group.lojaNome.toLowerCase().trim();
+      return lojas.find((l) => l.nome.toLowerCase().includes(slug) || slug.includes(l.nome.toLowerCase()))?.id ?? null;
+    })();
+
     await prisma.complaint.create({
       data: {
         reviewRunId: params.runId,
@@ -251,6 +260,10 @@ async function classifyIfoodGroupContact(params: {
         sessionSlot: group.sessionSlot,
         origem: 'GRUPO_IFOOD',
         lojaGrupo: group.lojaNome,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        categoria: extracted.categoria as any,
+        lojaId: lojaIdIfood,
+        lojaIdentificada: Boolean(lojaIdIfood),
       },
     });
     for (const id of extracted.evidenciaMessageIds) usedIds.add(id);
@@ -346,6 +359,16 @@ async function classifyOneContact(params: {
 
   const sessionSlot = messages[0]?.sessionSlot ?? params.monitoredSlots[0] ?? 1;
 
+  const lojaIdCliente = await (async () => {
+    if (!result.lojaSlug) return null;
+    const lojas = await prisma.rhLoja.findMany({
+      where: { userId: params.userId },
+      select: { id: true, nome: true },
+    });
+    const slug = result.lojaSlug.toLowerCase().trim();
+    return lojas.find((l) => l.nome.toLowerCase().includes(slug) || slug.includes(l.nome.toLowerCase().replace(/\s+/g, '')))?.id ?? null;
+  })();
+
   await prisma.complaint.create({
     data: {
       reviewRunId: params.runId,
@@ -359,6 +382,10 @@ async function classifyOneContact(params: {
       sessionSlot,
       origem: 'CLIENTE',
       lojaGrupo: null,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      categoria: (result.categoria ?? 'OUTROS') as any,
+      lojaId: lojaIdCliente,
+      lojaIdentificada: Boolean(lojaIdCliente),
     },
   });
   await markMessagesComplaintProcessed(messageIds);

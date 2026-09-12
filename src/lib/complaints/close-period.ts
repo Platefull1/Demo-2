@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { buildAndSaveComparison } from '@/lib/complaints/compare';
+import { buildAndSaveComparison, type ComplaintComparisonLine } from '@/lib/complaints/compare';
 import type { MonthPeriod } from '@/lib/complaints/period';
 import {
   ensureRunForClose,
@@ -23,10 +23,7 @@ export type ClosePeriodResult = {
   totalReclamacoes: number;
   ifood: Awaited<ReturnType<typeof processSettledIfoodClusters>>;
   client: Awaited<ReturnType<typeof processCooledClientConversations>>;
-  comparison: {
-    previousRunId: string | null;
-    resumoTexto: string;
-  };
+  comparison: ComplaintComparisonLine[];
   mensagem: string;
 };
 
@@ -126,10 +123,7 @@ export async function closeComplaintPeriod(params: {
     totalReclamacoes,
     ifood: ifoodAcc,
     client: clientAcc,
-    comparison: {
-      previousRunId: comparison.previousRunId,
-      resumoTexto: comparison.resumoTexto,
-    },
+    comparison,
     mensagem: `Fechamento concluído: ${totalReclamacoes} reclamação(ões); resíduos iFood=${ifoodAcc.complaintsCreated}, cliente=${clientAcc.complaintsCreated}.`,
   };
 }

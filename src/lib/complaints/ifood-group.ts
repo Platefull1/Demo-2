@@ -20,11 +20,23 @@ export function ifoodSettleMs(): number {
 /** @deprecated use ifoodSettleMs() — mantido p/ imports existentes */
 export const IFOOD_SETTLE_MS = IFOOD_SETTLE_MS_DEFAULT;
 
+import type { Categoria } from '@/lib/complaints/classify';
+
+const CATEGORIAS_VALIDAS_IFOOD = [
+  'QUALIDADE',
+  'PIZZA_VIRADA',
+  'ESQUECEU_BEBIDA',
+  'PEDIDO_ERRADO',
+  'PEDIDO_ATRASADO',
+  'OUTROS',
+] as const;
+
 export type IfoodGroupExtract = {
   resumo: string;
   numeroPedido: string | null;
   dataOcorrencia: Date;
   evidenciaMessageIds: string[];
+  categoria: Categoria;
 };
 
 function formatTs(d: Date): string {
@@ -144,9 +156,16 @@ Extraia:
 - NÃO narre a sequência do atendimento nem invente detalhes fora da legenda.
 - numeroPedido: só o número se aparecer na legenda (ex: "pedido 48"); senão null — NUNCA invente
 - dataOcorrencia: YYYY-MM-DD da mensagem principal
+- categoria: classifique em EXATAMENTE uma das opções (não invente novas):
+  - "QUALIDADE" — problemas com a comida em si: sabor, temperatura, borda errada/crua/vazando, pouco recheio, produto diferente do esperado.
+  - "PIZZA_VIRADA" — pizza chegou virada/tombada/amassada na caixa.
+  - "ESQUECEU_BEBIDA" — faltou item na entrega (bebida, item de cardápio, brinde).
+  - "PEDIDO_ERRADO" — pedido entregue no endereço errado OU item completamente trocado.
+  - "PEDIDO_ATRASADO" — entrega muito além do prazo ou cliente reclamou de demora.
+  - "OUTROS" — qualquer coisa que não se encaixe claramente nas categorias acima.
 
 Responda APENAS JSON:
-{"resumo":string,"numeroPedido":string|null,"dataOcorrencia":"YYYY-MM-DD"}`,
+{"resumo":string,"numeroPedido":string|null,"dataOcorrencia":"YYYY-MM-DD","categoria":"QUALIDADE"|"PIZZA_VIRADA"|"ESQUECEU_BEBIDA"|"PEDIDO_ERRADO"|"PEDIDO_ATRASADO"|"OUTROS"}`,
       user: `Extraia os dados deste registro:\n\n${transcript}`,
       maxTokens: 250,
       temperature: 0.1,
@@ -156,6 +175,7 @@ Responda APENAS JSON:
       resumo?: unknown;
       numeroPedido?: unknown;
       dataOcorrencia?: unknown;
+      categoria?: unknown;
     };
 
     const resumo =
@@ -176,7 +196,14 @@ Responda APENAS JSON:
       if (!Number.isNaN(d.getTime())) dataOcorrencia = d;
     }
 
-    return { resumo, numeroPedido, dataOcorrencia, evidenciaMessageIds };
+    const categoriaRaw = parsed.categoria;
+    const categoria: Categoria = CATEGORIAS_VALIDAS_IFOOD.includes(
+      categoriaRaw as Categoria,
+    )
+      ? (categoriaRaw as Categoria)
+      : 'OUTROS';
+
+    return { resumo, numeroPedido, dataOcorrencia, evidenciaMessageIds, categoria };
   } catch (err) {
     console.warn('[complaints/ifood-group] IA falhou, usando fallback:', err);
     return {
@@ -184,6 +211,7 @@ Responda APENAS JSON:
       numeroPedido: pedidoHint,
       dataOcorrencia: fallbackDate,
       evidenciaMessageIds,
+      categoria: 'OUTROS',
     };
   }
 }

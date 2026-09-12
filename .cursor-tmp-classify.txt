@@ -1,9 +1,9 @@
-import { callComplaintsOpenRouter, extractJsonObject } from '@/lib/complaints/openrouter';
+﻿import { callComplaintsOpenRouter, extractJsonObject } from '@/lib/complaints/openrouter';
 
 /**
- * Classificação de conversas WhatsApp como reclamação via OpenRouter.
- * Critério principal: julgamento de contexto (igual revisão humana).
- * palavrasChaveReclamacao = reforço opcional, nunca filtro rígido.
+ * ClassificaÃ§Ã£o de conversas WhatsApp como reclamaÃ§Ã£o via OpenRouter.
+ * CritÃ©rio principal: julgamento de contexto (igual revisÃ£o humana).
+ * palavrasChaveReclamacao = reforÃ§o opcional, nunca filtro rÃ­gido.
  */
 
 export type ConversationMessage = {
@@ -15,25 +15,12 @@ export type ConversationMessage = {
   timestamp: Date;
 };
 
-const CATEGORIAS_VALIDAS = [
-  'QUALIDADE',
-  'PIZZA_VIRADA',
-  'ESQUECEU_BEBIDA',
-  'PEDIDO_ERRADO',
-  'PEDIDO_ATRASADO',
-  'OUTROS',
-] as const;
-
-export type Categoria = (typeof CATEGORIAS_VALIDAS)[number];
-
 export type ClassificationResult = {
   eReclamacao: boolean;
   resumo: string | null;
   dataOcorrencia: Date | null;
   evidenciaMessageIds: string[];
   numeroPedido: string | null;
-  categoria: Categoria | null;
-  lojaSlug: string | null;
 };
 
 function speakerLabel(msg: ConversationMessage): string {
@@ -67,20 +54,20 @@ function looksLikeInternalLog(msg: ConversationMessage): boolean {
 
 function bodyForTranscript(msg: ConversationMessage): string {
   if (looksLikeInternalLog(msg)) {
-    return '[sistema interno — NÃO usar como evidência de reclamação]';
+    return '[sistema interno â€” NÃƒO usar como evidÃªncia de reclamaÃ§Ã£o]';
   }
   const raw = msg.textContent?.trim() || '';
   // Evita despejar base64 de imagem no prompt
   if (raw.length > 500 || /^\/9j\//.test(raw) || raw.startsWith('data:')) {
     return msg.messageType !== 'text'
-      ? `[mídia: ${msg.messageType}]`
-      : '[conteúdo longo omitido]';
+      ? `[mÃ­dia: ${msg.messageType}]`
+      : '[conteÃºdo longo omitido]';
   }
   if (raw) return raw;
-  return msg.messageType !== 'text' ? `[mídia: ${msg.messageType}]` : '[sem texto]';
+  return msg.messageType !== 'text' ? `[mÃ­dia: ${msg.messageType}]` : '[sem texto]';
 }
 
-/** IDs de mensagens IN válidas como evidência de reclamação. */
+/** IDs de mensagens IN vÃ¡lidas como evidÃªncia de reclamaÃ§Ã£o. */
 export function filterClientEvidenceIds(
   messages: ConversationMessage[],
   ids: string[],
@@ -91,7 +78,7 @@ export function filterClientEvidenceIds(
   return [...new Set(ids.filter((id) => inIds.has(id)))];
 }
 
-/** Transcript ordenado com IDs reais pra a IA apontar evidências. */
+/** Transcript ordenado com IDs reais pra a IA apontar evidÃªncias. */
 export function buildTranscript(messages: ConversationMessage[]): string {
   return messages
     .map((m) => {
@@ -105,49 +92,41 @@ export function buildTranscript(messages: ConversationMessage[]): string {
 function buildSystemPrompt(palavrasChave: string[]): string {
   const reforco =
     palavrasChave.length > 0
-      ? `\n\nReforço opcional desta conta (NÃO é lista exclusiva — use só como pista de atenção extra quando aparecerem): ${palavrasChave
+      ? `\n\nReforÃ§o opcional desta conta (NÃƒO Ã© lista exclusiva â€” use sÃ³ como pista de atenÃ§Ã£o extra quando aparecerem): ${palavrasChave
           .map((p) => `"${p}"`)
           .join(', ')}.`
       : '';
 
-  return `Você revisa conversas de atendimento (WhatsApp) de um restaurante/delivery e decide se há RECLAMAÇÃO do cliente — com o mesmo julgamento de contexto que um humano experiente usaria. Não existe lista fixa de palavras-chave da empresa; a decisão é por contexto.
+  return `VocÃª revisa conversas de atendimento (WhatsApp) de um restaurante/delivery e decide se hÃ¡ RECLAMAÃ‡ÃƒO do cliente â€” com o mesmo julgamento de contexto que um humano experiente usaria. NÃ£o existe lista fixa de palavras-chave da empresa; a decisÃ£o Ã© por contexto.
 
-REGRAS CRÍTICAS SOBRE MENSAGENS:
-- Mensagens CLIENTE (IN) são a ÚNICA fonte válida para decidir se há reclamação e para evidenciaMessageIds.
-- Mensagens ATENDENTE ou IA (OUT) servem APENAS como contexto para interpretar o que o cliente quis dizer — NUNCA conte como reclamação algo que só o atendente ou a IA disse.
-- NUNCA inclua mensagens OUT em evidenciaMessageIds — somente IDs de mensagens IN (cliente).
-- Prints de log interno, mensagens de sistema ou respostas automáticas do atendente NÃO são reclamação nem evidência.
-- Se o cliente apenas disse que "quer fazer uma reclamação" mas não detalhou o problema em mensagens IN, NÃO é reclamação classificável (eReclamacao=false).
+REGRAS CRÃTICAS SOBRE MENSAGENS:
+- Mensagens CLIENTE (IN) sÃ£o a ÃšNICA fonte vÃ¡lida para decidir se hÃ¡ reclamaÃ§Ã£o e para evidenciaMessageIds.
+- Mensagens ATENDENTE ou IA (OUT) servem APENAS como contexto para interpretar o que o cliente quis dizer â€” NUNCA conte como reclamaÃ§Ã£o algo que sÃ³ o atendente ou a IA disse.
+- NUNCA inclua mensagens OUT em evidenciaMessageIds â€” somente IDs de mensagens IN (cliente).
+- Prints de log interno, mensagens de sistema ou respostas automÃ¡ticas do atendente NÃƒO sÃ£o reclamaÃ§Ã£o nem evidÃªncia.
+- Se o cliente apenas disse que "quer fazer uma reclamaÃ§Ã£o" mas nÃ£o detalhou o problema em mensagens IN, NÃƒO Ã© reclamaÃ§Ã£o classificÃ¡vel (eReclamacao=false).
 
-Considere RECLAMAÇÃO quando o cliente (em mensagens IN):
-- expressa insatisfação ou frustração explícita;
+Considere RECLAMAÃ‡ÃƒO quando o cliente (em mensagens IN):
+- expressa insatisfaÃ§Ã£o ou frustraÃ§Ã£o explÃ­cita;
 - relata problema com o pedido (errado, atrasado, com defeito, item faltando, qualidade ruim, etc.);
-- aponta cobrança incorreta;
+- aponta cobranÃ§a incorreta;
 - pede reembolso, cancelamento ou troca por causa de problema no pedido/atendimento.
 
-NÃO conte como reclamação:
+NÃƒO conte como reclamaÃ§Ã£o:
 - perguntas neutras;
 - elogios;
-- dúvidas comuns sobre cardápio, horário, entrega, status do pedido sem tom de insatisfação;
+- dÃºvidas comuns sobre cardÃ¡pio, horÃ¡rio, entrega, status do pedido sem tom de insatisfaÃ§Ã£o;
 - conversas puramente operacionais sem queixa.
 
-Se for reclamação:
-- Escreva "resumo" BEM CURTO: 1 frase (no máximo 2 frases curtas). Só o essencial — o que aconteceu + o problema principal (e o pedido, se citado). Exemplo do tamanho ideal: "Pedido 6951 veio errado; atendente ofereceu frango catupiry como complemento."
-- NÃO narre a conversa inteira (desculpas, agradecimentos, sequência de idas e vindas). NÃO invente fatos fora da transcrição.
-- Indique dataOcorrencia (YYYY-MM-DD) se identificável; senão use a data da mensagem IN principal da queixa.
-- evidenciaMessageIds: SOMENTE IDs de mensagens IN. Se o cliente enviou foto do produto/comida com problema, inclua esse id. NÃO use comprovante de Pix, print de tela ou documento como evidência.
-- categoria: classifique em EXATAMENTE uma das opções abaixo (não invente categorias novas):
-  - "QUALIDADE" — problemas com a comida em si: sabor, temperatura, borda errada/crua/vazando, pouco recheio, produto diferente do esperado.
-  - "PIZZA_VIRADA" — pizza chegou virada/tombada/amassada na caixa.
-  - "ESQUECEU_BEBIDA" — faltou item na entrega (bebida, item de cardápio, brinde).
-  - "PEDIDO_ERRADO" — pedido entregue no endereço errado OU item completamente trocado (ex: pedi frango, veio calabresa).
-  - "PEDIDO_ATRASADO" — entrega muito além do prazo ou cliente reclamou de demora.
-  - "OUTROS" — qualquer coisa que não se encaixe claramente nas categorias acima.
-- numeroPedido: o número do pedido que o CLIENTE citou (ex.: "pedido 48", "pedido 150"). Se não aparecer nas mensagens IN, use null. NUNCA invente.
-- lojaSlug: o nome/slug da loja extraído do texto (ex: "AHU", "Uberaba", "Portão", "Pilarzinho"). Aparece no padrão "pedido X loja Y" nas mensagens IN. Se não encontrado, null.
+Se for reclamaÃ§Ã£o:
+- Escreva "resumo" BEM CURTO: 1 frase (no mÃ¡ximo 2 frases curtas). SÃ³ o essencial â€” o que aconteceu + o problema principal (e o pedido, se citado). Exemplo do tamanho ideal: "Pedido 6951 veio errado; atendente ofereceu frango catupiry como complemento."
+- NÃƒO narre a conversa inteira (desculpas, agradecimentos, sequÃªncia de idas e vindas). NÃƒO invente fatos fora da transcriÃ§Ã£o.
+- Indique dataOcorrencia (YYYY-MM-DD) se identificÃ¡vel; senÃ£o use a data da mensagem IN principal da queixa.
+- evidenciaMessageIds: SOMENTE IDs de mensagens IN. Se o cliente enviou foto do produto/comida com problema, inclua esse id. NÃƒO use comprovante de Pix, print de tela ou documento como evidÃªncia.
+- numeroPedido: o nÃºmero do pedido que o CLIENTE citou (ex.: "pedido 48", "pedido 150"). Se nÃ£o aparecer nas mensagens IN, use null. NUNCA invente.
 
-Responda APENAS JSON válido, sem markdown:
-{"eReclamacao":true|false,"resumo":string|null,"dataOcorrencia":"YYYY-MM-DD"|null,"evidenciaMessageIds":string[],"numeroPedido":string|null,"categoria":"QUALIDADE"|"PIZZA_VIRADA"|"ESQUECEU_BEBIDA"|"PEDIDO_ERRADO"|"PEDIDO_ATRASADO"|"OUTROS"|null,"lojaSlug":string|null}${reforco}`;
+Responda APENAS JSON vÃ¡lido, sem markdown:
+{"eReclamacao":true|false,"resumo":string|null,"dataOcorrencia":"YYYY-MM-DD"|null,"evidenciaMessageIds":string[],"numeroPedido":string|null}${reforco}`;
 }
 
 function inMessagesText(messages: ConversationMessage[]): string {
@@ -157,7 +136,7 @@ function inMessagesText(messages: ConversationMessage[]): string {
     .join('\n');
 }
 
-/** Só aceita número que o cliente realmente escreveu. Nunca inventa. */
+/** SÃ³ aceita nÃºmero que o cliente realmente escreveu. Nunca inventa. */
 export function resolveNumeroPedido(
   extracted: unknown,
   messages: ConversationMessage[],
@@ -188,7 +167,7 @@ function parseOccurrenceDate(
 }
 
 /**
- * Classifica uma conversa. Lança em falha de API/parse — o caller decide se aborta o run.
+ * Classifica uma conversa. LanÃ§a em falha de API/parse â€” o caller decide se aborta o run.
  */
 export async function classifyConversation(params: {
   messages: ConversationMessage[];
@@ -211,8 +190,6 @@ export async function classifyConversation(params: {
     dataOcorrencia?: unknown;
     evidenciaMessageIds?: unknown;
     numeroPedido?: unknown;
-    categoria?: unknown;
-    lojaSlug?: unknown;
   };
 
   const eReclamacao = parsed.eReclamacao === true;
@@ -223,8 +200,6 @@ export async function classifyConversation(params: {
       dataOcorrencia: null,
       evidenciaMessageIds: [],
       numeroPedido: null,
-      categoria: null,
-      lojaSlug: null,
     };
   }
 
@@ -234,7 +209,7 @@ export async function classifyConversation(params: {
   const knownIds = rawIds.filter((id) => validIds.has(id));
   let evidenciaMessageIds = filterClientEvidenceIds(messages, knownIds);
 
-  // Fallback: últimas mensagens IN com conteúdo substantivo (nunca OUT)
+  // Fallback: Ãºltimas mensagens IN com conteÃºdo substantivo (nunca OUT)
   if (evidenciaMessageIds.length === 0) {
     evidenciaMessageIds = messages
       .filter(
@@ -254,31 +229,18 @@ export async function classifyConversation(params: {
       dataOcorrencia: null,
       evidenciaMessageIds: [],
       numeroPedido: null,
-      categoria: null,
-      lojaSlug: null,
     };
   }
 
   const resumo =
     typeof parsed.resumo === 'string' && parsed.resumo.trim()
       ? parsed.resumo.trim().slice(0, 320)
-      : 'Reclamação identificada (sem resumo detalhado da IA).';
+      : 'ReclamaÃ§Ã£o identificada (sem resumo detalhado da IA).';
 
   const anchor =
     messages.find((m) => evidenciaMessageIds.includes(m.id))?.timestamp ??
     messages[messages.length - 1]?.timestamp ??
     new Date();
-
-  const categoriaRaw = parsed.categoria;
-  const categoria: Categoria =
-    CATEGORIAS_VALIDAS.includes(categoriaRaw as Categoria)
-      ? (categoriaRaw as Categoria)
-      : 'OUTROS';
-
-  const lojaSlug: string | null =
-    typeof parsed.lojaSlug === 'string' && parsed.lojaSlug.trim()
-      ? parsed.lojaSlug.trim()
-      : null;
 
   return {
     eReclamacao: true,
@@ -286,13 +248,11 @@ export async function classifyConversation(params: {
     dataOcorrencia: parseOccurrenceDate(parsed.dataOcorrencia, anchor),
     evidenciaMessageIds,
     numeroPedido: resolveNumeroPedido(parsed.numeroPedido, messages),
-    categoria,
-    lojaSlug,
   };
 }
 
 /**
- * Reescreve o parágrafo da ata a partir da transcrição COMPLETA (IN+OUT).
+ * Reescreve o parÃ¡grafo da ata a partir da transcriÃ§Ã£o COMPLETA (IN+OUT).
  */
 export async function writeAtaNarrative(params: {
   transcript: string;
@@ -304,19 +264,19 @@ export async function writeAtaNarrative(params: {
 
   try {
     const content = await callComplaintsOpenRouter({
-      system: `Você redige o resumo curto de uma reclamação para ata de restaurante/delivery.
+      system: `VocÃª redige o resumo curto de uma reclamaÃ§Ã£o para ata de restaurante/delivery.
 
 REGRAS:
-- Leia a TRANSCRIÇÃO COMPLETA (IN e OUT, em ordem). Não se baseie só em trechos isolados.
-- Escreva em português, BEM DIRETO: 1 frase (no máximo 2 curtas). Só o essencial — o que aconteceu + o problema principal.
+- Leia a TRANSCRIÃ‡ÃƒO COMPLETA (IN e OUT, em ordem). NÃ£o se baseie sÃ³ em trechos isolados.
+- Escreva em portuguÃªs, BEM DIRETO: 1 frase (no mÃ¡ximo 2 curtas). SÃ³ o essencial â€” o que aconteceu + o problema principal.
 - Exemplo do tamanho ideal: "Pedido 6951 veio errado; atendente ofereceu frango catupiry como complemento."
-- NÃO narre a conversa (desculpas, agradecimentos, idas e vindas). Não invente fatos.
+- NÃƒO narre a conversa (desculpas, agradecimentos, idas e vindas). NÃ£o invente fatos.
 - Sem lista, bullets ou aspas de mensagens isoladas.
-- numeroPedido: só o número que o CLIENTE citou (ex. "pedido 48"). Se não houver, null. Nunca invente.
+- numeroPedido: sÃ³ o nÃºmero que o CLIENTE citou (ex. "pedido 48"). Se nÃ£o houver, null. Nunca invente.
 
 Responda APENAS JSON:
 {"resumo":"frase curta...","numeroPedido":"48"|null}`,
-      user: `Transcrição completa:\n\n${transcript}`,
+      user: `TranscriÃ§Ã£o completa:\n\n${transcript}`,
       maxTokens: 300,
       temperature: 0.2,
     });
@@ -344,3 +304,4 @@ Responda APENAS JSON:
     };
   }
 }
+

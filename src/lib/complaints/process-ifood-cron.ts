@@ -27,6 +27,19 @@ export {
 
 const MAX_CLUSTERS_PER_TICK = 20;
 
+async function resolveLojaIdByNome(userId: string, lojaNome: string): Promise<string | null> {
+  const lojas = await prisma.rhLoja.findMany({
+    where: { userId },
+    select: { id: true, nome: true },
+  });
+  const slug = lojaNome.toLowerCase().trim();
+  const found = lojas.find(
+    (l) =>
+      l.nome.toLowerCase().includes(slug) || slug.includes(l.nome.toLowerCase()),
+  );
+  return found?.id ?? null;
+}
+
 function continuousLookbackStart(): Date {
   return previousMonthPeriod().start;
 }
@@ -195,6 +208,8 @@ export async function processSettledIfoodClusters(opts?: {
           continue;
         }
 
+        const lojaId = await resolveLojaIdByNome(group.userId, group.lojaNome);
+
         await prisma.complaint.create({
           data: {
             reviewRunId: run.id,
@@ -208,6 +223,9 @@ export async function processSettledIfoodClusters(opts?: {
             sessionSlot: group.sessionSlot,
             origem: 'GRUPO_IFOOD',
             lojaGrupo: group.lojaNome,
+            categoria: extracted.categoria,
+            lojaId: lojaId,
+            lojaIdentificada: Boolean(lojaId),
           },
         });
         await bumpRunComplaintCount(run.id, 1);

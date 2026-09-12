@@ -1,29 +1,20 @@
 /**
- * Comparação mês atual × mês anterior (recorrentes / novos / resolvidos).
+ * Comparação mês atual × mês anterior por loja × categoria.
+ * Gera uma linha de ComplaintComparison por combinação loja×categoria.
  */
 
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { monthPeriod, type MonthPeriod } from '@/lib/complaints/period';
-import { callComplaintsOpenRouter, extractJsonObject } from '@/lib/complaints/openrouter';
 
-export type ComplaintSnapshot = {
-  id: string;
-  contactId: string;
-  contactName: string | null;
-  resumo: string;
+export type ComplaintComparisonLine = {
+  lojaId: string;
+  lojaNome: string;
+  categoria: string;
+  contagemMesAtual: number;
+  contagemMesAnterior: number;
+  variacaoAbsoluta: number;
+  variacaoPercentual: number | null;
 };
-
-export type ComparisonPayload = {
-  previousRunId: string | null;
-  recorrentes: Prisma.InputJsonValue;
-  novos: Prisma.InputJsonValue;
-  resolvidos: Prisma.InputJsonValue;
-  resumoTexto: string;
-};
-
-const FIRST_MONTH_RESUMO =
-  'Primeiro mês com dados coletados, sem histórico anterior para comparação.';
 
 function previousCalendarPeriod(period: MonthPeriod): MonthPeriod {
   const prevMonth = period.month === 1 ? 12 : period.month - 1;
@@ -31,188 +22,25 @@ function previousCalendarPeriod(period: MonthPeriod): MonthPeriod {
   return monthPeriod(prevYear, prevMonth);
 }
 
-function formatComplaintList(items: ComplaintSnapshot[], label: string): string {
-  if (items.length === 0) return `${label}: (nenhuma)`;
-  const lines = items.map(
-    (c, i) =>
-      `${i + 1}. [id=${c.id}] contactId=${c.contactId} nome=${c.contactName || '—'} | ${c.resumo}`,
-  );
-  return `${label} (${items.length}):\n${lines.join('\n')}`;
-}
-
-const SYSTEM_PROMPT = `Você compara reclamações de atendimento (restaurante/delivery) entre dois meses consecutivos, para a ata da reunião de qualidade.
-
-Regras rígidas de classificação (um tema entra em EXATAMENTE uma lista):
-- RECORRENTES: o tema/problema aparece NOS DOIS meses (mesmo cliente de novo, OU tema muito parecido com clientes diferentes — ex.: "massa crua" nos dois meses = estrutural). contactIdsAtual E contactIdsAnterior devem ter pelo menos 1 id cada. Nunca coloque aqui algo que só existe em um dos meses.
-- NOVAS: tema/problema SÓ no mês atual (nenhuma ocorrência parecida no mês anterior).
-- RESOLVIDOS: tema/problema SÓ no mês anterior (sumiu neste mês — bom sinal). Se contactIdsAtual estaria vazio, vai em resolvidos, nunca em recorrentes.
-
-Gere resumoTexto em português, 2–3 parágrafos, tom direto, como abertura de reunião ("Este mês tivemos X reclamações, sendo Y recorrentes do mês anterior — destaque para [tema]...").
-
-Responda APENAS JSON válido, sem markdown:
-{
-  "recorrentes": [ { "tema": string, "detalhe": string, "contactIdsAtual": string[], "contactIdsAnterior": string[] } ],
-  "novos": [ { "tema": string, "detalhe": string, "contactIds": string[] } ],
-  "resolvidos": [ { "tema": string, "detalhe": string, "contactIdsAnterior": string[] } ],
-  "resumoTexto": string
-}`;
-
-function asObjectArray(value: unknown): Array<Record<string, unknown>> {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (x): x is Record<string, unknown> => !!x && typeof x === 'object' && !Array.isArray(x),
-  );
-}
-
-function collectIds(items: Array<Record<string, unknown>>, keys: string[]): Set<string> {
-  const out = new Set<string>();
-  for (const item of items) {
-    for (const key of keys) {
-      const arr = item[key];
-      if (Array.isArray(arr)) {
-        for (const id of arr) {
-          if (typeof id === 'string' && id) out.add(id);
-        }
-      }
-    }
-  }
-  return out;
-}
-
-/** Garante cobertura e corrige recorrentes sem ocorrência no mês atual. */
-function ensureCoverage(params: {
-  current: ComplaintSnapshot[];
-  previous: ComplaintSnapshot[];
-  recorrentes: Array<Record<string, unknown>>;
-  novos: Array<Record<string, unknown>>;
-  resolvidos: Array<Record<string, unknown>>;
-}) {
-  const recorrentesIn = [...params.recorrentes];
-  const novos = [...params.novos];
-  const resolvidos = [...params.resolvidos];
-
-  const cleanedRecorrentes: Array<Record<string, unknown>> = [];
-  for (const r of recorrentesIn) {
-    const atual = Array.isArray(r.contactIdsAtual)
-      ? r.contactIdsAtual.filter((x): x is string => typeof x === 'string' && !!x)
-      : [];
-    const anterior = Array.isArray(r.contactIdsAnterior)
-      ? r.contactIdsAnterior.filter((x): x is string => typeof x === 'string' && !!x)
-      : [];
-    if (atual.length === 0 && anterior.length > 0) {
-      resolvidos.push({
-        tema: typeof r.tema === 'string' ? r.tema : 'Tema do mês anterior',
-        detalhe: typeof r.detalhe === 'string' ? r.detalhe : '',
-        contactIdsAnterior: anterior,
-      });
-    } else {
-      cleanedRecorrentes.push(r);
-    }
-  }
-
-  const coveredPrev = new Set([
-    ...collectIds(cleanedRecorrentes, ['contactIdsAnterior']),
-    ...collectIds(resolvidos, ['contactIdsAnterior']),
-  ]);
-  const coveredAtual = new Set([
-    ...collectIds(cleanedRecorrentes, ['contactIdsAtual']),
-    ...collectIds(novos, ['contactIds']),
-  ]);
-
-  for (const c of params.previous) {
-    if (coveredPrev.has(c.contactId)) continue;
-    resolvidos.push({
-      tema: c.resumo.slice(0, 80),
-      detalhe: c.resumo,
-      contactIdsAnterior: [c.contactId],
-    });
-    coveredPrev.add(c.contactId);
-  }
-
-  for (const c of params.current) {
-    if (coveredAtual.has(c.contactId)) continue;
-    novos.push({
-      tema: c.resumo.slice(0, 80),
-      detalhe: c.resumo,
-      contactIds: [c.contactId],
-    });
-    coveredAtual.add(c.contactId);
-  }
-
-  return {
-    recorrentes: cleanedRecorrentes as Prisma.InputJsonValue,
-    novos: novos as Prisma.InputJsonValue,
-    resolvidos: resolvidos as Prisma.InputJsonValue,
-  };
-}
-
-async function compareWithAi(params: {
-  current: ComplaintSnapshot[];
-  previous: ComplaintSnapshot[];
-}): Promise<ComparisonPayload> {
-  const content = await callComplaintsOpenRouter({
-    system: SYSTEM_PROMPT,
-    user: [
-      formatComplaintList(params.previous, 'MÊS ANTERIOR'),
-      '',
-      formatComplaintList(params.current, 'MÊS ATUAL'),
-      '',
-      'Compare os dois conjuntos e responda no JSON pedido.',
-      'Checklist: cada reclamação do mês anterior deve aparecer em recorrentes (se o tema voltou) OU em resolvidos (se sumiu).',
-      'Checklist: cada reclamação do mês atual deve aparecer em recorrentes (se já existia) OU em novos (se é inédita).',
-      'Não deixe tema órfão fora das três listas.',
-    ].join('\n'),
-    maxTokens: 2000,
-    temperature: 0.2,
-  });
-
-  const parsed = extractJsonObject(content) as {
-    recorrentes?: unknown;
-    novos?: unknown;
-    resolvidos?: unknown;
-    resumoTexto?: unknown;
-  };
-
-  const covered = ensureCoverage({
-    current: params.current,
-    previous: params.previous,
-    recorrentes: asObjectArray(parsed.recorrentes),
-    novos: asObjectArray(parsed.novos),
-    resolvidos: asObjectArray(parsed.resolvidos),
-  });
-
-  const resumoTexto =
-    typeof parsed.resumoTexto === 'string' && parsed.resumoTexto.trim()
-      ? parsed.resumoTexto.trim().slice(0, 8000)
-      : `Este mês tivemos ${params.current.length} reclamação(ões). Comparação automática sem texto detalhado da IA.`;
-
-  return {
-    previousRunId: null,
-    recorrentes: covered.recorrentes,
-    novos: covered.novos,
-    resolvidos: covered.resolvidos,
-    resumoTexto,
-  };
-}
-
 /**
- * Busca o run CONCLUIDO do mês imediatamente anterior e gera ComplaintComparison
- * vinculado ao reviewRun atual. Idempotente: substitui comparison existente do run.
+ * Gera ComplaintComparison (uma linha por loja×categoria) para um ComplaintReviewRun.
+ *
+ * Lógica:
+ * 1. Busca todas as complaints confirmadas (confirmadoPorHumano=true) do run atual
+ * 2. Busca o run CONCLUIDO do mês anterior
+ * 3. Para cada combinação loja×categoria, calcula contagens e variações
+ * 4. Faz upsert de ComplaintComparison para cada loja×categoria
+ * 5. Também cria linhas para combinações do mês anterior que sumam (atual=0)
  */
 export async function buildAndSaveComparison(params: {
   userId: string;
   reviewRunId: string;
   period: MonthPeriod;
-}): Promise<ComparisonPayload> {
+}): Promise<ComplaintComparisonLine[]> {
   const { userId, reviewRunId, period } = params;
   const prevPeriod = previousCalendarPeriod(period);
 
-  const currentComplaints = await prisma.complaint.findMany({
-    where: { reviewRunId, userId },
-    select: { id: true, contactId: true, contactName: true, resumo: true },
-    orderBy: { dataOcorrencia: 'asc' },
-  });
-
+  // 1. Buscar run anterior CONCLUIDO
   const previousRun = await prisma.complaintReviewRun.findFirst({
     where: {
       userId,
@@ -221,62 +49,128 @@ export async function buildAndSaveComparison(params: {
       periodStart: prevPeriod.start,
     },
     orderBy: { executadoEm: 'desc' },
-    include: {
-      complaints: {
-        select: { id: true, contactId: true, contactName: true, resumo: true },
-        orderBy: { dataOcorrencia: 'asc' },
-      },
-    },
+    select: { id: true },
   });
 
-  let payload: ComparisonPayload;
+  // 2. Buscar complaints confirmadas do run atual (com lojaId e categoria)
+  const currentComplaints = await prisma.complaint.findMany({
+    where: {
+      reviewRunId,
+      userId,
+      confirmadoPorHumano: true,
+      lojaId: { not: null },
+    },
+    select: { lojaId: true, categoria: true },
+  });
 
-  if (!previousRun) {
-    payload = {
-      previousRunId: null,
-      recorrentes: [],
-      novos: [],
-      resolvidos: [],
-      resumoTexto: FIRST_MONTH_RESUMO,
-    };
-  } else {
-    try {
-      const ai = await compareWithAi({
-        current: currentComplaints,
-        previous: previousRun.complaints,
-      });
-      payload = { ...ai, previousRunId: previousRun.id };
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error('[complaints/compare] Falha na IA:', message);
-      payload = {
-        previousRunId: previousRun.id,
-        recorrentes: [],
-        novos: [],
-        resolvidos: [],
-        resumoTexto: `Comparação com o mês anterior não pôde ser gerada automaticamente (${message.slice(0, 200)}). Este mês: ${currentComplaints.length} reclamação(ões); mês anterior: ${previousRun.complaints.length}.`,
-      };
+  // 3. Buscar complaints confirmadas do run anterior
+  const previousComplaints = previousRun
+    ? await prisma.complaint.findMany({
+        where: {
+          reviewRunId: previousRun.id,
+          userId,
+          confirmadoPorHumano: true,
+          lojaId: { not: null },
+        },
+        select: { lojaId: true, categoria: true },
+      })
+    : [];
+
+  // 4. Buscar nomes das lojas envolvidas
+  const allLojaIds = [
+    ...new Set([
+      ...currentComplaints.map((c) => c.lojaId!),
+      ...previousComplaints.map((c) => c.lojaId!),
+    ]),
+  ];
+  const lojas =
+    allLojaIds.length > 0
+      ? await prisma.rhLoja.findMany({
+          where: { id: { in: allLojaIds } },
+          select: { id: true, nome: true },
+        })
+      : [];
+  const lojaNomeById = new Map(lojas.map((l) => [l.id, l.nome]));
+
+  // 5. Agrupar por loja×categoria
+  type CountMap = Map<string, Map<string, number>>; // lojaId → categoria → count
+
+  const countComplaints = (
+    list: { lojaId: string | null; categoria: string | null }[],
+  ): CountMap => {
+    const map: CountMap = new Map();
+    for (const c of list) {
+      if (!c.lojaId || !c.categoria) continue;
+      const byLoja = map.get(c.lojaId) ?? new Map<string, number>();
+      byLoja.set(c.categoria, (byLoja.get(c.categoria) ?? 0) + 1);
+      map.set(c.lojaId, byLoja);
     }
+    return map;
+  };
+
+  const currentMap = countComplaints(currentComplaints);
+  const previousMap = countComplaints(previousComplaints);
+
+  // 6. Coletar todas as combinações loja×categoria de ambos os meses
+  const allCombinations = new Set<string>();
+  for (const [lojaId, cats] of currentMap) {
+    for (const cat of cats.keys()) allCombinations.add(`${lojaId}|${cat}`);
+  }
+  for (const [lojaId, cats] of previousMap) {
+    for (const cat of cats.keys()) allCombinations.add(`${lojaId}|${cat}`);
   }
 
-  await prisma.complaintComparison.upsert({
-    where: { reviewRunId },
-    create: {
-      reviewRunId,
-      previousRunId: payload.previousRunId,
-      recorrentes: payload.recorrentes,
-      novos: payload.novos,
-      resolvidos: payload.resolvidos,
-      resumoTexto: payload.resumoTexto,
-    },
-    update: {
-      previousRunId: payload.previousRunId,
-      recorrentes: payload.recorrentes,
-      novos: payload.novos,
-      resolvidos: payload.resolvidos,
-      resumoTexto: payload.resumoTexto,
-    },
-  });
+  // 7. Montar linhas e fazer upsert
+  const lines: ComplaintComparisonLine[] = [];
 
-  return payload;
+  for (const combo of allCombinations) {
+    const [lojaId, categoria] = combo.split('|') as [string, string];
+    const lojaNome = lojaNomeById.get(lojaId) ?? lojaId;
+    const contagemMesAtual = currentMap.get(lojaId)?.get(categoria) ?? 0;
+    const contagemMesAnterior = previousMap.get(lojaId)?.get(categoria) ?? 0;
+    const variacaoAbsoluta = contagemMesAtual - contagemMesAnterior;
+    const variacaoPercentual =
+      contagemMesAnterior === 0
+        ? null
+        : Math.round(
+            ((contagemMesAtual - contagemMesAnterior) / contagemMesAnterior) * 100 * 10,
+          ) / 10;
+
+    await prisma.complaintComparison.upsert({
+      where: {
+        reviewRunId_lojaId_categoria: { reviewRunId, lojaId, categoria },
+      },
+      create: {
+        reviewRunId,
+        previousRunId: previousRun?.id ?? null,
+        lojaId,
+        lojaNome,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        categoria: categoria as any,
+        contagemMesAtual,
+        contagemMesAnterior,
+        variacaoAbsoluta,
+        variacaoPercentual,
+      },
+      update: {
+        contagemMesAtual,
+        contagemMesAnterior,
+        variacaoAbsoluta,
+        variacaoPercentual,
+        previousRunId: previousRun?.id ?? null,
+      },
+    });
+
+    lines.push({
+      lojaId,
+      lojaNome,
+      categoria,
+      contagemMesAtual,
+      contagemMesAnterior,
+      variacaoAbsoluta,
+      variacaoPercentual,
+    });
+  }
+
+  return lines;
 }
