@@ -21,6 +21,7 @@ import { markMessagesComplaintProcessed } from '@/lib/complaints/continuous';
 import { pickClientContactName } from '@/lib/complaints/contact';
 import { buildAndSaveComparison } from '@/lib/complaints/compare';
 import { monthPeriodFromDate } from '@/lib/complaints/period';
+import { groupContactIdVariants } from '@/lib/complaints/process-ifood-cron';
 
 export const COMPLAINTS_BATCH_SIZE = 8;
 const STALE_LOCK_MS = 4 * 60 * 1000;
@@ -106,10 +107,10 @@ export async function listPeriodContacts(params: {
     const groupMsgs = await prisma.whatsAppMessage.findMany({
       where: {
         userId: params.userId,
-        contactId: { in: groupIds },
+        contactId: { in: groupIds.flatMap((id) => groupContactIdVariants(id)) },
         sessionSlot: { in: groupSlots },
         timestamp: { gte: params.periodStart, lte: params.periodEnd },
-        direction: 'OUT',
+        direction: { in: ['OUT', 'IN'] },
       },
       select: { contactId: true },
       distinct: ['contactId'],
@@ -166,16 +167,18 @@ async function classifyIfoodGroupContact(params: {
   periodStart: Date;
   periodEnd: Date;
 }): Promise<number> {
+  const variants = groupContactIdVariants(params.contactId);
   const group = await prisma.iFoodComplaintGroup.findFirst({
     where: {
       userId: params.userId,
-      groupWhatsAppId: params.contactId,
+      groupWhatsAppId: { in: variants.length > 0 ? variants : [params.contactId] },
       ativo: true,
     },
     select: {
       lojaSlug: true,
       lojaNome: true,
       sessionSlot: true,
+      groupWhatsAppId: true,
     },
   });
   if (!group) return 0;
@@ -184,8 +187,9 @@ async function classifyIfoodGroupContact(params: {
     where: {
       userId: params.userId,
       sessionSlot: group.sessionSlot,
-      contactId: params.contactId,
-      direction: 'OUT',
+      contactId: { in: groupContactIdVariants(group.groupWhatsAppId) },
+      // Mesmo critério do cron contínuo: posts de qualquer aparelho no grupo.
+      direction: { in: ['OUT', 'IN'] },
       timestamp: { gte: params.periodStart, lte: params.periodEnd },
       complaintProcessedAt: null,
     },
@@ -206,7 +210,7 @@ async function classifyIfoodGroupContact(params: {
     where: {
       reviewRunId: params.runId,
       userId: params.userId,
-      contactId: params.contactId,
+      contactId: { in: groupContactIdVariants(group.groupWhatsAppId) },
       origem: 'GRUPO_IFOOD',
     },
     select: { evidenciaMessageIds: true },
@@ -251,7 +255,7 @@ async function classifyIfoodGroupContact(params: {
       data: {
         reviewRunId: params.runId,
         userId: params.userId,
-        contactId: params.contactId,
+        contactId: group.groupWhatsAppId,
         contactName: group.lojaNome,
         resumo: extracted.resumo,
         dataOcorrencia: extracted.dataOcorrencia,

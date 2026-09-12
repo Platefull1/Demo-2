@@ -27,6 +27,25 @@ export {
 
 const MAX_CLUSTERS_PER_TICK = 20;
 
+/** Variantes de JID para achar msgs mesmo com cadastro inconsistente (@g.us / só dígitos). */
+export function groupContactIdVariants(groupWhatsAppId: string): string[] {
+  const s = String(groupWhatsAppId || '').trim();
+  if (!s) return [];
+  const variants = new Set<string>([s]);
+  const atGus = s.match(/([\w.-]+)@g\.us/i);
+  if (atGus?.[1]) {
+    variants.add(`${atGus[1]}@g.us`);
+    variants.add(atGus[1]);
+  } else {
+    const digits = s.replace(/\D/g, '');
+    if (digits) {
+      variants.add(digits);
+      variants.add(`${digits}@g.us`);
+    }
+  }
+  return [...variants];
+}
+
 async function resolveLojaIdByNome(userId: string, lojaNome: string): Promise<string | null> {
   const lojas = await prisma.rhLoja.findMany({
     where: { userId },
@@ -141,29 +160,49 @@ export async function processSettledIfoodClusters(opts?: {
     if (clustersBudget <= 0) break;
     result.groupsScanned += 1;
 
-    const messages = await prisma.whatsAppMessage.findMany({
-      where: {
-        userId: group.userId,
-        sessionSlot: group.sessionSlot,
-        contactId: group.groupWhatsAppId,
-        direction: 'OUT',
-        complaintProcessedAt: null,
-        timestamp: {
-          gte: opts?.periodStart ?? continuousLookbackStart(),
-          ...(opts?.periodEnd ? { lte: opts.periodEnd } : {}),
-        },
+    const messageSelect = {
+      id: true,
+      direction: true,
+      messageType: true,
+      textContent: true,
+      sentByAgent: true,
+      timestamp: true,
+    } as const;
+
+    const baseWhere = {
+      userId: group.userId,
+      contactId: { in: groupContactIdVariants(group.groupWhatsAppId) },
+      // Atendentes podem postar de outro aparelho no mesmo grupo (IN para a sessão
+      // monitorada). Grupos de feedback são dedicados a reclamações — processa ambos.
+      direction: { in: ['OUT', 'IN'] as ('OUT' | 'IN')[] },
+      complaintProcessedAt: null,
+      timestamp: {
+        gte: opts?.periodStart ?? continuousLookbackStart(),
+        ...(opts?.periodEnd ? { lte: opts.periodEnd } : {}),
       },
-      select: {
-        id: true,
-        direction: true,
-        messageType: true,
-        textContent: true,
-        sentByAgent: true,
-        timestamp: true,
-      },
+    };
+
+    let messages = await prisma.whatsAppMessage.findMany({
+      where: { ...baseWhere, sessionSlot: group.sessionSlot },
+      select: messageSelect,
       orderBy: { timestamp: 'asc' },
       take: 500,
     });
+
+    // Cadastro com slot errado: ainda assim tenta achar msgs do JID do grupo.
+    if (messages.length === 0) {
+      messages = await prisma.whatsAppMessage.findMany({
+        where: baseWhere,
+        select: messageSelect,
+        orderBy: { timestamp: 'asc' },
+        take: 500,
+      });
+      if (messages.length > 0) {
+        console.warn(
+          `[complaints/ifood-cron] grupo ${group.groupWhatsAppId}: msgs achadas fora do slot ${group.sessionSlot}`,
+        );
+      }
+    }
 
     if (messages.length === 0) continue;
 
