@@ -3,6 +3,7 @@
  * Gera uma linha de ComplaintComparison por combinação loja×categoria.
  */
 
+import { ComplaintCategoria } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { monthPeriod, type MonthPeriod } from '@/lib/complaints/period';
 
@@ -136,17 +137,18 @@ export async function buildAndSaveComparison(params: {
             ((contagemMesAtual - contagemMesAnterior) / contagemMesAnterior) * 100 * 10,
           ) / 10;
 
+    const categoriaEnum = categoria as ComplaintCategoria;
+
     await prisma.complaintComparison.upsert({
       where: {
-        reviewRunId_lojaId_categoria: { reviewRunId, lojaId, categoria },
+        reviewRunId_lojaId_categoria: { reviewRunId, lojaId, categoria: categoriaEnum },
       },
       create: {
         reviewRunId,
         previousRunId: previousRun?.id ?? null,
         lojaId,
         lojaNome,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        categoria: categoria as any,
+        categoria: categoriaEnum,
         contagemMesAtual,
         contagemMesAnterior,
         variacaoAbsoluta,
