@@ -473,10 +473,16 @@ function ComplaintReviewCard({
 
           {c.lojaIdentificada === false && lojas.length > 0 && (
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">
-                <AlertCircle className="w-3 h-3" />
-                Loja não identificada
-              </span>
+              {isGrupo && (c.lojaGrupo || c.clientLabel) ? (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 text-sky-300 border border-sky-500/25">
+                  Grupo: {c.lojaGrupo || 'iFood'}
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">
+                  <AlertCircle className="w-3 h-3" />
+                  Loja não identificada
+                </span>
+              )}
               <select
                 value={c.lojaId ?? ''}
                 onChange={(e) => onUpdateLoja(c.id, e.target.value || null)}
@@ -489,6 +495,14 @@ function ComplaintReviewCard({
                   </option>
                 ))}
               </select>
+            </div>
+          )}
+          {c.lojaIdentificada !== false && c.lojaId && isGrupo && (
+            <div className="mt-1.5">
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 text-sky-300 border border-sky-500/25">
+                <Store className="w-3 h-3" />
+                {lojas.find((l) => l.id === c.lojaId)?.nome || c.lojaGrupo || 'Loja do grupo'}
+              </span>
             </div>
           )}
 

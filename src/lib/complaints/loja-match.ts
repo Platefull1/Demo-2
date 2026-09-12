@@ -215,3 +215,32 @@ export function resolveToOperationalLojaId(
   if (!key) return lojaId;
   return operationalLojas.find((l) => normalizeLojaKey(l.nome) === key)?.id ?? lojaId;
 }
+
+/**
+ * Extrai loja operacional a partir do nome do grupo iFood / lojaGrupo
+ * (ex.: "Ahu", "Feedback Ahú", "Pilarzinho ifood").
+ */
+export function resolveLojaFromGrupoNome(
+  lojaNome: string | null | undefined,
+  allRhLojas: LojaRef[],
+  operationalLojas?: LojaRef[],
+): LojaRef | null {
+  const nome = String(lojaNome || '').trim();
+  if (!nome || allRhLojas.length === 0) return null;
+
+  const ops =
+    operationalLojas && operationalLojas.length > 0
+      ? operationalLojas
+      : pickOperationalLojas({ rhLojas: allRhLojas, ifoodLojaNomes: [nome] });
+
+  const matched =
+    matchLojaFromText(nome, ops) ?? matchLojaFromText(nome, allRhLojas);
+  if (!matched) return null;
+
+  const opId = resolveToOperationalLojaId(matched.id, allRhLojas, ops);
+  if (opId) {
+    const op = ops.find((l) => l.id === opId);
+    if (op) return op;
+  }
+  return matched;
+}

@@ -13,6 +13,7 @@ import { resolveStackUserIdsForTenant } from '@/lib/whatsapp-sessions';
 import {
   mergeRidersByCanonicalLoja,
   pickOperationalLojas,
+  resolveLojaFromGrupoNome,
   resolveToOperationalLojaId,
 } from '@/lib/complaints/loja-match';
 
@@ -212,30 +213,40 @@ export async function GET(
           (g) => normalizeGroupContactId(g.groupWhatsAppId) === contactIdNorm,
         )
       : null;
+    const lojaGrupoNome = c.lojaGrupo || matchedGroup?.lojaNome || null;
     const contactName = isIfood
-      ? c.lojaGrupo || matchedGroup?.lojaNome || c.contactName
+      ? lojaGrupoNome || c.contactName
       : clientNameByContact.get(c.contactId) ?? null;
     const clientLabel = isIfood
-      ? `iFood — ${c.lojaGrupo || matchedGroup?.lojaNome || c.contactName || 'loja'}`
+      ? `iFood — ${lojaGrupoNome || c.contactName || 'loja'}`
       : formatClientHeading(contactName, c.contactId);
     const sessionLabel =
       sessionLabelBySlot.get(c.sessionSlot) || `Sessão ${c.sessionSlot}`;
     const origemLabel = isIfood
-      ? `iFood — ${c.lojaGrupo || matchedGroup?.lojaNome || 'loja'}`
+      ? `iFood — ${lojaGrupoNome || 'loja'}`
       : 'Cliente';
 
-    const lojaIdOp = resolveToOperationalLojaId(
+    let lojaIdOp = resolveToOperationalLojaId(
       c.lojaId,
       todasRhLojas,
       todasLojas,
     );
 
+    // Grupo iFood: o nome do grupo/lojaGrupo já é a loja — extrai direto.
+    if (!lojaIdOp && isIfood && lojaGrupoNome) {
+      lojaIdOp =
+        resolveLojaFromGrupoNome(lojaGrupoNome, todasRhLojas, todasLojas)?.id ?? null;
+    }
+
+    const lojaIdentificada = Boolean(lojaIdOp);
+
     return {
       ...c,
       // Normaliza origem na resposta para a UI separar canais mesmo com legado.
       origem: isIfood ? 'GRUPO_IFOOD' : c.origem || 'CLIENTE',
-      lojaGrupo: c.lojaGrupo || matchedGroup?.lojaNome || null,
+      lojaGrupo: lojaGrupoNome,
       lojaId: lojaIdOp,
+      lojaIdentificada,
       contactName,
       contactPhone: isIfood ? '' : formatContactPhone(c.contactId),
       clientLabel,
@@ -254,6 +265,28 @@ export async function GET(
         })),
     };
   });
+
+  // Backfill silencioso: persiste lojaId extraído do nome do grupo (legado).
+  const toBackfill = complaints.filter(
+    (c) =>
+      c.origem === 'GRUPO_IFOOD' &&
+      c.lojaId &&
+      run.complaints.some(
+        (raw) => raw.id === c.id && (!raw.lojaId || raw.lojaIdentificada === false),
+      ),
+  );
+  if (toBackfill.length > 0) {
+    await Promise.all(
+      toBackfill.map((c) =>
+        prisma.complaint
+          .update({
+            where: { id: c.id },
+            data: { lojaId: c.lojaId, lojaIdentificada: true },
+          })
+          .catch(() => null),
+      ),
+    );
+  }
 
   const confirmadasCount = complaints.filter((c) => c.confirmadoPorHumano).length;
 

@@ -22,6 +22,11 @@ import { pickClientContactName } from '@/lib/complaints/contact';
 import { buildAndSaveComparison } from '@/lib/complaints/compare';
 import { monthPeriodFromDate } from '@/lib/complaints/period';
 import { groupContactIdVariants } from '@/lib/complaints/process-ifood-cron';
+import {
+  matchLojaFromText,
+  pickOperationalLojas,
+  resolveLojaFromGrupoNome,
+} from '@/lib/complaints/loja-match';
 
 export const COMPLAINTS_BATCH_SIZE = 8;
 const STALE_LOCK_MS = 4 * 60 * 1000;
@@ -247,8 +252,16 @@ async function classifyIfoodGroupContact(params: {
         where: { userId: params.userId },
         select: { id: true, nome: true },
       });
-      const slug = group.lojaNome.toLowerCase().trim();
-      return lojas.find((l) => l.nome.toLowerCase().includes(slug) || slug.includes(l.nome.toLowerCase()))?.id ?? null;
+      const operational = pickOperationalLojas({
+        rhLojas: lojas,
+        ifoodLojaNomes: [group.lojaNome],
+      });
+      return (
+        resolveLojaFromGrupoNome(group.lojaNome, lojas, operational)?.id ??
+        matchLojaFromText(group.lojaNome, operational)?.id ??
+        matchLojaFromText(group.lojaNome, lojas)?.id ??
+        null
+      );
     })();
 
     await prisma.complaint.create({

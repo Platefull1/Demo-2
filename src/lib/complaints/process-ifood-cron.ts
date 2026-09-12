@@ -17,6 +17,11 @@ import {
   ensureEmAndamentoRun,
   markMessagesComplaintProcessed,
 } from '@/lib/complaints/continuous';
+import {
+  matchLojaFromText,
+  pickOperationalLojas,
+  resolveLojaFromGrupoNome,
+} from '@/lib/complaints/loja-match';
 
 // Re-export para callers antigos
 export {
@@ -51,12 +56,16 @@ async function resolveLojaIdByNome(userId: string, lojaNome: string): Promise<st
     where: { userId },
     select: { id: true, nome: true },
   });
-  const slug = lojaNome.toLowerCase().trim();
-  const found = lojas.find(
-    (l) =>
-      l.nome.toLowerCase().includes(slug) || slug.includes(l.nome.toLowerCase()),
+  const operational = pickOperationalLojas({
+    rhLojas: lojas,
+    ifoodLojaNomes: [lojaNome],
+  });
+  return (
+    resolveLojaFromGrupoNome(lojaNome, lojas, operational)?.id ??
+    matchLojaFromText(lojaNome, operational)?.id ??
+    matchLojaFromText(lojaNome, lojas)?.id ??
+    null
   );
-  return found?.id ?? null;
 }
 
 function continuousLookbackStart(): Date {
