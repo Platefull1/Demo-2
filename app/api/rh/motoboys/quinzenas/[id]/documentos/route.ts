@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { rhGetUser } from '@/lib/rh-auth';
 import { createClient } from '@supabase/supabase-js';
+import { isDocumentsComplete } from '@/lib/rider-quinzena-docs';
 
 export const dynamic = 'force-dynamic';
 
@@ -69,9 +70,14 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
   // Remove do banco
   await prisma.riderDocument.delete({ where: { id: docId } });
 
-  // Se a quinzena estava em documents_received, volta para pending_documents
-  // pois agora falta pelo menos um documento
-  if (period.status === 'documents_received' || period.status === 'approved') {
+  // Recalcula se a documentação ainda está completa (1ª = só boleto; 2ª = NF + boleto)
+  const remaining = await prisma.riderDocument.findMany({ where: { periodId } });
+  const stillComplete = isDocumentsComplete(period.periodStart, remaining);
+
+  if (
+    !stillComplete &&
+    (period.status === 'documents_received' || period.status === 'approved')
+  ) {
     await prisma.riderPaymentPeriod.update({
       where: { id: periodId },
       data: { status: 'pending_documents' },

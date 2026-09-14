@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getRiderSession } from '@/lib/rider-auth';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { sendPaymentDocumentsEmail } from '@/lib/rider-payment-email';
+import { isDocumentsComplete } from '@/lib/rider-quinzena-docs';
 
 const BUCKET = 'rider-documents';
 const SIGNED_URL_EXPIRY_SECONDS = 7 * 24 * 60 * 60; // 7 dias
@@ -125,22 +126,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
   });
 
-  // Verificar se ambos os docs foram enviados (re-leitura após o upsert para garantir consistência)
+  // Regras por quinzena:
+  // 1ª → boleto basta (NF opcional); 2ª → NF + boleto
   const allDocs = await prisma.riderDocument.findMany({ where: { periodId } });
-  const hasNf = allDocs.some((d) => d.documentType === 'nf');
-  const hasBoleto = allDocs.some((d) => d.documentType === 'boleto');
-  const bothPresent = hasNf && hasBoleto;
+  const docsComplete = isDocumentsComplete(period.periodStart, allDocs);
 
   // Re-lê o status atual da quinzena (pode ter mudado desde o início da requisição)
   const currentPeriod = await prisma.riderPaymentPeriod.findUnique({ where: { id: periodId } });
   const currentStatus = currentPeriod?.status ?? period.status;
 
-  // Notifica na 1ª vez (pending → received) e também se o motoboy reenviar NF/boleto em análise
+  // Notifica na 1ª vez (pending → received) e também se o motoboy reenviar docs em análise
   const shouldNotify =
-    bothPresent &&
+    docsComplete &&
     (currentStatus === 'pending_documents' || currentStatus === 'documents_received');
 
-  if (bothPresent && currentStatus === 'pending_documents') {
+  if (docsComplete && currentStatus === 'pending_documents') {
     await prisma.riderPaymentPeriod.update({
       where: { id: periodId },
       data: { status: 'documents_received' },

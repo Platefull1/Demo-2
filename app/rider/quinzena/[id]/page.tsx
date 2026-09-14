@@ -33,6 +33,14 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 type DocType = 'nf' | 'boleto';
 
+/** 1ª quinzena = dia 1–15; 2ª = dia 16+. Usa UTC porque periodStart vem de ISO date-only. */
+function isFirstQuinzena(periodStart: string): boolean {
+  if (/^\d{4}-\d{2}-\d{2}/.test(periodStart)) {
+    return Number(periodStart.slice(8, 10)) <= 15;
+  }
+  return new Date(periodStart).getUTCDate() <= 15;
+}
+
 export default function RiderQuinzenaPage() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
@@ -96,6 +104,7 @@ export default function RiderQuinzenaPage() {
   const nfDoc = period.documents.find(d => d.documentType === 'nf');
   const boletoDoc = period.documents.find(d => d.documentType === 'boleto');
   const canUpload = period.status !== 'paid';
+  const firstQuinzena = isFirstQuinzena(period.periodStart);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
@@ -177,20 +186,28 @@ export default function RiderQuinzenaPage() {
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Documentos</h2>
 
-          {(['nf', 'boleto'] as DocType[]).map((tipo) => {
+          {(firstQuinzena ? (['boleto', 'nf'] as DocType[]) : (['nf', 'boleto'] as DocType[])).map((tipo) => {
             const doc = tipo === 'nf' ? nfDoc : boletoDoc;
             const isUploading = uploading[tipo];
             const err = uploadError[tipo];
             const ref = tipo === 'nf' ? nfRef : boletoRef;
+            const nfOpcional = tipo === 'nf' && firstQuinzena;
 
             return (
-              <div key={tipo} className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5">
+              <div key={tipo} className={`bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5 ${nfOpcional && !doc ? 'opacity-60' : ''}`}>
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="font-medium text-white text-sm">
+                    <p className={`font-medium text-sm ${nfOpcional && !doc ? 'text-gray-400' : 'text-white'}`}>
                       {tipo === 'nf' ? 'Nota Fiscal de Serviço' : 'Boleto Bancário'}
+                      {nfOpcional && !doc && (
+                        <span className="ml-2 text-[10px] font-normal uppercase tracking-wider text-gray-500">Opcional</span>
+                      )}
                     </p>
-                    <p className="text-xs text-gray-500 mt-0.5">PDF, máximo 10MB</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {nfOpcional && !doc
+                        ? 'Na 1ª quinzena a NF é opcional — o pagamento usa o boleto'
+                        : 'PDF, máximo 10MB'}
+                    </p>
                   </div>
                   {doc ? (
                     <span className="text-xs font-medium px-2.5 py-1 rounded-full text-green-400 bg-green-500/10">
@@ -218,11 +235,18 @@ export default function RiderQuinzenaPage() {
                       onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(tipo, f); }} />
                     <button onClick={() => ref.current?.click()} disabled={isUploading}
                       className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                        doc ? 'bg-[#2a2a2e] text-gray-300 hover:bg-[#3a3a3e]' :
-                        'bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20'
+                        doc
+                          ? 'bg-[#2a2a2e] text-gray-300 hover:bg-[#3a3a3e]'
+                          : nfOpcional
+                            ? 'bg-[#151517] border border-[#2a2a2e] text-gray-500 hover:bg-[#1c1c1e] hover:text-gray-400'
+                            : 'bg-orange-500/10 border border-orange-500/30 text-orange-400 hover:bg-orange-500/20'
                       } disabled:opacity-50`}>
                       {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                      {doc ? 'Substituir arquivo' : `Enviar ${tipo === 'nf' ? 'Nota Fiscal' : 'Boleto'}`}
+                      {doc
+                        ? 'Substituir arquivo'
+                        : nfOpcional
+                          ? 'Enviar Nota Fiscal (opcional)'
+                          : `Enviar ${tipo === 'nf' ? 'Nota Fiscal' : 'Boleto'}`}
                     </button>
                   </>
                 )}
