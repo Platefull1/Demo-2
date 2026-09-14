@@ -72,7 +72,13 @@ export default function RiderQuinzenaPage() {
       const data = await res.json();
       if (!res.ok) { setUploadError(e => ({ ...e, [tipo]: data.error ?? 'Erro no upload' })); return; }
       fetchPeriod();
-    } finally { setUploading(u => ({ ...u, [tipo]: false })); }
+    } catch {
+      setUploadError(e => ({ ...e, [tipo]: 'Não foi possível enviar o arquivo. Salve o PDF na pasta Downloads do celular e tente novamente.' }));
+    } finally {
+      setUploading(u => ({ ...u, [tipo]: false }));
+      const ref = tipo === 'nf' ? nfRef : boletoRef;
+      if (ref.current) ref.current.value = '';
+    }
   };
 
   if (loading) return (
@@ -209,7 +215,7 @@ export default function RiderQuinzenaPage() {
                 {canUpload && (
                   <>
                     <input ref={ref} type="file" accept="application/pdf" className="hidden"
-                      onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(tipo, f); e.target.value = ''; }} />
+                      onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(tipo, f); }} />
                     <button onClick={() => ref.current?.click()} disabled={isUploading}
                       className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                         doc ? 'bg-[#2a2a2e] text-gray-300 hover:bg-[#3a3a3e]' :
