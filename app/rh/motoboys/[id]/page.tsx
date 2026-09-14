@@ -69,6 +69,8 @@ export default function MotoboiDetailPage() {
   const [docsSigned, setDocsSigned] = useState<Record<string, { id: string; documentType: string; signedUrl: string | null; status: string; fileName: string }[]>>({});
 
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
+  const [deletingDoc, setDeletingDoc] = useState<string | null>(null);
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<string | null>(null);
 
   const handleDownloadDoc = async (signedUrl: string, fileName: string, docId: string) => {
     setDownloadingDoc(docId);
@@ -85,6 +87,29 @@ export default function MotoboiDetailPage() {
       URL.revokeObjectURL(url);
     } finally {
       setDownloadingDoc(null);
+    }
+  };
+
+  const handleDeleteDoc = async (periodId: string, docId: string) => {
+    setDeletingDoc(docId);
+    try {
+      const res = await fetch(`/api/rh/motoboys/quinzenas/${periodId}/documentos?docId=${docId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? 'Erro ao excluir documento');
+        return;
+      }
+      // Atualiza lista local de docs e recarrega dados do rider
+      setDocsSigned(prev => ({
+        ...prev,
+        [periodId]: (prev[periodId] ?? []).filter(d => d.id !== docId),
+      }));
+      // Recarrega rider para atualizar status da quinzena
+      const r = await fetch(`/api/rh/motoboys/${id}`);
+      if (r.ok) setRider(await r.json());
+    } finally {
+      setDeletingDoc(null);
+      setConfirmDeleteDoc(null);
     }
   };
 
@@ -755,7 +780,7 @@ export default function MotoboiDetailPage() {
                                       <div className="space-y-2">
                                         <p className="text-xs text-gray-300 truncate">{doc.fileName}</p>
                                         <span className="text-xs font-medium text-green-400">Enviado</span>
-                                        <div className="flex gap-1.5">
+                                        <div className="flex gap-1.5 flex-wrap">
                                           {doc.signedUrl && (
                                             <>
                                               <a href={doc.signedUrl} target="_blank" rel="noopener noreferrer"
@@ -772,6 +797,30 @@ export default function MotoboiDetailPage() {
                                                 Baixar
                                               </button>
                                             </>
+                                          )}
+                                          {period.status !== 'paid' && (
+                                            confirmDeleteDoc === doc.id ? (
+                                              <div className="flex gap-1 items-center">
+                                                <button
+                                                  onClick={() => handleDeleteDoc(period.id, doc.id)}
+                                                  disabled={deletingDoc === doc.id}
+                                                  className="flex items-center gap-1 px-2 py-1 bg-red-500/20 border border-red-500/40 text-red-400 text-xs rounded-lg hover:bg-red-500/30 disabled:opacity-50">
+                                                  {deletingDoc === doc.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                                  Confirmar
+                                                </button>
+                                                <button
+                                                  onClick={() => setConfirmDeleteDoc(null)}
+                                                  className="px-2 py-1 bg-[#2a2a2e] text-gray-400 text-xs rounded-lg hover:text-white">
+                                                  Cancelar
+                                                </button>
+                                              </div>
+                                            ) : (
+                                              <button
+                                                onClick={() => setConfirmDeleteDoc(doc.id)}
+                                                className="flex items-center gap-1 px-2 py-1 bg-[#2a2a2e] text-red-400 text-xs rounded-lg hover:bg-red-500/10">
+                                                <Trash2 className="w-3 h-3" /> Excluir
+                                              </button>
+                                            )
                                           )}
                                         </div>
                                       </div>
