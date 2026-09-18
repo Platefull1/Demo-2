@@ -5,6 +5,10 @@ import { db } from '@/lib/db';
 import { requestCancellation } from '@/lib/ifood-api';
 import { resolveOrderAction } from '@/lib/ifood-order-action';
 
+function isAlreadyCancelled(message: string): boolean {
+  return /already cancelled|já cancelad|is cancelled|CANCELLED/i.test(message);
+}
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> },
@@ -14,10 +18,26 @@ export async function POST(
     const resolved = await resolveOrderAction(orderId);
     if (resolved.ok === false) return resolved.response;
 
-    const body = await req.json() as { cancellationCode?: string };
+    const body = (await req.json()) as { cancellationCode?: string };
     const code = body.cancellationCode ?? '501';
 
-    await requestCancellation(orderId, code);
+    try {
+      await requestCancellation(orderId, code);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (isAlreadyCancelled(message)) {
+        await db.ifoodOrder.update({
+          where: { orderId },
+          data: { status: 'CANCELLED' },
+        });
+        return NextResponse.json({
+          success: true,
+          status: 'CANCELLED',
+          alreadyCancelled: true,
+        });
+      }
+      throw err;
+    }
 
     await db.ifoodOrder.update({
       where: { orderId },

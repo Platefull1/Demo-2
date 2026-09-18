@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { db } from '@/lib/db';
 import { resolveOrderAction } from '@/lib/ifood-order-action';
 import { getCancellationReasons } from '@/lib/ifood-api';
 
@@ -25,6 +26,10 @@ function normalizeReasons(data: unknown): Array<{ cancelCodeId: string; descript
     .filter((r) => r.cancelCodeId);
 }
 
+function isAlreadyCancelled(message: string): boolean {
+  return /already cancelled|já cancelad|is cancelled|CANCELLED/i.test(message);
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ orderId: string }> },
@@ -34,8 +39,24 @@ export async function GET(
     const resolved = await resolveOrderAction(orderId);
     if (resolved.ok === false) return resolved.response;
 
-    const { data } = await getCancellationReasons(orderId);
-    return NextResponse.json({ reasons: normalizeReasons(data) });
+    try {
+      const { data } = await getCancellationReasons(orderId);
+      return NextResponse.json({ reasons: normalizeReasons(data) });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (isAlreadyCancelled(message)) {
+        await db.ifoodOrder.update({
+          where: { orderId },
+          data: { status: 'CANCELLED' },
+        });
+        return NextResponse.json({
+          reasons: [],
+          alreadyCancelled: true,
+          status: 'CANCELLED',
+        });
+      }
+      throw err;
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';
     console.error('[GET orders/cancellation-reasons]', message);

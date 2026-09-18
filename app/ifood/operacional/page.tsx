@@ -598,19 +598,15 @@ function CancelModal({
 }
 
 // ---------------------------------------------------------------------------
-// Conclude Modal — código de confirmação da entrega
+// Conclude Modal
 // ---------------------------------------------------------------------------
 function ConcludeModal({
   order,
-  code,
-  onCodeChange,
   loading,
   onConfirm,
   onClose,
 }: {
   order: IfoodOrder;
-  code: string;
-  onCodeChange: (code: string) => void;
   loading: boolean;
   onConfirm: () => void;
   onClose: () => void;
@@ -624,33 +620,10 @@ function ConcludeModal({
             Concluir Pedido #{order.displayId}
           </DialogTitle>
           <DialogDescription className="text-gray-400">
-            Informe o código de confirmação da entrega para o iFood marcar o pedido como concluído.
+            Em entrega própria o iFood conclui o pedido automaticamente após o
+            despacho. Confirme para mover para Concluídos neste painel.
           </DialogDescription>
         </DialogHeader>
-
-        <div className="space-y-3 py-1">
-          <label className="block text-sm text-gray-400" htmlFor="conclude-code">
-            Código de confirmação
-          </label>
-          <input
-            id="conclude-code"
-            type="text"
-            inputMode="numeric"
-            autoComplete="off"
-            value={code}
-            onChange={(e) => onCodeChange(e.target.value.replace(/\s/g, ''))}
-            placeholder="Ex.: 0613"
-            className="w-full rounded-lg border border-[#374151] bg-black/40 px-3 py-2.5 text-white text-lg tracking-widest font-semibold focus:outline-none focus:border-[#EA1D2C]"
-          />
-          {order.pickupCode && (
-            <p className="text-xs text-gray-500">
-              Código do pedido: <span className="text-gray-300 font-mono">{order.pickupCode}</span>
-            </p>
-          )}
-          <p className="text-xs text-gray-600">
-            Não use o localizer do 0800 — o iFood rejeita esse valor.
-          </p>
-        </div>
 
         <div className="flex justify-end gap-2 pt-2">
           <Button
@@ -662,7 +635,7 @@ function ConcludeModal({
             Voltar
           </Button>
           <Button
-            disabled={loading || !code.trim()}
+            disabled={loading}
             onClick={onConfirm}
             className="bg-[#EA1D2C] hover:bg-[#c9111f] text-white border-0"
           >
@@ -1049,7 +1022,6 @@ export default function IfoodOperacionalPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
 
   const [concludeOrder, setConcludeOrder] = useState<IfoodOrder | null>(null);
-  const [concludeCode, setConcludeCode] = useState('');
   const [concludeLoading, setConcludeLoading] = useState(false);
 
   const prevOrderIdsRef = useRef<Set<string>>(new Set());
@@ -1251,22 +1223,18 @@ export default function IfoodOperacionalPage() {
 
   function handleConclude(order: IfoodOrder) {
     setConcludeOrder(order);
-    setConcludeCode(order.pickupCode?.trim() || '');
   }
 
   async function handleConfirmConclude() {
-    if (!concludeOrder || !concludeCode.trim() || concludeLoading) return;
+    if (!concludeOrder || concludeLoading) return;
     const orderToConclude = concludeOrder;
     const previousStatus = orderToConclude.status;
-    const code = concludeCode.trim();
     setConcludeLoading(true);
     setLoaderOn(orderToConclude.orderId);
     optimistic(orderToConclude.orderId, 'CONCLUDED');
     try {
       const res = await fetch(`/api/ifood/orders/${orderToConclude.orderId}/conclude`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code }),
       });
       if (!res.ok) {
         const err = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -1291,11 +1259,26 @@ export default function IfoodOperacionalPage() {
     setCancelReasonsLoading(true);
     try {
       const res = await fetch(`/api/ifood/orders/${order.orderId}/cancellation-reasons`);
-      const data = (await res.json()) as { reasons?: CancellationReason[] };
+      const data = (await res.json()) as {
+        reasons?: CancellationReason[];
+        alreadyCancelled?: boolean;
+        error?: string;
+      };
+
+      if (data.alreadyCancelled || (!res.ok && /already cancelled|já cancelad/i.test(data.error ?? ''))) {
+        optimistic(order.orderId, 'CANCELLED');
+        setCancelOrder(null);
+        addToast(`Pedido #${order.displayId} já estava cancelado no iFood.`, 'success');
+        return;
+      }
+
+      if (!res.ok) throw new Error(data.error ?? 'Erro ao carregar motivos');
+
       const list = data.reasons ?? [];
       setCancelReasons(list);
       if (list.length > 0) setSelectedCancelCode(list[0].cancelCodeId);
     } catch {
+      setCancelOrder(null);
       addToast('❌ Erro ao carregar motivos de cancelamento', 'error');
     } finally {
       setCancelReasonsLoading(false);
@@ -1589,8 +1572,6 @@ export default function IfoodOperacionalPage() {
       {concludeOrder && (
         <ConcludeModal
           order={concludeOrder}
-          code={concludeCode}
-          onCodeChange={setConcludeCode}
           loading={concludeLoading}
           onConfirm={handleConfirmConclude}
           onClose={() => setConcludeOrder(null)}
