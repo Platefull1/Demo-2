@@ -108,13 +108,22 @@ export async function readyToPickup(orderId: string) {
   return ifoodFetch(`/order/v1.0/orders/${orderId}/readyToPickup`, { method: 'POST', body: {} });
 }
 
+/** Confirma entrega/retirada; o iFood marca o pedido como CONCLUDED. */
+export async function verifyDeliveryCode(orderId: string, code: string) {
+  return ifoodFetch<{ valid?: boolean }>(
+    `/order/v1.0/orders/${orderId}/verifyDeliveryCode`,
+    { method: 'POST', body: { code } },
+  );
+}
+
 export async function requestCancellation(
   orderId: string,
   cancellationCode: string,
 ) {
+  // A API aceita `cancellationCode` (legado) e/ou `reason` (docs atuais) com o código válido.
   return ifoodFetch(`/order/v1.0/orders/${orderId}/requestCancellation`, {
     method: 'POST',
-    body: { cancellationCode },
+    body: { cancellationCode, reason: cancellationCode },
   });
 }
 
@@ -157,6 +166,7 @@ export interface IfoodOrderPayload {
   delivery?: {
     mode?: string;
     deliveredBy?: string;
+    pickupCode?: string;
     deliveryDateTime?: string;
     deliveryAddress?: {
       streetName?: string;
@@ -170,6 +180,7 @@ export interface IfoodOrderPayload {
       reference?: string;
     };
   };
+  pickupCode?: string;
   items: Array<{
     name: string;
     quantity: number;

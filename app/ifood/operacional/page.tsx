@@ -272,6 +272,7 @@ function OrderCard({
   onStartPrep,
   onDispatch,
   onReadyToPickup,
+  onConclude,
   onCancel,
   actionLoading,
 }: {
@@ -281,6 +282,7 @@ function OrderCard({
   onStartPrep: (o: IfoodOrder) => void;
   onDispatch: (o: IfoodOrder) => void;
   onReadyToPickup: (o: IfoodOrder) => void;
+  onConclude: (o: IfoodOrder) => void;
   onCancel: (o: IfoodOrder) => void;
   actionLoading: Record<string, boolean>;
 }) {
@@ -288,10 +290,16 @@ function OrderCard({
   const isPlaced = order.status === 'PLACED';
   const isConfirmed = order.status === 'CONFIRMED';
   const isPreparing = order.status === 'PREPARING';
+  const isDispatched = order.status === 'DISPATCHED';
+  const isReadyToPickup = order.status === 'READY_TO_PICKUP';
   const isConcluded = order.status === 'CONCLUDED';
   const isCancelled = order.status === 'CANCELLED';
   const isDispute = order.status === 'DISPUTE';
-  const canCancelOrder = isPlaced || isConfirmed || isPreparing;
+  const canConclude = isDispatched || isReadyToPickup;
+  const canCancelOrder =
+    isPlaced || isConfirmed || isPreparing || isDispatched || isReadyToPickup;
+  const hasActions =
+    isPlaced || isConfirmed || isPreparing || canConclude || canCancelOrder;
   const isScheduled = order.orderTiming === 'SCHEDULED';
   const loading = actionLoading[order.orderId];
   const primaryPayment = order.payments?.methods?.[0];
@@ -413,7 +421,7 @@ function OrderCard({
         )}
 
         {/* Ações */}
-        {canCancelOrder && (
+        {hasActions && (
           <div onClick={(e) => e.stopPropagation()} className="space-y-1.5 pt-0.5">
             {isPlaced && (
               <Button
@@ -467,14 +475,29 @@ function OrderCard({
               </Button>
             )}
 
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => onCancel(order)}
-              className="w-full text-[11px] text-gray-500 hover:text-gray-300 py-1 transition-colors disabled:opacity-50"
-            >
-              Cancelar pedido
-            </button>
+            {canConclude && (
+              <Button
+                size="sm"
+                disabled={loading}
+                onClick={() => onConclude(order)}
+                className="w-full bg-[#EA1D2C] hover:bg-[#c9111f] text-white text-xs h-8 border-0"
+              >
+                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : (
+                  <><CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />Concluir pedido</>
+                )}
+              </Button>
+            )}
+
+            {canCancelOrder && (
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => onCancel(order)}
+                className="w-full text-[11px] text-gray-500 hover:text-gray-300 py-1 transition-colors disabled:opacity-50"
+              >
+                Cancelar pedido
+              </button>
+            )}
           </div>
         )}
       </CardContent>
@@ -996,9 +1019,10 @@ export default function IfoodOperacionalPage() {
       const todayStart = new Date();
       todayStart.setHours(0, 0, 0, 0);
 
-      const [res, resCancelled] = await Promise.all([
+      const [res, resCancelled, resConcluded] = await Promise.all([
         fetch(`/api/ifood/orders?merchantId=${selectedMerchant}`),
         fetch(`/api/ifood/orders?merchantId=${selectedMerchant}&status=CANCELLED`),
+        fetch(`/api/ifood/orders?merchantId=${selectedMerchant}&status=CONCLUDED`),
       ]);
 
       if (!res.ok) throw new Error('Erro ao buscar pedidos');
@@ -1006,7 +1030,7 @@ export default function IfoodOperacionalPage() {
       const data = (await res.json()) as { orders: IfoodOrder[] };
       const active = data.orders ?? [];
 
-      // Cancelamentos de hoje (filtro client-side)
+      // Cancelamentos e concluídos de hoje (filtro client-side)
       const cancelledData = resCancelled.ok
         ? ((await resCancelled.json()) as { orders: IfoodOrder[] }).orders ?? []
         : [];
@@ -1014,8 +1038,15 @@ export default function IfoodOperacionalPage() {
         (o) => new Date(o.createdAt) >= todayStart,
       );
 
-      // Mescla: pedidos ativos (inclui DISPUTE) + cancelados de hoje
-      const incoming = [...active, ...todayCancelled];
+      const concludedData = resConcluded.ok
+        ? ((await resConcluded.json()) as { orders: IfoodOrder[] }).orders ?? []
+        : [];
+      const todayConcluded = concludedData.filter(
+        (o) => new Date(o.createdAt) >= todayStart,
+      );
+
+      // Mescla: ativos (inclui DISPUTE) + cancelados/concluídos de hoje
+      const incoming = [...active, ...todayCancelled, ...todayConcluded];
 
       // Detectar novos pedidos PLACED para alertar
       const incomingIds = new Set(incoming.map((o) => o.orderId));
@@ -1128,6 +1159,26 @@ export default function IfoodOperacionalPage() {
     } catch {
       optimistic(order.orderId, 'PREPARING');
       addToast(`❌ Erro ao atualizar pedido #${order.displayId}`, 'error');
+    } finally {
+      setLoaderOff(order.orderId);
+    }
+  }
+
+  async function handleConclude(order: IfoodOrder) {
+    const previousStatus = order.status;
+    setLoaderOn(order.orderId);
+    optimistic(order.orderId, 'CONCLUDED');
+    try {
+      const res = await fetch(`/api/ifood/orders/${order.orderId}/conclude`, { method: 'POST' });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(err?.error ?? 'Erro ao concluir');
+      }
+      addToast(`✅ Pedido #${order.displayId} concluído!`, 'success');
+    } catch (err) {
+      optimistic(order.orderId, previousStatus);
+      const msg = err instanceof Error ? err.message : `Erro ao concluir pedido #${order.displayId}`;
+      addToast(`❌ ${msg}`, 'error');
     } finally {
       setLoaderOff(order.orderId);
     }
@@ -1368,6 +1419,7 @@ export default function IfoodOperacionalPage() {
                               onStartPrep={handleStartPrep}
                               onDispatch={handleDispatch}
                               onReadyToPickup={handleReadyToPickup}
+                              onConclude={handleConclude}
                               onCancel={handleCancel}
                               actionLoading={actionLoading}
                             />
@@ -1393,6 +1445,7 @@ export default function IfoodOperacionalPage() {
                                   onStartPrep={handleStartPrep}
                                   onDispatch={handleDispatch}
                                   onReadyToPickup={handleReadyToPickup}
+                                  onConclude={handleConclude}
                                   onCancel={handleCancel}
                                   actionLoading={actionLoading}
                                 />
