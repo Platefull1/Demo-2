@@ -71,18 +71,19 @@ export async function POST(
     let lastError = 'Código de confirmação inválido.';
     for (const code of candidates) {
       const result = await tryVerify(orderId, code);
-      if (result.ok) {
-        await db.ifoodOrder.update({
-          where: { orderId },
-          data: { status: 'CONCLUDED' },
-        });
-        return NextResponse.json({ success: true, status: 'CONCLUDED', codeUsed: code });
+      if (result.ok === false) {
+        lastError = result.message;
+        // Erro inesperado (não é código inválido) e só havia um candidato → aborta.
+        if (!/invalid|InvalidParameter|400/i.test(result.message) && candidates.length === 1) {
+          return NextResponse.json({ error: result.message }, { status: 502 });
+        }
+        continue;
       }
-      lastError = result.message;
-      // Se o código foi aceito pela API mas inválido, tenta o próximo candidato.
-      if (!/invalid|InvalidParameter|400/i.test(result.message) && candidates.length === 1) {
-        return NextResponse.json({ error: result.message }, { status: 502 });
-      }
+      await db.ifoodOrder.update({
+        where: { orderId },
+        data: { status: 'CONCLUDED' },
+      });
+      return NextResponse.json({ success: true, status: 'CONCLUDED', codeUsed: code });
     }
 
     return NextResponse.json(
