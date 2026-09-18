@@ -598,6 +598,87 @@ function CancelModal({
 }
 
 // ---------------------------------------------------------------------------
+// Conclude Modal — código de confirmação da entrega
+// ---------------------------------------------------------------------------
+function ConcludeModal({
+  order,
+  code,
+  onCodeChange,
+  loading,
+  onConfirm,
+  onClose,
+}: {
+  order: IfoodOrder;
+  code: string;
+  onCodeChange: (code: string) => void;
+  loading: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="bg-[#141415] border-[#374151] text-white max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle2 className="h-5 w-5 text-[#EA1D2C]" />
+            Concluir Pedido #{order.displayId}
+          </DialogTitle>
+          <DialogDescription className="text-gray-400">
+            Informe o código de confirmação da entrega para o iFood marcar o pedido como concluído.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-3 py-1">
+          <label className="block text-sm text-gray-400" htmlFor="conclude-code">
+            Código de confirmação
+          </label>
+          <input
+            id="conclude-code"
+            type="text"
+            inputMode="numeric"
+            autoComplete="off"
+            value={code}
+            onChange={(e) => onCodeChange(e.target.value.replace(/\s/g, ''))}
+            placeholder="Ex.: 0613"
+            className="w-full rounded-lg border border-[#374151] bg-black/40 px-3 py-2.5 text-white text-lg tracking-widest font-semibold focus:outline-none focus:border-[#EA1D2C]"
+          />
+          {order.pickupCode && (
+            <p className="text-xs text-gray-500">
+              Código do pedido: <span className="text-gray-300 font-mono">{order.pickupCode}</span>
+            </p>
+          )}
+          <p className="text-xs text-gray-600">
+            Não use o localizer do 0800 — o iFood rejeita esse valor.
+          </p>
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+            className="border-[#374151] text-white hover:bg-[#374151]"
+          >
+            Voltar
+          </Button>
+          <Button
+            disabled={loading || !code.trim()}
+            onClick={onConfirm}
+            className="bg-[#EA1D2C] hover:bg-[#c9111f] text-white border-0"
+          >
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <><CheckCircle2 className="h-4 w-4 mr-1.5" />Concluir</>
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Order Detail Modal — somente leitura
 // ---------------------------------------------------------------------------
 function OrderDetailModal({
@@ -967,6 +1048,10 @@ export default function IfoodOperacionalPage() {
   const [selectedCancelCode, setSelectedCancelCode] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
 
+  const [concludeOrder, setConcludeOrder] = useState<IfoodOrder | null>(null);
+  const [concludeCode, setConcludeCode] = useState('');
+  const [concludeLoading, setConcludeLoading] = useState(false);
+
   const prevOrderIdsRef = useRef<Set<string>>(new Set());
 
   // -----------------------------------------------------------------------
@@ -1164,23 +1249,38 @@ export default function IfoodOperacionalPage() {
     }
   }
 
-  async function handleConclude(order: IfoodOrder) {
-    const previousStatus = order.status;
-    setLoaderOn(order.orderId);
-    optimistic(order.orderId, 'CONCLUDED');
+  function handleConclude(order: IfoodOrder) {
+    setConcludeOrder(order);
+    setConcludeCode(order.pickupCode?.trim() || '');
+  }
+
+  async function handleConfirmConclude() {
+    if (!concludeOrder || !concludeCode.trim() || concludeLoading) return;
+    const orderToConclude = concludeOrder;
+    const previousStatus = orderToConclude.status;
+    const code = concludeCode.trim();
+    setConcludeLoading(true);
+    setLoaderOn(orderToConclude.orderId);
+    optimistic(orderToConclude.orderId, 'CONCLUDED');
     try {
-      const res = await fetch(`/api/ifood/orders/${order.orderId}/conclude`, { method: 'POST' });
+      const res = await fetch(`/api/ifood/orders/${orderToConclude.orderId}/conclude`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
       if (!res.ok) {
         const err = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(err?.error ?? 'Erro ao concluir');
       }
-      addToast(`✅ Pedido #${order.displayId} concluído!`, 'success');
+      addToast(`✅ Pedido #${orderToConclude.displayId} concluído!`, 'success');
+      setConcludeOrder(null);
     } catch (err) {
-      optimistic(order.orderId, previousStatus);
-      const msg = err instanceof Error ? err.message : `Erro ao concluir pedido #${order.displayId}`;
+      optimistic(orderToConclude.orderId, previousStatus);
+      const msg = err instanceof Error ? err.message : `Erro ao concluir pedido #${orderToConclude.displayId}`;
       addToast(`❌ ${msg}`, 'error');
     } finally {
-      setLoaderOff(order.orderId);
+      setConcludeLoading(false);
+      setLoaderOff(orderToConclude.orderId);
     }
   }
 
@@ -1482,6 +1582,18 @@ export default function IfoodOperacionalPage() {
           onSelectCode={setSelectedCancelCode}
           onConfirm={handleConfirmCancel}
           onClose={() => setCancelOrder(null)}
+        />
+      )}
+
+      {/* Modal de conclusão */}
+      {concludeOrder && (
+        <ConcludeModal
+          order={concludeOrder}
+          code={concludeCode}
+          onCodeChange={setConcludeCode}
+          loading={concludeLoading}
+          onConfirm={handleConfirmConclude}
+          onClose={() => setConcludeOrder(null)}
         />
       )}
     </div>

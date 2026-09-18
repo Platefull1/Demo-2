@@ -5,14 +5,27 @@ import { db } from '@/lib/db';
 import { getOrderDetails, verifyDeliveryCode } from '@/lib/ifood-api';
 import { resolveOrderAction } from '@/lib/ifood-order-action';
 
+const SANDBOX_FALLBACK_CODES = ['9999'];
+
+async function tryVerify(orderId: string, code: string): Promise<{ ok: true } | { ok: false; message: string }> {
+  try {
+    const { data } = await verifyDeliveryCode(orderId, code);
+    if (data.valid === false) {
+      return { ok: false, message: 'Código de confirmação inválido.' };
+    }
+    return { ok: true };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Erro ao validar código';
+    return { ok: false, message };
+  }
+}
+
 /**
- * Conclui o pedido no iFood via POST /orders/{id}/verifyDeliveryCode
- * (não existe endpoint /conclude — a validação do código dispara CONCLUDED).
+ * Conclui o pedido no iFood via POST /orders/{id}/verifyDeliveryCode.
  *
- * Código usado (nesta ordem):
- * 1. body.code (override manual)
- * 2. customer.phone.localizer (entrega própria)
- * 3. delivery.pickupCode / pickupCode (retirada)
+ * Importante: o localizer do 0800 NÃO é o código de confirmação — a API
+ * responde "Confirmation code is invalid". Use delivery.pickupCode ou o
+ * código informado pelo cliente/entregador.
  */
 export async function POST(
   req: NextRequest,
@@ -31,40 +44,56 @@ export async function POST(
       // body opcional
     }
 
-    let code = bodyCode;
-    if (!code) {
-      const { data: details } = await getOrderDetails(orderId);
-      code =
-        details.customer?.phone?.localizer?.trim() ||
-        details.delivery?.pickupCode?.trim() ||
-        details.pickupCode?.trim() ||
-        undefined;
-    }
+    const dbOrder = await db.ifoodOrder.findUnique({ where: { orderId } });
+    const { data: details } = await getOrderDetails(orderId);
+    const pickupCode =
+      details.delivery?.pickupCode?.trim() ||
+      details.pickupCode?.trim() ||
+      undefined;
 
-    if (!code) {
+    // Candidatos: código do formulário → pickupCode (nunca localizer).
+    const candidates = [
+      bodyCode,
+      pickupCode,
+      ...(dbOrder?.isTest ? SANDBOX_FALLBACK_CODES : []),
+    ].filter((c, i, arr): c is string => Boolean(c) && arr.indexOf(c) === i);
+
+    if (candidates.length === 0) {
       return NextResponse.json(
         {
           error:
-            'Código de confirmação não encontrado. Informe o localizer (entrega própria) ou o código de retirada.',
+            'Informe o código de confirmação da entrega (código de 4 dígitos do pedido).',
         },
         { status: 400 },
       );
     }
 
-    const { data } = await verifyDeliveryCode(orderId, code);
-    if (data.valid === false) {
-      return NextResponse.json(
-        { error: 'Código de confirmação inválido.' },
-        { status: 400 },
-      );
+    let lastError = 'Código de confirmação inválido.';
+    for (const code of candidates) {
+      const result = await tryVerify(orderId, code);
+      if (result.ok) {
+        await db.ifoodOrder.update({
+          where: { orderId },
+          data: { status: 'CONCLUDED' },
+        });
+        return NextResponse.json({ success: true, status: 'CONCLUDED', codeUsed: code });
+      }
+      lastError = result.message;
+      // Se o código foi aceito pela API mas inválido, tenta o próximo candidato.
+      if (!/invalid|InvalidParameter|400/i.test(result.message) && candidates.length === 1) {
+        return NextResponse.json({ error: result.message }, { status: 502 });
+      }
     }
 
-    await db.ifoodOrder.update({
-      where: { orderId },
-      data: { status: 'CONCLUDED' },
-    });
-
-    return NextResponse.json({ success: true, status: 'CONCLUDED' });
+    return NextResponse.json(
+      {
+        error:
+          'Código de confirmação inválido. Use o código de entrega do pedido (não o localizer 0800).',
+        detail: lastError,
+        hint: { pickupCode: pickupCode ?? null },
+      },
+      { status: 400 },
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erro interno';
     console.error('[POST ifood conclude]', message);
