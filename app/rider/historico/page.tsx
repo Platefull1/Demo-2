@@ -23,7 +23,6 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 const fmtMoney = (cents: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('pt-BR');
 
 export default function RiderHistoricoPage() {
   const router = useRouter();
@@ -91,7 +90,7 @@ export default function RiderHistoricoPage() {
                   <div>
                     <p className="text-sm font-semibold text-white">{period.periodLabel}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {fmtDate(period.periodStart)} – {fmtDate(period.periodEnd)} · {period.deliveryCount} entregas
+                      {period.deliveryCount} entregas
                     </p>
                   </div>
                   <div className="text-right space-y-1">

@@ -22,7 +22,6 @@ function netCents(p: Period) {
 
 const fmtMoney = (cents: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('pt-BR');
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   pending_documents: { label: 'Aguardando seus documentos', color: 'text-amber-400' },
@@ -132,7 +131,7 @@ export default function RiderQuinzenaPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-gray-500 text-xs mb-0.5">Período</p>
-              <p className="text-white">{fmtDate(period.periodStart)} – {fmtDate(period.periodEnd)}</p>
+              <p className="text-white">{period.periodLabel}</p>
             </div>
             <div>
               <p className="text-gray-500 text-xs mb-0.5">Entregas realizadas</p>

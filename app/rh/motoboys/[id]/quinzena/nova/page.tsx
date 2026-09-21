@@ -183,9 +183,6 @@ export default function NovaQuinzenaPage() {
                     }`}
                   >
                     {q === 1 ? '1ª Quinzena' : '2ª Quinzena'}
-                    <span className={`block text-xs mt-0.5 font-normal ${quinzena === q ? 'text-black/70' : 'text-gray-600'}`}>
-                      {q === 1 ? `01 – 15 ${MESES[mes - 1].slice(0, 3)}` : `16 – ${new Date(ano, mes, 0).getDate()} ${MESES[mes - 1].slice(0, 3)}`}
-                    </span>
                   </button>
                 ))}
               </div>

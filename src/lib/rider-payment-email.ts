@@ -16,7 +16,7 @@ export async function sendPaymentDocumentsEmail(params: {
   nfUrl: string | null;
   boletoUrl: string | null;
 }): Promise<void> {
-  const { to, riderName, lojaNome, periodLabel, periodStart, periodEnd, amountCents, riderId, nfUrl, boletoUrl } = params;
+  const { to, riderName, lojaNome, periodLabel, amountCents, riderId, nfUrl, boletoUrl } = params;
 
   if (!process.env.RESEND_API_KEY) {
     console.warn('[rider-payment-email] RESEND_API_KEY não configurado — e-mail não enviado');
@@ -27,9 +27,6 @@ export async function sendPaymentDocumentsEmail(params: {
 
   const formatBRL = (cents: number) =>
     (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -97,7 +94,6 @@ export async function sendPaymentDocumentsEmail(params: {
                       <td style="padding:14px 0;border-bottom:1px solid #e5e7eb;">
                         <p style="margin:0;font-size:11px;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:0.6px;">Quinzena</p>
                         <p style="margin:4px 0 0;font-size:15px;color:#374151;">${periodLabel}</p>
-                        <p style="margin:2px 0 0;font-size:13px;color:#9ca3af;">${formatDate(periodStart)} → ${formatDate(periodEnd)}</p>
                       </td>
                     </tr>
                     <tr>

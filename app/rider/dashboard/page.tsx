@@ -25,7 +25,6 @@ const STATUS_CONFIG = {
 
 const fmtMoney = (cents: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(cents / 100);
-const fmtDate = (s: string) => new Date(s).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
 
 export default function RiderDashboard() {
   const router = useRouter();
@@ -107,7 +106,7 @@ export default function RiderDashboard() {
             </div>
             <p className="text-white font-medium">{pendente.periodLabel}</p>
             <p className="text-sm text-gray-400 mt-1">
-              {fmtDate(pendente.periodStart)} – {fmtDate(pendente.periodEnd)} · {pendente.deliveryCount} entregas · {fmtMoney(netCents(pendente))}
+              {pendente.deliveryCount} entregas · {fmtMoney(netCents(pendente))}
             </p>
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm font-semibold text-amber-400">Enviar NF e boleto</span>

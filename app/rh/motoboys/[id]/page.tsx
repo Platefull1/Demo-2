@@ -379,20 +379,6 @@ export default function MotoboiDetailPage() {
               onChange={e => setEditPeriodForm(f => ({ ...f, periodLabel: e.target.value }))}
               className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-colors" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-gray-400 mb-1.5 block">Início</label>
-              <input type="date" value={editPeriodForm.periodStart}
-                onChange={e => setEditPeriodForm(f => ({ ...f, periodStart: e.target.value }))}
-                className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-colors" />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 mb-1.5 block">Fim</label>
-              <input type="date" value={editPeriodForm.periodEnd}
-                onChange={e => setEditPeriodForm(f => ({ ...f, periodEnd: e.target.value }))}
-                className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50 transition-colors" />
-            </div>
-          </div>
           <div>
             <label className="text-xs text-gray-400 mb-1.5 block">Qtd. entregas</label>
             <input type="number" min="0" value={editPeriodForm.deliveryCount || ''}
@@ -711,7 +697,6 @@ export default function MotoboiDetailPage() {
                         </div>
                         <div className="text-sm">
                           <span className="font-semibold text-white">{period.periodLabel}</span>
-                          <span className="text-gray-500 ml-2 text-xs">{fmtDate(period.periodStart)} – {fmtDate(period.periodEnd)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
