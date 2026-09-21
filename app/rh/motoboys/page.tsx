@@ -62,7 +62,7 @@ const DOC_STATUS_CONFIG: Record<DocStatus, { label: string; className: string; i
     icon: <AlertCircle className="w-3 h-3" />,
   },
   partial: {
-    label: '1/2 docs enviados',
+    label: 'Docs incompletos',
     className: 'text-amber-400 bg-amber-500/10',
     icon: <FileText className="w-3 h-3" />,
   },
@@ -480,7 +480,7 @@ function MotoboyListContent() {
             className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none">
             <option value="">Todos os docs</option>
             <option value="pending">Docs pendentes</option>
-            <option value="partial">1/2 docs enviados</option>
+            <option value="partial">Docs incompletos</option>
             <option value="received">Docs enviados</option>
             <option value="none">Sem quinzena ativa</option>
           </select>

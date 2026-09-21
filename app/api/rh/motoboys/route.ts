@@ -4,6 +4,7 @@ import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
 import { generateInviteToken } from '@/lib/rider-auth';
 import { buildInviteLink, sendInviteEmail } from '@/lib/rider-invite-email';
+import { computeRiderDocStatus } from '@/lib/rider-quinzena-docs';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +41,8 @@ export async function GET(req: NextRequest) {
     include: {
       loja: { select: { nome: true } },
       paymentPeriods: {
-        orderBy: { createdAt: 'desc' },
-        take: 1,
+        orderBy: { periodStart: 'desc' },
+        take: 3,
         include: { documents: { select: { documentType: true, status: true } } },
       },
     },
@@ -49,17 +50,16 @@ export async function GET(req: NextRequest) {
   });
 
   const result = riders.map(({ paymentPeriods, ...r }) => {
-    const activePeriod = paymentPeriods[0] ?? null;
-    let docStatus: 'none' | 'pending' | 'partial' | 'received' = 'none';
-    if (activePeriod) {
-      const docs = activePeriod.documents;
-      const hasNf = docs.some((d) => d.documentType === 'nf');
-      const hasBoleto = docs.some((d) => d.documentType === 'boleto');
-      if (hasNf && hasBoleto) docStatus = 'received';
-      else if (hasNf || hasBoleto) docStatus = 'partial';
-      else docStatus = 'pending';
-    }
-    return { ...r, docStatus, activePeriodId: activePeriod?.id ?? null };
+    const latest = paymentPeriods[0] ?? null;
+    // Etiqueta: só quinzena civil atual (antigas ficam sem badge)
+    const currentForBadge =
+      paymentPeriods.find((p) => computeRiderDocStatus(p) !== 'none') ?? null;
+    const docStatus = computeRiderDocStatus(currentForBadge);
+    return {
+      ...r,
+      docStatus,
+      activePeriodId: currentForBadge?.id ?? latest?.id ?? null,
+    };
   });
 
   return NextResponse.json(result);
