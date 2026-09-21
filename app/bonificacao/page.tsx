@@ -25,6 +25,7 @@ import {
   History,
   Lock,
   DollarSign,
+  Trash2,
 } from 'lucide-react';
 import { NumericInput } from '@/components/ui/numeric-input';
 
@@ -136,6 +137,7 @@ function BonificacaoContent() {
   const [abaView, setAbaView] = useState<'atual' | 'historico'>('atual');
   const [historico, setHistorico] = useState<Trimestre[]>([]);
   const [loadingHistorico, setLoadingHistorico] = useState(false);
+  const [deletingHistoricoId, setDeletingHistoricoId] = useState<string | null>(null);
 
   // edição inline de nome de métrica
   const [editandoMetrica, setEditandoMetrica] = useState<string | null>(null);
@@ -199,6 +201,32 @@ function BonificacaoContent() {
   useEffect(() => {
     if (abaView === 'historico' && lojaAtiva) loadHistoricoData();
   }, [abaView, lojaAtiva, loadHistoricoData]);
+
+  async function apagarHistorico(t: Trimestre) {
+    const label = `${TRIMESTRES_LABEL[t.trimestre]} ${t.ano}`;
+    const tipo = t.tipoAvaliacao?.nome ?? 'este plano';
+    if (!confirm(`Apagar ${label} (${tipo}) do histórico?\n\nEsta ação não pode ser desfeita.`)) return;
+
+    setDeletingHistoricoId(t.id);
+    try {
+      const res = await fetch(`/api/bonificacao/${t.id}`, { method: 'DELETE' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || 'Não foi possível apagar.');
+        return;
+      }
+      setHistorico((prev) => prev.filter((x) => x.id !== t.id));
+      // Se o plano apagado era o que está aberto em "Plano atual", recarrega
+      if (trimestre?.id === t.id) {
+        setTrimestre(null);
+        void loadTrimestre();
+      }
+    } catch {
+      alert('Falha de rede ao apagar.');
+    } finally {
+      setDeletingHistoricoId(null);
+    }
+  }
 
   function planoDaLojaTipo(lista: Trimestre[], lojaId: string, tipoId: string) {
     const loja = lojas.find(l => l.id === lojaId);
@@ -621,17 +649,34 @@ function BonificacaoContent() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-center">
-                            <button
-                              onClick={() => {
-                                setAnoAtivo(t.ano);
-                                setTrimestreAtivo(t.trimestre);
-                                setTipoSelecionadoId(t.tipoAvaliacaoId);
-                                setAbaView('atual');
-                              }}
-                              className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2"
-                            >
-                              Ver detalhes
-                            </button>
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setAnoAtivo(t.ano);
+                                  setTrimestreAtivo(t.trimestre);
+                                  setTipoSelecionadoId(t.tipoAvaliacaoId);
+                                  setAbaView('atual');
+                                }}
+                                className="text-xs text-amber-400 hover:text-amber-300 underline underline-offset-2"
+                              >
+                                Ver detalhes
+                              </button>
+                              <button
+                                type="button"
+                                disabled={deletingHistoricoId === t.id}
+                                onClick={() => void apagarHistorico(t)}
+                                title="Apagar do histórico"
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-red-300/90 border border-red-500/20 hover:bg-red-500/10 disabled:opacity-50"
+                              >
+                                {deletingHistoricoId === t.id ? (
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                )}
+                                Apagar
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
