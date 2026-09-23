@@ -321,20 +321,18 @@ function BonificacaoContent() {
     });
   }
 
-  // ── toggle de pontuação mensal ────────────────────────────────────────────
-  function togglePontos(metricaId: string, mes: number) {
+  // ── pontuação mensal: 1 clique = Feito; 2 cliques = Não feito ─────────────
+  function setPontosMes(metricaId: string, mes: number, feito: boolean) {
     if (trimestre?.dados.fechado) return;
     const max = trimestre?.dados.metricas.find(m => m.id === metricaId)?.maxPontos ?? 40;
     const key = mesKey(mes, anoDoMes(mes));
-    const current = trimestre?.dados.metricas.find(m => m.id === metricaId)?.pontos[key];
-    const feito = typeof current === 'number' && current === max;
     updateTrimestre(prev => ({
       ...prev,
       dados: {
         ...prev.dados,
         metricas: prev.dados.metricas.map(m =>
           m.id === metricaId
-            ? { ...m, pontos: { ...m.pontos, [key]: feito ? 0 : max } }
+            ? { ...m, pontos: { ...m.pontos, [key]: feito ? max : 0 } }
             : m,
         ),
       },
@@ -918,15 +916,21 @@ function BonificacaoContent() {
                               return (
                                 <td key={mes} className="px-2 py-2.5 text-center">
                                   <button
-                                    onClick={() => togglePontos(m.id, mes)}
+                                    type="button"
+                                    onClick={() => setPontosMes(m.id, mes, true)}
+                                    onDoubleClick={(e) => {
+                                      e.preventDefault();
+                                      setPontosMes(m.id, mes, false);
+                                    }}
                                     disabled={isFechado}
+                                    title="1 clique = Feito · 2 cliques = Não feito"
                                     className={`w-full px-2 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:cursor-not-allowed ${
                                       feito
                                         ? 'bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30'
                                         : 'bg-[#1a1a1e] text-gray-500 border border-[#2a2a2e] hover:border-gray-500 hover:text-gray-300'
                                     }`}
                                   >
-                                    {feito ? '✓ Feito' : '✗'}
+                                    {feito ? '✓ Feito' : '✗ Não feito'}
                                   </button>
                                 </td>
                               );
@@ -1029,7 +1033,7 @@ function BonificacaoContent() {
                       />
                       {(trimestre.dados.descontoReais?.valor ?? 0) > 0 && (
                         <p className="text-xs text-orange-400/80">
-                          Será deduzido {brl(trimestre.dados.descontoReais!.valor)} do bônus final
+                          Será deduzido {brl(trimestre.dados.descontoReais!.valor)} do bônus dos gerentes (funcionários não são afetados)
                         </p>
                       )}
                     </div>
@@ -1099,19 +1103,16 @@ function BonificacaoContent() {
                               </div>
                               <div className="bg-[#0a0a0a] rounded-xl p-3 text-center">
                                 <p className="text-xs text-gray-500 mb-1">Funcionários</p>
-                                <p className={`text-lg font-bold text-green-400 ${descontoReaisValor() > 0 ? 'line-through opacity-50' : ''}`}>
+                                <p className="text-lg font-bold text-green-400">
                                   {brl(faixa.valorFuncionario)}
                                 </p>
-                                {descontoReaisValor() > 0 && (
-                                  <p className="text-base font-bold text-green-400">{brl(Math.max(0, faixa.valorFuncionario - descontoReaisValor()))}</p>
-                                )}
                               </div>
                             </>
                           )}
                         </div>
                         {descontoReaisValor() > 0 && (
                           <p className="text-xs text-orange-400 mt-3 text-center">
-                            Desconto de {brl(descontoReaisValor())} aplicado
+                            Desconto de {brl(descontoReaisValor())} aplicado apenas aos gerentes
                             {trimestre.dados.descontoReais?.observacao && ` — ${trimestre.dados.descontoReais.observacao}`}
                           </p>
                         )}
