@@ -208,7 +208,6 @@ export default function RhDashboard() {
   const [alertasResumo, setAlertasResumo] = useState<AlertasResumo | null>(null);
   const [comparativoResumo, setComparativoResumo] = useState<ComparativoResumo | null>(null);
   const [ocorrenciasMes, setOcorrenciasMes] = useState<number | null>(null);
-  const [custoTotal, setCustoTotal] = useState<number | null>(null);
   const [transferenciasMes, setTransferenciasMes] = useState<number | null>(null);
   const [aniversarios, setAniversarios] = useState<AniversariosResumo | null>(null);
 
@@ -234,7 +233,6 @@ export default function RhDashboard() {
           custoMensal = lojaSelecionada
             ? (custosData.lojas?.find((l: { lojaId: string; totalCustoReal: number }) => l.lojaId === lojaSelecionada.id)?.totalCustoReal ?? 0)
             : (custosData.rede?.totalCustoReal ?? 0);
-          setCustoTotal(custoMensal > 0 ? custoMensal : null);
         }
 
         setStats({ total, custoMensal, escala6x1, escala5x2 });
@@ -335,70 +333,47 @@ export default function RhDashboard() {
                 <div className="text-2xl font-bold text-white">{stats?.total ?? 0}</div>
                 <div className="text-sm text-gray-400 mt-0.5">Total de Funcionários</div>
               </div>
-              <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5">
-                <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center mb-3">
-                  <DollarSign className="w-5 h-5 text-green-400" />
+              <Link
+                href="/rh/custos"
+                className="group bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5 hover:border-green-500/40 hover:bg-[#1e2420] transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-9 h-9 rounded-lg bg-green-500/10 flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-green-400" />
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-green-400 transition-colors" />
                 </div>
                 <div className="text-2xl font-bold text-white">{fmt(stats?.custoMensal ?? 0)}</div>
                 <div className="text-sm text-gray-400 mt-0.5">Custo Mensal</div>
-              </div>
-              <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5">
-                <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center mb-3">
-                  <Clock className="w-5 h-5 text-amber-400" />
+              </Link>
+              <Link
+                href="/rh/escala"
+                className="group bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5 hover:border-amber-500/40 hover:bg-[#24201e] transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center">
+                    <Clock className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-amber-400 transition-colors" />
                 </div>
                 <div className="text-2xl font-bold text-white">{stats?.escala6x1 ?? 0}</div>
                 <div className="text-sm text-gray-400 mt-0.5">Escala 6x1</div>
-              </div>
-              <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5">
-                <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center mb-3">
-                  <TrendingUp className="w-5 h-5 text-purple-400" />
+              </Link>
+              <Link
+                href="/rh/escala"
+                className="group bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5 hover:border-purple-500/40 hover:bg-[#1e1b24] transition-all"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-9 h-9 rounded-lg bg-purple-500/10 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-purple-400 transition-colors" />
                 </div>
                 <div className="text-2xl font-bold text-white">{stats?.escala5x2 ?? 0}</div>
                 <div className="text-sm text-gray-400 mt-0.5">Escala 5x2</div>
-              </div>
+              </Link>
             </>
           )}
-        </div>
-
-        {/* ── Destaque: Custo da Rede + Escala Semanal ─────────────────────── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Link
-            href="/rh/custos"
-            className="group bg-[#1c1c1e] border border-green-500/30 rounded-2xl p-6 hover:border-green-500/60 hover:bg-[#1e2420] transition-all"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-11 h-11 rounded-xl bg-green-500/15 flex items-center justify-center">
-                <DollarSign className="w-6 h-6 text-green-400" />
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-green-400 transition-colors mt-0.5" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Custos da Rede</h3>
-            <p className="text-2xl font-bold text-green-400 mt-1">
-              {custoTotal !== null ? fmt(custoTotal) : '—'}
-            </p>
-            <p className="text-sm text-gray-400 mt-1">custo total / mês</p>
-          </Link>
-
-          <Link
-            href="/rh/escala"
-            className="group bg-[#1c1c1e] border border-purple-500/30 rounded-2xl p-6 hover:border-purple-500/60 hover:bg-[#1e1b24] transition-all"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="w-11 h-11 rounded-xl bg-purple-500/15 flex items-center justify-center">
-                <Calendar className="w-6 h-6 text-purple-400" />
-              </div>
-              <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-purple-400 transition-colors mt-0.5" />
-            </div>
-            <h3 className="text-lg font-bold text-white">Escala Semanal</h3>
-            <div className="flex items-baseline gap-2 mt-1">
-              <span className="text-2xl font-bold text-purple-400">{stats?.escala6x1 ?? 0}</span>
-              <span className="text-sm text-gray-500">6x1</span>
-              <span className="text-gray-600 mx-1">·</span>
-              <span className="text-2xl font-bold text-amber-400">{stats?.escala5x2 ?? 0}</span>
-              <span className="text-sm text-gray-500">5x2</span>
-            </div>
-            <p className="text-sm text-gray-400 mt-1">distribuição por turno e loja</p>
-          </Link>
         </div>
 
         {/* ── Cards secundários ──────────────────────────────────────────────── */}
