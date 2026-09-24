@@ -64,7 +64,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     });
     await Promise.all(
       planos.map(async (plano) => {
-        const dados = (plano.dados ?? {}) as DadosBonificacaoSnapshot;
+        const dados = (plano.dados ?? {}) as unknown as DadosBonificacaoSnapshot;
         if (dados.fechado) return;
         const next = snapshotFromTipo(updated, dados);
         await prisma.bonificacaoTrimestre.update({
