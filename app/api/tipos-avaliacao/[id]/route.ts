@@ -3,6 +3,10 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getBonificacaoAuth } from '@/lib/bonificacao-auth';
+import {
+  snapshotFromTipo,
+  type DadosBonificacaoSnapshot,
+} from '@/lib/bonificacao-defaults';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -52,6 +56,24 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       where: { id },
       data,
     });
+
+    // Propaga métricas/descontos/faixas para planos trimestrais ainda abertos
+    // (a dash lê o snapshot do plano, não o tipo em tempo real)
+    const planos = await prisma.bonificacaoTrimestre.findMany({
+      where: { tipoAvaliacaoId: id, userId: ctx.userId },
+    });
+    await Promise.all(
+      planos.map(async (plano) => {
+        const dados = (plano.dados ?? {}) as DadosBonificacaoSnapshot;
+        if (dados.fechado) return;
+        const next = snapshotFromTipo(updated, dados);
+        await prisma.bonificacaoTrimestre.update({
+          where: { id: plano.id },
+          data: { dados: next as object },
+        });
+      }),
+    );
+
     return NextResponse.json(updated);
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code;

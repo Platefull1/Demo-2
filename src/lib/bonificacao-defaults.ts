@@ -167,11 +167,18 @@ export function snapshotFromTipo(
 
   const metricas = metricasRaw.map(m => {
     const prev = existingMetricas.find(e => e.id === m.id);
+    const pontos: Record<string, number | null> = { ...(prev?.pontos ?? {}) };
+    // Se maxPontos mudou, remapeia células "Feito" (valor = max antigo) para o novo max
+    if (prev && prev.maxPontos !== m.maxPontos) {
+      for (const [k, v] of Object.entries(pontos)) {
+        if (v === prev.maxPontos) pontos[k] = m.maxPontos;
+      }
+    }
     return {
       id: m.id,
       nome: m.nome,
       maxPontos: m.maxPontos,
-      pontos: prev?.pontos ?? {},
+      pontos,
     };
   });
 

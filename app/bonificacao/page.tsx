@@ -144,7 +144,6 @@ function BonificacaoContent() {
   const [editNome, setEditNome] = useState('');
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pontosClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadTipos = useCallback(async (lojaId: string) => {
     const res = await fetch(`/api/tipos-avaliacao?lojaId=${lojaId}`);
@@ -322,8 +321,8 @@ function BonificacaoContent() {
     });
   }
 
-  // ── pontuação mensal: pendente → 1 clique = Feito; 2 cliques = Não feito ─
-  function setPontosMes(metricaId: string, mes: number, feito: boolean) {
+  // ── pontuação mensal: Selecionar → Feito → Não feito → Selecionar ─────────
+  function handlePontosClick(metricaId: string, mes: number) {
     if (trimestre?.dados.fechado) return;
     const max = trimestre?.dados.metricas.find(m => m.id === metricaId)?.maxPontos ?? 40;
     const key = mesKey(mes, anoDoMes(mes));
@@ -331,32 +330,18 @@ function BonificacaoContent() {
       ...prev,
       dados: {
         ...prev.dados,
-        metricas: prev.dados.metricas.map(m =>
-          m.id === metricaId
-            ? { ...m, pontos: { ...m.pontos, [key]: feito ? max : 0 } }
-            : m,
-        ),
+        metricas: prev.dados.metricas.map(m => {
+          if (m.id !== metricaId) return m;
+          const atual = m.pontos[key];
+          // null/ausente → Feito; max → Não feito; demais → Selecionar
+          let next: number | null;
+          if (typeof atual !== 'number') next = max;
+          else if (atual === max) next = 0;
+          else next = null;
+          return { ...m, pontos: { ...m.pontos, [key]: next } };
+        }),
       },
     }));
-  }
-
-  function handlePontosClick(metricaId: string, mes: number) {
-    if (trimestre?.dados.fechado) return;
-    if (pontosClickTimerRef.current) clearTimeout(pontosClickTimerRef.current);
-    // atraso curto para não marcar Feito no 1º clique de um double-click
-    pontosClickTimerRef.current = setTimeout(() => {
-      setPontosMes(metricaId, mes, true);
-      pontosClickTimerRef.current = null;
-    }, 250);
-  }
-
-  function handlePontosDblClick(metricaId: string, mes: number) {
-    if (trimestre?.dados.fechado) return;
-    if (pontosClickTimerRef.current) {
-      clearTimeout(pontosClickTimerRef.current);
-      pontosClickTimerRef.current = null;
-    }
-    setPontosMes(metricaId, mes, false);
   }
 
   // ── toggle de desconto ────────────────────────────────────────────────────
@@ -940,12 +925,8 @@ function BonificacaoContent() {
                                   <button
                                     type="button"
                                     onClick={() => handlePontosClick(m.id, mes)}
-                                    onDoubleClick={(e) => {
-                                      e.preventDefault();
-                                      handlePontosDblClick(m.id, mes);
-                                    }}
                                     disabled={isFechado}
-                                    title="1 clique = Feito · 2 cliques = Não feito"
+                                    title="Clique: Selecionar → Feito → Não feito"
                                     className={`w-full px-2 py-1.5 rounded-lg text-xs font-semibold transition-all disabled:cursor-not-allowed inline-flex items-center justify-center gap-1 ${
                                       status === 'feito'
                                         ? 'bg-green-500/20 text-green-400 border border-green-500/40 hover:bg-green-500/30'
