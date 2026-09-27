@@ -570,14 +570,16 @@ function ComplaintReviewCard({
             </div>
           )}
 
-          <button
-            type="button"
-            onClick={() => onOpenConversation(runId, c.contactId)}
-            className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-300/90 hover:text-amber-200"
-          >
-            <MessagesSquare className="w-3.5 h-3.5" />
-            Ver conversa completa
-          </button>
+          {!isGrupo && (
+            <button
+              type="button"
+              onClick={() => onOpenConversation(runId, c.contactId)}
+              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-300/90 hover:text-amber-200"
+            >
+              <MessagesSquare className="w-3.5 h-3.5" />
+              Ver conversa completa
+            </button>
+          )}
         </div>
       </div>
     </li>
