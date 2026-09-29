@@ -1477,6 +1477,11 @@ model RhTeamMember {
   displayName  String?
   isActive     Boolean        @default(true)
   invitedBy    String         // Stack Auth id de quem convidou
+  /// Store slugs permitidos (ahu, pilarzinho, portao, uberaba). Vazio = todas.
+  /// Campo de sistema (Estoque/Bonificação no futuro); CMV Real já usa.
+  lojas        String[]       @default([])
+  /// Último preset aplicado (informativo): escritorio | gerente_loja. Não reaplicado em toggles.
+  perfil       String?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 

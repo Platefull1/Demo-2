@@ -6,7 +6,7 @@ import {
   ArrowLeft, Users, Plus, Settings2, UserX, UserCheck,
   Mail, Clock, RefreshCw, Shield, AlertTriangle,
 } from 'lucide-react';
-import { PERMISSION_LABELS } from '@/lib/rh-permissions';
+import { PERMISSION_LABELS, RH_PERFIL_LABELS, RH_STORE_LABELS } from '@/lib/rh-permissions';
 
 interface TeamMember {
   id: string;
@@ -17,7 +17,10 @@ interface TeamMember {
   acceptedAt: string | null;
   createdAt: string;
   permissions: string[];
+  lojas: string[];
+  perfil: string | null;
 }
+
 
 export default function UsuariosRhPage() {
   const router = useRouter();
@@ -135,6 +138,27 @@ export default function UsuariosRhPage() {
                           <p className="text-xs text-gray-400 flex items-center gap-1">
                             <Mail className="w-3 h-3" /> {member.email}
                           </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {member.perfil && member.perfil in RH_PERFIL_LABELS ? (
+                              <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded">
+                                {RH_PERFIL_LABELS[member.perfil as keyof typeof RH_PERFIL_LABELS]}
+                              </span>
+                            ) : null}
+                            {(member.lojas?.length ?? 0) === 0 ? (
+                              <span className="text-[10px] text-gray-500 bg-[#2a2a2e] px-1.5 py-0.5 rounded">
+                                Lojas: todas
+                              </span>
+                            ) : (
+                              member.lojas.map((slug) => (
+                                <span
+                                  key={slug}
+                                  className="text-[10px] text-sky-400 bg-sky-500/10 px-1.5 py-0.5 rounded"
+                                >
+                                  {RH_STORE_LABELS[slug as keyof typeof RH_STORE_LABELS] ?? slug}
+                                </span>
+                              ))
+                            )}
+                          </div>
                         </div>
                         <div className="flex-shrink-0 text-right">
                           {member.stackUserId ? (

@@ -2,7 +2,18 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Shield, CheckCircle, XCircle, Loader2, User, ToggleRight, ToggleLeft } from 'lucide-react';
+import {
+  ArrowLeft, Shield, CheckCircle, XCircle, Loader2, User, ToggleRight, ToggleLeft,
+} from 'lucide-react';
+import {
+  PERMISSION_LABELS,
+  RH_PERMISSION_PRESETS,
+  RH_STORE_SLUGS,
+  RH_STORE_LABELS,
+  RH_PERFIL_LABELS,
+  type RhMemberPerfil,
+  type RhStoreSlug,
+} from '@/lib/rh-permissions';
 
 interface PermissionItem {
   permission: string;
@@ -18,43 +29,40 @@ interface MemberData {
   memberId: string;
   email: string;
   displayName: string | null;
+  lojas: string[];
+  perfil: string | null;
   groups: PermissionGroup[];
 }
-
-const PERMISSION_LABELS: Record<string, string> = {
-  'employees.view':       'Visualizar funcionários',
-  'employees.create':     'Cadastrar funcionários',
-  'employees.edit':       'Editar funcionários',
-  'employees.deactivate': 'Inativar funcionários',
-  'riders.view':          'Visualizar motoboys',
-  'riders.create':        'Cadastrar motoboys',
-  'riders.edit':          'Editar motoboys',
-  'riders.deactivate':    'Inativar motoboys',
-  'riders.launch_period': 'Lançar quinzenas',
-  'riders.approve_docs':  'Aprovar/rejeitar documentos',
-  'rh.view_salary':       'Visualizar salários e valores',
-  'rh.edit_salary':       'Editar salários e valores',
-};
 
 export default function PermissoesPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const [data, setData] = useState<MemberData | null>(null);
   const [loading, setLoading] = useState(true);
-  // toggling: permission → 'loading' | 'ok' | 'error' | null
   const [toggling, setToggling] = useState<Record<string, 'loading' | 'ok' | 'error'>>({});
+  const [presetLoading, setPresetLoading] = useState(false);
+  const [lojasSaving, setLojasSaving] = useState(false);
+  const [gerenteLojas, setGerenteLojas] = useState<RhStoreSlug[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/rh/usuarios/${params.id}/permissoes`);
-      if (res.ok) setData(await res.json());
+      if (res.ok) {
+        const json = (await res.json()) as MemberData;
+        setData(json);
+        setGerenteLojas((json.lojas ?? []).filter((s): s is RhStoreSlug =>
+          (RH_STORE_SLUGS as readonly string[]).includes(s),
+        ));
+      }
     } finally {
       setLoading(false);
     }
   }, [params.id]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const allPermissions = data?.groups.flatMap((g) => g.permissions) ?? [];
   const allActive = allPermissions.length > 0 && allPermissions.every((p) => p.active);
@@ -78,37 +86,95 @@ export default function PermissoesPage() {
   };
 
   const toggle = async (permission: string, currentActive: boolean) => {
-    setToggling(t => ({ ...t, [permission]: 'loading' }));
+    setToggling((t) => ({ ...t, [permission]: 'loading' }));
     try {
       const res = await fetch(`/api/rh/usuarios/${params.id}/permissoes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ permission, active: !currentActive }),
       });
-
       const status = res.ok ? 'ok' : 'error';
-      setToggling(t => ({ ...t, [permission]: status }));
-
+      setToggling((t) => ({ ...t, [permission]: status }));
       if (res.ok) {
-        setData(prev => {
+        setData((prev) => {
           if (!prev) return prev;
           return {
             ...prev,
-            groups: prev.groups.map(g => ({
+            groups: prev.groups.map((g) => ({
               ...g,
-              permissions: g.permissions.map(p =>
-                p.permission === permission ? { ...p, active: !currentActive } : p
+              permissions: g.permissions.map((p) =>
+                p.permission === permission ? { ...p, active: !currentActive } : p,
               ),
             })),
           };
         });
       }
-
-      setTimeout(() => setToggling(t => { const n = { ...t }; delete n[permission]; return n; }), 1500);
+      setTimeout(() => {
+        setToggling((t) => {
+          const n = { ...t };
+          delete n[permission];
+          return n;
+        });
+      }, 1500);
     } catch {
-      setToggling(t => ({ ...t, [permission]: 'error' }));
-      setTimeout(() => setToggling(t => { const n = { ...t }; delete n[permission]; return n; }), 1500);
+      setToggling((t) => ({ ...t, [permission]: 'error' }));
     }
+  };
+
+  const applyPreset = async (preset: RhMemberPerfil) => {
+    if (preset === 'gerente_loja' && gerenteLojas.length === 0) {
+      alert('Selecione ao menos uma loja para o perfil Gerente.');
+      return;
+    }
+    setPresetLoading(true);
+    try {
+      const res = await fetch(`/api/rh/usuarios/${params.id}/permissoes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'apply_preset',
+          preset,
+          lojas: preset === 'gerente_loja' ? gerenteLojas : [],
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? 'Erro ao aplicar preset');
+        return;
+      }
+      await load();
+    } finally {
+      setPresetLoading(false);
+    }
+  };
+
+  const saveLojas = async (next: RhStoreSlug[]) => {
+    setGerenteLojas(next);
+    setLojasSaving(true);
+    try {
+      const res = await fetch(`/api/rh/usuarios/${params.id}/permissoes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_lojas', lojas: next }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setData((prev) => (prev ? { ...prev, lojas: json.lojas } : prev));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error ?? 'Erro ao salvar lojas');
+        await load();
+      }
+    } finally {
+      setLojasSaving(false);
+    }
+  };
+
+  const toggleLoja = (slug: RhStoreSlug) => {
+    const next = gerenteLojas.includes(slug)
+      ? gerenteLojas.filter((s) => s !== slug)
+      : [...gerenteLojas, slug];
+    saveLojas(next);
   };
 
   if (loading) {
@@ -127,13 +193,17 @@ export default function PermissoesPage() {
     );
   }
 
+  const perfilLabel =
+    data.perfil && data.perfil in RH_PERFIL_LABELS
+      ? RH_PERFIL_LABELS[data.perfil as RhMemberPerfil]
+      : null;
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white">
       <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-
-        {/* Header */}
         <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/rh/usuarios')}
+          <button
+            onClick={() => router.push('/rh/usuarios')}
             className="w-9 h-9 rounded-xl bg-[#1c1c1e] border border-[#2a2a2e] flex items-center justify-center hover:bg-[#2a2a2e] transition-colors"
           >
             <ArrowLeft className="w-4 h-4 text-gray-400" />
@@ -147,18 +217,85 @@ export default function PermissoesPage() {
           </div>
         </div>
 
-        {/* Usuário */}
         <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl px-4 py-3 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-[#2a2a2e] flex items-center justify-center flex-shrink-0">
             <User className="w-4 h-4 text-gray-400" />
           </div>
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-white">{data.displayName ?? '—'}</p>
             <p className="text-xs text-gray-500">{data.email}</p>
           </div>
+          {perfilLabel && (
+            <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full">
+              {perfilLabel}
+            </span>
+          )}
         </div>
 
-        {/* Ações rápidas */}
+        {/* Presets CMV Real */}
+        <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-[#2a2a2e]">
+            <h2 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+              Perfis CMV Real
+            </h2>
+            <p className="text-[11px] text-gray-500 mt-1">
+              Aplicar marca as permissões de uma vez; depois você pode ajustar os toggles.
+              O perfil fica só como referência (não é reaplicado ao mudar um toggle).
+            </p>
+          </div>
+          <div className="p-4 space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {RH_PERMISSION_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  disabled={presetLoading}
+                  onClick={() => applyPreset(p.id)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                    data.perfil === p.id
+                      ? 'bg-amber-500 text-black border-amber-500'
+                      : 'bg-[#252528] text-gray-300 border-[#2a2a2e] hover:border-amber-500/40'
+                  }`}
+                >
+                  {presetLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin inline" />
+                  ) : (
+                    p.label
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div>
+              <p className="text-xs text-gray-500 mb-2">
+                Lojas {lojasSaving && <Loader2 className="w-3 h-3 animate-spin inline ml-1" />}
+                <span className="text-gray-600"> (vazio = todas, exceto Gerente)</span>
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {RH_STORE_SLUGS.map((slug) => (
+                  <button
+                    key={slug}
+                    type="button"
+                    onClick={() => toggleLoja(slug)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                      gerenteLojas.includes(slug)
+                        ? 'bg-amber-500 text-black border-amber-500'
+                        : 'bg-[#252528] text-gray-400 border-[#2a2a2e] hover:border-amber-500/40'
+                    }`}
+                  >
+                    {RH_STORE_LABELS[slug]}
+                  </button>
+                ))}
+              </div>
+              {data.perfil === 'gerente_loja' && gerenteLojas.length === 0 && (
+                <p className="text-xs text-red-400 mt-2">
+                  Loja não configurada — o gerente ficará bloqueado no CMV Real.
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-3">
           <button
             onClick={() => bulkToggle(true)}
@@ -178,18 +315,22 @@ export default function PermissoesPage() {
           </button>
         </div>
 
-        {/* Grupos de permissão */}
-        {data.groups.map(group => (
+        {data.groups.map((group) => (
           <div key={group.label} className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-[#2a2a2e]">
-              <h2 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">{group.label}</h2>
+              <h2 className="text-xs font-semibold text-amber-400 uppercase tracking-wider">
+                {group.label}
+              </h2>
             </div>
             <div className="divide-y divide-[#2a2a2e]">
-              {group.permissions.map(item => {
+              {group.permissions.map((item) => {
                 const state = toggling[item.permission];
                 const isLoading = state === 'loading' || bulkLoading;
                 return (
-                  <div key={item.permission} className="px-4 py-3.5 flex items-center justify-between gap-4">
+                  <div
+                    key={item.permission}
+                    className="px-4 py-3.5 flex items-center justify-between gap-4"
+                  >
                     <p className={`text-sm ${item.active ? 'text-white' : 'text-gray-500'}`}>
                       {PERMISSION_LABELS[item.permission] ?? item.permission}
                     </p>
@@ -224,10 +365,9 @@ export default function PermissoesPage() {
           </div>
         ))}
 
-        {/* Nota */}
         <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-4 py-3 text-xs text-gray-500">
-          Por padrão, usuários convidados recebem <strong className="text-gray-400">acesso completo</strong>.
-          Use os toggles para revogar permissões individualmente. As alterações entram em vigor imediatamente.
+          Convite padrão: permissões RH sem <strong className="text-gray-400">cmv_real.*</strong>.
+          CMV Real só via perfil ou toggle. Alterações entram em vigor imediatamente.
         </div>
       </div>
     </div>

@@ -1,65 +1,33 @@
 /**
- * Tenancy do CMV Real / NF-e.
+ * Tenancy + acesso do CMV Real / NF-e.
  *
- * Decisão (2026-09-29): TODOS os dados do módulo pertencem ao DONO do grupo RH
- * (`tenantUserId`), não à conta individual da loja.
+ * Dados: sempre no DONO do grupo (`tenantUserId`).
+ * Acesso: permissões RH `cmv_real.*` + campo `lojas` do RhTeamMember.
+ * Dono (isAdmin): todas as permissões e todas as lojas.
+ * lojas=[] = todas — exceto perfil gerente_loja, que exige ao menos uma loja.
  *
- * Hoje: dono = platefull.app (`cmk5ykusf0001jz04iwmf8xa8`);
- * ahu / pilarzinho / estoquecalenzano = membros.
+ * WhatsApp: sessões na conta ahu; `findCmvRealWhatsAppBot` prefere o actor.
  *
- * - Sessão web: resolve via getRhContext (igual Estoque).
- * - ServiceApiKey (ex.: calenzano.ahu): resolve o tenant do dono a partir do
- *   userId da key — a key NÃO muda; só o destino da gravação.
- *
- * WhatsApp: sessões WPPConnect ficam na conta ahu. `findWhatsAppBotForTenant`
- * já inclui stackUserIds dos membros; preferimos o actor (API key / sessão)
- * quando ele tiver o slot, para não pegar outra conta do mesmo slot.
- *
- * Visibilidade por loja: RhTeamMember NÃO tem vínculo lojaId. Default suave
- * por e-mail (calenzano.ahu → ahu); senão filtro livre.
- *
- * Fase 4 (anotar): estoque final por loja deve ler EstoqueContagem de
- * QUALQUER conta do grupo (userIds), filtrando por lojaNome — não só do dono.
+ * Fase 4: EstoqueContagem de QUALQUER conta ativa do grupo, por lojaNome.
  */
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getRhContext } from '@/lib/rh-auth';
+import { getRhContext, type RhContext } from '@/lib/rh-auth';
 import { findWhatsAppBotForTenant } from '@/lib/whatsapp-sessions';
-import { SAIPOS_STORE_BY_SLUG } from '@/lib/nfe/stores';
+import { type RhMemberPerfil, type RhPermissionKey } from '@/lib/rh-permissions';
 
 export interface CmvRealTenant {
-  /** Dono do grupo — userId de todas as tabelas CMV Real / NF-e */
   tenantUserId: string;
-  /** Conta que autenticou (sessão ou ServiceApiKey) */
   actorUserId: string;
-  /** true = dono do time */
   isAdmin: boolean;
-  /** Membros (+ dono) para leituras cruzadas (ex.: contagens Fase 4) */
   userIds: string[];
-  /**
-   * Sugestão de loja para o ator (gerente). null = ver todas / escolher.
-   * Heurística por e-mail; sem vínculo formal membro→loja no RH.
-   */
-  defaultStoreSlug: string | null;
-  /** Aviso quando não há vínculo formal de loja */
-  lojaVinculo: 'email_heuristica' | 'admin_todas' | 'nenhum';
-}
-
-const EMAIL_STORE_HINTS: Array<{ re: RegExp; slug: string }> = [
-  { re: /\.ahu@/i, slug: 'ahu' },
-  { re: /ahu@/i, slug: 'ahu' },
-  { re: /pilarzinho/i, slug: 'pilarzinho' },
-  { re: /portao|portão/i, slug: 'portao' },
-  { re: /uberaba/i, slug: 'uberaba' },
-];
-
-export function inferStoreSlugFromEmail(email: string | null | undefined): string | null {
-  if (!email) return null;
-  for (const h of EMAIL_STORE_HINTS) {
-    if (h.re.test(email) && SAIPOS_STORE_BY_SLUG[h.slug]) return h.slug;
-  }
-  return null;
+  /** null = todas as lojas; string[] = só essas */
+  allowedStoreSlugs: string[] | null;
+  /** true = gerente sem loja configurada → bloquear módulo */
+  lojaNaoConfigurada: boolean;
+  perfil: RhMemberPerfil | null;
+  memberId: string | null;
 }
 
 async function memberUserIds(tenantUserId: string): Promise<string[]> {
@@ -77,15 +45,30 @@ async function memberUserIds(tenantUserId: string): Promise<string[]> {
   return [...new Set([tenantUserId, ...users.map((u) => u.id)])];
 }
 
-/**
- * Resolve tenant CMV Real a partir de um users.id (API key ou User já conhecido).
- */
+function parsePerfil(raw: string | null | undefined): RhMemberPerfil | null {
+  if (raw === 'escritorio' || raw === 'gerente_loja') return raw;
+  return null;
+}
+
+function storeScope(
+  isAdmin: boolean,
+  lojas: string[],
+  perfil: RhMemberPerfil | null,
+): { allowedStoreSlugs: string[] | null; lojaNaoConfigurada: boolean } {
+  if (isAdmin) return { allowedStoreSlugs: null, lojaNaoConfigurada: false };
+  if (perfil === 'gerente_loja' && lojas.length === 0) {
+    return { allowedStoreSlugs: [], lojaNaoConfigurada: true };
+  }
+  if (lojas.length === 0) return { allowedStoreSlugs: null, lojaNaoConfigurada: false };
+  return { allowedStoreSlugs: lojas, lojaNaoConfigurada: false };
+}
+
 export async function getCmvRealTenantFromUserId(
   actorUserId: string,
 ): Promise<CmvRealTenant | null> {
   const user = await prisma.user.findUnique({
     where: { id: actorUserId },
-    select: { id: true, stackUserId: true, email: true },
+    select: { id: true, stackUserId: true },
   });
   if (!user) return null;
 
@@ -96,70 +79,76 @@ export async function getCmvRealTenantFromUserId(
 
   let tenantUserId = user.id;
   let isAdmin = ownsTeam;
+  let memberId: string | null = null;
+  let lojas: string[] = [];
+  let perfil: RhMemberPerfil | null = null;
 
   if (!ownsTeam && user.stackUserId) {
     const membership = await prisma.rhTeamMember.findFirst({
       where: { stackUserId: user.stackUserId, isActive: true },
-      select: { tenantUserId: true },
+      select: { id: true, tenantUserId: true, lojas: true, perfil: true },
     });
     if (membership) {
       tenantUserId = membership.tenantUserId;
       isAdmin = false;
+      memberId = membership.id;
+      lojas = membership.lojas ?? [];
+      perfil = parsePerfil(membership.perfil);
     } else {
-      isAdmin = true; // conta solo
+      isAdmin = true;
     }
   }
 
-  const userIds = await memberUserIds(tenantUserId);
-  const defaultStoreSlug = isAdmin ? null : inferStoreSlugFromEmail(user.email);
-
+  const scope = storeScope(isAdmin, lojas, perfil);
   return {
     tenantUserId,
     actorUserId: user.id,
     isAdmin,
-    userIds,
-    defaultStoreSlug,
-    lojaVinculo: isAdmin
-      ? 'admin_todas'
-      : defaultStoreSlug
-        ? 'email_heuristica'
-        : 'nenhum',
+    userIds: await memberUserIds(tenantUserId),
+    ...scope,
+    perfil,
+    memberId,
   };
 }
 
-/** Alias pedido: sessão web → tenant dono do grupo. */
+export async function getCmvRealTenantFromSession(): Promise<CmvRealTenant | null> {
+  const ctx = await getRhContext();
+  if (!ctx) return null;
+  return buildTenantFromRhContext(ctx);
+}
+
 export async function getCmvRealTenant(): Promise<CmvRealTenant | null> {
   return getCmvRealTenantFromSession();
 }
 
-/** Sessão web — mesmo critério do Estoque/RH. */
-export async function getCmvRealTenantFromSession(): Promise<CmvRealTenant | null> {
-  const ctx = await getRhContext();
-  if (!ctx) return null;
-
+async function buildTenantFromRhContext(ctx: RhContext): Promise<CmvRealTenant> {
   const actor = await prisma.user.findFirst({
     where: { stackUserId: ctx.stackUserId },
-    select: { id: true, email: true },
+    select: { id: true },
   });
-  if (!actor) {
-    // fallback: tenant como actor
-    return getCmvRealTenantFromUserId(ctx.userId);
+
+  let lojas: string[] = [];
+  let perfil: RhMemberPerfil | null = null;
+  const memberId = ctx.memberId;
+
+  if (ctx.memberId) {
+    const member = await prisma.rhTeamMember.findUnique({
+      where: { id: ctx.memberId },
+      select: { lojas: true, perfil: true },
+    });
+    lojas = member?.lojas ?? [];
+    perfil = parsePerfil(member?.perfil);
   }
 
-  const userIds = await memberUserIds(ctx.userId);
-  const defaultStoreSlug = ctx.isAdmin ? null : inferStoreSlugFromEmail(actor.email);
-
+  const scope = storeScope(ctx.isAdmin, lojas, perfil);
   return {
     tenantUserId: ctx.userId,
-    actorUserId: actor.id,
+    actorUserId: actor?.id ?? ctx.userId,
     isAdmin: ctx.isAdmin,
-    userIds,
-    defaultStoreSlug,
-    lojaVinculo: ctx.isAdmin
-      ? 'admin_todas'
-      : defaultStoreSlug
-        ? 'email_heuristica'
-        : 'nenhum',
+    userIds: await memberUserIds(ctx.userId),
+    ...scope,
+    perfil,
+    memberId,
   };
 }
 
@@ -171,25 +160,106 @@ export async function requireCmvRealTenantFromSession(): Promise<
   return t;
 }
 
+export type CmvRealAccessOk = {
+  ctx: RhContext;
+  tenant: CmvRealTenant;
+  error: null;
+};
+
+export type CmvRealAccessErr = {
+  ctx: null;
+  tenant: null;
+  error: NextResponse;
+};
+
 /**
- * Filtro de loja para listagens CMV Real.
- * - Dono (isAdmin): null → sem filtro (todas as lojas).
- * - Membro com defaultStoreSlug: filtra por esse slug (pode sobrescrever com override).
- * - Membro sem vínculo: null → filtro livre (UI deve avisar lojaVinculo=nenhum).
+ * Autentica + checa permissão cmv_real.* + escopo de loja.
+ */
+export async function requireCmvRealAccess(
+  permission: RhPermissionKey | string,
+  storeSlug?: string | null,
+): Promise<CmvRealAccessOk | CmvRealAccessErr> {
+  const ctx = await getRhContext();
+  if (!ctx) {
+    return {
+      ctx: null,
+      tenant: null,
+      error: NextResponse.json(
+        {
+          error: 'Sessão expirada. Por favor, faça login novamente.',
+          code: 'UNAUTHENTICATED',
+        },
+        { status: 401 },
+      ),
+    };
+  }
+
+  if (!ctx.isAdmin && !ctx.hasPermission(permission)) {
+    return {
+      ctx: null,
+      tenant: null,
+      error: NextResponse.json(
+        { error: 'Sem permissão para esta ação', code: 'FORBIDDEN', permission },
+        { status: 403 },
+      ),
+    };
+  }
+
+  const tenant = await buildTenantFromRhContext(ctx);
+
+  if (tenant.lojaNaoConfigurada) {
+    return {
+      ctx: null,
+      tenant: null,
+      error: NextResponse.json(
+        {
+          error:
+            'Loja não configurada. Peça ao administrador para definir a loja deste usuário.',
+          code: 'LOJA_NAO_CONFIGURADA',
+        },
+        { status: 403 },
+      ),
+    };
+  }
+
+  if (storeSlug) {
+    if (
+      !tenant.isAdmin &&
+      tenant.allowedStoreSlugs !== null &&
+      !tenant.allowedStoreSlugs.includes(storeSlug)
+    ) {
+      return {
+        ctx: null,
+        tenant: null,
+        error: NextResponse.json(
+          { error: `Sem acesso à loja "${storeSlug}"`, code: 'LOJA_FORBIDDEN' },
+          { status: 403 },
+        ),
+      };
+    }
+  }
+
+  return { ctx, tenant, error: null };
+}
+
+/**
+ * Filtro para listagens: null = sem filtro (todas);
+ * string[] = where storeSlug in (...); [] = nada a mostrar.
  */
 export function resolveCmvRealStoreFilter(
   tenant: CmvRealTenant,
   overrideSlug?: string | null,
-): string | null {
-  if (overrideSlug) return overrideSlug;
-  if (tenant.isAdmin) return null;
-  return tenant.defaultStoreSlug;
+): string[] | null {
+  if (tenant.lojaNaoConfigurada) return [];
+  if (overrideSlug) {
+    if (tenant.isAdmin || tenant.allowedStoreSlugs === null) return [overrideSlug];
+    if (tenant.allowedStoreSlugs.includes(overrideSlug)) return [overrideSlug];
+    return [];
+  }
+  if (tenant.isAdmin || tenant.allowedStoreSlugs === null) return null;
+  return tenant.allowedStoreSlugs;
 }
 
-/**
- * Bot WhatsApp: prefere a conta do actor (API key ahu / sessão que tem WPP),
- * senão qualquer bot do tenant (membros incluídos).
- */
 export async function findCmvRealWhatsAppBot(
   tenant: CmvRealTenant,
   sessionSlot: number,

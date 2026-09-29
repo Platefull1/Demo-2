@@ -13,6 +13,7 @@ import { Logo } from '@/components/logo';
 import { AppProvider } from '@/contexts/app-context';
 import { useRouter } from 'next/navigation';
 import { useToolPermissions } from '@/hooks/useToolPermissions';
+import { useCmvRealAccess } from '@/hooks/useCmvRealAccess';
 import { SystemTool } from '@/types/admin';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -24,6 +25,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Usar Stack Auth real - redireciona para login se não autenticado
   const user = useUser({ or: 'redirect' });
   const { permissions, loading: permissionsLoading } = useToolPermissions();
+  const { canView: canViewCmvReal, loading: cmvRealLoading } = useCmvRealAccess();
   
   const router = useRouter();
 
@@ -196,13 +198,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                             </div>
                           )}
 
-                          {/* CMV */}
+                          {/* CMV (planilha antiga — tool) */}
                           {permissions[SystemTool.CMV] ? (
                             <Link 
                               href="/cmv" 
                               onClick={() => setIsSidebarOpen(false)}
                               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                                pathname?.startsWith('/cmv') 
+                                pathname === '/cmv' || pathname?.startsWith('/cmv/')
                                   ? 'bg-[#001F05] text-green-400' 
                                   : 'text-gray-300 hover:bg-[#374151] hover:text-white'
                               }`}
@@ -216,6 +218,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                               <span className="font-medium">CMV</span>
                             </div>
                           )}
+
+                          {/* CMV Real — permissão RH cmv_real.visualizar (não UserToolPermission) */}
+                          {!cmvRealLoading && canViewCmvReal ? (
+                            <Link
+                              href="/cmv-real/importar"
+                              onClick={() => setIsSidebarOpen(false)}
+                              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                                pathname?.startsWith('/cmv-real')
+                                  ? 'bg-[#001F05] text-green-400'
+                                  : 'text-gray-300 hover:bg-[#374151] hover:text-white'
+                              }`}
+                            >
+                              <BarChart2 className="h-5 w-5" />
+                              <span className="font-medium">CMV Real</span>
+                            </Link>
+                          ) : null}
 
                           {/* Estoque */}
                           {permissions[SystemTool.ESTOQUE] ? (

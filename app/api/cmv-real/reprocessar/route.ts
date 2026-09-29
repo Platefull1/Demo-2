@@ -1,24 +1,24 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { requireCmvRealTenantFromSession } from '@/lib/nfe/tenant';
+import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { reprocessarNotasEmRevisao } from '@/lib/nfe/reprocessar';
+import { P } from '@/lib/rh-permissions';
 
 /**
  * POST /api/cmv-real/reprocessar
- * Notas e catálogo no tenant dono.
+ * Exige cmv_real.config; notas no tenant dono.
  */
 export async function POST() {
-  const tenant = await requireCmvRealTenantFromSession();
-  if (tenant instanceof NextResponse) return tenant;
+  const { tenant, error } = await requireCmvRealAccess(P.CMV_REAL_CONFIG);
+  if (error) return error;
 
   try {
     const result = await reprocessarNotasEmRevisao(tenant.tenantUserId);
     return NextResponse.json({
       ok: true,
       ...result,
-      defaultStoreSlug: tenant.defaultStoreSlug,
-      lojaVinculo: tenant.lojaVinculo,
+      allowedStoreSlugs: tenant.allowedStoreSlugs,
     });
   } catch (err) {
     console.error('[cmv-real/reprocessar]', err);

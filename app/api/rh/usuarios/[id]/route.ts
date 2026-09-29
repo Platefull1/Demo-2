@@ -28,6 +28,8 @@ export async function GET(
     isActive: member.isActive,
     stackUserId: member.stackUserId,
     createdAt: member.createdAt,
+    lojas: member.lojas,
+    perfil: member.perfil,
     permissions: member.permissions.map((p) => p.permission),
   });
 }

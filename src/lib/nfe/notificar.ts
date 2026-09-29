@@ -49,8 +49,10 @@ export async function notificarProblemasIngest(params: {
       actorUserId: params.actorUserId,
       isAdmin: false,
       userIds: [params.tenantUserId],
-      defaultStoreSlug: null,
-      lojaVinculo: 'nenhum',
+      allowedStoreSlugs: null,
+      lojaNaoConfigurada: false,
+      perfil: null,
+      memberId: null,
     };
 
     const bot = await findCmvRealWhatsAppBot(tenant, config.sessionSlot);

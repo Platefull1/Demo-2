@@ -12,15 +12,16 @@ import {
   type CmvRealSecao,
   type CmvRealUnidade,
 } from '@/lib/nfe/importar-catalogo';
-import { requireCmvRealTenantFromSession } from '@/lib/nfe/tenant';
+import { requireCmvRealAccess } from '@/lib/nfe/tenant';
+import { P } from '@/lib/rh-permissions';
 
 /**
  * POST /api/cmv-real/importar-catalogo
- * Sempre no tenant dono (getCmvRealTenant).
+ * Exige cmv_real.config; grava no tenant dono.
  */
 export async function POST(req: NextRequest) {
-  const tenant = await requireCmvRealTenantFromSession();
-  if (tenant instanceof NextResponse) return tenant;
+  const { tenant, error } = await requireCmvRealAccess(P.CMV_REAL_CONFIG);
+  if (error) return error;
 
   const contentType = req.headers.get('content-type') || '';
 
@@ -51,8 +52,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({
         ok: true,
         tenantUserId: tenant.tenantUserId,
-        defaultStoreSlug: tenant.defaultStoreSlug,
-        lojaVinculo: tenant.lojaVinculo,
+        allowedStoreSlugs: tenant.allowedStoreSlugs,
         catalogoEstoqueSize: catalogo.itens.length,
         total: preview.length,
         casados: preview.filter((p) => p.status === 'casado').length,
