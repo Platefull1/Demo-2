@@ -1,8 +1,10 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, FileSpreadsheet, Loader2, RefreshCw, Upload } from 'lucide-react';
+
+type PreviewStatus = 'casado' | 'sugerido' | 'nao_encontrado';
 
 type PreviewItem = {
   linha: number;
@@ -10,18 +12,36 @@ type PreviewItem = {
   secao: string;
   unidade: string;
   ordem: number;
-  status: 'casado' | 'sugerido' | 'nao_encontrado';
+  status: PreviewStatus;
   estoqueInsumoId?: string;
   estoqueNome?: string;
   score?: number;
   kgPorUnidade?: number | null;
 };
 
+/** Decisão do usuário por linha */
+type RowAction = 'vincular' | 'criar' | 'ignorar' | 'escolher' | null;
+
+type RowState = PreviewItem & {
+  action: RowAction;
+  /** id escolhido (vincular / escolher outro) */
+  chosenId?: string;
+  chosenNome?: string;
+};
+
+type CatalogOption = { id: string; nome: string };
+
+function defaultAction(status: PreviewStatus): RowAction {
+  if (status === 'casado') return 'vincular';
+  if (status === 'nao_encontrado') return 'ignorar';
+  return null; // sugerido: exige escolha
+}
+
 export default function CmvRealImportarPage() {
   const [file, setFile] = useState<File | null>(null);
   const [abas, setAbas] = useState<string[]>([]);
   const [aba, setAba] = useState('');
-  const [preview, setPreview] = useState<PreviewItem[] | null>(null);
+  const [rows, setRows] = useState<RowState[] | null>(null);
   const [resumo, setResumo] = useState<{
     total: number;
     casados: number;
@@ -29,14 +49,55 @@ export default function CmvRealImportarPage() {
     naoEncontrados: number;
     catalogoEstoqueSize?: number | null;
   } | null>(null);
+  const [catalogo, setCatalogo] = useState<CatalogOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [reproc, setReproc] = useState<string | null>(null);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch('/api/estoque/insumos', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.insumos ?? [];
+        setCatalogo(
+          list.map((i: { id: string; nome: string }) => ({ id: i.id, nome: i.nome })),
+        );
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
+  const counts = useMemo(() => {
+    if (!rows) return { vincular: 0, criar: 0, ignorar: 0, pendentes: 0 };
+    let vincular = 0;
+    let criar = 0;
+    let ignorar = 0;
+    let pendentes = 0;
+    for (const r of rows) {
+      if (r.action === null) {
+        pendentes++;
+      } else if (r.action === 'escolher' && !r.chosenId) {
+        pendentes++;
+      } else if (r.action === 'criar') {
+        criar++;
+      } else if (r.action === 'ignorar') {
+        ignorar++;
+      } else if (r.action === 'vincular' || r.action === 'escolher') {
+        vincular++;
+      }
+    }
+    return { vincular, criar, ignorar, pendentes };
+  }, [rows]);
+
+  const canConfirm = !!rows && counts.pendentes === 0 && !loading;
+
   const listarAbas = useCallback(async (f: File) => {
     setLoading(true);
     setMsg(null);
-    setPreview(null);
+    setRows(null);
     try {
       const fd = new FormData();
       fd.set('action', 'listar-abas');
@@ -65,7 +126,16 @@ export default function CmvRealImportarPage() {
       const res = await fetch('/api/cmv-real/importar-catalogo', { method: 'POST', body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha no preview');
-      setPreview(data.itens);
+      const itens = (data.itens as PreviewItem[]).map((p) => {
+        const action = defaultAction(p.status);
+        return {
+          ...p,
+          action,
+          chosenId: action === 'vincular' ? p.estoqueInsumoId : undefined,
+          chosenNome: action === 'vincular' ? p.estoqueNome : undefined,
+        } satisfies RowState;
+      });
+      setRows(itens);
       setResumo({
         total: data.total,
         casados: data.casados,
@@ -80,22 +150,50 @@ export default function CmvRealImportarPage() {
     }
   }, [file, aba]);
 
+  const setRowAction = (idx: number, action: RowAction, chosen?: CatalogOption) => {
+    setRows((prev) => {
+      if (!prev) return prev;
+      return prev.map((r, i) => {
+        if (i !== idx) return r;
+        if (action === 'vincular') {
+          return {
+            ...r,
+            action: 'vincular',
+            chosenId: r.estoqueInsumoId,
+            chosenNome: r.estoqueNome,
+          };
+        }
+        if (action === 'escolher' && chosen) {
+          return {
+            ...r,
+            action: 'escolher',
+            chosenId: chosen.id,
+            chosenNome: chosen.nome,
+          };
+        }
+        if (action === 'escolher') {
+          return { ...r, action: 'escolher', chosenId: undefined, chosenNome: undefined };
+        }
+        return { ...r, action, chosenId: undefined, chosenNome: undefined };
+      });
+    });
+  };
+
   const confirmar = useCallback(async () => {
-    if (!preview) return;
+    if (!rows || counts.pendentes > 0) return;
     setLoading(true);
     setMsg(null);
     try {
-      // Criar insumos não encontrados
-      const criar = preview
-        .filter((p) => p.status === 'nao_encontrado')
-        .map((p) => ({
-          nome: p.nome,
-          secao: p.secao as 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA',
-          unidade: p.unidade as 'KG' | 'UN',
-          ordem: p.ordem,
+      const criar = rows
+        .filter((r) => r.action === 'criar')
+        .map((r) => ({
+          nome: r.nome,
+          secao: r.secao as 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA',
+          unidade: r.unidade as 'KG' | 'UN',
+          ordem: r.ordem,
         }));
 
-      let criadosMap = new Map<string, string>();
+      const criadosMap = new Map<string, string>();
       if (criar.length > 0) {
         const resC = await fetch('/api/cmv-real/importar-catalogo', {
           method: 'POST',
@@ -109,17 +207,18 @@ export default function CmvRealImportarPage() {
         }
       }
 
-      const itens = preview
-        .map((p) => {
-          const id =
-            p.estoqueInsumoId ||
-            (p.status === 'nao_encontrado' ? criadosMap.get(p.nome) : undefined);
+      const itens = rows
+        .map((r) => {
+          if (r.action === 'ignorar' || r.action === null) return null;
+          let id: string | undefined;
+          if (r.action === 'criar') id = criadosMap.get(r.nome);
+          else id = r.chosenId || r.estoqueInsumoId;
           if (!id) return null;
           return {
-            nome: p.nome,
-            secao: p.secao,
-            unidade: p.unidade,
-            ordem: p.ordem,
+            nome: r.nome,
+            secao: r.secao,
+            unidade: r.unidade,
+            ordem: r.ordem,
             estoqueInsumoId: id,
           };
         })
@@ -138,7 +237,7 @@ export default function CmvRealImportarPage() {
     } finally {
       setLoading(false);
     }
-  }, [preview]);
+  }, [rows, counts.pendentes]);
 
   const reprocessar = useCallback(async () => {
     setLoading(true);
@@ -158,9 +257,13 @@ export default function CmvRealImportarPage() {
     }
   }, []);
 
+  const confirmLabel = rows
+    ? `Vincular ${counts.vincular} · Criar ${counts.criar} · Ignorar ${counts.ignorar}`
+    : 'Confirmar';
+
   return (
     <div className="min-h-screen bg-[#0a0a0c] text-gray-100">
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         <div className="flex items-center gap-3">
           <Link href="/" className="text-gray-500 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
@@ -187,7 +290,7 @@ export default function CmvRealImportarPage() {
                 const f = e.target.files?.[0] || null;
                 setFile(f);
                 setAbas([]);
-                setPreview(null);
+                setRows(null);
                 if (f) void listarAbas(f);
               }}
             />
@@ -222,11 +325,16 @@ export default function CmvRealImportarPage() {
             </button>
             <button
               type="button"
-              disabled={!preview || loading}
+              disabled={!canConfirm}
               onClick={() => void confirmar()}
+              title={
+                counts.pendentes > 0
+                  ? `${counts.pendentes} sugestão(ões) sem decisão`
+                  : undefined
+              }
               className="inline-flex items-center gap-2 rounded-lg border border-green-500/40 text-green-400 hover:bg-green-500/10 px-4 py-2 text-sm disabled:opacity-40"
             >
-              Confirmar (casados + criar faltantes)
+              {confirmLabel}
             </button>
           </div>
 
@@ -237,6 +345,12 @@ export default function CmvRealImportarPage() {
               {resumo.catalogoEstoqueSize != null && (
                 <> · catálogo Estoque: {resumo.catalogoEstoqueSize} produtos</>
               )}
+              {counts.pendentes > 0 && (
+                <span className="text-amber-400">
+                  {' '}
+                  · {counts.pendentes} sugestão(ões) aguardando decisão
+                </span>
+              )}
             </p>
           )}
           {msg && <p className="text-sm text-amber-300">{msg}</p>}
@@ -245,8 +359,7 @@ export default function CmvRealImportarPage() {
         <section className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-4 space-y-3">
           <h2 className="text-sm font-semibold text-white">Após importar o catálogo</h2>
           <p className="text-xs text-gray-500">
-            Reprocessa notas em revisão para gerar sugestões por similaridade (antes vinham 100%
-            SEM_MAPEAMENTO sem catálogo ativo).
+            Reprocessa notas em revisão para gerar sugestões por similaridade.
           </p>
           <button
             type="button"
@@ -260,43 +373,128 @@ export default function CmvRealImportarPage() {
           {reproc && <p className="text-sm text-gray-300">{reproc}</p>}
         </section>
 
-        {preview && (
+        {rows && (
           <div className="rounded-xl border border-[#2a2a2e] overflow-hidden">
-            <div className="max-h-[50vh] overflow-auto">
+            <div className="max-h-[60vh] overflow-auto">
               <table className="w-full text-xs">
-                <thead className="bg-[#1a1a1e] sticky top-0">
+                <thead className="bg-[#1a1a1e] sticky top-0 z-10">
                   <tr className="text-left text-gray-400">
                     <th className="px-3 py-2">Linha</th>
                     <th className="px-3 py-2">Produto</th>
-                    <th className="px-3 py-2">Seção</th>
-                    <th className="px-3 py-2">Un</th>
                     <th className="px-3 py-2">Match</th>
-                    <th className="px-3 py-2">kg/un</th>
+                    <th className="px-3 py-2 min-w-[220px]">Ação</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {preview.map((p) => (
-                    <tr key={`${p.linha}-${p.nome}`} className="border-t border-[#2a2a2e]">
-                      <td className="px-3 py-1.5 text-gray-500">{p.linha}</td>
-                      <td className="px-3 py-1.5">{p.nome}</td>
-                      <td className="px-3 py-1.5 text-gray-400">{p.secao}</td>
-                      <td className="px-3 py-1.5">{p.unidade}</td>
-                      <td className="px-3 py-1.5">
+                  {rows.map((r, idx) => (
+                    <tr
+                      key={`${r.linha}-${r.nome}`}
+                      className={`border-t border-[#2a2a2e] ${
+                        r.action === null ? 'bg-amber-500/5' : ''
+                      }`}
+                    >
+                      <td className="px-3 py-2 text-gray-500 align-top">{r.linha}</td>
+                      <td className="px-3 py-2 align-top">
+                        <div>{r.nome}</div>
+                        <div className="text-gray-500">
+                          {r.secao} · {r.unidade}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 align-top">
                         <span
                           className={
-                            p.status === 'casado'
+                            r.status === 'casado'
                               ? 'text-green-400'
-                              : p.status === 'sugerido'
+                              : r.status === 'sugerido'
                                 ? 'text-amber-400'
                                 : 'text-red-400'
                           }
                         >
-                          {p.status}
-                          {p.estoqueNome ? ` → ${p.estoqueNome}` : ''}
+                          {r.status}
+                          {r.estoqueNome ? ` → ${r.estoqueNome}` : ''}
+                          {r.score != null && r.status === 'sugerido'
+                            ? ` (${Math.round(r.score * 100)}%)`
+                            : ''}
                         </span>
                       </td>
-                      <td className="px-3 py-1.5 text-gray-400">
-                        {(p.kgPorUnidade ?? '—')}
+                      <td className="px-3 py-2 align-top space-y-1.5">
+                        {r.status === 'casado' && (
+                          <select
+                            value={r.action ?? 'vincular'}
+                            onChange={(e) =>
+                              setRowAction(idx, e.target.value as RowAction)
+                            }
+                            className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1.5"
+                          >
+                            <option value="vincular">
+                              Vincular → {r.estoqueNome || r.estoqueInsumoId}
+                            </option>
+                            <option value="ignorar">Ignorar</option>
+                          </select>
+                        )}
+
+                        {r.status === 'sugerido' && (
+                          <>
+                            <select
+                              value={
+                                r.action === null
+                                  ? ''
+                                  : r.action === 'escolher'
+                                    ? 'escolher'
+                                    : r.action
+                              }
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                if (!v) setRowAction(idx, null);
+                                else setRowAction(idx, v as RowAction);
+                              }}
+                              className={`w-full bg-[#0a0a0a] border rounded-lg px-2 py-1.5 ${
+                                r.action === null
+                                  ? 'border-amber-500/50'
+                                  : 'border-[#2a2a2e]'
+                              }`}
+                            >
+                              <option value="">Escolher…</option>
+                              <option value="vincular">
+                                Vincular à sugestão
+                                {r.estoqueNome ? ` (${r.estoqueNome})` : ''}
+                              </option>
+                              <option value="escolher">Escolher outro produto</option>
+                              <option value="criar">Criar novo</option>
+                              <option value="ignorar">Ignorar</option>
+                            </select>
+                            {r.action === 'escolher' && (
+                              <select
+                                value={r.chosenId || ''}
+                                onChange={(e) => {
+                                  const opt = catalogo.find((c) => c.id === e.target.value);
+                                  if (opt) setRowAction(idx, 'escolher', opt);
+                                }}
+                                className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1.5"
+                              >
+                                <option value="">Selecione o produto…</option>
+                                {catalogo.map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.nome}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </>
+                        )}
+
+                        {r.status === 'nao_encontrado' && (
+                          <select
+                            value={r.action ?? 'ignorar'}
+                            onChange={(e) =>
+                              setRowAction(idx, e.target.value as RowAction)
+                            }
+                            className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1.5"
+                          >
+                            <option value="ignorar">Ignorar (não criar)</option>
+                            <option value="criar">Criar novo</option>
+                          </select>
+                        )}
                       </td>
                     </tr>
                   ))}

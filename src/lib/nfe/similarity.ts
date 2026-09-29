@@ -1,5 +1,6 @@
 import { distance } from 'fastest-levenshtein';
 import { normalizarDescricao } from './normalize';
+import { volumesConflitam } from './volume';
 
 export interface CatalogoItem {
   id: string;
@@ -26,7 +27,7 @@ export function similaridadeTexto(a: string, b: string): number {
   return Math.max(0, 1 - d / maxLen);
 }
 
-/** Melhor match do catálogo; null se score < minScore. */
+/** Melhor match do catálogo; null se score < minScore. Descarta volume divergente. */
 export function sugerirDoCatalogo(
   descricao: string,
   catalogo: CatalogoItem[],
@@ -34,6 +35,7 @@ export function sugerirDoCatalogo(
 ): SugestaoCatalogo | null {
   let best: SugestaoCatalogo | null = null;
   for (const item of catalogo) {
+    if (volumesConflitam(descricao, item.nome)) continue;
     const score = similaridadeTexto(descricao, item.nome);
     if (score < minScore) continue;
     if (!best || score > best.score) {

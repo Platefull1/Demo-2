@@ -22,6 +22,8 @@ import {
   resultadoExcecao,
   type PipelineNotaInput,
 } from './pipeline';
+import { sugerirDoCatalogo } from './similarity';
+import { extractVolume, volumesConflitam } from './volume';
 
 function baseInput(over: Partial<PipelineNotaInput> = {}): PipelineNotaInput {
   return {
@@ -420,5 +422,37 @@ describe('pipeline decisões', () => {
     );
     assert.ok(out.alertas.includes('TRANSFERENCIA_ENTRE_LOJAS'));
     assert.equal(out.status, 'EM_REVISAO');
+  });
+});
+
+describe('volume bebidas', () => {
+  it('extrai ML, L, LATA e número solto', () => {
+    assert.deepEqual(extractVolume('PEPSI 600ML ZERO'), { kind: 'ml', ml: 600 });
+    assert.deepEqual(extractVolume('PEPSI 2L ZERO'), { kind: 'ml', ml: 2000 });
+    assert.deepEqual(extractVolume('COCA 1,5L'), { kind: 'ml', ml: 1500 });
+    assert.deepEqual(extractVolume('GUARANA LATA'), { kind: 'lata' });
+    assert.deepEqual(extractVolume('PEPSI 600 ZERO'), { kind: 'ml', ml: 600 });
+  });
+
+  it('PEPSI 600 vs PEPSI 2L conflita', () => {
+    assert.equal(volumesConflitam('PEPSI 600 ZERO', 'PEPSI 2L ZERO'), true);
+  });
+
+  it('mesmo volume não conflita', () => {
+    assert.equal(volumesConflitam('PEPSI 600ML ZERO', 'PEPSI 600 ZERO'), false);
+  });
+
+  it('sugerirDoCatalogo descarta volume divergente', () => {
+    const sug = sugerirDoCatalogo('PEPSI 600 ZERO', [
+      { id: 'a', nome: 'PEPSI 2L ZERO' },
+      { id: 'b', nome: 'PEPSI 600ML ZERO' },
+    ], 0.5);
+    assert.ok(sug);
+    assert.equal(sug!.id, 'b');
+  });
+
+  it('não confunde peso com volume', () => {
+    assert.equal(extractVolume('BACON 500G'), null);
+    assert.equal(volumesConflitam('BACON 500G', 'BACON DEFUMADO'), false);
   });
 });

@@ -42,6 +42,7 @@ import {
   mergeProdutoConfigs,
 } from '@/lib/estoque-tenant';
 import { normalizarDescricao } from '@/lib/nfe/normalize';
+import { volumesConflitam } from '@/lib/nfe/volume';
 
 export interface EstoqueCatalogoItem {
   /** cuid EstoqueInsumo (preferência do tenant após dedupe) */
@@ -206,6 +207,7 @@ export function matchCatalogoPorNome(
   const alvo = normalizarDescricao(nomePlanilha);
 
   for (const c of lista) {
+    if (volumesConflitam(nomePlanilha, c.nome)) continue;
     // match exato normalizado primeiro
     let score =
       c.nomeNormalizado === alvo ? 1 : scoreNomeProduto(nomePlanilha, c.nome);
