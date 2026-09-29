@@ -144,6 +144,66 @@ describe('fator sugerido da descrição', () => {
     const s = sugerirFatorDaDescricao('CC Pet 600ml 6 Pack FL', { secao: 'BEBIDA' });
     assert.equal(s?.fator, 6);
   });
+
+  it('SAL PCT 30X1KG → 30 kg', () => {
+    const s = sugerirFatorDaDescricao('SAL DE COZINHA MARFIN PCT 30X1KG', {
+      unidadeComercial: 'UN',
+    });
+    assert.equal(s?.fator, 30);
+    assert.equal(s?.ambiguo, false);
+  });
+
+  it('MILHO 6X1,500KG → 9 kg', () => {
+    const s = sugerirFatorDaDescricao('MILHO VERDE LATA 6X1,500KG');
+    assert.equal(s?.fator, 9);
+  });
+
+  it('CARNE 6X1KG → 6 kg', () => {
+    const s = sugerirFatorDaDescricao('CARNE MOIDA SABOR COSTELA 6X1KG');
+    assert.equal(s?.fator, 6);
+  });
+
+  it('LOMBO PCT 25X1KG - 1 CX COM 10 → 25 kg + FATOR_AMBIGUO', () => {
+    const s = sugerirFatorDaDescricao('LOMBO SUINO PCT 25X1KG - 1 CX COM 10', {
+      unidadeComercial: 'PCT',
+    });
+    assert.equal(s?.fator, 25);
+    assert.equal(s?.ambiguo, true);
+    assert.ok(s?.alertas?.includes('FATOR_AMBIGUO'));
+  });
+
+  it('PEPERONI PCT 500G - 1 CX COM 6 → 0,5 kg (PCT)', () => {
+    const s = sugerirFatorDaDescricao('PEPERONI FATIADO PCT 500G - 1 CX COM 6', {
+      unidadeComercial: 'PCT',
+    });
+    assert.equal(s?.fator, 0.5);
+    assert.equal(s?.ambiguo, true);
+  });
+
+  it('PEPERONI com unidade CX → 3 kg', () => {
+    const s = sugerirFatorDaDescricao('PEPERONI FATIADO PCT 500G - 1 CX COM 6', {
+      unidadeComercial: 'CX',
+    });
+    assert.equal(s?.fator, 3);
+  });
+
+  it('MOLHO BAG 3,1KG - 6 CXS → 3,1 kg (ignora sufixo se und≠CX)', () => {
+    const s = sugerirFatorDaDescricao(
+      'MOLHO DE TOMATE BAG 3,1KG TRADICIONAL - 6 CXS E 0 UND',
+      { unidadeComercial: 'BAG' },
+    );
+    assert.equal(s?.fator, 3.1);
+  });
+
+  it('LINGUICA PCT 3 Kg → 3 kg', () => {
+    const s = sugerirFatorDaDescricao('LINGUICA TOSCANA PCT 3 Kg');
+    assert.equal(s?.fator, 3);
+  });
+
+  it('MARGARINA BALDE 14,5 KG → 14,5 kg', () => {
+    const s = sugerirFatorDaDescricao('MARGARINA COM SAL BALDE 14,5 KG');
+    assert.equal(s?.fator, 14.5);
+  });
 });
 
 describe('pipeline decisões', () => {

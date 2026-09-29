@@ -318,10 +318,25 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       (estoqueInsumoId && input.insumosConfig[estoqueInsumoId]?.secao) ||
       (sugestaoInsumoId && input.insumosConfig[sugestaoInsumoId]?.secao) ||
       null;
-    const sugFator = sugerirFatorDaDescricao(it.descricao, { secao: secaoHint });
+    const sugFator = sugerirFatorDaDescricao(it.descricao, {
+      secao: secaoHint,
+      unidadeComercial: und,
+    });
     if (sugFator) {
       fatorSugerido = sugFator.fator;
       fatorSugeridoOrigem = sugFator.origem;
+      if (sugFator.alertas?.length) {
+        for (const a of sugFator.alertas) {
+          if (!alertas.includes(a)) alertas.push(a);
+        }
+        if (sugFator.ambiguo) {
+          problemas.push({
+            tipo: 'FATOR_AMBIGUO',
+            saiposItemId: it.saiposItemId,
+            mensagem: sugFator.detalhe,
+          });
+        }
+      }
     } else if (sugestaoInsumoId || estoqueInsumoId) {
       const id = estoqueInsumoId ?? sugestaoInsumoId!;
       const kg = input.insumosConfig[id]?.kgPorUnidade;
