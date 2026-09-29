@@ -13,7 +13,7 @@ import {
   normalizarDescricao,
   normalizarUnidade,
 } from './normalize';
-import { sugerirDoCatalogo, type CatalogoItem } from './similarity';
+import { sugerirTopDoCatalogo, SUGESTAO_MIN_SCORE, type CatalogoItem } from './similarity';
 
 export type CmvRealUnidade = 'KG' | 'UN';
 export type CmvRealSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
@@ -98,6 +98,8 @@ export interface PipelineItemResult {
   fatorSugeridoOrigem: string | null;
   sugestaoInsumoId: string | null;
   sugestaoScore: number | null;
+  /** Top 3 candidatos [{id, nome, score}] */
+  sugestoes: Array<{ id: string; nome: string; score: number }>;
   alertas: string[];
 }
 
@@ -253,6 +255,7 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     let custoUnitario: number | null = null;
     let sugestaoInsumoId: string | null = null;
     let sugestaoScore: number | null = null;
+    let sugestoes: Array<{ id: string; nome: string; score: number }> = [];
 
     // Mapeamento
     let map: PipelineMapeamento | undefined;
@@ -296,11 +299,15 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
         }
       }
     } else {
-      const sug = sugerirDoCatalogo(it.descricao, input.catalogo, 0.6);
-      if (sug) {
+      const top = sugerirTopDoCatalogo(it.descricao, input.catalogo, SUGESTAO_MIN_SCORE, {
+        ncm: it.ncm,
+        top: 3,
+      });
+      sugestoes = top.map((s) => ({ id: s.id, nome: s.nome, score: s.score }));
+      if (top[0]) {
         status = 'SUGERIDO';
-        sugestaoInsumoId = sug.id;
-        sugestaoScore = sug.score;
+        sugestaoInsumoId = top[0].id;
+        sugestaoScore = top[0].score;
       } else {
         status = 'SEM_MAPEAMENTO';
       }
@@ -363,6 +370,7 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       fatorSugeridoOrigem,
       sugestaoInsumoId,
       sugestaoScore,
+      sugestoes,
       alertas,
     };
   });
@@ -423,6 +431,7 @@ function itemIgnoradoBase(it: PipelineItemInput): PipelineItemResult {
     fatorSugeridoOrigem: null,
     sugestaoInsumoId: null,
     sugestaoScore: null,
+    sugestoes: [],
     alertas: [],
   };
 }

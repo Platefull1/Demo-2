@@ -1,19 +1,18 @@
 /**
- * Reprocessa notas EM_REVISAO (e opcionalmente ERRO) após importar catálogo.
- * Usa o mesmo catálogo da aba Produtos (tenant RH + merge).
+ * Reprocessa notas do tenant dono sem puxar Stack Auth (script CLI).
+ * npx tsx scripts/reprocess-cmv-real-stats.ts
  */
-
-import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma';
-import { loadCatalogoEstoqueForUserId } from '@/lib/estoque/catalogo';
-import { gerarLancamentosAprovacao } from './approve';
-import { competenciaFromDataEntrada } from './dates';
+import { Prisma, PrismaClient } from '@prisma/client';
 import {
   defaultPipelineConfig,
   processarNota,
   type PipelineInsumoConfig,
   type PipelineMapeamento,
-} from './pipeline';
+} from '../src/lib/nfe/pipeline';
+import { competenciaFromDataEntrada } from '../src/lib/nfe/dates';
+
+const OWNER = 'cmk5ykusf0001jz04iwmf8xa8';
+const prisma = new PrismaClient();
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -25,45 +24,13 @@ function decimal(n: number): Prisma.Decimal {
   return new Prisma.Decimal(n);
 }
 
-function inferSecao(categoriaId: string): 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA' {
-  const c = categoriaId.toLowerCase();
-  if (c.includes('embal')) return 'EMBALAGEM';
-  if (c.includes('bebid')) return 'BEBIDA';
-  return 'MATERIA_PRIMA';
-}
+async function main() {
+  const configs = await prisma.cmvRealInsumoConfig.findMany({
+    where: { userId: OWNER, ativo: true },
+    include: { estoqueInsumo: { select: { id: true, nome: true, insumoId: true } } },
+  });
+  console.log('CmvRealInsumoConfig ativos:', configs.length);
 
-export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
-  processadas: number;
-  aprovadas: number;
-  aindaEmRevisao: number;
-  sugeridos: number;
-  semMapeamento: number;
-  catalogoSize: number;
-  tenantUserId: string;
-}> {
-  const catalogoEstoque = await loadCatalogoEstoqueForUserId(tenantUserId);
-  const userId = tenantUserId;
-
-  const [configs, mapeamentos, nfeConfig, lancamentosRecentes] = await Promise.all([
-    prisma.cmvRealInsumoConfig.findMany({
-      where: { userId, ativo: true },
-      include: { estoqueInsumo: { select: { id: true, nome: true, insumoId: true } } },
-    }),
-    prisma.nfeMapeamento.findMany({ where: { userId } }),
-    prisma.nfeConfig.findUnique({ where: { userId } }),
-    prisma.cmvLancamento.findMany({
-      where: {
-        userId,
-        tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL'] },
-        data: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
-      },
-      select: { estoqueInsumoId: true, quantidade: true, valorTotal: true },
-    }),
-  ]);
-
-  const configByInsumoId = new Map(configs.map((c) => [c.estoqueInsumoId, c]));
-
-  // Catálogo de sugestão = só itens com CmvRealInsumoConfig ativo (+ seção)
   const catalogo = configs.map((c) => ({
     id: c.estoqueInsumoId,
     nome: c.estoqueInsumo.nome,
@@ -71,26 +38,17 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
   }));
 
   const insumosConfig: Record<string, PipelineInsumoConfig> = {};
-  for (const item of catalogoEstoque?.itens ?? []) {
-    const cfg = configByInsumoId.get(item.id);
-    if (cfg && !cfg.ativo) continue;
-    insumosConfig[item.id] = {
-      estoqueInsumoId: item.id,
-      unidade: cfg?.unidade ?? (item.unidade === 'un' ? 'UN' : 'KG'),
-      secao: cfg?.secao ?? inferSecao(item.categoriaId),
-      kgPorUnidade: item.kgPorUnidade,
+  for (const c of configs) {
+    insumosConfig[c.estoqueInsumoId] = {
+      estoqueInsumoId: c.estoqueInsumoId,
+      unidade: c.unidade,
+      secao: c.secao,
+      kgPorUnidade: null,
     };
   }
-  for (const c of configs) {
-    if (!insumosConfig[c.estoqueInsumoId]) {
-      insumosConfig[c.estoqueInsumoId] = {
-        estoqueInsumoId: c.estoqueInsumoId,
-        unidade: c.unidade,
-        secao: c.secao,
-        kgPorUnidade: null,
-      };
-    }
-  }
+
+  const mapeamentos = await prisma.nfeMapeamento.findMany({ where: { userId: OWNER } });
+  const nfeConfig = await prisma.nfeConfig.findUnique({ where: { userId: OWNER } });
 
   const mapeamentosPorFornecedor = new Map<string, PipelineMapeamento[]>();
   for (const m of mapeamentos) {
@@ -109,21 +67,6 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
     mapeamentosPorFornecedor.set(m.fornecedorId, list);
   }
 
-  const custoMedioPorInsumo: Record<string, number> = {};
-  const acc = new Map<string, { qtd: number; valor: number }>();
-  for (const l of lancamentosRecentes) {
-    const q = Number(l.quantidade);
-    const v = Number(l.valorTotal);
-    if (q <= 0) continue;
-    const cur = acc.get(l.estoqueInsumoId) ?? { qtd: 0, valor: 0 };
-    cur.qtd += q;
-    cur.valor += v;
-    acc.set(l.estoqueInsumoId, cur);
-  }
-  for (const [id, a] of acc) {
-    if (a.qtd > 0) custoMedioPorInsumo[id] = a.valor / a.qtd;
-  }
-
   const pipelineConfig = defaultPipelineConfig({
     autoAprovar: nfeConfig?.autoAprovar ?? false,
     toleranciaTotalReais: Number(nfeConfig?.toleranciaTotalReais ?? 1),
@@ -133,16 +76,16 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
   });
 
   const notas = await prisma.nfeNota.findMany({
-    where: { userId, status: { in: ['EM_REVISAO', 'ERRO_PROCESSAMENTO'] } },
+    where: { userId: OWNER, status: { in: ['EM_REVISAO', 'ERRO_PROCESSAMENTO'] } },
     include: { itens: true, fornecedor: true },
     take: 500,
   });
+  console.log('Notas a reprocessar:', notas.length);
 
-  let processadas = 0;
-  let aprovadas = 0;
-  let aindaEmRevisao = 0;
   let sugeridos = 0;
   let semMapeamento = 0;
+  let mapeados = 0;
+  let ignorados = 0;
 
   for (const nota of notas) {
     const raw = (nota.rawDetalhe ?? nota.rawReport) as Record<string, unknown> | null;
@@ -152,7 +95,6 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
         impostosNota[k] = num(raw[k]);
       }
     }
-
     const rawItems = Array.isArray(raw?.items) ? (raw!.items as Record<string, unknown>[]) : [];
     const netBySaipos = new Map<number, number>();
     for (const ri of rawItems) {
@@ -183,14 +125,14 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
       mapeamentos: mapeamentosPorFornecedor.get(nota.fornecedorId) ?? [],
       catalogo,
       insumosConfig,
-      custoMedioPorInsumo,
       tentativasAtuais: nota.tentativas,
       config: pipelineConfig,
     });
 
-    processadas++;
     sugeridos += out.itens.filter((i) => i.status === 'SUGERIDO').length;
     semMapeamento += out.itens.filter((i) => i.status === 'SEM_MAPEAMENTO').length;
+    mapeados += out.itens.filter((i) => i.status === 'MAPEADO').length;
+    ignorados += out.itens.filter((i) => i.status === 'IGNORADO').length;
 
     await prisma.$transaction(async (tx) => {
       for (const it of out.itens) {
@@ -227,31 +169,36 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
           alertas: out.alertas,
           somaItensLiquido: decimal(out.somaItensLiquido),
           aprovadaEm: out.status === 'APROVADA' ? new Date() : undefined,
+          // competencia unchanged
+          competencia: nota.competencia || competenciaFromDataEntrada(nota.dataEntrada),
         },
       });
     });
-
-    if (out.gerarLancamentos) {
-      await gerarLancamentosAprovacao({
-        userId,
-        notaId: nota.id,
-        storeSlug: nota.storeSlug,
-        competencia: nota.competencia || competenciaFromDataEntrada(nota.dataEntrada),
-        dataEntrada: nota.dataEntrada,
-      });
-      aprovadas++;
-    } else if (out.status === 'EM_REVISAO') {
-      aindaEmRevisao++;
-    }
   }
 
-  return {
-    processadas,
-    aprovadas,
-    aindaEmRevisao,
+  console.log('\n=== Resultado do reprocessamento ===');
+  console.log({
+    notas: notas.length,
+    catalogoSize: catalogo.length,
     sugeridos,
     semMapeamento,
-    catalogoSize: catalogo.length,
-    tenantUserId,
-  };
+    mapeados,
+    ignorados,
+    totalItens: sugeridos + semMapeamento + mapeados + ignorados,
+  });
+
+  const byStatus = await prisma.nfeItem.groupBy({
+    by: ['status'],
+    where: { nota: { userId: OWNER } },
+    _count: true,
+  });
+  console.log('\nItens no banco por status:');
+  console.log(byStatus);
 }
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

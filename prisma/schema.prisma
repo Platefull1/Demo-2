@@ -2180,6 +2180,8 @@ model NfeItem {
   status               NfeItemStatus @default(SEM_MAPEAMENTO)
   sugestaoInsumoId     String?       @map("sugestao_insumo_id")
   sugestaoScore        Float?        @map("sugestao_score")
+  /// Top sugestões [{id, nome, score}] para a tela de revisão
+  sugestoes            Json          @default("[]")
   alertas              Json          @default("[]")
   createdAt            DateTime      @default(now()) @map("created_at")
   updatedAt            DateTime      @updatedAt @map("updated_at")

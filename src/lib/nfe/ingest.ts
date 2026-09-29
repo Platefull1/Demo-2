@@ -105,20 +105,18 @@ async function loadContext(tenantUserId: string) {
     }),
   ]);
 
-  // Catálogo para similaridade = produtos da aba Estoque (179 merge)
-  // Preferir nomes do Estoque; se houver CmvRealInsumoConfig, filtrar ativos por config
+  // Catálogo de sugestão = CmvRealInsumoConfig ativo (com seção)
   const configByInsumoId = new Map(configs.map((c) => [c.estoqueInsumoId, c]));
   const kgByInsumoId = new Map(
     (catalogoEstoque?.itens ?? []).map((i) => [i.id, i.kgPorUnidade]),
   );
-  // também por slug→id caso config aponte a outra cópia do mesmo slug
   const estoqueById = new Map((catalogoEstoque?.itens ?? []).map((i) => [i.id, i]));
 
-  const catalogo =
-    catalogoEstoque?.itens
-      .filter((i) => i.ativo)
-      .map((i) => ({ id: i.id, nome: i.nome })) ??
-    configs.map((c) => ({ id: c.estoqueInsumoId, nome: c.estoqueInsumo.nome }));
+  const catalogo = configs.map((c) => ({
+    id: c.estoqueInsumoId,
+    nome: c.estoqueInsumo.nome,
+    secao: c.secao as 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA',
+  }));
 
   const insumosConfig: Record<string, PipelineInsumoConfig> = {};
   // A partir do catálogo Estoque + overlay de CmvRealInsumoConfig
@@ -309,6 +307,7 @@ async function aplicarPipelineNaNota(
           fatorSugeridoOrigem: it.fatorSugeridoOrigem,
           sugestaoInsumoId: it.sugestaoInsumoId,
           sugestaoScore: it.sugestaoScore,
+          sugestoes: it.sugestoes,
           alertas: it.alertas,
         },
       });
