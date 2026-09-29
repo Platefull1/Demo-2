@@ -1,28 +1,32 @@
 /**
  * Notificações WhatsApp do ingest NF-e.
  * Erros de envio são logados e NUNCA derrubam o ingest.
- * Implementação completa (destinos por loja, resumo diário) na Fase 4.
+ *
+ * Dados (NfeConfig) ficam no tenant dono; o bot WPP prefere a conta do actor
+ * (ServiceApiKey calenzano.ahu), que é onde as sessões estão conectadas —
+ * mesmo padrão de /api/reports/send-whatsapp com a key da ahu.
  */
 
 import { prisma } from '@/lib/prisma';
-import { findWhatsAppBotForTenant } from '@/lib/whatsapp-sessions';
 import { callWhatsAppVps, callWhatsAppVpsSession } from '@/lib/whatsapp-vps';
 import type { PipelineProblema } from './pipeline';
+import { findCmvRealWhatsAppBot, type CmvRealTenant } from './tenant';
 
 export async function notificarProblemasIngest(params: {
-  userId: string;
+  tenantUserId: string;
+  actorUserId: string;
   problemasNovos: Array<PipelineProblema & { storeSlug?: string; numero?: string }>;
 }): Promise<void> {
   if (params.problemasNovos.length === 0) return;
 
   try {
     const config = await prisma.nfeConfig.findUnique({
-      where: { userId: params.userId },
+      where: { userId: params.tenantUserId },
     });
     if (!config?.sessionSlot || !config.destinoPadrao) {
       console.info(
-        '[nfe.notificar] Sem NfeConfig (sessionSlot/destino) — pulando WhatsApp',
-        { qtd: params.problemasNovos.length },
+        '[nfe.notificar] Sem NfeConfig (sessionSlot/destino) no tenant — pulando WhatsApp',
+        { qtd: params.problemasNovos.length, tenantUserId: params.tenantUserId },
       );
       return;
     }
@@ -40,10 +44,21 @@ export async function notificarProblemasIngest(params: {
       `${resumo}\n` +
       `https://platefull.com.br/cmv-real/notas?status=EM_REVISAO`;
 
-    const bot = await findWhatsAppBotForTenant(params.userId, config.sessionSlot);
+    const tenant: CmvRealTenant = {
+      tenantUserId: params.tenantUserId,
+      actorUserId: params.actorUserId,
+      isAdmin: false,
+      userIds: [params.tenantUserId],
+      defaultStoreSlug: null,
+      lojaVinculo: 'nenhum',
+    };
+
+    const bot = await findCmvRealWhatsAppBot(tenant, config.sessionSlot);
     if (!bot) {
       console.warn('[nfe.notificar] Sessão WhatsApp não encontrada', {
         slot: config.sessionSlot,
+        actorUserId: params.actorUserId,
+        tenantUserId: params.tenantUserId,
       });
       return;
     }
@@ -77,6 +92,11 @@ export async function notificarProblemasIngest(params: {
 
     if (!vpsResult.ok || vpsResult.data.success === false) {
       console.warn('[nfe.notificar] Falha no envio WhatsApp', vpsResult.data);
+    } else {
+      console.info('[nfe.notificar] Enviado via bot', {
+        stackUserId: bot.userId,
+        slot: config.sessionSlot,
+      });
     }
   } catch (err) {
     console.error('[nfe.notificar] Erro (ignorado pelo ingest):', err);

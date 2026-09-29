@@ -3,17 +3,18 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireServiceApiKey } from '@/lib/auth/service-api-key';
 import { ingestNfeSync, type IngestSyncPayload } from '@/lib/nfe/ingest';
+import { getCmvRealTenantFromUserId } from '@/lib/nfe/tenant';
 
 /**
  * POST /api/nfe/ingest
  *
- * Recebe a resposta de POST /nfe/sync do saipos-scraper.
- * Auth: header x-api-key (ServiceApiKey) — mesmo padrão de /api/reports/due.
+ * Auth: x-api-key (ServiceApiKey) — key continua na calenzano.ahu.
+ * Gravação: tenantUserId do dono do grupo (resolvido a partir do userId da key).
  */
 export async function POST(req: NextRequest) {
   const auth = await requireServiceApiKey(req);
   if (auth instanceof NextResponse) return auth;
-  const { userId } = auth;
+  const { userId: apiKeyUserId } = auth;
 
   let body: IngestSyncPayload;
   try {
@@ -30,8 +31,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const result = await ingestNfeSync(userId, body);
-    return NextResponse.json({ ok: true, ...result });
+    const tenant = await getCmvRealTenantFromUserId(apiKeyUserId);
+    const result = await ingestNfeSync(apiKeyUserId, body);
+    return NextResponse.json({
+      ok: true,
+      tenantUserId: tenant?.tenantUserId ?? null,
+      actorUserId: apiKeyUserId,
+      ...result,
+    });
   } catch (err) {
     console.error('[api/nfe/ingest]', err);
     return NextResponse.json(

@@ -120,17 +120,12 @@ export function lerCatalogoDoBuffer(
   return parseCatalogoDaAba(ws);
 }
 
-export async function previewCatalogo(
-  _sessionUserIdIgnored: string,
+export function previewCatalogoComCatalogo(
   linhas: LinhaCatalogoPlanilha[],
-): Promise<PreviewCatalogoItem[] & { _meta?: { tenantUserId: string; catalogoSize: number } }> {
-  const catalogo = await loadCatalogoEstoqueFromSession();
-  if (!catalogo) {
-    throw new Error('Sessão sem contexto de Estoque (tenant RH).');
-  }
-
-  const itens = linhas.map((l) => {
-    const match = matchCatalogoPorNome(l.nome, catalogo.itens);
+  catalogoItens: EstoqueCatalogoItem[],
+): PreviewCatalogoItem[] {
+  return linhas.map((l) => {
+    const match = matchCatalogoPorNome(l.nome, catalogoItens);
     if (match.status === 'nao_encontrado' || !match.item) {
       return {
         linha: l.linha,
@@ -154,13 +149,16 @@ export async function previewCatalogo(
       kgPorUnidade: match.item.kgPorUnidade,
     };
   });
+}
 
-  // anexar meta via propriedade (API pode ler catalogoSize do retorno tipado extensível)
-  (itens as PreviewCatalogoItem[] & { _meta?: unknown })._meta = {
-    tenantUserId: catalogo.tenantUserId,
-    catalogoSize: catalogo.itens.length,
-  };
-  return itens;
+/** @deprecated prefira previewCatalogoComCatalogo + loadCatalogoEstoqueForUserId(tenant) */
+export async function previewCatalogo(
+  _ignored: string,
+  linhas: LinhaCatalogoPlanilha[],
+): Promise<PreviewCatalogoItem[]> {
+  const catalogo = await loadCatalogoEstoqueFromSession();
+  if (!catalogo) throw new Error('Sessão sem contexto de Estoque (tenant RH).');
+  return previewCatalogoComCatalogo(linhas, catalogo.itens);
 }
 
 export interface ConfirmCatalogoItem {
@@ -172,17 +170,12 @@ export interface ConfirmCatalogoItem {
 }
 
 /**
- * Cria/atualiza CmvRealInsumoConfig no **tenant RH** (mesmo dono da aba Produtos).
- * Não grava saldo.
+ * Cria/atualiza CmvRealInsumoConfig no tenantUserId informado (dono do grupo).
  */
 export async function confirmarCatalogo(
-  _sessionUserIdIgnored: string,
+  tenantUserId: string,
   itens: ConfirmCatalogoItem[],
 ): Promise<{ upserted: number; tenantUserId: string }> {
-  const catalogo = await loadCatalogoEstoqueFromSession();
-  if (!catalogo) throw new Error('Sessão sem contexto de Estoque (tenant RH).');
-  const tenantUserId = catalogo.tenantUserId;
-
   let upserted = 0;
   for (const it of itens) {
     if (!it.estoqueInsumoId) continue;
@@ -213,9 +206,9 @@ export async function confirmarCatalogo(
   return { upserted, tenantUserId };
 }
 
-/** Cria EstoqueInsumo no tenant RH + CmvRealInsumoConfig. */
+/** Cria EstoqueInsumo no tenant + CmvRealInsumoConfig. */
 export async function criarInsumoEConfig(
-  _sessionUserIdIgnored: string,
+  tenantUserId: string,
   opts: {
     nome: string;
     secao: CmvRealSecao;
@@ -223,10 +216,6 @@ export async function criarInsumoEConfig(
     ordem: number;
   },
 ): Promise<{ estoqueInsumoId: string; tenantUserId: string }> {
-  const catalogo = await loadCatalogoEstoqueFromSession();
-  if (!catalogo) throw new Error('Sessão sem contexto de Estoque (tenant RH).');
-  const tenantUserId = catalogo.tenantUserId;
-
   const slugBase = normalizarDescricao(opts.nome)
     .toLowerCase()
     .replace(/\s+/g, '-')

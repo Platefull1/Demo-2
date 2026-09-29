@@ -12,6 +12,7 @@ import {
   normalizarUnidade,
 } from './normalize';
 import { notificarProblemasIngest } from './notificar';
+import { getCmvRealTenantFromUserId } from './tenant';
 import {
   defaultPipelineConfig,
   processarNota,
@@ -21,6 +22,7 @@ import {
   type PipelineProblema,
 } from './pipeline';
 import { storeSlugFromSaiposId } from './stores';
+import { loadCatalogoEstoqueForUserId } from '@/lib/estoque/catalogo';
 
 export interface IngestSyncPayload {
   ok?: boolean;
@@ -82,22 +84,20 @@ function decimal(n: number): Prisma.Decimal {
   return new Prisma.Decimal(n);
 }
 
-async function loadContext(userId: string) {
-  const { loadCatalogoEstoqueForUserId } = await import('@/lib/estoque/catalogo');
-  const catalogoEstoque = await loadCatalogoEstoqueForUserId(userId);
-  const tenantUserId = catalogoEstoque?.tenantUserId ?? userId;
+async function loadContext(tenantUserId: string) {
+  const catalogoEstoque = await loadCatalogoEstoqueForUserId(tenantUserId);
 
-  // CmvRealInsumoConfig vive no tenant RH (aba Produtos); NF-e/mapeamentos na conta da API key
+  // Tudo no tenant dono (platefull.app)
   const [configs, mapeamentos, nfeConfig, lancamentosRecentes] = await Promise.all([
     prisma.cmvRealInsumoConfig.findMany({
       where: { userId: tenantUserId, ativo: true },
       include: { estoqueInsumo: { select: { id: true, nome: true, insumoId: true } } },
     }),
-    prisma.nfeMapeamento.findMany({ where: { userId } }),
-    prisma.nfeConfig.findUnique({ where: { userId } }),
+    prisma.nfeMapeamento.findMany({ where: { userId: tenantUserId } }),
+    prisma.nfeConfig.findUnique({ where: { userId: tenantUserId } }),
     prisma.cmvLancamento.findMany({
       where: {
-        userId,
+        userId: tenantUserId,
         tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL'] },
         data: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
       },
@@ -498,8 +498,12 @@ async function upsertNotaEItens(
   else if (status === 'ERRO_PROCESSAMENTO' || status === 'FALHA') counters.erros++;
 }
 
+/**
+ * @param apiKeyUserId userId da ServiceApiKey (ex.: calenzano.ahu).
+ * Gravação sempre no tenant dono do grupo (platefull.app).
+ */
 export async function ingestNfeSync(
-  userId: string,
+  apiKeyUserId: string,
   payload: IngestSyncPayload,
 ): Promise<IngestResultado> {
   const counters: IngestResultado = {
@@ -512,6 +516,12 @@ export async function ingestNfeSync(
     aguardandoDetalhe: [],
     problemasNovos: [],
   };
+
+  const tenant = await getCmvRealTenantFromUserId(apiKeyUserId);
+  if (!tenant) {
+    throw new Error(`Não foi possível resolver tenant CMV Real para userId=${apiKeyUserId}`);
+  }
+  const userId = tenant.tenantUserId;
 
   const ctx = await loadContext(userId);
   const problemasJaVistos = new Set<string>();
@@ -583,7 +593,8 @@ export async function ingestNfeSync(
   }
 
   await notificarProblemasIngest({
-    userId,
+    tenantUserId: userId,
+    actorUserId: tenant.actorUserId,
     problemasNovos: counters.problemasNovos,
   });
 

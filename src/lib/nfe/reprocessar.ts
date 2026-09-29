@@ -32,7 +32,7 @@ function inferSecao(categoriaId: string): 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBID
   return 'MATERIA_PRIMA';
 }
 
-export async function reprocessarNotasEmRevisao(userId: string): Promise<{
+export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
   processadas: number;
   aprovadas: number;
   aindaEmRevisao: number;
@@ -40,12 +40,12 @@ export async function reprocessarNotasEmRevisao(userId: string): Promise<{
   catalogoSize: number;
   tenantUserId: string;
 }> {
-  const catalogoEstoque = await loadCatalogoEstoqueForUserId(userId);
-  const tenantUserId = catalogoEstoque?.tenantUserId ?? userId;
+  const catalogoEstoque = await loadCatalogoEstoqueForUserId(tenantUserId);
+  const userId = tenantUserId;
 
   const [configs, mapeamentos, nfeConfig, lancamentosRecentes] = await Promise.all([
     prisma.cmvRealInsumoConfig.findMany({
-      where: { userId: tenantUserId, ativo: true },
+      where: { userId, ativo: true },
       include: { estoqueInsumo: { select: { id: true, nome: true, insumoId: true } } },
     }),
     prisma.nfeMapeamento.findMany({ where: { userId } }),
