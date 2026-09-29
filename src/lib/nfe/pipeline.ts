@@ -329,6 +329,7 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       secao: secaoHint,
       unidadeComercial: und,
       quantidadeNota: it.quantidade,
+      valorLiquido: liq.valorLiquido,
       kgPorUnidade: (() => {
         const id = estoqueInsumoId ?? sugestaoInsumoId;
         return id ? input.insumosConfig[id]?.kgPorUnidade ?? null : null;

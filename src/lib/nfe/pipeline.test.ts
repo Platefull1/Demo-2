@@ -147,34 +147,35 @@ describe('fator sugerido da descrição', () => {
     assert.equal(s?.fator, 6);
   });
 
-  it('SAL PCT 30X1KG → 30 kg', () => {
+  it('SAL PCT 30X1KG → 30 kg (sem sufixo, ambiguo)', () => {
     const s = sugerirFatorDaDescricao('SAL DE COZINHA MARFIN PCT 30X1KG', {
       unidadeComercial: 'UN',
     });
     assert.equal(s?.fator, 30);
-    assert.equal(s?.ambiguo, false);
+    assert.equal(s?.ambiguo, true);
   });
 
-  it('MILHO 6X1,500KG → 9 kg', () => {
+  it('MILHO 6X1,500KG → 9 kg (sem sufixo, ambiguo)', () => {
     const s = sugerirFatorDaDescricao('MILHO VERDE LATA 6X1,500KG');
     assert.equal(s?.fator, 9);
+    assert.equal(s?.ambiguo, true);
   });
 
-  it('CARNE 6X1KG → 6 kg', () => {
+  it('CARNE 6X1KG → 6 kg (sem sufixo, ambiguo)', () => {
     const s = sugerirFatorDaDescricao('CARNE MOIDA SABOR COSTELA 6X1KG');
     assert.equal(s?.fator, 6);
   });
 
-  it('LOMBO PCT 25X1KG - 1 CX COM 10 → 25 kg + FATOR_AMBIGUO', () => {
+  it('LOMBO PCT 25X1KG - 1 CX COM 10 sem qtd → P + FATOR_AMBIGUO', () => {
     const s = sugerirFatorDaDescricao('LOMBO SUINO PCT 25X1KG - 1 CX COM 10', {
       unidadeComercial: 'PCT',
     });
-    assert.equal(s?.fator, 25);
+    assert.equal(s?.fator, 1); // P do 25X1KG
     assert.equal(s?.ambiguo, true);
     assert.ok(s?.alertas?.includes('FATOR_AMBIGUO'));
   });
 
-  it('PEPERONI PCT 500G - 1 CX COM 6 → 0,5 kg (PCT)', () => {
+  it('PEPERONI PCT 500G - 1 CX COM 6 sem qtd → 0,5 ambiguo', () => {
     const s = sugerirFatorDaDescricao('PEPERONI FATIADO PCT 500G - 1 CX COM 6', {
       unidadeComercial: 'PCT',
     });
@@ -182,11 +183,12 @@ describe('fator sugerido da descrição', () => {
     assert.equal(s?.ambiguo, true);
   });
 
-  it('PEPERONI com unidade CX → 3 kg', () => {
+  it('PEPERONI com unidade CX sem qtd → P=0,5 ambiguo', () => {
     const s = sugerirFatorDaDescricao('PEPERONI FATIADO PCT 500G - 1 CX COM 6', {
       unidadeComercial: 'CX',
     });
-    assert.equal(s?.fator, 3);
+    assert.equal(s?.fator, 0.5);
+    assert.equal(s?.ambiguo, true);
   });
 
   it('MOLHO BAG 3,1KG - 6 CXS → 3,1 kg (ignora sufixo se und≠CX)', () => {
@@ -207,7 +209,7 @@ describe('fator sugerido da descrição', () => {
     assert.equal(s?.fator, 14.5);
   });
 
-  it('unidade KG → fator 1 (+ FATOR_AMBIGUO se pack)', () => {
+  it('unidade KG sem sufixo → fator 1 (+ FATOR_AMBIGUO se pack)', () => {
     const s = sugerirFatorDaDescricao('MILHO VERDE LATA 6X1,500KG', {
       unidadeComercial: 'KG',
       quantidadeNota: 9,
@@ -215,10 +217,9 @@ describe('fator sugerido da descrição', () => {
     assert.equal(s?.fator, 1);
     assert.equal(s?.ambiguo, true);
     assert.ok(s?.alertas?.includes('FATOR_AMBIGUO'));
-    assert.ok(s?.detalhe.includes('qtd nota'));
   });
 
-  it('CONFETES 12X500GR (KG) → fator 1 ambiguo', () => {
+  it('CONFETES 12X500GR (KG) sem sufixo → fator 1 ambiguo', () => {
     const s = sugerirFatorDaDescricao('CONFETES COLORIDO 12X500GR', {
       unidadeComercial: 'KG',
       quantidadeNota: 6,
@@ -232,36 +233,99 @@ describe('fator sugerido da descrição', () => {
       unidadeComercial: 'KG',
     });
     assert.equal(s?.fator, 1);
-    // peso simples sem NxP/CX — pack? "1,050KG" alone is not pack pattern
-    // descricaoTemPack: no NxP, no CX → ambiguo false
     assert.equal(s?.ambiguo, false);
   });
 
-  it('TON + pack → fator do pack + sempre FATOR_AMBIGUO', () => {
-    const s = sugerirFatorDaDescricao('ACUCAR PCT 5KG - 1 CX COM 6', {
-      unidadeComercial: 'TON',
-      quantidadeNota: 1,
-    });
-    assert.equal(s?.fator, 30); // 5×6
-    assert.equal(s?.ambiguo, true);
-    assert.ok(s?.detalhe.includes('não padronizada'));
-  });
-
-  it('OLEO TON 20X900ML × kgPorUnidade 0,9 → 18', () => {
+  it('OLEO 20X900ML - 1 CX COM 20 | qtd 20 → P=0,9', () => {
     const s = sugerirFatorDaDescricao(
       'OLEO DE SOJA COCAMAR PET CX 20X900ML - 1 CX COM 20',
-      { unidadeComercial: 'TON', kgPorUnidade: 0.9 },
+      { unidadeComercial: 'TON', quantidadeNota: 20, kgPorUnidade: 0.9 },
     );
-    assert.equal(s?.fator, 18);
-    assert.equal(s?.ambiguo, true);
+    assert.equal(s?.fator, 0.9);
+    assert.equal(s?.ambiguo, undefined);
   });
 
-  it('20X900ML com kgPorUnidade (unidade CX) → 18', () => {
-    const s = sugerirFatorDaDescricao('OLEO SOJA CX 20X900ML', {
-      unidadeComercial: 'CX',
-      kgPorUnidade: 0.9,
+  it('OLEO 20X900ML - 2 CXS E 0 UND | qtd 40 → P=0,9', () => {
+    const s = sugerirFatorDaDescricao(
+      'OLEO DE SOJA COCAMAR PET CX 20X900ML - 2 CXS E 0 UND',
+      { unidadeComercial: 'TON', quantidadeNota: 40, kgPorUnidade: 0.9 },
+    );
+    assert.equal(s?.fator, 0.9);
+  });
+
+  it('ACUCAR PCT 5KG - 1 CX COM 6 | qtd 6 → 5', () => {
+    const s = sugerirFatorDaDescricao('ACUCAR PCT 5KG - 1 CX COM 6', {
+      unidadeComercial: 'TON',
+      quantidadeNota: 6,
     });
-    assert.equal(s?.fator, 18);
+    assert.equal(s?.fator, 5);
+  });
+
+  it('ACUCAR PCT 5KG - 1 CX COM 2 | qtd 2 → 5', () => {
+    const s = sugerirFatorDaDescricao('ACUCAR PCT 5KG - 1 CX COM 2', {
+      unidadeComercial: 'TON',
+      quantidadeNota: 2,
+    });
+    assert.equal(s?.fator, 5);
+  });
+
+  it('ACUCAR PCT 5KG - 2 CXS E 0 UND | qtd 12 → 5', () => {
+    const s = sugerirFatorDaDescricao('ACUCAR PCT 5KG - 2 CXS E 0 UND', {
+      unidadeComercial: 'TON',
+      quantidadeNota: 12,
+    });
+    assert.equal(s?.fator, 5);
+  });
+
+  it('MILHO 6X1,500KG - 5 CXS | qtd 30 → 1,5', () => {
+    const s = sugerirFatorDaDescricao(
+      'MILHO VERDE LATA 6X1,500KG - 5 CXS E 0 UND',
+      { unidadeComercial: 'KG', quantidadeNota: 30 },
+    );
+    assert.equal(s?.fator, 1.5);
+    assert.ok(!s?.alertas?.includes('FATOR_AMBIGUO'));
+  });
+
+  it('MILHO 6X1,500KG - 7 CXS | qtd 42 → 1,5', () => {
+    const s = sugerirFatorDaDescricao(
+      'MILHO VERDE LATA 6X1,500KG - 7 CXS E 0 UND',
+      { unidadeComercial: 'KG', quantidadeNota: 42 },
+    );
+    assert.equal(s?.fator, 1.5);
+  });
+
+  it('CONFETES 12X500GR - 1 CX COM 12 | qtd 12 → 0,5', () => {
+    const s = sugerirFatorDaDescricao(
+      'CONFETES COLORIDO 12X500GR - 1 CX COM 12',
+      { unidadeComercial: 'KG', quantidadeNota: 12 },
+    );
+    assert.equal(s?.fator, 0.5);
+  });
+
+  it('COCA (6) → fator 6', () => {
+    const s = sugerirFatorDaDescricao('COCA-COLA ORIGINAL PET 2L (6) FL', {
+      unidadeComercial: 'G',
+      quantidadeNota: 35,
+      secao: 'BEBIDA',
+    });
+    assert.equal(s?.fator, 6);
+  });
+
+  it('CC Pet 600ml 6 Pack → 6', () => {
+    const s = sugerirFatorDaDescricao('CC Pet 600ml 6 Pack FL', {
+      secao: 'BEBIDA',
+    });
+    assert.equal(s?.fator, 6);
+  });
+
+  it('FATOR_SUSPEITO se custo/kg absurdo', () => {
+    const s = sugerirFatorDaDescricao('ACUCAR PCT 5KG - 1 CX COM 6', {
+      unidadeComercial: 'TON',
+      quantidadeNota: 6,
+      valorLiquido: 0.01, // R$ 0,01 / (6×5kg) = absurdo
+      secao: 'MATERIA_PRIMA',
+    });
+    assert.ok(s?.alertas?.includes('FATOR_SUSPEITO'));
   });
 });
 

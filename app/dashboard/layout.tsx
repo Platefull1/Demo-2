@@ -222,7 +222,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           {/* CMV Real — permissão RH cmv_real.visualizar (não UserToolPermission) */}
                           {!cmvRealLoading && canViewCmvReal ? (
                             <Link
-                              href="/cmv-real/importar"
+                              href="/cmv-real/notas"
                               onClick={() => setIsSidebarOpen(false)}
                               className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                                 pathname?.startsWith('/cmv-real')

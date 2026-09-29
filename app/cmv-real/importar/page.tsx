@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, FileSpreadsheet, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { FileSpreadsheet, Loader2, RefreshCw, Upload } from 'lucide-react';
 
 type PreviewStatus = 'casado' | 'sugerido' | 'nao_encontrado';
 
@@ -262,21 +261,15 @@ export default function CmvRealImportarPage() {
     : 'Confirmar';
 
   return (
-    <div className="min-h-screen bg-[#0a0a0c] text-gray-100">
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <Link href="/" className="text-gray-500 hover:text-white">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-xl font-semibold flex items-center gap-2">
-              <FileSpreadsheet className="w-5 h-5 text-amber-400" />
-              CMV Real — Importar catálogo
-            </h1>
-            <p className="text-sm text-gray-500">
-              Lê a planilha CMV DESPERDÍCIO e cria/atualiza CmvRealInsumoConfig (sem saldo).
-            </p>
-          </div>
+    <div className="space-y-6">
+        <div>
+          <h2 className="text-base font-semibold flex items-center gap-2 text-white">
+            <FileSpreadsheet className="w-4 h-4 text-amber-400" />
+            Importar catálogo
+          </h2>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Lê a planilha CMV DESPERDÍCIO e cria/atualiza CmvRealInsumoConfig (sem saldo).
+          </p>
         </div>
 
         <section className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-4 space-y-4">
@@ -503,7 +496,6 @@ export default function CmvRealImportarPage() {
             </div>
           </div>
         )}
-      </div>
     </div>
   );
 }
