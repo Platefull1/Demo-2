@@ -206,6 +206,63 @@ describe('fator sugerido da descrição', () => {
     const s = sugerirFatorDaDescricao('MARGARINA COM SAL BALDE 14,5 KG');
     assert.equal(s?.fator, 14.5);
   });
+
+  it('unidade KG → fator 1 (+ FATOR_AMBIGUO se pack)', () => {
+    const s = sugerirFatorDaDescricao('MILHO VERDE LATA 6X1,500KG', {
+      unidadeComercial: 'KG',
+      quantidadeNota: 9,
+    });
+    assert.equal(s?.fator, 1);
+    assert.equal(s?.ambiguo, true);
+    assert.ok(s?.alertas?.includes('FATOR_AMBIGUO'));
+    assert.ok(s?.detalhe.includes('qtd nota'));
+  });
+
+  it('CONFETES 12X500GR (KG) → fator 1 ambiguo', () => {
+    const s = sugerirFatorDaDescricao('CONFETES COLORIDO 12X500GR', {
+      unidadeComercial: 'KG',
+      quantidadeNota: 6,
+    });
+    assert.equal(s?.fator, 1);
+    assert.equal(s?.ambiguo, true);
+  });
+
+  it('CHOCOLATE BIS 1,050KG (KG) → fator 1', () => {
+    const s = sugerirFatorDaDescricao('CHOCOLATE PRETO BIS 1,050KG', {
+      unidadeComercial: 'KG',
+    });
+    assert.equal(s?.fator, 1);
+    // peso simples sem NxP/CX — pack? "1,050KG" alone is not pack pattern
+    // descricaoTemPack: no NxP, no CX → ambiguo false
+    assert.equal(s?.ambiguo, false);
+  });
+
+  it('TON + pack → fator do pack + sempre FATOR_AMBIGUO', () => {
+    const s = sugerirFatorDaDescricao('ACUCAR PCT 5KG - 1 CX COM 6', {
+      unidadeComercial: 'TON',
+      quantidadeNota: 1,
+    });
+    assert.equal(s?.fator, 30); // 5×6
+    assert.equal(s?.ambiguo, true);
+    assert.ok(s?.detalhe.includes('não padronizada'));
+  });
+
+  it('OLEO TON 20X900ML × kgPorUnidade 0,9 → 18', () => {
+    const s = sugerirFatorDaDescricao(
+      'OLEO DE SOJA COCAMAR PET CX 20X900ML - 1 CX COM 20',
+      { unidadeComercial: 'TON', kgPorUnidade: 0.9 },
+    );
+    assert.equal(s?.fator, 18);
+    assert.equal(s?.ambiguo, true);
+  });
+
+  it('20X900ML com kgPorUnidade (unidade CX) → 18', () => {
+    const s = sugerirFatorDaDescricao('OLEO SOJA CX 20X900ML', {
+      unidadeComercial: 'CX',
+      kgPorUnidade: 0.9,
+    });
+    assert.equal(s?.fator, 18);
+  });
 });
 
 describe('pipeline decisões', () => {
@@ -426,11 +483,15 @@ describe('pipeline decisões', () => {
 });
 
 describe('volume bebidas', () => {
-  it('extrai ML, L, LATA e número solto', () => {
+  it('extrai ML, L, LITRO, LATA e número solto', () => {
     assert.deepEqual(extractVolume('PEPSI 600ML ZERO'), { kind: 'ml', ml: 600 });
     assert.deepEqual(extractVolume('PEPSI 2L ZERO'), { kind: 'ml', ml: 2000 });
     assert.deepEqual(extractVolume('COCA 1,5L'), { kind: 'ml', ml: 1500 });
+    assert.deepEqual(extractVolume('COCA 1 LITRO'), { kind: 'ml', ml: 1000 });
+    assert.deepEqual(extractVolume('COCA 2 LITROS ZERO'), { kind: 'ml', ml: 2000 });
     assert.deepEqual(extractVolume('GUARANA LATA'), { kind: 'lata' });
+    assert.deepEqual(extractVolume('COCA COLA LT12 350ML FL'), { kind: 'lata' });
+    assert.deepEqual(extractVolume('CC ZERO LT 350ml 6U FL'), { kind: 'lata' });
     assert.deepEqual(extractVolume('PEPSI 600 ZERO'), { kind: 'ml', ml: 600 });
   });
 
@@ -438,15 +499,35 @@ describe('volume bebidas', () => {
     assert.equal(volumesConflitam('PEPSI 600 ZERO', 'PEPSI 2L ZERO'), true);
   });
 
+  it('lata ≠ 1 litro', () => {
+    assert.equal(volumesConflitam('COCA COLA LT12 350ML FL', 'COCA 1 LITRO'), true);
+    assert.equal(volumesConflitam('CC ZERO LT 350ml', 'COCA LATA ZERO'), false);
+  });
+
+  it('2L casa com 2 LITROS', () => {
+    assert.equal(
+      volumesConflitam('Coca-Cola Zero PET 2L 6U FL', 'COCA 2 LITROS ZERO'),
+      false,
+    );
+    assert.equal(
+      volumesConflitam('Coca-Cola Zero PET 2L 6U FL', 'COCA 1 LITRO ZERO'),
+      true,
+    );
+  });
+
   it('mesmo volume não conflita', () => {
     assert.equal(volumesConflitam('PEPSI 600ML ZERO', 'PEPSI 600 ZERO'), false);
   });
 
   it('sugerirDoCatalogo descarta volume divergente', () => {
-    const sug = sugerirDoCatalogo('PEPSI 600 ZERO', [
-      { id: 'a', nome: 'PEPSI 2L ZERO' },
-      { id: 'b', nome: 'PEPSI 600ML ZERO' },
-    ], 0.5);
+    const sug = sugerirDoCatalogo(
+      'PEPSI 600 ZERO',
+      [
+        { id: 'a', nome: 'PEPSI 2L ZERO' },
+        { id: 'b', nome: 'PEPSI 600ML ZERO' },
+      ],
+      0.5,
+    );
     assert.ok(sug);
     assert.equal(sug!.id, 'b');
   });

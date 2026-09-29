@@ -83,11 +83,12 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
   }
   for (const c of configs) {
     if (!insumosConfig[c.estoqueInsumoId]) {
+      const fromEstoque = catalogoEstoque?.itens.find((i) => i.id === c.estoqueInsumoId);
       insumosConfig[c.estoqueInsumoId] = {
         estoqueInsumoId: c.estoqueInsumoId,
         unidade: c.unidade,
         secao: c.secao,
-        kgPorUnidade: null,
+        kgPorUnidade: fromEstoque?.kgPorUnidade ?? null,
       };
     }
   }

@@ -29,6 +29,10 @@ const CATALOGO: CatalogoItem[] = [
   { id: 'costela', nome: 'COSTELA', secao: 'MATERIA_PRIMA' },
   { id: 'coca600', nome: 'COCA 600', secao: 'BEBIDA' },
   { id: 'coca2z', nome: 'COCA 2 LITROS ZERO', secao: 'BEBIDA' },
+  { id: 'coca1', nome: 'COCA 1 LITRO', secao: 'BEBIDA' },
+  { id: 'coca1z', nome: 'COCA 1 LITRO ZERO', secao: 'BEBIDA' },
+  { id: 'cocaLata', nome: 'COCA LATA', secao: 'BEBIDA' },
+  { id: 'cocaLataZ', nome: 'COCA LATA ZERO', secao: 'BEBIDA' },
   { id: 'guarana2', nome: 'GUARANÁ ANTÁRCTICA 2L', secao: 'BEBIDA' },
   { id: 'pepsi600', nome: 'PEPSI 600 ZERO', secao: 'BEBIDA' },
   { id: 'pepsi2', nome: 'PEPSI 2L ZERO', secao: 'BEBIDA' },
@@ -75,6 +79,16 @@ const POSITIVOS: Case[] = [
   {
     nfe: 'GUARANA CHP ANTARCTICA PET 2L CAIXA C/6',
     expectId: 'guarana2',
+    ncm: '22021000',
+  },
+  {
+    nfe: 'COCA COLA LT12 350ML FL',
+    expectId: 'cocaLata',
+    ncm: '22021000',
+  },
+  {
+    nfe: 'CC ZERO LT 350ml 6U FL',
+    expectId: 'cocaLataZ',
     ncm: '22021000',
   },
 ];

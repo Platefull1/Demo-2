@@ -136,7 +136,8 @@ function tokenizeWords(text: string, secao?: CmvRealSecao | null): string[] {
   let cleaned = prepareBase(text);
   // multi-palavra antes do split
   cleaned = cleaned.replace(/\bCOCA[\s-]*COLA\b/g, 'COCA');
-  cleaned = cleaned.replace(/\bCOCA[\s-]*COLA\b/g, 'COCA');
+  // LT / LT12 → LATA (volume já tratado em volumesConflitam)
+  cleaned = cleaned.replace(/\bLT\d*\b/g, 'LATA');
   cleaned = stripPackagingNoise(cleaned);
   const raw = cleaned
     .replace(/[()./-]/g, ' ')

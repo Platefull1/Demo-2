@@ -328,6 +328,11 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     const sugFator = sugerirFatorDaDescricao(it.descricao, {
       secao: secaoHint,
       unidadeComercial: und,
+      quantidadeNota: it.quantidade,
+      kgPorUnidade: (() => {
+        const id = estoqueInsumoId ?? sugestaoInsumoId;
+        return id ? input.insumosConfig[id]?.kgPorUnidade ?? null : null;
+      })(),
     });
     if (sugFator) {
       fatorSugerido = sugFator.fator;
