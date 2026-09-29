@@ -93,6 +93,16 @@ model User {
   bonificacaoTrimestres  BonificacaoTrimestre[]
   tiposAvaliacao         TipoAvaliacao[]
 
+  // CMV Real / NF-e
+  cmvRealInsumoConfigs   CmvRealInsumoConfig[]
+  nfeFornecedores        NfeFornecedor[]
+  nfeNotas               NfeNota[]
+  nfeMapeamentos         NfeMapeamento[]
+  cmvLancamentos         CmvLancamento[]
+  cmvSaldosEstoque       CmvSaldoEstoque[]
+  cmvFechamentos         CmvFechamento[]
+  nfeConfig              NfeConfig?
+
   @@map("users")
 }
 
@@ -685,6 +695,8 @@ model EstoqueInsumo {
   categoriaIcone String   @map("categoria_icone")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
+
+  cmvRealConfigs CmvRealInsumoConfig[]
 
   @@unique([userId, insumoId])
   @@index([userId])
@@ -2003,4 +2015,285 @@ model ComplaintComparison {
   @@unique([reviewRunId, lojaId, categoria])
   @@index([reviewRunId])
   @@map("complaint_comparisons")
+}
+
+// ============================================
+// CMV REAL — Notas de entrada (Saipos) + fechamento por estoque
+// Separado do CmvStoreData (CMV teórico / fichas técnicas).
+// EstoqueProdutoConfig.produtoId = EstoqueInsumo.insumoId (slug), NÃO o cuid.
+// ============================================
+
+enum CmvRealSecao {
+  MATERIA_PRIMA
+  EMBALAGEM
+  BEBIDA
+}
+
+enum CmvRealUnidade {
+  KG
+  UN
+}
+
+enum NfeNotaStatus {
+  AGUARDANDO_DETALHE
+  PENDENTE_PROCESSAMENTO
+  EM_REVISAO
+  APROVADA
+  IGNORADA
+  ERRO_PROCESSAMENTO
+  FALHA
+}
+
+enum NfeItemStatus {
+  MAPEADO
+  SUGERIDO
+  SEM_MAPEAMENTO
+  IGNORADO
+}
+
+enum CmvLancamentoTipo {
+  COMPRA_NFE
+  COMPRA_MANUAL
+  TRANSFERENCIA
+  DESPERDICIO
+}
+
+enum CmvSaldoOrigem {
+  CONTAGEM
+  MANUAL
+  IMPORTACAO
+}
+
+enum CmvFechamentoStatus {
+  ABERTO
+  FECHADO
+}
+
+/// Configuração do produto no CMV Real (ligado ao catálogo EstoqueInsumo).
+model CmvRealInsumoConfig {
+  id               String         @id @default(cuid())
+  userId           String         @map("user_id")
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  estoqueInsumoId  String         @map("estoque_insumo_id")
+  estoqueInsumo    EstoqueInsumo  @relation(fields: [estoqueInsumoId], references: [id], onDelete: Cascade)
+  secao            CmvRealSecao
+  unidade          CmvRealUnidade
+  ordem            Int            @default(0)
+  ativo            Boolean        @default(true)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  @@unique([userId, estoqueInsumoId])
+  @@index([userId, secao, ativo])
+  @@map("cmv_real_insumo_configs")
+}
+
+model NfeFornecedor {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cnpj          String
+  razaoSocial   String   @map("razao_social")
+  nomeFantasia  String?  @map("nome_fantasia")
+  ignorarCmv    Boolean  @default(false) @map("ignorar_cmv")
+  motivoIgnorar String?  @map("motivo_ignorar")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  notas         NfeNota[]
+  mapeamentos   NfeMapeamento[]
+
+  @@unique([userId, cnpj])
+  @@index([userId])
+  @@map("nfe_fornecedores")
+}
+
+model NfeNota {
+  id                    String        @id @default(cuid())
+  userId                String        @map("user_id")
+  user                  User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug             String        @map("store_slug")
+  saiposStoreId         Int           @map("saipos_store_id")
+  saiposNotaId          Int           @map("saipos_nota_id")
+  chaveAcesso           String        @map("chave_acesso")
+  numero                String
+  fornecedorId          String        @map("fornecedor_id")
+  fornecedor            NfeFornecedor @relation(fields: [fornecedorId], references: [id], onDelete: Restrict)
+  dataEmissao           DateTime      @map("data_emissao")
+  dataEntrada           DateTime      @map("data_entrada")
+  dataCadastroSaipos    DateTime      @map("data_cadastro_saipos")
+  competencia           String // YYYY-MM (America/Sao_Paulo, pela data de entrada)
+  valorTotal            Decimal       @map("valor_total") @db.Decimal(14, 2)
+  somaItensLiquido      Decimal?      @map("soma_itens_liquido") @db.Decimal(14, 2)
+  status                NfeNotaStatus @default(PENDENTE_PROCESSAMENTO)
+  tentativas            Int           @default(0)
+  ultimoErro            String?       @map("ultimo_erro") @db.Text
+  alertas               Json          @default("[]")
+  conciliadaSaipos      Boolean       @default(false) @map("conciliada_saipos")
+  /// id_store_stock_transfer da Saipos — quando preenchido, transferência entre lojas
+  saiposTransferenciaId Int?          @map("saipos_transferencia_id")
+  rawReport             Json          @map("raw_report")
+  rawDetalhe            Json?         @map("raw_detalhe")
+  aprovadaPorId         String?       @map("aprovada_por_id")
+  aprovadaEm            DateTime?     @map("aprovada_em")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
+
+  itens NfeItem[]
+
+  @@unique([userId, saiposNotaId])
+  @@index([userId, storeSlug, competencia])
+  @@index([userId, status])
+  @@map("nfe_notas")
+}
+
+model NfeItem {
+  id                   String        @id @default(cuid())
+  notaId               String        @map("nota_id")
+  nota                 NfeNota       @relation(fields: [notaId], references: [id], onDelete: Cascade)
+  saiposItemId         Int           @map("saipos_item_id")
+  numeroItem           Int           @default(0) @map("numero_item")
+  descricao            String
+  descricaoNormalizada String        @map("descricao_normalizada")
+  ean                  String?
+  ncm                  String?
+  cfop                 String?
+  unidadeComercial     String        @map("unidade_comercial")
+  quantidade           Decimal       @db.Decimal(14, 4)
+  valorBruto           Decimal       @map("valor_bruto") @db.Decimal(14, 2)
+  valorLiquido         Decimal?      @map("valor_liquido") @db.Decimal(14, 2)
+  estoqueInsumoId      String?       @map("estoque_insumo_id")
+  mapeamentoId         String?       @map("mapeamento_id")
+  mapeamento           NfeMapeamento? @relation(fields: [mapeamentoId], references: [id], onDelete: SetNull)
+  fatorConversao       Decimal?      @map("fator_conversao") @db.Decimal(14, 4)
+  quantidadeConvertida Decimal?      @map("quantidade_convertida") @db.Decimal(14, 4)
+  unidadeConvertida    CmvRealUnidade? @map("unidade_convertida")
+  custoUnitario        Decimal?      @map("custo_unitario") @db.Decimal(14, 4)
+  fcpStRateado         Decimal?      @map("fcp_st_rateado") @db.Decimal(14, 2)
+  fatorSugerido        Decimal?      @map("fator_sugerido") @db.Decimal(14, 4)
+  fatorSugeridoOrigem  String?       @map("fator_sugerido_origem") // DESCRICAO | ESTOQUE_KG_POR_UNIDADE
+  status               NfeItemStatus @default(SEM_MAPEAMENTO)
+  sugestaoInsumoId     String?       @map("sugestao_insumo_id")
+  sugestaoScore        Float?        @map("sugestao_score")
+  alertas              Json          @default("[]")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  lancamento CmvLancamento?
+
+  @@unique([notaId, saiposItemId])
+  @@index([notaId])
+  @@index([estoqueInsumoId])
+  @@map("nfe_itens")
+}
+
+model NfeMapeamento {
+  id                   String         @id @default(cuid())
+  userId               String         @map("user_id")
+  user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fornecedorId         String         @map("fornecedor_id")
+  fornecedor           NfeFornecedor  @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
+  /// "ean:<ean>" ou "desc:<descricaoNormalizada>|<UNIDADE>"
+  chave                String
+  ean                  String?
+  descricaoNormalizada String?        @map("descricao_normalizada")
+  unidadeComercial     String         @map("unidade_comercial")
+  estoqueInsumoId      String?        @map("estoque_insumo_id")
+  fatorConversao       Decimal        @map("fator_conversao") @db.Decimal(14, 4)
+  ignorar              Boolean        @default(false)
+  usos                 Int            @default(0)
+  ultimoUsoEm          DateTime?      @map("ultimo_uso_em")
+  criadoPorId          String?        @map("criado_por_id")
+  createdAt            DateTime       @default(now()) @map("created_at")
+  updatedAt            DateTime       @updatedAt @map("updated_at")
+
+  itens NfeItem[]
+
+  @@unique([userId, fornecedorId, chave])
+  @@index([userId, fornecedorId])
+  @@map("nfe_mapeamentos")
+}
+
+model CmvLancamento {
+  id              String            @id @default(cuid())
+  userId          String            @map("user_id")
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug       String            @map("store_slug")
+  competencia     String
+  data            DateTime
+  tipo            CmvLancamentoTipo
+  estoqueInsumoId String            @map("estoque_insumo_id")
+  quantidade      Decimal           @db.Decimal(14, 4)
+  unidade         CmvRealUnidade
+  valorTotal      Decimal           @map("valor_total") @db.Decimal(14, 2)
+  nfeItemId       String?           @unique @map("nfe_item_id")
+  nfeItem         NfeItem?          @relation(fields: [nfeItemId], references: [id], onDelete: SetNull)
+  lojaDestino     String?           @map("loja_destino")
+  observacao      String?
+  criadoPorId     String?           @map("criado_por_id")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+
+  @@index([userId, storeSlug, competencia])
+  @@index([userId, estoqueInsumoId, data])
+  @@map("cmv_lancamentos")
+}
+
+model CmvSaldoEstoque {
+  id              String         @id @default(cuid())
+  userId          String         @map("user_id")
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug       String         @map("store_slug")
+  competencia     String
+  estoqueInsumoId String         @map("estoque_insumo_id")
+  qtdFinal        Decimal        @map("qtd_final") @db.Decimal(14, 4)
+  custoMedio      Decimal?       @map("custo_medio") @db.Decimal(14, 4)
+  origem          CmvSaldoOrigem
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  @@unique([userId, storeSlug, competencia, estoqueInsumoId])
+  @@index([userId, storeSlug, competencia])
+  @@map("cmv_saldos_estoque")
+}
+
+model CmvFechamento {
+  id                    String              @id @default(cuid())
+  userId                String              @map("user_id")
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug             String              @map("store_slug")
+  competencia           String
+  status                CmvFechamentoStatus @default(ABERTO)
+  vendaMes              Decimal?            @map("venda_mes") @db.Decimal(14, 2)
+  ajustes               Json                @default("[]") // [{secao, descricao, valor}]
+  refeicoesFuncionarios Json                @default("[]") @map("refeicoes_funcionarios") // [{descricao, valorVenda}]
+  contagemId            String?             @map("contagem_id")
+  snapshot              Json?
+  fechadoEm             DateTime?           @map("fechado_em")
+  fechadoPorId          String?             @map("fechado_por_id")
+  createdAt             DateTime            @default(now()) @map("created_at")
+  updatedAt             DateTime            @updatedAt @map("updated_at")
+
+  @@unique([userId, storeSlug, competencia])
+  @@index([userId, status])
+  @@map("cmv_fechamentos")
+}
+
+/// Configuração NF-e / notificações — 1 por tenant.
+model NfeConfig {
+  id                         String   @id @default(cuid())
+  userId                     String   @unique @map("user_id")
+  user                       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionSlot                Int?     @map("session_slot")
+  destinoPadrao              String?  @map("destino_padrao")
+  destinosPorLoja            Json     @default("{}") @map("destinos_por_loja")
+  autoAprovar                Boolean  @default(false) @map("auto_aprovar")
+  toleranciaTotalReais       Decimal  @default(1.00) @map("tolerancia_total_reais") @db.Decimal(14, 2)
+  toleranciaTotalPercent     Decimal  @default(0.5) @map("tolerancia_total_percent") @db.Decimal(14, 4)
+  limiteVariacaoCustoPercent Decimal  @default(30) @map("limite_variacao_custo_percent") @db.Decimal(14, 4)
+  maxTentativas              Int      @default(3) @map("max_tentativas")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  updatedAt                  DateTime @updatedAt @map("updated_at")
+
+  @@map("nfe_configs")
 }
