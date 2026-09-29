@@ -83,9 +83,14 @@ function decimal(n: number): Prisma.Decimal {
 }
 
 async function loadContext(userId: string) {
+  const { loadCatalogoEstoqueForUserId } = await import('@/lib/estoque/catalogo');
+  const catalogoEstoque = await loadCatalogoEstoqueForUserId(userId);
+  const tenantUserId = catalogoEstoque?.tenantUserId ?? userId;
+
+  // CmvRealInsumoConfig vive no tenant RH (aba Produtos); NF-e/mapeamentos na conta da API key
   const [configs, mapeamentos, nfeConfig, lancamentosRecentes] = await Promise.all([
     prisma.cmvRealInsumoConfig.findMany({
-      where: { userId, ativo: true },
+      where: { userId: tenantUserId, ativo: true },
       include: { estoqueInsumo: { select: { id: true, nome: true, insumoId: true } } },
     }),
     prisma.nfeMapeamento.findMany({ where: { userId } }),
@@ -100,28 +105,45 @@ async function loadContext(userId: string) {
     }),
   ]);
 
-  // kgPorUnidade: EstoqueProdutoConfig.produtoId = EstoqueInsumo.insumoId (slug)
-  const slugs = configs.map((c) => c.estoqueInsumo.insumoId);
-  const produtoConfigs = await prisma.estoqueProdutoConfig.findMany({
-    where: { userId, produtoId: { in: slugs } },
-  });
-  const kgBySlug = new Map(
-    produtoConfigs.map((p) => [p.produtoId, p.kgPorUnidade]),
+  // Catálogo para similaridade = produtos da aba Estoque (179 merge)
+  // Preferir nomes do Estoque; se houver CmvRealInsumoConfig, filtrar ativos por config
+  const configByInsumoId = new Map(configs.map((c) => [c.estoqueInsumoId, c]));
+  const kgByInsumoId = new Map(
+    (catalogoEstoque?.itens ?? []).map((i) => [i.id, i.kgPorUnidade]),
   );
+  // também por slug→id caso config aponte a outra cópia do mesmo slug
+  const estoqueById = new Map((catalogoEstoque?.itens ?? []).map((i) => [i.id, i]));
 
-  const catalogo = configs.map((c) => ({
-    id: c.estoqueInsumoId,
-    nome: c.estoqueInsumo.nome,
-  }));
+  const catalogo =
+    catalogoEstoque?.itens
+      .filter((i) => i.ativo)
+      .map((i) => ({ id: i.id, nome: i.nome })) ??
+    configs.map((c) => ({ id: c.estoqueInsumoId, nome: c.estoqueInsumo.nome }));
 
   const insumosConfig: Record<string, PipelineInsumoConfig> = {};
-  for (const c of configs) {
-    insumosConfig[c.estoqueInsumoId] = {
-      estoqueInsumoId: c.estoqueInsumoId,
-      unidade: c.unidade,
-      secao: c.secao,
-      kgPorUnidade: kgBySlug.get(c.estoqueInsumo.insumoId) ?? null,
+  // A partir do catálogo Estoque + overlay de CmvRealInsumoConfig
+  for (const item of catalogoEstoque?.itens ?? []) {
+    const cfg = configByInsumoId.get(item.id);
+    if (cfg && !cfg.ativo) continue;
+    insumosConfig[item.id] = {
+      estoqueInsumoId: item.id,
+      unidade: cfg?.unidade ?? (item.unidade === 'un' ? 'UN' : 'KG'),
+      secao: cfg?.secao ?? inferSecao(item.categoriaId),
+      kgPorUnidade: item.kgPorUnidade,
     };
+  }
+  for (const c of configs) {
+    if (!insumosConfig[c.estoqueInsumoId]) {
+      insumosConfig[c.estoqueInsumoId] = {
+        estoqueInsumoId: c.estoqueInsumoId,
+        unidade: c.unidade,
+        secao: c.secao,
+        kgPorUnidade:
+          kgByInsumoId.get(c.estoqueInsumoId) ??
+          estoqueById.get(c.estoqueInsumoId)?.kgPorUnidade ??
+          null,
+      };
+    }
   }
 
   const mapeamentosPorFornecedor = new Map<string, PipelineMapeamento[]>();
@@ -141,7 +163,6 @@ async function loadContext(userId: string) {
     mapeamentosPorFornecedor.set(m.fornecedorId, list);
   }
 
-  // custo médio ponderado 90d
   const custoMedioPorInsumo: Record<string, number> = {};
   const acc = new Map<string, { qtd: number; valor: number }>();
   for (const l of lancamentosRecentes) {
@@ -171,7 +192,15 @@ async function loadContext(userId: string) {
     mapeamentosPorFornecedor,
     custoMedioPorInsumo,
     pipelineConfig,
+    tenantUserId,
   };
+}
+
+function inferSecao(categoriaId: string): 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA' {
+  const c = categoriaId.toLowerCase();
+  if (c.includes('embal')) return 'EMBALAGEM';
+  if (c.includes('bebid')) return 'BEBIDA';
+  return 'MATERIA_PRIMA';
 }
 
 async function upsertFornecedor(

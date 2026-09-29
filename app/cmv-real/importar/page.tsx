@@ -14,6 +14,7 @@ type PreviewItem = {
   estoqueInsumoId?: string;
   estoqueNome?: string;
   score?: number;
+  kgPorUnidade?: number | null;
 };
 
 export default function CmvRealImportarPage() {
@@ -26,6 +27,7 @@ export default function CmvRealImportarPage() {
     casados: number;
     sugeridos: number;
     naoEncontrados: number;
+    catalogoEstoqueSize?: number | null;
   } | null>(null);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export default function CmvRealImportarPage() {
         casados: data.casados,
         sugeridos: data.sugeridos,
         naoEncontrados: data.naoEncontrados,
+        catalogoEstoqueSize: data.catalogoEstoqueSize,
       });
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -229,8 +232,11 @@ export default function CmvRealImportarPage() {
 
           {resumo && (
             <p className="text-sm text-gray-400">
-              {resumo.total} produtos · {resumo.casados} casados · {resumo.sugeridos} sugeridos ·{' '}
-              {resumo.naoEncontrados} não encontrados
+              {resumo.total} na planilha · {resumo.casados} casados · {resumo.sugeridos}{' '}
+              sugeridos · {resumo.naoEncontrados} não encontrados
+              {resumo.catalogoEstoqueSize != null && (
+                <> · catálogo Estoque: {resumo.catalogoEstoqueSize} produtos</>
+              )}
             </p>
           )}
           {msg && <p className="text-sm text-amber-300">{msg}</p>}
@@ -265,6 +271,7 @@ export default function CmvRealImportarPage() {
                     <th className="px-3 py-2">Seção</th>
                     <th className="px-3 py-2">Un</th>
                     <th className="px-3 py-2">Match</th>
+                    <th className="px-3 py-2">kg/un</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -287,6 +294,9 @@ export default function CmvRealImportarPage() {
                           {p.status}
                           {p.estoqueNome ? ` → ${p.estoqueNome}` : ''}
                         </span>
+                      </td>
+                      <td className="px-3 py-1.5 text-gray-400">
+                        {(p.kgPorUnidade ?? '—')}
                       </td>
                     </tr>
                   ))}

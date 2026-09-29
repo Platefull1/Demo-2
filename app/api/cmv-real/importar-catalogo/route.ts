@@ -1,7 +1,8 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getSessionDbUser } from '@/lib/rh-api-auth';
+import { getEstoqueTenantContext } from '@/lib/estoque-tenant';
+import { loadCatalogoEstoqueFromSession } from '@/lib/estoque/catalogo';
 import {
   confirmarCatalogo,
   criarInsumoEConfig,
@@ -15,13 +16,11 @@ import {
 
 /**
  * POST /api/cmv-real/importar-catalogo
- *
- * action=listar-abas | preview | confirmar | criar-insumo
- * Auth: sessão (getSessionDbUser).
+ * Usa o mesmo tenant/catálogo da aba Produtos do Estoque.
  */
 export async function POST(req: NextRequest) {
-  const user = await getSessionDbUser();
-  if (!user) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+  const ctx = await getEstoqueTenantContext();
+  if (!ctx) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
 
   const contentType = req.headers.get('content-type') || '';
 
@@ -43,9 +42,12 @@ export async function POST(req: NextRequest) {
       if (!aba) return NextResponse.json({ error: 'aba obrigatória' }, { status: 400 });
 
       const linhas = lerCatalogoDoBuffer(buffer, aba);
-      const preview = await previewCatalogo(user.id, linhas);
+      const preview = await previewCatalogo(ctx.tenantUserId, linhas);
+      const meta = (preview as { _meta?: { tenantUserId: string; catalogoSize: number } })._meta;
       return NextResponse.json({
         ok: true,
+        tenantUserId: meta?.tenantUserId ?? ctx.tenantUserId,
+        catalogoEstoqueSize: meta?.catalogoSize ?? null,
         total: preview.length,
         casados: preview.filter((p) => p.status === 'casado').length,
         sugeridos: preview.filter((p) => p.status === 'sugerido').length,
@@ -66,17 +68,31 @@ export async function POST(req: NextRequest) {
     };
 
     if (body.action === 'confirmar') {
-      const result = await confirmarCatalogo(user.id, body.itens ?? []);
+      const result = await confirmarCatalogo(ctx.tenantUserId, body.itens ?? []);
       return NextResponse.json({ ok: true, ...result });
     }
 
     if (body.action === 'criar-insumo') {
       const criados: Array<{ nome: string; estoqueInsumoId: string }> = [];
       for (const c of body.criar ?? []) {
-        const r = await criarInsumoEConfig(user.id, c);
+        const r = await criarInsumoEConfig(ctx.tenantUserId, c);
         criados.push({ nome: c.nome, estoqueInsumoId: r.estoqueInsumoId });
       }
       return NextResponse.json({ ok: true, criados });
+    }
+
+    if (body.action === 'debug-catalogo') {
+      const cat = await loadCatalogoEstoqueFromSession();
+      return NextResponse.json({
+        ok: true,
+        tenantUserId: cat?.tenantUserId,
+        userIds: cat?.userIds,
+        size: cat?.itens.length,
+        amostra: cat?.itens.slice(0, 5).map((i) => ({
+          nome: i.nome,
+          kgPorUnidade: i.kgPorUnidade,
+        })),
+      });
     }
 
     return NextResponse.json({ error: 'action inválida' }, { status: 400 });

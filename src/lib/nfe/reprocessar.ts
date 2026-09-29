@@ -1,8 +1,11 @@
 /**
  * Reprocessa notas EM_REVISAO (e opcionalmente ERRO) após importar catálogo.
+ * Usa o mesmo catálogo da aba Produtos (tenant RH + merge).
  */
 
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { loadCatalogoEstoqueForUserId } from '@/lib/estoque/catalogo';
 import { gerarLancamentosAprovacao } from './approve';
 import { competenciaFromDataEntrada } from './dates';
 import {
@@ -11,7 +14,6 @@ import {
   type PipelineInsumoConfig,
   type PipelineMapeamento,
 } from './pipeline';
-import { Prisma } from '@prisma/client';
 
 function num(v: unknown): number | null {
   if (v === null || v === undefined || v === '') return null;
@@ -23,15 +25,27 @@ function decimal(n: number): Prisma.Decimal {
   return new Prisma.Decimal(n);
 }
 
+function inferSecao(categoriaId: string): 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA' {
+  const c = categoriaId.toLowerCase();
+  if (c.includes('embal')) return 'EMBALAGEM';
+  if (c.includes('bebid')) return 'BEBIDA';
+  return 'MATERIA_PRIMA';
+}
+
 export async function reprocessarNotasEmRevisao(userId: string): Promise<{
   processadas: number;
   aprovadas: number;
   aindaEmRevisao: number;
   sugeridos: number;
+  catalogoSize: number;
+  tenantUserId: string;
 }> {
+  const catalogoEstoque = await loadCatalogoEstoqueForUserId(userId);
+  const tenantUserId = catalogoEstoque?.tenantUserId ?? userId;
+
   const [configs, mapeamentos, nfeConfig, lancamentosRecentes] = await Promise.all([
     prisma.cmvRealInsumoConfig.findMany({
-      where: { userId, ativo: true },
+      where: { userId: tenantUserId, ativo: true },
       include: { estoqueInsumo: { select: { id: true, nome: true, insumoId: true } } },
     }),
     prisma.nfeMapeamento.findMany({ where: { userId } }),
@@ -46,25 +60,34 @@ export async function reprocessarNotasEmRevisao(userId: string): Promise<{
     }),
   ]);
 
-  const slugs = configs.map((c) => c.estoqueInsumo.insumoId);
-  const produtoConfigs = await prisma.estoqueProdutoConfig.findMany({
-    where: { userId, produtoId: { in: slugs } },
-  });
-  const kgBySlug = new Map(produtoConfigs.map((p) => [p.produtoId, p.kgPorUnidade]));
+  const configByInsumoId = new Map(configs.map((c) => [c.estoqueInsumoId, c]));
 
-  const catalogo = configs.map((c) => ({
-    id: c.estoqueInsumoId,
-    nome: c.estoqueInsumo.nome,
-  }));
+  const catalogo =
+    catalogoEstoque?.itens
+      .filter((i) => i.ativo)
+      .map((i) => ({ id: i.id, nome: i.nome })) ??
+    configs.map((c) => ({ id: c.estoqueInsumoId, nome: c.estoqueInsumo.nome }));
 
   const insumosConfig: Record<string, PipelineInsumoConfig> = {};
-  for (const c of configs) {
-    insumosConfig[c.estoqueInsumoId] = {
-      estoqueInsumoId: c.estoqueInsumoId,
-      unidade: c.unidade,
-      secao: c.secao,
-      kgPorUnidade: kgBySlug.get(c.estoqueInsumo.insumoId) ?? null,
+  for (const item of catalogoEstoque?.itens ?? []) {
+    const cfg = configByInsumoId.get(item.id);
+    if (cfg && !cfg.ativo) continue;
+    insumosConfig[item.id] = {
+      estoqueInsumoId: item.id,
+      unidade: cfg?.unidade ?? (item.unidade === 'un' ? 'UN' : 'KG'),
+      secao: cfg?.secao ?? inferSecao(item.categoriaId),
+      kgPorUnidade: item.kgPorUnidade,
     };
+  }
+  for (const c of configs) {
+    if (!insumosConfig[c.estoqueInsumoId]) {
+      insumosConfig[c.estoqueInsumoId] = {
+        estoqueInsumoId: c.estoqueInsumoId,
+        unidade: c.unidade,
+        secao: c.secao,
+        kgPorUnidade: null,
+      };
+    }
   }
 
   const mapeamentosPorFornecedor = new Map<string, PipelineMapeamento[]>();
@@ -217,5 +240,12 @@ export async function reprocessarNotasEmRevisao(userId: string): Promise<{
     }
   }
 
-  return { processadas, aprovadas, aindaEmRevisao, sugeridos };
+  return {
+    processadas,
+    aprovadas,
+    aindaEmRevisao,
+    sugeridos,
+    catalogoSize: catalogo.length,
+    tenantUserId,
+  };
 }

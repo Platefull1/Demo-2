@@ -7,8 +7,12 @@
  */
 
 import * as XLSX from 'xlsx';
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import {
+  loadCatalogoEstoqueFromSession,
+  matchCatalogoPorNome,
+  type EstoqueCatalogoItem,
+} from '@/lib/estoque/catalogo';
 import { normalizarDescricao } from './normalize';
 
 export type CmvRealSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
@@ -33,6 +37,7 @@ export interface PreviewCatalogoItem {
   estoqueInsumoId?: string;
   estoqueNome?: string;
   score?: number;
+  kgPorUnidade?: number | null;
 }
 
 const SECAO_ANCHORS: Array<{ re: RegExp; secao: CmvRealSecao }> = [
@@ -45,7 +50,6 @@ function cellStr(ws: XLSX.WorkSheet, r: number, c: number): string {
   const ref = XLSX.utils.encode_cell({ r, c });
   const cell = ws[ref] as XLSX.CellObject | undefined;
   if (!cell) return '';
-  // Preferir valor em cache (não fórmula)
   if (cell.w != null && String(cell.w).trim()) return String(cell.w).trim();
   if (cell.v != null) return String(cell.v).trim();
   return '';
@@ -56,23 +60,6 @@ function unidadeFromCol(raw: string, secao: CmvRealSecao): CmvRealUnidade {
   if (u === 'KG' || u === 'KILO' || u === 'KILOS') return 'KG';
   if (u === 'UN' || u === 'UND' || u === 'UNID' || u === 'PC') return 'UN';
   return secao === 'MATERIA_PRIMA' ? 'KG' : 'UN';
-}
-
-function similaridadeSimples(a: string, b: string): number {
-  const na = normalizarDescricao(a);
-  const nb = normalizarDescricao(b);
-  if (!na || !nb) return 0;
-  if (na === nb) return 1;
-  if (na.includes(nb) || nb.includes(na)) {
-    return Math.min(na.length, nb.length) / Math.max(na.length, nb.length);
-  }
-  // overlap de tokens
-  const ta = new Set(na.split(' ').filter((t) => t.length > 2));
-  const tb = new Set(nb.split(' ').filter((t) => t.length > 2));
-  if (ta.size === 0 || tb.size === 0) return 0;
-  let inter = 0;
-  for (const t of ta) if (tb.has(t)) inter++;
-  return inter / Math.max(ta.size, tb.size);
 }
 
 /**
@@ -134,48 +121,24 @@ export function lerCatalogoDoBuffer(
 }
 
 export async function previewCatalogo(
-  userId: string,
+  _sessionUserIdIgnored: string,
   linhas: LinhaCatalogoPlanilha[],
-): Promise<PreviewCatalogoItem[]> {
-  const insumos = await prisma.estoqueInsumo.findMany({
-    where: { userId },
-    select: { id: true, nome: true, insumoId: true },
-  });
+): Promise<PreviewCatalogoItem[] & { _meta?: { tenantUserId: string; catalogoSize: number } }> {
+  const catalogo = await loadCatalogoEstoqueFromSession();
+  if (!catalogo) {
+    throw new Error('Sessão sem contexto de Estoque (tenant RH).');
+  }
 
-  return linhas.map((l) => {
-    let best: { id: string; nome: string; score: number } | null = null;
-    for (const ins of insumos) {
-      const score = similaridadeSimples(l.nome, ins.nome);
-      if (score < 0.55) continue;
-      if (!best || score > best.score) {
-        best = { id: ins.id, nome: ins.nome, score };
-      }
-    }
-
-    if (best && best.score >= 0.95) {
+  const itens = linhas.map((l) => {
+    const match = matchCatalogoPorNome(l.nome, catalogo.itens);
+    if (match.status === 'nao_encontrado' || !match.item) {
       return {
         linha: l.linha,
         nome: l.nome,
         secao: l.secao,
         unidade: l.unidade,
         ordem: l.ordem,
-        status: 'casado' as const,
-        estoqueInsumoId: best.id,
-        estoqueNome: best.nome,
-        score: best.score,
-      };
-    }
-    if (best && best.score >= 0.55) {
-      return {
-        linha: l.linha,
-        nome: l.nome,
-        secao: l.secao,
-        unidade: l.unidade,
-        ordem: l.ordem,
-        status: 'sugerido' as const,
-        estoqueInsumoId: best.id,
-        estoqueNome: best.nome,
-        score: best.score,
+        status: 'nao_encontrado' as const,
       };
     }
     return {
@@ -184,9 +147,20 @@ export async function previewCatalogo(
       secao: l.secao,
       unidade: l.unidade,
       ordem: l.ordem,
-      status: 'nao_encontrado' as const,
+      status: match.status,
+      estoqueInsumoId: match.item.id,
+      estoqueNome: match.item.nome,
+      score: match.score,
+      kgPorUnidade: match.item.kgPorUnidade,
     };
   });
+
+  // anexar meta via propriedade (API pode ler catalogoSize do retorno tipado extensível)
+  (itens as PreviewCatalogoItem[] & { _meta?: unknown })._meta = {
+    tenantUserId: catalogo.tenantUserId,
+    catalogoSize: catalogo.itens.length,
+  };
+  return itens;
 }
 
 export interface ConfirmCatalogoItem {
@@ -198,24 +172,29 @@ export interface ConfirmCatalogoItem {
 }
 
 /**
- * Cria/atualiza CmvRealInsumoConfig. Não grava saldo.
+ * Cria/atualiza CmvRealInsumoConfig no **tenant RH** (mesmo dono da aba Produtos).
+ * Não grava saldo.
  */
 export async function confirmarCatalogo(
-  userId: string,
+  _sessionUserIdIgnored: string,
   itens: ConfirmCatalogoItem[],
-): Promise<{ upserted: number }> {
+): Promise<{ upserted: number; tenantUserId: string }> {
+  const catalogo = await loadCatalogoEstoqueFromSession();
+  if (!catalogo) throw new Error('Sessão sem contexto de Estoque (tenant RH).');
+  const tenantUserId = catalogo.tenantUserId;
+
   let upserted = 0;
   for (const it of itens) {
     if (!it.estoqueInsumoId) continue;
     await prisma.cmvRealInsumoConfig.upsert({
       where: {
         userId_estoqueInsumoId: {
-          userId,
+          userId: tenantUserId,
           estoqueInsumoId: it.estoqueInsumoId,
         },
       },
       create: {
-        userId,
+        userId: tenantUserId,
         estoqueInsumoId: it.estoqueInsumoId,
         secao: it.secao,
         unidade: it.unidade,
@@ -231,19 +210,23 @@ export async function confirmarCatalogo(
     });
     upserted++;
   }
-  return { upserted };
+  return { upserted, tenantUserId };
 }
 
-/** Cria EstoqueInsumo mínimo + config (quando produto não existe). */
+/** Cria EstoqueInsumo no tenant RH + CmvRealInsumoConfig. */
 export async function criarInsumoEConfig(
-  userId: string,
+  _sessionUserIdIgnored: string,
   opts: {
     nome: string;
     secao: CmvRealSecao;
     unidade: CmvRealUnidade;
     ordem: number;
   },
-): Promise<{ estoqueInsumoId: string }> {
+): Promise<{ estoqueInsumoId: string; tenantUserId: string }> {
+  const catalogo = await loadCatalogoEstoqueFromSession();
+  if (!catalogo) throw new Error('Sessão sem contexto de Estoque (tenant RH).');
+  const tenantUserId = catalogo.tenantUserId;
+
   const slugBase = normalizarDescricao(opts.nome)
     .toLowerCase()
     .replace(/\s+/g, '-')
@@ -251,7 +234,7 @@ export async function criarInsumoEConfig(
     .slice(0, 60);
   let slug = slugBase || `insumo-${Date.now()}`;
   const exists = await prisma.estoqueInsumo.findUnique({
-    where: { userId_insumoId: { userId, insumoId: slug } },
+    where: { userId_insumoId: { userId: tenantUserId, insumoId: slug } },
   });
   if (exists) slug = `${slug}-${Date.now().toString(36)}`;
 
@@ -264,9 +247,9 @@ export async function criarInsumoEConfig(
 
   const insumo = await prisma.estoqueInsumo.create({
     data: {
-      userId,
+      userId: tenantUserId,
       insumoId: slug,
-      nome: opts.nome,
+      nome: opts.nome.trim().toUpperCase(),
       unidade: opts.unidade === 'KG' ? 'kg' : 'un',
       categoriaId: cat.id,
       categoriaNome: cat.nome,
@@ -276,7 +259,7 @@ export async function criarInsumoEConfig(
 
   await prisma.cmvRealInsumoConfig.create({
     data: {
-      userId,
+      userId: tenantUserId,
       estoqueInsumoId: insumo.id,
       secao: opts.secao,
       unidade: opts.unidade,
@@ -285,5 +268,7 @@ export async function criarInsumoEConfig(
     },
   });
 
-  return { estoqueInsumoId: insumo.id };
+  return { estoqueInsumoId: insumo.id, tenantUserId };
 }
+
+export type { EstoqueCatalogoItem };
