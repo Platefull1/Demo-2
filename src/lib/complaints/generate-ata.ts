@@ -2,7 +2,7 @@
  * Gera a ata de reunião (.docx) a partir de ComplaintReviewRun + Comparisons.
  * Estrutura:
  *   1. Cabeçalho (ATA, empresa, período, gerado em)
- *   2. Seção "1. Resumo por Loja" — contagem por categoria + variação vs mês anterior
+ *   2. Seção "1. Resumo por Loja" — contagem por categoria (+ variação vs mês anterior, se houver)
  *   3. Seção "2. Total de Reclamações" — totais confirmados por loja
  */
 
@@ -17,6 +17,13 @@ import {
 } from 'docx';
 import { prisma } from '@/lib/prisma';
 import { saoPauloYmd } from '@/lib/complaints/period';
+import {
+  normalizeLojaKey,
+  pickOperationalLojas,
+  resolveLojaFromGrupoNome,
+  resolveToOperationalLojaId,
+  type LojaRef,
+} from '@/lib/complaints/loja-match';
 
 // ─── Labels e ordem canônica de categorias ────────────────────────────────────
 
@@ -75,13 +82,6 @@ function subheading(text: string) {
   });
 }
 
-function body(text: string) {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 22 })],
-    spacing: { after: 120 },
-  });
-}
-
 function muted(text: string) {
   return new Paragraph({
     children: [new TextRun({ text, size: 20, italics: true, color: '666666' })],
@@ -123,6 +123,75 @@ function formatVariacao(
   return `(mês anterior: ${contagemMesAnterior}, estável)`;
 }
 
+function friendlyLojaNome(nome: string): string {
+  return nome.replace(/^calenzano\s+/i, '').trim() || nome;
+}
+
+/**
+ * Resolve nome canônico da loja (une "CALENZANO AHÚ", "Loja Ahú", "Ahu", etc.).
+ */
+function resolveComplaintLojaNome(
+  c: { lojaId: string | null; lojaGrupo: string | null },
+  allRhLojas: LojaRef[],
+  operational: LojaRef[],
+  lojaNomeById: Map<string, string>,
+): string {
+  if (c.lojaId) {
+    const opId = resolveToOperationalLojaId(c.lojaId, allRhLojas, operational);
+    const op = opId ? operational.find((l) => l.id === opId) : undefined;
+    if (op) return op.nome;
+
+    const raw = lojaNomeById.get(c.lojaId);
+    if (raw) {
+      const key = normalizeLojaKey(raw);
+      const byKey = key
+        ? operational.find((l) => normalizeLojaKey(l.nome) === key)
+        : undefined;
+      return byKey?.nome ?? friendlyLojaNome(raw);
+    }
+  }
+
+  if (c.lojaGrupo?.trim()) {
+    const fromGrupo = resolveLojaFromGrupoNome(c.lojaGrupo, allRhLojas, operational);
+    if (fromGrupo) return fromGrupo.nome;
+    return friendlyLojaNome(c.lojaGrupo.trim());
+  }
+
+  return 'Sem loja identificada';
+}
+
+type LojaCategoriaRow = {
+  lojaNome: string;
+  total: number;
+  byCategoria: Map<string, number>;
+};
+
+function buildResumoPorLoja(
+  complaints: { lojaId: string | null; lojaGrupo: string | null; categoria: string | null }[],
+  allRhLojas: LojaRef[],
+  operational: LojaRef[],
+  lojaNomeById: Map<string, string>,
+): LojaCategoriaRow[] {
+  const byLoja = new Map<string, LojaCategoriaRow>();
+
+  for (const c of complaints) {
+    const lojaNome = resolveComplaintLojaNome(c, allRhLojas, operational, lojaNomeById);
+    const cat = c.categoria && CATEGORIA_LABEL[c.categoria] ? c.categoria : 'OUTROS';
+    const row = byLoja.get(lojaNome) ?? {
+      lojaNome,
+      total: 0,
+      byCategoria: new Map<string, number>(),
+    };
+    row.total += 1;
+    row.byCategoria.set(cat, (row.byCategoria.get(cat) ?? 0) + 1);
+    byLoja.set(lojaNome, row);
+  }
+
+  return [...byLoja.values()].sort((a, b) =>
+    a.lojaNome.localeCompare(b.lojaNome, 'pt-BR'),
+  );
+}
+
 // ─── Função principal ──────────────────────────────────────────────────────────
 
 /**
@@ -144,6 +213,57 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
   });
 
   if (!run) throw new Error('Review run não encontrado.');
+
+  const confirmedComplaints = run.complaints;
+
+  const allRhLojas = await prisma.rhLoja.findMany({
+    where: { userId: run.userId, ativo: true },
+    select: { id: true, nome: true },
+  });
+  const lojaNomeById = new Map(allRhLojas.map((l) => [l.id, l.nome]));
+  const ifoodNomes = [
+    ...new Set(
+      confirmedComplaints
+        .map((c) => c.lojaGrupo?.trim())
+        .filter((n): n is string => Boolean(n)),
+    ),
+  ];
+  const operational = pickOperationalLojas({
+    rhLojas: allRhLojas,
+    ifoodLojaNomes: ifoodNomes,
+  });
+
+  const resumoPorLoja = buildResumoPorLoja(
+    confirmedComplaints,
+    allRhLojas,
+    operational,
+    lojaNomeById,
+  );
+
+  // Índice de comparação: lojaKey|categoria → comparison
+  const comparisonByKey = new Map<
+    string,
+    {
+      contagemMesAtual: number;
+      contagemMesAnterior: number;
+      variacaoPercentual: number | null;
+    }
+  >();
+  for (const comp of run.comparisons) {
+    const keyNome =
+      resolveComplaintLojaNome(
+        { lojaId: comp.lojaId, lojaGrupo: comp.lojaNome },
+        allRhLojas,
+        operational,
+        lojaNomeById,
+      ) || comp.lojaNome;
+    comparisonByKey.set(`${keyNome}|${comp.categoria}`, {
+      contagemMesAtual: comp.contagemMesAtual,
+      contagemMesAnterior: comp.contagemMesAnterior,
+      variacaoPercentual: comp.variacaoPercentual,
+    });
+  }
+  const hasComparison = run.comparisons.length > 0;
 
   const empresa =
     run.user.name?.trim() ||
@@ -180,49 +300,58 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
     divider(),
   ];
 
-  // ─── Seção 1: Resumo por Loja (comparação mês a mês) ──────────────────────
+  // ─── Seção 1: Resumo por Loja ───────────────────────────────────────────────
 
-  children.push(heading('1. Resumo por Loja (comparação mês a mês)'));
+  children.push(
+    heading(
+      hasComparison
+        ? '1. Resumo por Loja (comparação mês a mês)'
+        : '1. Resumo por Loja',
+    ),
+  );
 
-  if (run.comparisons.length === 0) {
+  if (confirmedComplaints.length === 0) {
     children.push(
       muted(
-        'Comparação com o mês anterior ainda não disponível. Execute a comparação antes de gerar a ata.',
+        'Nenhuma reclamação confirmada para inclusão nesta ata. Revise as reclamações detectadas e marque "Incluir na ata" antes de gerar.',
       ),
     );
   } else {
-    // Agrupar comparisons por loja
-    const byLoja = new Map<string, typeof run.comparisons>();
-    for (const comp of run.comparisons) {
-      const list = byLoja.get(comp.lojaId) ?? [];
-      list.push(comp);
-      byLoja.set(comp.lojaId, list);
+    if (!hasComparison) {
+      children.push(
+        muted(
+          'Comparação com o mês anterior ainda não disponível. Contagens abaixo referem-se apenas ao período atual.',
+        ),
+      );
     }
 
-    // Ordenar lojas por nome
-    const sortedLojas = [...byLoja.entries()].sort(([, a], [, b]) =>
-      (a[0]?.lojaNome ?? '').localeCompare(b[0]?.lojaNome ?? '', 'pt-BR'),
-    );
+    for (const row of resumoPorLoja) {
+      children.push(subheading(`Loja: ${row.lojaNome}`));
+      children.push(muted(`Total: ${row.total} reclamação(ões)`));
 
-    for (const [, comps] of sortedLojas) {
-      const lojaNome = comps[0]?.lojaNome ?? '—';
-      children.push(subheading(`Loja: ${lojaNome}`));
+      const cats = CATEGORIA_ORDER.filter((cat) => (row.byCategoria.get(cat) ?? 0) > 0);
+      // Inclui categorias só no mês anterior (resolvidas) quando há comparação
+      if (hasComparison) {
+        for (const cat of CATEGORIA_ORDER) {
+          if (cats.includes(cat)) continue;
+          if (comparisonByKey.has(`${row.lojaNome}|${cat}`)) cats.push(cat);
+        }
+      }
 
-      // Ordenar por CATEGORIA_ORDER
-      const sortedComps = [...comps].sort((a, b) => {
-        const ia = CATEGORIA_ORDER.indexOf(a.categoria as string);
-        const ib = CATEGORIA_ORDER.indexOf(b.categoria as string);
-        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
-      });
-
-      for (const comp of sortedComps) {
-        const label = CATEGORIA_LABEL[comp.categoria as string] ?? comp.categoria;
-        const variacao = formatVariacao(
-          comp.contagemMesAtual,
-          comp.contagemMesAnterior,
-          comp.variacaoPercentual,
-        );
-        children.push(bullet(`${label}: ${comp.contagemMesAtual} ${variacao}`));
+      for (const cat of cats) {
+        const count = row.byCategoria.get(cat) ?? 0;
+        const label = CATEGORIA_LABEL[cat] ?? cat;
+        const comp = comparisonByKey.get(`${row.lojaNome}|${cat}`);
+        if (comp) {
+          const variacao = formatVariacao(
+            count,
+            comp.contagemMesAnterior,
+            comp.variacaoPercentual,
+          );
+          children.push(bullet(`${label}: ${count} ${variacao}`));
+        } else {
+          children.push(bullet(`${label}: ${count}`));
+        }
       }
     }
   }
@@ -232,12 +361,10 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
   children.push(divider());
   children.push(heading('2. Total de Reclamações'));
 
-  const confirmedComplaints = run.complaints;
-
   if (confirmedComplaints.length === 0) {
     children.push(
       muted(
-        'Nenhuma reclamação confirmada para inclusão nesta ata. Revise as reclamações detectadas e marque "Incluir na ata" antes de gerar.',
+        'Nenhuma reclamação confirmada para inclusão nesta ata.',
       ),
     );
   } else {
@@ -247,41 +374,8 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
       ),
     );
 
-    // Resolver nomes via RhLoja (lojaId) — conversas de cliente não têm lojaGrupo
-    const lojaIds = [
-      ...new Set(
-        confirmedComplaints
-          .map((c) => c.lojaId)
-          .filter((id): id is string => Boolean(id)),
-      ),
-    ];
-    const lojas =
-      lojaIds.length > 0
-        ? await prisma.rhLoja.findMany({
-            where: { id: { in: lojaIds } },
-            select: { id: true, nome: true },
-          })
-        : [];
-    const lojaNomeById = new Map(lojas.map((l) => [l.id, l.nome]));
-
-    // Agrupar por nome legível (une grupo iFood + conversa da mesma loja)
-    const totalByLoja = new Map<string, { lojaNome: string; count: number }>();
-    for (const c of confirmedComplaints) {
-      const lojaNome =
-        (c.lojaId ? lojaNomeById.get(c.lojaId) : undefined) ||
-        c.lojaGrupo?.trim() ||
-        'Sem loja identificada';
-      const entry = totalByLoja.get(lojaNome) ?? { lojaNome, count: 0 };
-      entry.count += 1;
-      totalByLoja.set(lojaNome, entry);
-    }
-
-    const sortedTotals = [...totalByLoja.values()].sort((a, b) =>
-      a.lojaNome.localeCompare(b.lojaNome, 'pt-BR'),
-    );
-
-    for (const { lojaNome, count } of sortedTotals) {
-      children.push(bullet(`${lojaNome}: ${count} reclamação(ões)`));
+    for (const row of resumoPorLoja) {
+      children.push(bullet(`${row.lojaNome}: ${row.total} reclamação(ões)`));
     }
   }
 
