@@ -659,6 +659,7 @@ function ReviewModal({
 }) {
   const [canal, setCanal] = useState<ReviewCanalFilter>('todas');
   const [lojaFilter, setLojaFilter] = useState<string | null>(null);
+  const [categoriaFilter, setCategoriaFilter] = useState<string | null>(null);
 
   const organized = useMemo(
     () =>
@@ -668,11 +669,24 @@ function ReviewModal({
     [data],
   );
 
+  const categoriasPresentes = useMemo(() => {
+    if (!data) return [] as string[];
+    const presentes = new Set<string>();
+    for (const c of data.complaints) {
+      if (c.categoria) presentes.add(c.categoria);
+    }
+    return Object.keys(CATEGORIA_LABELS).filter((k) => presentes.has(k));
+  }, [data]);
+
   // Reset filters when opening another run
   useEffect(() => {
     setCanal('todas');
     setLojaFilter(null);
+    setCategoriaFilter(null);
   }, [data?.id]);
+
+  const matchCategoria = (c: ComplaintReviewItem) =>
+    !categoriaFilter || c.categoria === categoriaFilter;
 
   const visibleIds = useMemo(() => {
     if (!organized) return [] as string[];
@@ -681,19 +695,23 @@ function ReviewModal({
 
     if (canal === 'todas' || canal === 'conversas') {
       for (const g of organized.conversasPorLoja) {
-        if (matchLoja(g.lojaKey)) ids.push(...g.items.map((i) => i.id));
+        if (matchLoja(g.lojaKey)) {
+          ids.push(...g.items.filter(matchCategoria).map((i) => i.id));
+        }
       }
     }
     if ((canal === 'todas' || canal === 'semLoja') && !lojaFilter) {
-      ids.push(...organized.semLoja.map((i) => i.id));
+      ids.push(...organized.semLoja.filter(matchCategoria).map((i) => i.id));
     }
     if (canal === 'todas' || canal === 'grupos') {
       for (const g of organized.gruposPorLoja) {
-        if (matchLoja(g.lojaKey)) ids.push(...g.items.map((i) => i.id));
+        if (matchLoja(g.lojaKey)) {
+          ids.push(...g.items.filter(matchCategoria).map((i) => i.id));
+        }
       }
     }
     return ids;
-  }, [organized, canal, lojaFilter]);
+  }, [organized, canal, lojaFilter, categoriaFilter]);
 
   const visibleSelectedCount = useMemo(() => {
     if (!data) return 0;
@@ -719,9 +737,16 @@ function ReviewModal({
   const showGrupos = canal === 'todas' || canal === 'grupos';
 
   const conversasFiltered =
-    organized?.conversasPorLoja.filter((g) => !lojaFilter || g.lojaKey === lojaFilter) ?? [];
+    organized?.conversasPorLoja
+      .filter((g) => !lojaFilter || g.lojaKey === lojaFilter)
+      .map((g) => ({ ...g, items: g.items.filter(matchCategoria) }))
+      .filter((g) => g.items.length > 0) ?? [];
   const gruposFiltered =
-    organized?.gruposPorLoja.filter((g) => !lojaFilter || g.lojaKey === lojaFilter) ?? [];
+    organized?.gruposPorLoja
+      .filter((g) => !lojaFilter || g.lojaKey === lojaFilter)
+      .map((g) => ({ ...g, items: g.items.filter(matchCategoria) }))
+      .filter((g) => g.items.length > 0) ?? [];
+  const semLojaFiltered = organized?.semLoja.filter(matchCategoria) ?? [];
 
   const canalTabs: { id: ReviewCanalFilter; label: string; count: number }[] = organized
     ? [
@@ -832,6 +857,40 @@ function ReviewModal({
               );
             })()}
 
+            {categoriasPresentes.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] uppercase tracking-wider text-gray-500 mr-1">
+                  Etiqueta
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCategoriaFilter(null)}
+                  className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                    !categoriaFilter
+                      ? 'bg-white/10 text-white border-white/20'
+                      : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
+                  }`}
+                >
+                  Todas
+                </button>
+                {categoriasPresentes.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setCategoriaFilter(cat)}
+                    className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
+                      categoriaFilter === cat
+                        ? CATEGORIA_COLORS[cat] ??
+                          'bg-white/10 text-white border-white/20'
+                        : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
+                    }`}
+                  >
+                    {CATEGORIA_LABELS[cat] ?? cat}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
@@ -902,16 +961,18 @@ function ReviewModal({
                   <ReviewSectionHeader
                     icon={<AlertCircle className="w-4 h-4" />}
                     title="Sem loja identificada"
-                    count={organized.semLoja.length}
+                    count={semLojaFiltered.length}
                     accent="amber"
                   />
-                  {organized.semLoja.length === 0 ? (
+                  {semLojaFiltered.length === 0 ? (
                     <p className="text-xs text-gray-500 pl-1">
-                      Todas as conversas já têm loja.
+                      {organized.semLoja.length === 0
+                        ? 'Todas as conversas já têm loja.'
+                        : 'Nenhuma reclamação neste filtro de etiqueta.'}
                     </p>
                   ) : (
                     <ul className="space-y-2.5">
-                      {organized.semLoja.map((c) => (
+                      {semLojaFiltered.map((c) => (
                         <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
                       ))}
                     </ul>
@@ -931,7 +992,7 @@ function ReviewModal({
                     <p className="text-xs text-gray-500 pl-1">
                       {organized.counts.grupos === 0
                         ? 'Nenhuma reclamação de grupo iFood neste período. Confira se os grupos estão cadastrados e se o monitoramento já processou as mensagens.'
-                        : 'Nenhum registro de grupo neste filtro de loja.'}
+                        : 'Nenhum registro de grupo neste filtro.'}
                     </p>
                   ) : (
                     gruposFiltered.map((g) => (
