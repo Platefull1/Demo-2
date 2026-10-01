@@ -247,14 +247,33 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
       ),
     );
 
-    // Agrupar por loja
+    // Resolver nomes via RhLoja (lojaId) — conversas de cliente não têm lojaGrupo
+    const lojaIds = [
+      ...new Set(
+        confirmedComplaints
+          .map((c) => c.lojaId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const lojas =
+      lojaIds.length > 0
+        ? await prisma.rhLoja.findMany({
+            where: { id: { in: lojaIds } },
+            select: { id: true, nome: true },
+          })
+        : [];
+    const lojaNomeById = new Map(lojas.map((l) => [l.id, l.nome]));
+
+    // Agrupar por nome legível (une grupo iFood + conversa da mesma loja)
     const totalByLoja = new Map<string, { lojaNome: string; count: number }>();
     for (const c of confirmedComplaints) {
-      const lojaKey = c.lojaId ?? c.lojaGrupo ?? 'Sem loja identificada';
-      const lojaNome = c.lojaGrupo ?? c.lojaId ?? 'Sem loja identificada';
-      const entry = totalByLoja.get(lojaKey) ?? { lojaNome, count: 0 };
+      const lojaNome =
+        (c.lojaId ? lojaNomeById.get(c.lojaId) : undefined) ||
+        c.lojaGrupo?.trim() ||
+        'Sem loja identificada';
+      const entry = totalByLoja.get(lojaNome) ?? { lojaNome, count: 0 };
       entry.count += 1;
-      totalByLoja.set(lojaKey, entry);
+      totalByLoja.set(lojaNome, entry);
     }
 
     const sortedTotals = [...totalByLoja.values()].sort((a, b) =>
