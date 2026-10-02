@@ -4,6 +4,7 @@
  *   1. Cabeçalho (ATA, empresa, período, gerado em)
  *   2. Seção "1. Resumo por Loja" — contagem por categoria (+ variação vs mês anterior, se houver)
  *   3. Seção "2. Total de Reclamações" — totais confirmados por loja
+ *   4. Seção "3. Motoboys citados" — quantas vezes cada entregador foi citado
  */
 
 import {
@@ -207,7 +208,12 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
       },
       complaints: {
         where: { confirmadoPorHumano: true },
-        select: { lojaId: true, lojaGrupo: true, categoria: true },
+        select: {
+          lojaId: true,
+          lojaGrupo: true,
+          categoria: true,
+          entregadorId: true,
+        },
       },
     },
   });
@@ -215,6 +221,22 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
   if (!run) throw new Error('Review run não encontrado.');
 
   const confirmedComplaints = run.complaints;
+
+  const entregadorIds = [
+    ...new Set(
+      confirmedComplaints
+        .map((c) => c.entregadorId)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const riders =
+    entregadorIds.length > 0
+      ? await prisma.deliveryRider.findMany({
+          where: { id: { in: entregadorIds }, userId: run.userId },
+          select: { id: true, name: true },
+        })
+      : [];
+  const riderNameById = new Map(riders.map((r) => [r.id, r.name]));
 
   const allRhLojas = await prisma.rhLoja.findMany({
     where: { userId: run.userId, ativo: true },
@@ -376,6 +398,45 @@ export async function generateComplaintAtaDocx(reviewRunId: string): Promise<Buf
 
     for (const row of resumoPorLoja) {
       children.push(bullet(`${row.lojaNome}: ${row.total} reclamação(ões)`));
+    }
+  }
+
+  // ─── Seção 3: Motoboys citados ─────────────────────────────────────────────
+
+  children.push(divider());
+  children.push(heading('3. Motoboys citados'));
+
+  const motoboyCounts = new Map<string, { nome: string; count: number }>();
+  for (const c of confirmedComplaints) {
+    if (!c.entregadorId) continue;
+    const nome = riderNameById.get(c.entregadorId) ?? 'Motoboy sem cadastro';
+    const entry = motoboyCounts.get(c.entregadorId) ?? { nome, count: 0 };
+    entry.count += 1;
+    motoboyCounts.set(c.entregadorId, entry);
+  }
+
+  if (motoboyCounts.size === 0) {
+    children.push(
+      muted(
+        'Nenhum motoboy citado nas reclamações confirmadas. Atribua o entregador na revisão quando a categoria exigir.',
+      ),
+    );
+  } else {
+    const sortedMotoboys = [...motoboyCounts.values()].sort((a, b) => {
+      if (b.count !== a.count) return b.count - a.count;
+      return a.nome.localeCompare(b.nome, 'pt-BR');
+    });
+    children.push(
+      muted(
+        `${sortedMotoboys.length} motoboy(s) citado(s) nas reclamações do período.`,
+      ),
+    );
+    for (const { nome, count } of sortedMotoboys) {
+      children.push(
+        bullet(
+          `${nome}: ${count} reclamação(ões)`,
+        ),
+      );
     }
   }
 

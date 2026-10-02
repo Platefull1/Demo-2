@@ -389,6 +389,7 @@ function ComplaintReviewCard({
   onToggleConfirm,
   onUpdateLoja,
   onUpdateEntregador,
+  onUpdateCategoria,
   onOpenConversation,
 }: {
   c: ComplaintReviewItem;
@@ -399,9 +400,14 @@ function ComplaintReviewCard({
   onToggleConfirm: (id: string, next: boolean) => void;
   onUpdateLoja: (id: string, lojaId: string | null) => void;
   onUpdateEntregador: (id: string, entregadorId: string | null) => void;
+  onUpdateCategoria: (id: string, categoria: string | null) => void;
   onOpenConversation: (runId: string, contactId: string) => void;
 }) {
   const isGrupo = isGrupoComplaint(c);
+  const lojaPendente = !c.lojaId || c.lojaIdentificada === false;
+  const showEntregador = Boolean(
+    c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria),
+  );
 
   return (
     <li
@@ -471,8 +477,8 @@ function ComplaintReviewCard({
             )}
           </div>
 
-          {c.lojaIdentificada === false && lojas.length > 0 && (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+          {lojaPendente && (
+            <div className="mt-2">
               {isGrupo && (c.lojaGrupo || c.clientLabel) ? (
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 text-sky-300 border border-sky-500/25">
                   Grupo: {c.lojaGrupo || 'iFood'}
@@ -483,32 +489,51 @@ function ComplaintReviewCard({
                   Loja não identificada
                 </span>
               )}
+            </div>
+          )}
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
+            {lojas.length > 0 && (
+              <div className="flex items-center gap-1.5 min-w-[180px] flex-1">
+                <label className="text-xs text-gray-500 shrink-0">Loja:</label>
+                <select
+                  value={c.lojaId ?? ''}
+                  onChange={(e) => onUpdateLoja(c.id, e.target.value || null)}
+                  className={`flex-1 bg-[#0a0a0a] rounded-lg px-2 py-1 text-xs text-white focus:outline-none ${
+                    lojaPendente
+                      ? 'border border-amber-500/30 focus:border-amber-500/60'
+                      : 'border border-[#2a2a2e] focus:border-amber-500/40'
+                  }`}
+                >
+                  <option value="">— Selecione a loja —</option>
+                  {lojas.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 min-w-[180px] flex-1">
+              <label className="text-xs text-gray-500 shrink-0">Etiqueta:</label>
               <select
-                value={c.lojaId ?? ''}
-                onChange={(e) => onUpdateLoja(c.id, e.target.value || null)}
-                className="flex-1 min-w-[160px] bg-[#0a0a0a] border border-amber-500/30 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/60"
+                value={c.categoria ?? ''}
+                onChange={(e) => onUpdateCategoria(c.id, e.target.value || null)}
+                className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
               >
-                <option value="">— Selecione a loja —</option>
-                {lojas.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.nome}
+                <option value="">— Sem etiqueta —</option>
+                {Object.entries(CATEGORIA_LABELS).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
                   </option>
                 ))}
               </select>
             </div>
-          )}
-          {c.lojaIdentificada !== false && c.lojaId && isGrupo && (
-            <div className="mt-1.5">
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 text-sky-300 border border-sky-500/25">
-                <Store className="w-3 h-3" />
-                {lojas.find((l) => l.id === c.lojaId)?.nome || c.lojaGrupo || 'Loja do grupo'}
-              </span>
-            </div>
-          )}
+          </div>
 
           <p className="text-sm text-gray-300 mt-1.5">{c.resumo}</p>
 
-          {c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) && (
+          {showEntregador && (
             <div className="mt-2 flex items-center gap-2">
               <label className="text-xs text-gray-500 shrink-0">Entregador:</label>
               {!c.lojaId ? (
@@ -531,8 +556,7 @@ function ComplaintReviewCard({
               )}
             </div>
           )}
-          {c.categoria &&
-            CATEGORIAS_COM_ENTREGADOR.includes(c.categoria) &&
+          {showEntregador &&
             c.lojaId &&
             (ridersPorLoja[c.lojaId] ?? []).length === 0 && (
               <p className="mt-1 text-[11px] text-gray-500">
@@ -639,6 +663,7 @@ function ReviewModal({
   onBatchConfirm,
   onUpdateLoja,
   onUpdateEntregador,
+  onUpdateCategoria,
   onOpenConversation,
   onGenerateAta,
   onDownloadAta,
@@ -653,6 +678,7 @@ function ReviewModal({
   onBatchConfirm: (ids: string[], next: boolean) => void;
   onUpdateLoja: (id: string, lojaId: string | null) => void;
   onUpdateEntregador: (id: string, entregadorId: string | null) => void;
+  onUpdateCategoria: (id: string, categoria: string | null) => void;
   onOpenConversation: (runId: string, contactId: string) => void;
   onGenerateAta: (runId: string) => void;
   onDownloadAta: (runId: string) => void;
@@ -728,6 +754,7 @@ function ReviewModal({
         onToggleConfirm,
         onUpdateLoja,
         onUpdateEntregador,
+        onUpdateCategoria,
         onOpenConversation,
       }
     : null;
@@ -1579,6 +1606,42 @@ function RelatoriosContent() {
       });
     } catch {
       alert('Falha de rede ao salvar a loja.');
+    }
+  }
+
+  async function updateComplaintCategoria(complaintId: string, categoria: string | null) {
+    if (!reviewData) return;
+    const clearsEntregador =
+      !categoria || !CATEGORIAS_COM_ENTREGADOR.includes(categoria);
+    try {
+      const res = await fetch(`/api/reports/complaints/complaints/${complaintId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categoria,
+          ...(clearsEntregador ? { entregadorId: null } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.error || 'Não foi possível salvar a etiqueta.');
+        return;
+      }
+      setReviewData((prev) => {
+        if (!prev) return prev;
+        const complaints = prev.complaints.map((c) =>
+          c.id === complaintId
+            ? {
+                ...c,
+                categoria,
+                ...(clearsEntregador ? { entregadorId: null } : {}),
+              }
+            : c,
+        );
+        return { ...prev, complaints };
+      });
+    } catch {
+      alert('Falha de rede ao salvar a etiqueta.');
     }
   }
 
@@ -2538,6 +2601,7 @@ function RelatoriosContent() {
           onBatchConfirm={batchToggleConfirm}
           onUpdateLoja={updateComplaintLoja}
           onUpdateEntregador={updateComplaintEntregador}
+          onUpdateCategoria={updateComplaintCategoria}
           onOpenConversation={openConversation}
           onGenerateAta={handleGenerateAta}
           onDownloadAta={handleDownloadAta}
