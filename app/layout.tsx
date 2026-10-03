@@ -1,20 +1,12 @@
 import type { Metadata } from 'next';
 import { StackProvider, StackTheme } from '@stackframe/stack';
 import { stackServerApp } from '@/stack';
-import { Geist, Geist_Mono } from 'next/font/google';
+// Fonte local (pacote geist) — evita fetch em fonts.gstatic.com no build Turbopack/Vercel
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 import { GlobalErrorHandler } from '@/components/global-error-handler';
 import { ErrorBoundary } from '@/components/error-boundary';
-
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
 
 export const metadata: Metadata = {
   title: 'Platefull',
@@ -43,7 +35,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const bodyClasses = [geistSans.variable, geistMono.variable, 'antialiased'].join(' ');
+  const bodyClasses = [GeistSans.variable, GeistMono.variable, 'antialiased'].join(' ');
   
   return (
     <html lang="pt-BR" className="dark">
