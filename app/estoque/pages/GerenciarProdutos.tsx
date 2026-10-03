@@ -18,7 +18,8 @@ interface GerenciarProdutosProps {
   onMoverAcima: (produtoId: string, allIds: string[]) => void;
   onMoverAbaixo: (produtoId: string, allIds: string[]) => void;
   onSetProductOrder: (ids: string[]) => void;
-  onRefetch: () => void;
+  onRefetch: () => void | Promise<void>;
+  onRemoveLocal: (id: string) => void;
 }
 
 function Toggle({ ativo, onChange }: { ativo: boolean; onChange: (v: boolean) => void }) {
@@ -175,6 +176,7 @@ export function GerenciarProdutos({
   onMoverAbaixo,
   onSetProductOrder,
   onRefetch,
+  onRemoveLocal,
 }: GerenciarProdutosProps) {
   const [search, setSearch] = useState('');
   const [reordenando, setReordenando] = useState(false);
@@ -223,13 +225,18 @@ export function GerenciarProdutos({
   }).length;
 
   const handleDelete = async (produto: ProdutoEstoque) => {
+    if (deletingId) return;
     if (!confirm(`Remover "${produto.nome}" da lista?`)) return;
     setDeletingId(produto.id);
     try {
-      await fetch(`/api/estoque/insumos/${produto.id}`, { method: 'DELETE' });
-      onRefetch();
+      const res = await fetch(`/api/estoque/insumos/${produto.id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      // Atualiza a lista na hora; o refetch só confirma o estado do servidor
+      onRemoveLocal(produto.id);
+      await onRefetch();
     } catch {
       alert('Erro ao remover produto.');
+      await onRefetch();
     } finally {
       setDeletingId(null);
     }

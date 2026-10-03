@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { StockCategory, StockItem } from '../types';
 import type { EstoqueConfigMap } from './useEstoqueConfig';
 
@@ -25,9 +25,21 @@ interface EstoqueInsumoDb {
 }
 
 async function fetchInsumos(): Promise<EstoqueInsumoDb[]> {
-  const res = await fetch('/api/estoque/insumos');
+  const res = await fetch('/api/estoque/insumos', { cache: 'no-store' });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+function mapInsumos(data: EstoqueInsumoDb[]): ProdutoEstoque[] {
+  return data.map(p => ({
+    id: p.id,
+    insumoId: p.insumoId,
+    nome: p.nome,
+    unidade: p.unidade,
+    sessaoId: p.categoriaId,
+    sessaoNome: p.categoriaNome,
+    sessaoIcone: p.categoriaIcone,
+  }));
 }
 
 // Constrói sessões de contagem a partir dos insumos vindos do banco,
@@ -94,29 +106,28 @@ export function useProdutosEstoque(
   const [insumos, setInsumos] = useState<ProdutoEstoque[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
+    const reqId = ++requestIdRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchInsumos();
-      setInsumos(
-        data.map(p => ({
-          id: p.id,
-          insumoId: p.insumoId,
-          nome: p.nome,
-          unidade: p.unidade,
-          sessaoId: p.categoriaId,
-          sessaoNome: p.categoriaNome,
-          sessaoIcone: p.categoriaIcone,
-        })),
-      );
+      // Ignora respostas antigas (evita sobrescrever lista após deletes sequenciais)
+      if (reqId !== requestIdRef.current) return;
+      setInsumos(mapInsumos(data));
     } catch (err) {
+      if (reqId !== requestIdRef.current) return;
       console.error('[useProdutosEstoque]', err);
       setError('Não foi possível carregar os produtos.');
     } finally {
-      setIsLoading(false);
+      if (reqId === requestIdRef.current) setIsLoading(false);
     }
+  }, []);
+
+  const removeLocal = useCallback((id: string) => {
+    setInsumos(prev => prev.filter(p => p.id !== id));
   }, []);
 
   useEffect(() => {
@@ -131,5 +142,6 @@ export function useProdutosEstoque(
     isLoading,
     error,
     refetch: load,
+    removeLocal,
   };
 }

@@ -52,6 +52,7 @@ export function EstoqueDashboard() {
     isLoading: produtosLoading,
     error: produtosError,
     refetch,
+    removeLocal,
   } = useProdutosEstoque(config, productOrder);
 
   const totalAlertas = sessions
@@ -193,6 +194,7 @@ export function EstoqueDashboard() {
         onMoverAbaixo={moverProdutoAbaixo}
         onSetProductOrder={setProductOrder}
         onRefetch={refetch}
+        onRemoveLocal={removeLocal}
       />
     );
   }
