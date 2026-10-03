@@ -108,19 +108,22 @@ export function useProdutosEstoque(
   const [error, setError] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<ProdutoEstoque[] | undefined> => {
     const reqId = ++requestIdRef.current;
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchInsumos();
+      const mapped = mapInsumos(data);
       // Ignora respostas antigas (evita sobrescrever lista após deletes sequenciais)
-      if (reqId !== requestIdRef.current) return;
-      setInsumos(mapInsumos(data));
+      if (reqId !== requestIdRef.current) return mapped;
+      setInsumos(mapped);
+      return mapped;
     } catch (err) {
-      if (reqId !== requestIdRef.current) return;
+      if (reqId !== requestIdRef.current) return undefined;
       console.error('[useProdutosEstoque]', err);
       setError('Não foi possível carregar os produtos.');
+      return undefined;
     } finally {
       if (reqId === requestIdRef.current) setIsLoading(false);
     }

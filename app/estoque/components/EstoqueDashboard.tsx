@@ -83,18 +83,27 @@ export function EstoqueDashboard() {
 
   const handleIniciarComLoja = async (lojaNome?: string) => {
     setShowLojaModal(false);
-    const sessoesIniciais =
-      sessoesProdutos.length > 0
-        ? sessoesProdutos
-        : construirSessoes([], config, productOrder);
+    // Catálogo fresco: produtos adicionados em "Produtos da Contagem" entram já na retomada
+    const insumosAtualizados = await refetch();
+    const sessoesIniciais = construirSessoes(
+      insumosAtualizados ?? produtos,
+      config,
+      productOrder,
+    );
     // forceNew=false: retoma a contagem ativa desta loja se já existir;
-    // lojas diferentes coexistem sem se sobrescrever
+    // ao retomar, produtos novos do catálogo são mesclados no snapshot
     await iniciarContagem(sessoesIniciais, 'Gerente', false, lojaNome);
     setScreen('counting');
   };
 
-  const handleRetomar = (sessionId: string) => {
-    retomarContagem(sessionId);
+  const handleRetomar = async (sessionId: string) => {
+    const insumosAtualizados = await refetch();
+    const catalogo = construirSessoes(
+      insumosAtualizados ?? produtos,
+      config,
+      productOrder,
+    );
+    retomarContagem(sessionId, catalogo);
     setScreen('counting');
   };
 

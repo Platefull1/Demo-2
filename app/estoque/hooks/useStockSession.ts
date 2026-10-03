@@ -42,6 +42,53 @@ async function apiDelete(id: string): Promise<void> {
   await fetch(`/api/estoque/contagens/${id}`, { method: 'DELETE' });
 }
 
+/**
+ * Inclui no snapshot da contagem os itens do catálogo que ainda não estão nela.
+ * Preserva quantidades já contadas; reabre categoria se receber itens novos.
+ */
+export function mesclarCatalogoNasSessoes(
+  atuais: StockCategory[],
+  catalogo: StockCategory[],
+): { sessoes: StockCategory[]; changed: boolean } {
+  if (catalogo.length === 0) return { sessoes: atuais, changed: false };
+
+  const presentes = new Set(atuais.flatMap(c => c.itens.map(i => i.insumoId)));
+  let changed = false;
+  const result: StockCategory[] = atuais.map(c => ({
+    ...c,
+    itens: [...c.itens],
+  }));
+
+  for (const catCatalogo of catalogo) {
+    const novos = catCatalogo.itens
+      .filter(i => !presentes.has(i.insumoId))
+      .map(i => ({ ...i, quantidadeContada: null as number | null }));
+
+    if (novos.length === 0) continue;
+
+    const idx = result.findIndex(c => c.id === catCatalogo.id);
+    if (idx === -1) {
+      result.push({
+        ...catCatalogo,
+        status: 'pendente',
+        itens: novos,
+      });
+    } else {
+      const cat = result[idx];
+      result[idx] = {
+        ...cat,
+        itens: [...cat.itens, ...novos],
+        status: cat.status === 'concluida' ? 'pendente' : cat.status,
+      };
+    }
+
+    for (const i of novos) presentes.add(i.insumoId);
+    changed = true;
+  }
+
+  return { sessoes: result, changed };
+}
+
 // ── Hook ───────────────────────────────────────────────────────────────────────
 
 export function useStockSession() {
@@ -161,6 +208,18 @@ export function useStockSession() {
       );
 
       if (existente && !forceNew) {
+        // Contagem em andamento: injeta produtos novos do catálogo no snapshot
+        const { sessoes, changed } = mesclarCatalogoNasSessoes(
+          existente.sessoes,
+          sessoesIniciais ?? [],
+        );
+        if (changed) {
+          const updated = { ...existente, sessoes };
+          setSessions(prev => prev.map(s => (s.id === existente.id ? updated : s)));
+          scheduleSave(existente.id, { sessoes });
+          setActiveSessionId(existente.id);
+          return updated;
+        }
         setActiveSessionId(existente.id);
         return existente;
       }
@@ -175,13 +234,26 @@ export function useStockSession() {
       setActiveSessionId(nova.id);
       return nova;
     },
-    [sessions],
+    [sessions, scheduleSave],
   );
 
   // ── Retomar contagem existente ─────────────────────────────────────────────
-  const retomarContagem = useCallback((sessionId: string) => {
-    setActiveSessionId(sessionId);
-  }, []);
+  const retomarContagem = useCallback(
+    (sessionId: string, catalogo?: StockCategory[]) => {
+      if (catalogo && catalogo.length > 0) {
+        setSessions(prev => {
+          const session = prev.find(s => s.id === sessionId);
+          if (!session || session.status !== 'em_andamento') return prev;
+          const { sessoes, changed } = mesclarCatalogoNasSessoes(session.sessoes, catalogo);
+          if (!changed) return prev;
+          scheduleSave(sessionId, { sessoes });
+          return prev.map(s => (s.id === sessionId ? { ...s, sessoes } : s));
+        });
+      }
+      setActiveSessionId(sessionId);
+    },
+    [scheduleSave],
+  );
 
   // ── Fechar sessão ativa (sem concluir) ────────────────────────────────────
   const fecharContagem = useCallback(() => {
