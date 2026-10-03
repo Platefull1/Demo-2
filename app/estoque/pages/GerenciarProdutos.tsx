@@ -19,7 +19,7 @@ interface GerenciarProdutosProps {
   onMoverAbaixo: (produtoId: string, allIds: string[]) => void;
   onSetProductOrder: (ids: string[]) => void;
   onRefetch: () => void | Promise<void>;
-  onRemoveLocal: (id: string) => void;
+  onRemoveLocal: (id: string, insumoId?: string) => void;
 }
 
 function Toggle({ ativo, onChange }: { ativo: boolean; onChange: (v: boolean) => void }) {
@@ -230,12 +230,15 @@ export function GerenciarProdutos({
     setDeletingId(produto.id);
     try {
       const res = await fetch(`/api/estoque/insumos/${produto.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // Atualiza a lista na hora; o refetch só confirma o estado do servidor
-      onRemoveLocal(produto.id);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
+      // Some na hora (por cuid + slug); o refetch só confirma o servidor
+      onRemoveLocal(produto.id, produto.insumoId);
       await onRefetch();
-    } catch {
-      alert('Erro ao remover produto.');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erro ao remover produto.');
       await onRefetch();
     } finally {
       setDeletingId(null);

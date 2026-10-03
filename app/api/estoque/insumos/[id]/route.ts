@@ -40,6 +40,9 @@ export async function PATCH(
 }
 
 // ── DELETE: remove um insumo ──────────────────────────────────────────────────
+// A lista da UI faz merge multi-conta + dedupe por slug (insumoId).
+// Por isso apagamos TODAS as cópias desse slug no tenant — senão o GET
+// devolve a cópia de outro membro e o produto "volta" após a exclusão.
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
@@ -57,7 +60,9 @@ export async function DELETE(
     });
     if (!existing) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
-    await prisma.estoqueInsumo.delete({ where: { id } });
+    await prisma.estoqueInsumo.deleteMany({
+      where: { userId: { in: userIds }, insumoId: existing.insumoId },
+    });
 
     // Limpa também a config associada a esse insumo (todos os userIds do tenant)
     await prisma.estoqueProdutoConfig.deleteMany({

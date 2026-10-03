@@ -126,8 +126,11 @@ export function useProdutosEstoque(
     }
   }, []);
 
-  const removeLocal = useCallback((id: string) => {
-    setInsumos(prev => prev.filter(p => p.id !== id));
+  /** Remove da lista local por cuid e/ou slug (evita o item "voltar" no merge). */
+  const removeLocal = useCallback((id: string, insumoId?: string) => {
+    setInsumos(prev =>
+      prev.filter(p => p.id !== id && (!insumoId || p.insumoId !== insumoId)),
+    );
   }, []);
 
   useEffect(() => {
