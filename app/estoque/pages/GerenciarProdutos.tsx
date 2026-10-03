@@ -18,7 +18,7 @@ interface GerenciarProdutosProps {
   onMoverAcima: (produtoId: string, allIds: string[]) => void;
   onMoverAbaixo: (produtoId: string, allIds: string[]) => void;
   onSetProductOrder: (ids: string[]) => void;
-  onRefetch: () => void | Promise<void>;
+  onRefetch: () => void | Promise<unknown>;
   onRemoveLocal: (id: string, insumoId?: string) => void;
 }
 
