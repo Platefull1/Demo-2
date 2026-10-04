@@ -62,9 +62,11 @@ async function apiDelete(id: string): Promise<void> {
 }
 
 /**
- * Inclui no snapshot da contagem os itens do catálogo que ainda não estão nela.
- * Preserva quantidades já contadas; reabre categoria se receber itens novos.
- * Também colapsa duplicatas de nome já existentes na sessão.
+ * Sincroniza o snapshot da contagem com o catálogo atual:
+ * - remove itens excluídos/desabilitados
+ * - adiciona itens novos
+ * - colapsa duplicatas de nome
+ * Preserva quantidades já contadas nos itens que permanecem.
  */
 export function mesclarCatalogoNasSessoes(
   atuais: StockCategory[],
@@ -72,15 +74,38 @@ export function mesclarCatalogoNasSessoes(
 ): { sessoes: StockCategory[]; changed: boolean } {
   let changed = false;
 
-  // Primeiro: remove triplicatas já gravadas no snapshot
-  const result: StockCategory[] = atuais.map(c => {
+  // 1) Colapsa triplicatas de nome já gravadas no snapshot
+  let result: StockCategory[] = atuais.map(c => {
     const itens = dedupeItensPorNome(c.itens);
     if (itens.length !== c.itens.length) changed = true;
     return { ...c, itens };
   });
 
-  if (catalogo.length === 0) return { sessoes: result, changed };
+  const catalogIds = new Set(catalogo.flatMap(c => c.itens.map(i => i.insumoId)));
+  const catalogNomes = new Set(
+    catalogo.flatMap(c => c.itens.map(i => normalizarNomeInsumo(i.nome))),
+  );
 
+  // 2) Remove da contagem o que não está mais no catálogo (delete / desativado)
+  result = result
+    .map(cat => {
+      const itens = cat.itens.filter(
+        i =>
+          catalogIds.has(i.insumoId) ||
+          catalogNomes.has(normalizarNomeInsumo(i.nome)),
+      );
+      if (itens.length !== cat.itens.length) changed = true;
+      return { ...cat, itens };
+    })
+    .filter(cat => {
+      if (cat.itens.length === 0) {
+        changed = true;
+        return false;
+      }
+      return true;
+    });
+
+  // 3) Inclui produtos novos do catálogo
   const presentesIds = new Set(result.flatMap(c => c.itens.map(i => i.insumoId)));
   const presentesNomes = new Set(
     result.flatMap(c => c.itens.map(i => normalizarNomeInsumo(i.nome))),
@@ -242,7 +267,7 @@ export function useStockSession() {
       );
 
       if (existente && !forceNew) {
-        // Contagem em andamento: injeta produtos novos do catálogo no snapshot
+        // Contagem em andamento: sincroniza catálogo (adds + deletes) no snapshot
         const { sessoes, changed } = mesclarCatalogoNasSessoes(
           existente.sessoes,
           sessoesIniciais ?? [],
@@ -274,7 +299,8 @@ export function useStockSession() {
   // ── Retomar contagem existente ─────────────────────────────────────────────
   const retomarContagem = useCallback(
     (sessionId: string, catalogo?: StockCategory[]) => {
-      if (catalogo && catalogo.length > 0) {
+      // catalogo definido (mesmo vazio) = sincronizar com a lista atual de produtos
+      if (catalogo) {
         setSessions(prev => {
           const session = prev.find(s => s.id === sessionId);
           if (!session || session.status !== 'em_andamento') return prev;

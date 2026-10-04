@@ -91,7 +91,7 @@ export function EstoqueDashboard() {
       productOrder,
     );
     // forceNew=false: retoma a contagem ativa desta loja se já existir;
-    // ao retomar, produtos novos do catálogo são mesclados no snapshot
+    // ao retomar, o snapshot é sincronizado com o catálogo (inclui exclusões)
     await iniciarContagem(sessoesIniciais, 'Gerente', false, lojaNome);
     setScreen('counting');
   };
