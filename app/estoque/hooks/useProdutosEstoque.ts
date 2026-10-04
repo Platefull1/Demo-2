@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { normalizarNomeInsumo } from '@/lib/estoque-nome';
 import type { StockCategory, StockItem } from '../types';
 import type { EstoqueConfigMap } from './useEstoqueConfig';
 
@@ -49,9 +50,17 @@ export function construirSessoes(
   config: EstoqueConfigMap = {},
   productOrder: string[] = [],
 ): StockCategory[] {
+  // Um produto por nome (catálogo compartilhado — evita triplicar por loja)
+  const porNome = new Map<string, ProdutoEstoque>();
+  for (const p of insumos) {
+    const key = normalizarNomeInsumo(p.nome);
+    if (!porNome.has(key)) porNome.set(key, p);
+  }
+  const unicos = Array.from(porNome.values());
+
   // Agrupa por categoria
   const categorias = new Map<string, { nome: string; icone: string; itens: ProdutoEstoque[] }>();
-  for (const p of insumos) {
+  for (const p of unicos) {
     if (!categorias.has(p.sessaoId)) {
       categorias.set(p.sessaoId, { nome: p.sessaoNome, icone: p.sessaoIcone, itens: [] });
     }

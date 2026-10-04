@@ -1,5 +1,11 @@
 import { getEffectiveDbUser, getEffectiveUserIds } from '@/lib/effective-user';
 
+export {
+  dedupeInsumosByNome,
+  normalizarNomeInsumo,
+  slugifyInsumoNome,
+} from '@/lib/estoque-nome';
+
 export interface EstoqueTenantContext {
   tenantUserId: string;
   userIds: string[];

@@ -1,10 +1,29 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { normalizarNomeInsumo } from '@/lib/estoque-nome';
 import type { StockSession, StockCategory, StockItem } from '../types';
 
 export type { StockCategory };
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+/** Colapsa itens com o mesmo nome na sessão (ex.: triplicados por loja). */
+function dedupeItensPorNome(itens: StockItem[]): StockItem[] {
+  const byNome = new Map<string, StockItem>();
+  for (const item of itens) {
+    const key = normalizarNomeInsumo(item.nome);
+    const prev = byNome.get(key);
+    if (!prev) {
+      byNome.set(key, item);
+      continue;
+    }
+    // Prefere o que já tem quantidade contada
+    if (prev.quantidadeContada === null && item.quantidadeContada !== null) {
+      byNome.set(key, item);
+    }
+  }
+  return Array.from(byNome.values());
+}
 
 // ── Helpers de API ─────────────────────────────────────────────────────────────
 
@@ -45,23 +64,35 @@ async function apiDelete(id: string): Promise<void> {
 /**
  * Inclui no snapshot da contagem os itens do catálogo que ainda não estão nela.
  * Preserva quantidades já contadas; reabre categoria se receber itens novos.
+ * Também colapsa duplicatas de nome já existentes na sessão.
  */
 export function mesclarCatalogoNasSessoes(
   atuais: StockCategory[],
   catalogo: StockCategory[],
 ): { sessoes: StockCategory[]; changed: boolean } {
-  if (catalogo.length === 0) return { sessoes: atuais, changed: false };
-
-  const presentes = new Set(atuais.flatMap(c => c.itens.map(i => i.insumoId)));
   let changed = false;
-  const result: StockCategory[] = atuais.map(c => ({
-    ...c,
-    itens: [...c.itens],
-  }));
+
+  // Primeiro: remove triplicatas já gravadas no snapshot
+  const result: StockCategory[] = atuais.map(c => {
+    const itens = dedupeItensPorNome(c.itens);
+    if (itens.length !== c.itens.length) changed = true;
+    return { ...c, itens };
+  });
+
+  if (catalogo.length === 0) return { sessoes: result, changed };
+
+  const presentesIds = new Set(result.flatMap(c => c.itens.map(i => i.insumoId)));
+  const presentesNomes = new Set(
+    result.flatMap(c => c.itens.map(i => normalizarNomeInsumo(i.nome))),
+  );
 
   for (const catCatalogo of catalogo) {
     const novos = catCatalogo.itens
-      .filter(i => !presentes.has(i.insumoId))
+      .filter(
+        i =>
+          !presentesIds.has(i.insumoId) &&
+          !presentesNomes.has(normalizarNomeInsumo(i.nome)),
+      )
       .map(i => ({ ...i, quantidadeContada: null as number | null }));
 
     if (novos.length === 0) continue;
@@ -82,7 +113,10 @@ export function mesclarCatalogoNasSessoes(
       };
     }
 
-    for (const i of novos) presentes.add(i.insumoId);
+    for (const i of novos) {
+      presentesIds.add(i.insumoId);
+      presentesNomes.add(normalizarNomeInsumo(i.nome));
+    }
     changed = true;
   }
 

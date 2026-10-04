@@ -60,13 +60,23 @@ export async function DELETE(
     });
     if (!existing) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
 
+    // Cópias com mesmo nome (criadas uma vez por loja) e mesmo slug
+    const duplicatas = await prisma.estoqueInsumo.findMany({
+      where: {
+        userId: { in: userIds },
+        OR: [{ insumoId: existing.insumoId }, { nome: existing.nome }],
+      },
+      select: { id: true, insumoId: true },
+    });
+    const slugs = [...new Set(duplicatas.map(d => d.insumoId))];
+
     await prisma.estoqueInsumo.deleteMany({
-      where: { userId: { in: userIds }, insumoId: existing.insumoId },
+      where: { id: { in: duplicatas.map(d => d.id) } },
     });
 
-    // Limpa também a config associada a esse insumo (todos os userIds do tenant)
+    // Limpa configs ligadas a qualquer slug dessas cópias
     await prisma.estoqueProdutoConfig.deleteMany({
-      where: { userId: { in: userIds }, produtoId: existing.insumoId },
+      where: { userId: { in: userIds }, produtoId: { in: slugs } },
     });
 
     return NextResponse.json({ ok: true });
