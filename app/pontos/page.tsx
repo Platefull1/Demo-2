@@ -49,6 +49,7 @@ function useDragScroll(): {
 }
 import Link from 'next/link';
 import { useLoja } from '@/contexts/LojaContext';
+import { labelPeriodoFechamentoPonto } from '@/lib/ponto-periodo';
 import {
   Clock,
   AlertTriangle,
@@ -657,6 +658,9 @@ function AbaRelatorio() {
             </span>
           </div>
         )}
+        <p className="w-full text-xs text-gray-500">
+          Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}
+        </p>
       </div>
 
       {erroGerar && (
@@ -694,7 +698,7 @@ function AbaRelatorio() {
           <FileSpreadsheet className="w-10 h-10 text-gray-700 mb-3" />
           <p className="text-gray-400 font-medium">Nenhum fechamento para {mesLabel(mes, ano)}</p>
           <p className="text-sm text-gray-600 mt-1">
-            Clique em "Gerar Fechamento" para consultar o Secullum e montar a tabela de revisão.
+            Período: {labelPeriodoFechamentoPonto(mes, ano)}. Clique em &quot;Gerar Fechamento&quot; para consultar o Secullum.
           </p>
         </div>
       )}
@@ -704,6 +708,9 @@ function AbaRelatorio() {
           {/* Sumário */}
           <div className="px-4 py-3 border-b border-[#2a2a2e] flex flex-wrap items-center gap-3">
             <span className="text-sm font-semibold text-white">{mesLabel(mes, ano)}</span>
+            <span className="text-xs text-gray-500">
+              {labelPeriodoFechamentoPonto(mes, ano)}
+            </span>
             <span className="text-xs text-gray-500">
               {fechamento.linhas.length} funcionário(s)
             </span>

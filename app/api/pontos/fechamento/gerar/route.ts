@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
+import { periodoFechamentoPonto } from '@/lib/ponto-periodo';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export const dynamic = 'force-dynamic';
@@ -147,10 +148,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'mes (1-12) e ano são obrigatórios e devem ser válidos' }, { status: 400 });
   }
 
-  // Primeiro e último dia do mês
-  const dataInicial = `${ano}-${String(mes).padStart(2, '0')}-01`;
-  const ultimoDia = new Date(ano, mes, 0).getDate();
-  const dataFinal = `${ano}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+  // Ciclo RH: dia 28 do mês anterior → dia 27 do mês da competência
+  const { dataInicial, dataFinal } = periodoFechamentoPonto(mes, ano);
 
   // Cria ou reaproveita FechamentoMensal
   const fechamento = await prisma.fechamentoMensal.upsert({
@@ -241,6 +240,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     fechamentoId: fechamento.id,
+    periodo: { dataInicial, dataFinal },
     processados,
     comErro,
     funcionariosSemPis: semPis.length,
