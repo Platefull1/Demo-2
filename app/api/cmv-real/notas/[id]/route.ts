@@ -39,6 +39,36 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const { getRhContext } = await import('@/lib/rh-auth');
   const ctx = await getRhContext();
 
+  const [nfeConfig, lancamentosRecentes] = await Promise.all([
+    prisma.nfeConfig.findUnique({
+      where: { userId: tenant.tenantUserId },
+      select: { limiteVariacaoCustoPercent: true },
+    }),
+    prisma.cmvLancamento.findMany({
+      where: {
+        userId: tenant.tenantUserId,
+        tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL'] },
+        data: { gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000) },
+      },
+      select: { estoqueInsumoId: true, quantidade: true, valorTotal: true },
+    }),
+  ]);
+
+  const custoMedioPorInsumo: Record<string, number> = {};
+  const acc = new Map<string, { qtd: number; valor: number }>();
+  for (const l of lancamentosRecentes) {
+    const q = Number(l.quantidade);
+    const v = Number(l.valorTotal);
+    if (q <= 0) continue;
+    const cur = acc.get(l.estoqueInsumoId) ?? { qtd: 0, valor: 0 };
+    cur.qtd += q;
+    cur.valor += v;
+    acc.set(l.estoqueInsumoId, cur);
+  }
+  for (const [insumoId, a] of acc) {
+    if (a.qtd > 0) custoMedioPorInsumo[insumoId] = a.valor / a.qtd;
+  }
+
   return NextResponse.json({
     ok: true,
     canRevisar:
@@ -47,6 +77,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_CRIAR) ?? false),
     canMapeamentoEditar:
       tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_EDITAR) ?? false),
+    custoMedioPorInsumo,
+    limiteVariacaoCustoPercent: Number(nfeConfig?.limiteVariacaoCustoPercent ?? 30),
     nota: {
       id: nota.id,
       numero: nota.numero,

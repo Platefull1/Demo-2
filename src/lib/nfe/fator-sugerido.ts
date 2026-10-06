@@ -500,8 +500,8 @@ export function sugerirFatorDaDescricao(
 }
 
 /** Faixa absurda de custo/kg para matéria-prima. */
-const CUSTO_KG_MIN = 0.5;
-const CUSTO_KG_MAX = 500;
+export const CUSTO_KG_MIN = 0.5;
+export const CUSTO_KG_MAX = 500;
 
 function anexarSanidade(
   result: FatorSugerido,

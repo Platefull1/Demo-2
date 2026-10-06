@@ -4,6 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowLeft, Loader2, Check, Ban } from 'lucide-react';
+import {
+  CUSTO_KG_MAX,
+  CUSTO_KG_MIN,
+  formatNumBr,
+  notaStatusLabel,
+  perguntaFator,
+  storeLabel,
+  textoAlertaAmbiguo,
+} from '@/lib/nfe/ui-labels';
 
 type Sugestao = { id: string; nome: string; score: number };
 
@@ -26,7 +35,12 @@ type Item = {
   alertas: string[];
 };
 
-type ProdutoOpt = { estoqueInsumoId: string; nome: string; unidade: string };
+type ProdutoOpt = {
+  estoqueInsumoId: string;
+  nome: string;
+  unidade: string;
+  secao: string;
+};
 
 function parseSugestoes(raw: unknown): Sugestao[] {
   if (!Array.isArray(raw)) return [];
@@ -42,16 +56,16 @@ function parseSugestoes(raw: unknown): Sugestao[] {
     .filter((s) => s.id);
 }
 
-function labelOrigem(origem: string | null): string {
-  if (origem === 'ESTOQUE_KG_POR_UNIDADE') return 'Estoque kg por unidade';
-  if (origem === 'MAPEAMENTO') return 'mapeamento';
-  if (origem === 'DESCRICAO') return 'descrição';
-  return origem || '—';
+function parseFator(raw: string): number | null {
+  const n = Number(String(raw).replace(',', '.'));
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
 }
 
-function textoApoioFator(qtd: number, und: string): string {
-  const u = (und || 'UN').toUpperCase();
-  return `O fornecedor mandou '${qtd} ${u}' — confirme quantos KG/UN isso representa`;
+function statusBadgeClass(status: string): string {
+  if (status === 'APROVADA') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
+  if (status === 'IGNORADA') return 'bg-gray-500/15 text-gray-400 border-gray-500/30';
+  return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
 }
 
 export default function CmvRealNotaDetalhePage() {
@@ -65,6 +79,8 @@ export default function CmvRealNotaDetalhePage() {
   const [canRevisar, setCanRevisar] = useState(false);
   const [canMapeamentoCriar, setCanMapeamentoCriar] = useState(false);
   const [canMapeamentoEditar, setCanMapeamentoEditar] = useState(false);
+  const [custoMedioPorInsumo, setCustoMedioPorInsumo] = useState<Record<string, number>>({});
+  const [limiteVariacao, setLimiteVariacao] = useState(30);
   const [nota, setNota] = useState<{
     id: string;
     numero: string;
@@ -82,7 +98,6 @@ export default function CmvRealNotaDetalhePage() {
   } | null>(null);
   const [produtos, setProdutos] = useState<ProdutoOpt[]>([]);
 
-  /** Estado local por item: produto + fator + criar mapeamento */
   const [draft, setDraft] = useState<
     Record<
       string,
@@ -103,6 +118,8 @@ export default function CmvRealNotaDetalhePage() {
       setCanRevisar(data.canRevisar === true);
       setCanMapeamentoCriar(data.canMapeamentoCriar === true);
       setCanMapeamentoEditar(data.canMapeamentoEditar === true);
+      setCustoMedioPorInsumo(data.custoMedioPorInsumo || {});
+      setLimiteVariacao(Number(data.limiteVariacaoCustoPercent ?? 30));
       setNota(data.nota);
 
       if (resProd.ok) {
@@ -110,11 +127,19 @@ export default function CmvRealNotaDetalhePage() {
         setProdutos(
           (pd.itens || [])
             .filter((p: { ativo: boolean }) => p.ativo !== false)
-            .map((p: { estoqueInsumoId: string; nome: string; unidade: string }) => ({
-              estoqueInsumoId: p.estoqueInsumoId,
-              nome: p.nome,
-              unidade: p.unidade,
-            })),
+            .map(
+              (p: {
+                estoqueInsumoId: string;
+                nome: string;
+                unidade: string;
+                secao: string;
+              }) => ({
+                estoqueInsumoId: p.estoqueInsumoId,
+                nome: p.nome,
+                unidade: p.unidade,
+                secao: p.secao,
+              }),
+            ),
         );
       }
 
@@ -122,15 +147,10 @@ export default function CmvRealNotaDetalhePage() {
       for (const it of data.nota.itens as Item[]) {
         const sugs = parseSugestoes(it.sugestoes);
         const first =
-          it.estoqueInsumoId ||
-          it.sugestaoInsumoId ||
-          sugs[0]?.id ||
-          '';
+          it.estoqueInsumoId || it.sugestaoInsumoId || sugs[0]?.id || '';
         next[it.id] = {
           produtoId: first,
-          fator: String(
-            it.fatorConversao ?? it.fatorSugerido ?? 1,
-          ),
+          fator: String(it.fatorConversao ?? it.fatorSugerido ?? 1),
           criarMap: true,
           outro: false,
         };
@@ -147,7 +167,6 @@ export default function CmvRealNotaDetalhePage() {
     if (id) void load();
   }, [id, load]);
 
-  // Ajustar criarMap default após permissões carregarem
   useEffect(() => {
     setDraft((prev) => {
       const next = { ...prev };
@@ -173,6 +192,12 @@ export default function CmvRealNotaDetalhePage() {
     [nota],
   );
 
+  const produtoById = useMemo(() => {
+    const m = new Map<string, ProdutoOpt>();
+    for (const p of produtos) m.set(p.estoqueInsumoId, p);
+    return m;
+  }, [produtos]);
+
   const post = async (body: Record<string, unknown>) => {
     const res = await fetch(`/api/cmv-real/notas/${id}`, {
       method: 'POST',
@@ -190,9 +215,9 @@ export default function CmvRealNotaDetalhePage() {
       setMsg('Selecione um produto');
       return;
     }
-    const fator = Number(String(d.fator).replace(',', '.'));
-    if (!Number.isFinite(fator) || fator <= 0) {
-      setMsg('Fator inválido');
+    const fator = parseFator(d.fator);
+    if (fator == null) {
+      setMsg('Valor de conversão inválido');
       return;
     }
     setSaving(itemId);
@@ -270,6 +295,57 @@ export default function CmvRealNotaDetalhePage() {
     );
   }
 
+  const renderContaAoVivo = (it: Item, fatorRaw: string, produtoId: string) => {
+    const fator = parseFator(fatorRaw);
+    if (fator == null) return null;
+
+    const prod = produtoById.get(produtoId);
+    const undCmv = (prod?.unidade || 'KG') as 'KG' | 'UN';
+    const sufixo = undCmv === 'UN' ? 'un' : 'kg';
+    const undNota = (it.unidadeComercial || 'UN').toUpperCase();
+    const valor = it.valorLiquido ?? it.valorBruto;
+    const qtdConv = it.quantidade * fator;
+    const custo = qtdConv > 0 ? valor / qtdConv : 0;
+
+    const isMateriaPrima = !prod || prod.secao === 'MATERIA_PRIMA';
+    const foraFaixa =
+      isMateriaPrima &&
+      undCmv === 'KG' &&
+      (custo < CUSTO_KG_MIN || custo > CUSTO_KG_MAX);
+
+    const ref = produtoId ? custoMedioPorInsumo[produtoId] : undefined;
+    const desvioHist =
+      ref != null && ref > 0 && limiteVariacao > 0
+        ? (Math.abs(custo - ref) / ref) * 100
+        : 0;
+    const foraHistorico = ref != null && ref > 0 && desvioHist > limiteVariacao;
+    const alertaVermelho = foraFaixa || foraHistorico;
+
+    return (
+      <p
+        className={`text-[11px] leading-relaxed ${
+          alertaVermelho ? 'text-red-400' : 'text-gray-400'
+        }`}
+      >
+        {formatNumBr(it.quantidade, it.quantidade % 1 === 0 ? 0 : 2)} {undNota} ×{' '}
+        {formatNumBr(fator)} {sufixo} = {formatNumBr(qtdConv)} {sufixo}
+        {' · '}
+        R$ {formatNumBr(custo)}/{sufixo}
+        {foraFaixa && (
+          <span className="block mt-0.5">
+            Fora da faixa esperada (R$ {formatNumBr(CUSTO_KG_MIN)}–{formatNumBr(CUSTO_KG_MAX)}/
+            {sufixo})
+          </span>
+        )}
+        {foraHistorico && ref != null && (
+          <span className="block mt-0.5">
+            Histórico ≈ R$ {formatNumBr(ref)}/{sufixo}
+          </span>
+        )}
+      </p>
+    );
+  };
+
   const renderItem = (it: Item, editavel: boolean) => {
     const sugs = parseSugestoes(it.sugestoes);
     const d = draft[it.id] || {
@@ -282,6 +358,10 @@ export default function CmvRealNotaDetalhePage() {
     const suspeito = (it.alertas || []).includes('FATOR_SUSPEITO');
     const busy = saving === it.id;
 
+    const prod = produtoById.get(d.produtoId);
+    const undCmv = prod?.unidade || 'KG';
+    const { pergunta, sufixo } = perguntaFator(it.unidadeComercial, undCmv);
+
     return (
       <article
         key={it.id}
@@ -289,9 +369,7 @@ export default function CmvRealNotaDetalhePage() {
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[11px] text-gray-500">
-              Item {it.numeroItem} · {it.status}
-            </p>
+            <p className="text-[11px] text-gray-500">Item {it.numeroItem}</p>
             <p className="text-sm text-white font-medium leading-snug mt-0.5">
               {it.descricao}
             </p>
@@ -317,17 +395,10 @@ export default function CmvRealNotaDetalhePage() {
                 : 'bg-orange-500/15 border border-orange-500/40 text-orange-200'
             }`}
           >
-            {ambiguo && (
-              <>
-                <p className="font-medium">Fator ambíguo</p>
-                <p className="mt-1 opacity-90">
-                  {textoApoioFator(it.quantidade, it.unidadeComercial)}
-                </p>
-              </>
-            )}
+            {ambiguo && <p className="font-medium">{textoAlertaAmbiguo(it.unidadeComercial)}</p>}
             {suspeito && (
               <p className={ambiguo ? 'mt-1.5' : ''}>
-                Custo/kg fora da faixa esperada — confira o fator.
+                Custo fora da faixa esperada — confira o valor digitado.
               </p>
             )}
           </div>
@@ -421,36 +492,32 @@ export default function CmvRealNotaDetalhePage() {
               )}
             </div>
 
-            <div className="space-y-1">
-              <div className="flex items-end justify-between gap-2">
-                <label className="text-[11px] uppercase tracking-wide text-gray-500">
-                  Fator
-                </label>
-                <span className="text-[10px] text-gray-500">
-                  origem: {labelOrigem(it.fatorSugeridoOrigem)}
+            <div className="space-y-1.5">
+              <label className="block text-sm text-gray-300 font-medium">
+                {pergunta}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={d.fator}
+                  onChange={(e) =>
+                    setDraft((p) => ({
+                      ...p,
+                      [it.id]: { ...d, fator: e.target.value },
+                    }))
+                  }
+                  className={`w-full rounded-lg pl-3 pr-10 py-2.5 text-base font-semibold ${
+                    ambiguo
+                      ? 'bg-amber-500/20 border-2 border-amber-400 text-amber-100'
+                      : 'bg-[#0a0a0c] border border-[#2a2a2e] text-white'
+                  }`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                  {sufixo}
                 </span>
               </div>
-              <input
-                type="text"
-                inputMode="decimal"
-                value={d.fator}
-                onChange={(e) =>
-                  setDraft((p) => ({
-                    ...p,
-                    [it.id]: { ...d, fator: e.target.value },
-                  }))
-                }
-                className={`w-full rounded-lg px-3 py-2.5 text-base font-semibold ${
-                  ambiguo
-                    ? 'bg-amber-500/20 border-2 border-amber-400 text-amber-100'
-                    : 'bg-[#0a0a0c] border border-[#2a2a2e] text-white'
-                }`}
-              />
-              {ambiguo && (
-                <p className="text-[11px] text-amber-300/90">
-                  Qtd nota: {it.quantidade} {it.unidadeComercial}
-                </p>
-              )}
+              {renderContaAoVivo(it, d.fator, d.produtoId)}
             </div>
 
             {canMapeamentoCriar && (
@@ -521,15 +588,17 @@ export default function CmvRealNotaDetalhePage() {
               NF {nota.numero}
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              {nota.storeSlug} ·{' '}
+              {storeLabel(nota.storeSlug)} ·{' '}
               {new Date(nota.dataEntrada).toLocaleDateString('pt-BR')} · R${' '}
               {nota.valorTotal.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
               })}
             </p>
           </div>
-          <span className="text-[10px] uppercase bg-[#2a2a2e] text-gray-400 px-2 py-1 rounded">
-            {nota.status}
+          <span
+            className={`text-[10px] font-medium border px-2 py-1 rounded ${statusBadgeClass(nota.status)}`}
+          >
+            {notaStatusLabel(nota.status)}
           </span>
         </div>
         <p className="text-sm text-gray-300">
