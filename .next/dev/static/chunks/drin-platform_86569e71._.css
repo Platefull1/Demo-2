@@ -106,11 +106,11 @@
 html, :host {
   -webkit-text-size-adjust: 100%;
   tab-size: 4;
+  line-height: 1.5;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-feature-settings: normal;
   font-variation-settings: normal;
   -webkit-tap-highlight-color: transparent;
-  font-family: ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
-  line-height: 1.5;
 }
 
 body {
@@ -145,9 +145,9 @@ b, strong {
 }
 
 code, kbd, samp, pre {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
   font-feature-settings: normal;
   font-variation-settings: normal;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   font-size: 1em;
 }
 
@@ -307,6 +307,7 @@ img, video {
 
 body {
   background-color: var(--background);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
   color: var(--foreground);
 }
 
@@ -1122,12 +1123,12 @@ body {
   height: 240px;
 }
 
-.h-\[300px\] {
-  height: 300px;
+.h-\[280px\] {
+  height: 280px;
 }
 
-.h-\[360px\] {
-  height: 360px;
+.h-\[320px\] {
+  height: 320px;
 }
 
 .h-\[calc\(100\%-1px\)\] {
@@ -1266,12 +1267,12 @@ body {
   min-height: 4rem;
 }
 
-.min-h-\[120px\] {
-  min-height: 120px;
+.min-h-9 {
+  min-height: 2.25rem;
 }
 
-.min-h-\[1rem\] {
-  min-height: 1rem;
+.min-h-\[120px\] {
+  min-height: 120px;
 }
 
 .min-h-\[200px\] {
@@ -1576,6 +1577,10 @@ body {
 
 .max-w-\[200px\] {
   max-width: 200px;
+}
+
+.max-w-\[240px\] {
+  max-width: 240px;
 }
 
 .max-w-\[75\%\] {
@@ -2737,6 +2742,14 @@ body {
 .border-yellow-600 {
   --tw-border-opacity: 1;
   border-color: rgb(202 138 4 / var(--tw-border-opacity, 1));
+}
+
+.border-l-primary {
+  border-left-color: var(--primary);
+}
+
+.border-l-transparent {
+  border-left-color: #0000;
 }
 
 .border-t-black {
@@ -3922,7 +3935,11 @@ body {
 }
 
 .font-mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.font-sans {
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 .text-2xl {
@@ -4854,8 +4871,6 @@ body {
   --sidebar-accent-foreground: #0a0a0a;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #22c55e;
-  --font-geist-sans: "Geist Sans", sans-serif;
-  --font-geist-mono: "Geist Mono", monospace;
 }
 
 .dark {
@@ -6674,6 +6689,14 @@ body {
 @media (min-width: 1280px) {
   .xl\:grid-cols-4 {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .xl\:border-b-0 {
+    border-bottom-width: 0;
+  }
+
+  .xl\:border-r {
+    border-right-width: 1px;
   }
 }
 

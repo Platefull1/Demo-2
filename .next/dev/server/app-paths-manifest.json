@@ -1,4 +1,11 @@
 {
+  "/api/auth/check-tool-permission/route": "app/api/auth/check-tool-permission/route.js",
+  "/api/auth/stack-sync/route": "app/api/auth/stack-sync/route.js",
+  "/api/cmv-real/access/route": "app/api/cmv-real/access/route.js",
+  "/api/ifood/dashboard/realtime/route": "app/api/ifood/dashboard/realtime/route.js",
+  "/api/ifood/dashboard/summary/route": "app/api/ifood/dashboard/summary/route.js",
+  "/api/ifood/merchants/status-all/route": "app/api/ifood/merchants/status-all/route.js",
+  "/api/user-apis/route": "app/api/user-apis/route.js",
   "/auth/login/page": "app/auth/login/page.js",
   "/dashboard/page": "app/dashboard/page.js"
 }

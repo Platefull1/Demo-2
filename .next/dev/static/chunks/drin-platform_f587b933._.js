@@ -1306,6 +1306,9 @@ function writeCollapsed(value) {
     // ignore quota / private mode
     }
 }
+function activeItemClass(active) {
+    return active ? "bg-accent text-foreground border-l-2 border-l-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground border-l-2 border-l-transparent";
+}
 function NavItemContent({ item, collapsed, onNavigate }) {
     _s();
     const [open, setOpen] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(Boolean(item.active));
@@ -1320,26 +1323,26 @@ function NavItemContent({ item, collapsed, onNavigate }) {
     ]);
     if (item.locked) {
         const locked = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed", collapsed && "justify-center px-2"),
+            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed border-l-2 border-l-transparent", collapsed && "justify-center px-2"),
             children: [
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$lock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Lock$3e$__["Lock"], {
                     className: "h-4 w-4 shrink-0 text-muted-foreground/50"
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 98,
+                    lineNumber: 110,
                     columnNumber: 9
                 }, this),
                 !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                     children: item.label
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 99,
+                    lineNumber: 111,
                     columnNumber: 24
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-            lineNumber: 92,
+            lineNumber: 104,
             columnNumber: 7
         }, this);
         if (!collapsed) return locked;
@@ -1350,7 +1353,7 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                     children: locked
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 105,
+                    lineNumber: 117,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
@@ -1361,13 +1364,13 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                     ]
                 }, void 0, true, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 106,
+                    lineNumber: 118,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-            lineNumber: 104,
+            lineNumber: 116,
             columnNumber: 7
         }, this);
     }
@@ -1375,13 +1378,13 @@ function NavItemContent({ item, collapsed, onNavigate }) {
         const button = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("button", {
             type: "button",
             onClick: ()=>setOpen((v)=>!v),
-            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors", item.active ? "bg-accent text-accent-foreground border border-primary/40" : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent", collapsed && "justify-center px-2"),
+            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors", activeItemClass(item.active), collapsed && "justify-center px-2"),
             children: [
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Icon, {
                     className: "h-4 w-4 shrink-0 text-muted-foreground"
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 124,
+                    lineNumber: 134,
                     columnNumber: 9
                 }, this),
                 !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -1391,20 +1394,20 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                             children: item.label
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 127,
+                            lineNumber: 137,
                             columnNumber: 13
                         }, this),
                         open ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronDown$3e$__["ChevronDown"], {
                             className: "h-4 w-4 text-muted-foreground"
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 129,
+                            lineNumber: 139,
                             columnNumber: 15
                         }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {
                             className: "h-4 w-4 text-muted-foreground"
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 131,
+                            lineNumber: 141,
                             columnNumber: 15
                         }, this)
                     ]
@@ -1412,7 +1415,7 @@ function NavItemContent({ item, collapsed, onNavigate }) {
             ]
         }, void 0, true, {
             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-            lineNumber: 113,
+            lineNumber: 125,
             columnNumber: 7
         }, this);
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1424,7 +1427,7 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                             children: button
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 142,
+                            lineNumber: 152,
                             columnNumber: 13
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
@@ -1432,13 +1435,13 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                             children: item.label
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 143,
+                            lineNumber: 153,
                             columnNumber: 13
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 141,
+                    lineNumber: 151,
                     columnNumber: 11
                 }, this) : button,
                 open && !collapsed && item.children && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1446,35 +1449,35 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                     children: item.children.map((child)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
                             href: child.href,
                             onClick: onNavigate,
-                            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex items-center rounded-md px-2 py-1.5 text-sm transition-colors", child.active ? "bg-accent text-accent-foreground border border-primary/40" : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"),
+                            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex items-center rounded-md px-2 py-1.5 text-sm transition-colors", activeItemClass(child.active)),
                             children: child.label
                         }, child.id, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 151,
+                            lineNumber: 161,
                             columnNumber: 15
                         }, this))
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 149,
+                    lineNumber: 159,
                     columnNumber: 11
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-            lineNumber: 139,
+            lineNumber: 149,
             columnNumber: 7
         }, this);
     }
     const link = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
         href: item.href ?? "#",
         onClick: onNavigate,
-        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors", item.active ? "bg-accent text-accent-foreground border border-primary/40" : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent", collapsed && "justify-center px-2"),
+        className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors", activeItemClass(item.active), collapsed && "justify-center px-2"),
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Icon, {
                 className: "h-4 w-4 shrink-0 text-muted-foreground"
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 183,
+                lineNumber: 189,
                 columnNumber: 7
             }, this),
             !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1482,13 +1485,13 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                 children: item.label
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 184,
+                lineNumber: 190,
                 columnNumber: 22
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-        lineNumber: 172,
+        lineNumber: 180,
         columnNumber: 5
     }, this);
     if (!collapsed) return link;
@@ -1499,7 +1502,7 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                 children: link
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 191,
+                lineNumber: 197,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
@@ -1507,48 +1510,68 @@ function NavItemContent({ item, collapsed, onNavigate }) {
                 children: item.label
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 192,
+                lineNumber: 198,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-        lineNumber: 190,
+        lineNumber: 196,
         columnNumber: 5
     }, this);
 }
 _s(NavItemContent, "9HvYpv6cLKgi3dMwkirSBmsFID0=");
 _c = NavItemContent;
-function SidebarNav({ navItems, navLoading, collapsed, onNavigate }) {
+function SidebarNav({ navSections, navLoading, collapsed, onNavigate }) {
     if (navLoading) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: "px-3 py-2 text-sm text-muted-foreground",
             children: "Carregando permissões..."
         }, void 0, false, {
             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-            lineNumber: 210,
+            lineNumber: 216,
             columnNumber: 7
         }, this);
     }
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
-        className: "flex flex-col gap-0.5",
-        children: navItems.map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NavItemContent, {
-                item: item,
-                collapsed: collapsed,
-                onNavigate: onNavigate
-            }, item.id, false, {
+        className: "flex flex-col gap-4",
+        children: navSections.map((section)=>{
+            if (section.items.length === 0) return null;
+            return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "flex flex-col gap-0.5",
+                children: [
+                    !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
+                        className: "px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground",
+                        children: section.label
+                    }, void 0, false, {
+                        fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
+                        lineNumber: 229,
+                        columnNumber: 15
+                    }, this),
+                    section.items.map((item)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(NavItemContent, {
+                            item: item,
+                            collapsed: collapsed,
+                            onNavigate: onNavigate
+                        }, item.id, false, {
+                            fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
+                            lineNumber: 234,
+                            columnNumber: 15
+                        }, this))
+                ]
+            }, section.id, true, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 219,
-                columnNumber: 9
-            }, this))
+                lineNumber: 227,
+                columnNumber: 11
+            }, this);
+        })
     }, void 0, false, {
         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-        lineNumber: 217,
+        lineNumber: 223,
         columnNumber: 5
     }, this);
 }
 _c1 = SidebarNav;
-function SidebarChrome({ logo, logoCollapsed, navItems, navLoading, footer, collapsed, onToggleCollapsed, onNavigate, showCollapseToggle }) {
+function SidebarChrome({ logo, logoCollapsed, navSections, navLoading, footer, collapsed, onToggleCollapsed, onNavigate, showCollapseToggle }) {
     const footerNode = typeof footer === "function" ? footer({
         collapsed
     }) : footer;
@@ -1563,7 +1586,7 @@ function SidebarChrome({ logo, logoCollapsed, navItems, navLoading, footer, coll
                         children: collapsed ? logoCollapsed ?? logo : logo
                     }, void 0, false, {
                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                        lineNumber: 262,
+                        lineNumber: 280,
                         columnNumber: 9
                     }, this),
                     showCollapseToggle && onToggleCollapsed && !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -1577,35 +1600,35 @@ function SidebarChrome({ logo, logoCollapsed, navItems, navLoading, footer, coll
                             className: "h-4 w-4"
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 274,
+                            lineNumber: 292,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                        lineNumber: 266,
+                        lineNumber: 284,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 256,
+                lineNumber: 274,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: "flex-1 overflow-y-auto px-2 py-3 [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border",
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(SidebarNav, {
-                    navItems: navItems,
+                    navSections: navSections,
                     navLoading: navLoading,
                     collapsed: collapsed,
                     onNavigate: onNavigate
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 280,
+                    lineNumber: 298,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 279,
+                lineNumber: 297,
                 columnNumber: 7
             }, this),
             showCollapseToggle && onToggleCollapsed && collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1621,17 +1644,17 @@ function SidebarChrome({ logo, logoCollapsed, navItems, navLoading, footer, coll
                         className: "h-4 w-4"
                     }, void 0, false, {
                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                        lineNumber: 298,
+                        lineNumber: 316,
                         columnNumber: 13
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 290,
+                    lineNumber: 308,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 289,
+                lineNumber: 307,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1639,18 +1662,18 @@ function SidebarChrome({ logo, logoCollapsed, navItems, navLoading, footer, coll
                 children: footerNode
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                lineNumber: 303,
+                lineNumber: 321,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-        lineNumber: 255,
+        lineNumber: 273,
         columnNumber: 5
     }, this);
 }
 _c2 = SidebarChrome;
-function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading }) {
+function AppShell({ children, logo, logoCollapsed, navSections, footer, navLoading }) {
     _s1();
     const [collapsed, setCollapsed] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
     const [mobileOpen, setMobileOpen] = (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"])(false);
@@ -1680,7 +1703,7 @@ function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading 
                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(SidebarChrome, {
                             logo: logo,
                             logoCollapsed: logoCollapsed,
-                            navItems: navItems,
+                            navSections: navSections,
                             navLoading: navLoading,
                             footer: footer,
                             collapsed: hydrated ? collapsed : false,
@@ -1688,17 +1711,17 @@ function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading 
                             showCollapseToggle: true
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 351,
+                            lineNumber: 368,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                        lineNumber: 350,
+                        lineNumber: 367,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 344,
+                    lineNumber: 361,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1719,17 +1742,17 @@ function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading 
                                             className: "h-5 w-5"
                                         }, void 0, false, {
                                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                                            lineNumber: 374,
+                                            lineNumber: 390,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                                        lineNumber: 368,
+                                        lineNumber: 384,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                                    lineNumber: 367,
+                                    lineNumber: 383,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$sheet$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SheetContent"], {
@@ -1737,25 +1760,25 @@ function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading 
                                     className: "w-60 p-0 bg-card border-border text-foreground",
                                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(SidebarChrome, {
                                         logo: logo,
-                                        navItems: navItems,
+                                        navSections: navSections,
                                         navLoading: navLoading,
                                         footer: footer,
                                         collapsed: false,
                                         onNavigate: ()=>setMobileOpen(false)
                                     }, void 0, false, {
                                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                                        lineNumber: 381,
+                                        lineNumber: 397,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                                    lineNumber: 377,
+                                    lineNumber: 393,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 366,
+                            lineNumber: 382,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1763,20 +1786,20 @@ function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading 
                             children: logo
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 391,
+                            lineNumber: 407,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "w-8"
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                            lineNumber: 392,
+                            lineNumber: 408,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 365,
+                    lineNumber: 381,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1786,23 +1809,23 @@ function AppShell({ children, logo, logoCollapsed, navItems, footer, navLoading 
                         children: children
                     }, void 0, false, {
                         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                        lineNumber: 401,
+                        lineNumber: 417,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-                    lineNumber: 395,
+                    lineNumber: 411,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-            lineNumber: 342,
+            lineNumber: 360,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/drin-platform/src/components/layout/AppShell.tsx",
-        lineNumber: 341,
+        lineNumber: 359,
         columnNumber: 5
     }, this);
 }
@@ -1850,6 +1873,8 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_mod
 var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$list$2d$checks$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ListChecks$3e$__ = __turbopack_context__.i("[project]/drin-platform/node_modules/lucide-react/dist/esm/icons/list-checks.js [app-client] (ecmascript) <export default as ListChecks>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$bot$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Bot$3e$__ = __turbopack_context__.i("[project]/drin-platform/node_modules/lucide-react/dist/esm/icons/bot.js [app-client] (ecmascript) <export default as Bot>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__ = __turbopack_context__.i("[project]/drin-platform/node_modules/lucide-react/dist/esm/icons/clock.js [app-client] (ecmascript) <export default as Clock>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$layout$2d$dashboard$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__LayoutDashboard$3e$__ = __turbopack_context__.i("[project]/drin-platform/node_modules/lucide-react/dist/esm/icons/layout-dashboard.js [app-client] (ecmascript) <export default as LayoutDashboard>");
+var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$receipt$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Receipt$3e$__ = __turbopack_context__.i("[project]/drin-platform/node_modules/lucide-react/dist/esm/icons/receipt.js [app-client] (ecmascript) <export default as Receipt>");
 var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$logo$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/drin-platform/src/components/logo.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$contexts$2f$app$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/drin-platform/src/contexts/app-context.tsx [app-client] (ecmascript)");
 var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$hooks$2f$useToolPermissions$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__ = __turbopack_context__.i("[project]/drin-platform/src/hooks/useToolPermissions.ts [app-client] (ecmascript)");
@@ -1892,151 +1917,203 @@ function DashboardLayout({ children }) {
         }
         router.push('/');
     };
-    const navItems = (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
-        "DashboardLayout.useMemo[navItems]": ()=>{
+    const navSections = (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
+        "DashboardLayout.useMemo[navSections]": ()=>{
             if (permissionsLoading) return [];
-            const items = [];
-            items.push({
-                id: 'produtos',
-                label: 'Produtos',
-                href: '/produtos',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$package$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Package$3e$__["Package"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].PRODUTOS],
-                active: pathname === '/produtos'
-            });
-            items.push({
-                id: 'conexoes',
-                label: 'Conexões',
-                href: '/connections',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$link$2d$2$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Link2$3e$__["Link2"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CONEXOES],
-                active: pathname === '/connections'
-            });
-            items.push({
-                id: 'relatorios',
-                label: 'Central de Relatórios',
-                href: '/relatorios',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2d$chart$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__FileBarChart2$3e$__["FileBarChart2"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].AGENDAMENTO_RELATORIOS],
-                active: pathname === '/relatorios' || Boolean(pathname?.startsWith('/relatorios/'))
-            });
-            items.push({
-                id: 'whatsapp',
-                label: 'WhatsApp Chat',
-                href: '/whatsapp-tools',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$message$2d$square$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__MessageSquare$3e$__["MessageSquare"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].WHATSAPP_CHAT],
-                active: pathname === '/whatsapp-tools'
-            });
-            items.push({
-                id: 'checklist',
-                label: 'Checklist',
-                href: '/checklist',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clipboard$2d$check$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ClipboardCheck$3e$__["ClipboardCheck"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CHECKLIST],
-                active: Boolean(pathname?.startsWith('/checklist'))
-            });
-            items.push({
-                id: 'etiquetagem',
-                label: 'Etiquetagem',
-                href: '/etiquetagem',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$tag$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Tag$3e$__["Tag"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].ETIQUETAGEM],
-                active: Boolean(pathname?.startsWith('/etiquetagem'))
-            });
-            items.push({
-                id: 'cmv',
-                label: 'CMV',
-                href: '/cmv',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chart$2d$no$2d$axes$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__BarChart2$3e$__["BarChart2"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CMV],
-                active: pathname === '/cmv' || Boolean(pathname?.startsWith('/cmv/'))
-            });
+            const item = {
+                "DashboardLayout.useMemo[navSections].item": (partial)=>partial
+            }["DashboardLayout.useMemo[navSections].item"];
+            const geral = [
+                item({
+                    id: 'visao-geral',
+                    label: 'Visão geral',
+                    href: '/dashboard',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$layout$2d$dashboard$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__LayoutDashboard$3e$__["LayoutDashboard"],
+                    active: pathname === '/dashboard'
+                })
+            ];
+            const operacao = [
+                item({
+                    id: 'ifood',
+                    label: 'iFood',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$shopping$2d$bag$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ShoppingBag$3e$__["ShoppingBag"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].IFOOD],
+                    active: Boolean(pathname?.startsWith('/ifood')),
+                    children: permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].IFOOD] ? [
+                        {
+                            id: 'ifood-config',
+                            label: 'Configurações',
+                            href: '/ifood/configuracoes',
+                            active: pathname === '/ifood/configuracoes'
+                        },
+                        {
+                            id: 'ifood-operacional',
+                            label: 'Operacional',
+                            href: '/ifood/operacional',
+                            active: pathname === '/ifood/operacional'
+                        },
+                        {
+                            id: 'ifood-financeiro',
+                            label: 'Financeiro',
+                            href: '/ifood/financeiro',
+                            active: pathname === '/ifood/financeiro'
+                        },
+                        {
+                            id: 'ifood-cardapio',
+                            label: 'Cardápio',
+                            href: '/ifood/cardapio',
+                            active: pathname === '/ifood/cardapio'
+                        }
+                    ] : undefined
+                }),
+                item({
+                    id: 'tarefas',
+                    label: 'Tarefas',
+                    href: '/tarefas',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$list$2d$checks$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ListChecks$3e$__["ListChecks"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].TAREFAS],
+                    active: Boolean(pathname?.startsWith('/tarefas'))
+                }),
+                item({
+                    id: 'checklist',
+                    label: 'Checklist',
+                    href: '/checklist',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clipboard$2d$check$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ClipboardCheck$3e$__["ClipboardCheck"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CHECKLIST],
+                    active: Boolean(pathname?.startsWith('/checklist'))
+                })
+            ];
+            const financeiro = [
+                item({
+                    id: 'cmv',
+                    label: 'CMV',
+                    href: '/cmv',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chart$2d$no$2d$axes$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__BarChart2$3e$__["BarChart2"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CMV],
+                    active: pathname === '/cmv' || Boolean(pathname?.startsWith('/cmv/'))
+                })
+            ];
             if (!cmvRealLoading && canViewCmvReal) {
-                items.push({
+                financeiro.push(item({
                     id: 'cmv-real',
                     label: 'CMV Real',
                     href: '/cmv-real/notas',
-                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chart$2d$no$2d$axes$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__BarChart2$3e$__["BarChart2"],
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$receipt$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Receipt$3e$__["Receipt"],
                     active: Boolean(pathname?.startsWith('/cmv-real'))
-                });
+                }));
             }
-            items.push({
+            financeiro.push(item({
                 id: 'estoque',
                 label: 'Estoque',
                 href: '/estoque',
                 icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$warehouse$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Warehouse$3e$__["Warehouse"],
                 locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].ESTOQUE],
                 active: Boolean(pathname?.startsWith('/estoque'))
-            });
-            items.push({
-                id: 'rh',
-                label: 'RH',
-                href: '/rh',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$users$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Users$3e$__["Users"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].RH],
-                active: Boolean(pathname?.startsWith('/rh')) || Boolean(pathname?.startsWith('/bonificacao'))
-            });
-            items.push({
-                id: 'pontos',
-                label: 'Pontos',
-                href: '/pontos',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].PONTOS],
-                active: Boolean(pathname?.startsWith('/pontos'))
-            });
-            items.push({
-                id: 'tarefas',
-                label: 'Tarefas',
-                href: '/tarefas',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$list$2d$checks$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ListChecks$3e$__["ListChecks"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].TAREFAS],
-                active: Boolean(pathname?.startsWith('/tarefas'))
-            });
-            items.push({
-                id: 'chat',
-                label: 'Chat',
-                href: '/chat',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$bot$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Bot$3e$__["Bot"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CHAT],
-                active: Boolean(pathname?.startsWith('/chat'))
-            });
-            items.push({
-                id: 'ifood',
-                label: 'iFood',
-                icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$shopping$2d$bag$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ShoppingBag$3e$__["ShoppingBag"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].IFOOD],
-                active: Boolean(pathname?.startsWith('/ifood')),
-                children: permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].IFOOD] ? [
-                    {
-                        id: 'ifood-config',
-                        label: 'Configurações',
-                        href: '/ifood/configuracoes',
-                        active: pathname === '/ifood/configuracoes'
-                    },
-                    {
-                        id: 'ifood-operacional',
-                        label: 'Operacional',
-                        href: '/ifood/operacional',
-                        active: pathname === '/ifood/operacional'
-                    },
-                    {
-                        id: 'ifood-financeiro',
-                        label: 'Financeiro',
-                        href: '/ifood/financeiro',
-                        active: pathname === '/ifood/financeiro'
-                    },
-                    {
-                        id: 'ifood-cardapio',
-                        label: 'Cardápio',
-                        href: '/ifood/cardapio',
-                        active: pathname === '/ifood/cardapio'
-                    }
-                ] : undefined
-            });
-            return items;
+            }));
+            const pessoas = [
+                item({
+                    id: 'rh',
+                    label: 'RH',
+                    href: '/rh',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$users$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Users$3e$__["Users"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].RH],
+                    active: Boolean(pathname?.startsWith('/rh')) || Boolean(pathname?.startsWith('/bonificacao'))
+                }),
+                item({
+                    id: 'pontos',
+                    label: 'Pontos',
+                    href: '/pontos',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$clock$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Clock$3e$__["Clock"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].PONTOS],
+                    active: Boolean(pathname?.startsWith('/pontos'))
+                })
+            ];
+            const comunicacao = [
+                item({
+                    id: 'whatsapp',
+                    label: 'WhatsApp Chat',
+                    href: '/whatsapp-tools',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$message$2d$square$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__MessageSquare$3e$__["MessageSquare"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].WHATSAPP_CHAT],
+                    active: pathname === '/whatsapp-tools'
+                }),
+                item({
+                    id: 'chat',
+                    label: 'Chat',
+                    href: '/chat',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$bot$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Bot$3e$__["Bot"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CHAT],
+                    active: Boolean(pathname?.startsWith('/chat'))
+                })
+            ];
+            const configuracoes = [
+                item({
+                    id: 'conexoes',
+                    label: 'Conexões',
+                    href: '/connections',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$link$2d$2$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Link2$3e$__["Link2"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].CONEXOES],
+                    active: pathname === '/connections'
+                }),
+                item({
+                    id: 'produtos',
+                    label: 'Produtos',
+                    href: '/produtos',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$package$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Package$3e$__["Package"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].PRODUTOS],
+                    active: pathname === '/produtos'
+                }),
+                item({
+                    id: 'etiquetagem',
+                    label: 'Etiquetagem',
+                    href: '/etiquetagem',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$tag$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Tag$3e$__["Tag"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].ETIQUETAGEM],
+                    active: Boolean(pathname?.startsWith('/etiquetagem'))
+                }),
+                item({
+                    id: 'relatorios',
+                    label: 'Central de Relatórios',
+                    href: '/relatorios',
+                    icon: __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$file$2d$chart$2d$column$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__FileBarChart2$3e$__["FileBarChart2"],
+                    locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SystemTool"].AGENDAMENTO_RELATORIOS],
+                    active: pathname === '/relatorios' || Boolean(pathname?.startsWith('/relatorios/'))
+                })
+            ];
+            return [
+                {
+                    id: 'geral',
+                    label: 'Geral',
+                    items: geral
+                },
+                {
+                    id: 'operacao',
+                    label: 'Operação',
+                    items: operacao
+                },
+                {
+                    id: 'financeiro',
+                    label: 'Financeiro',
+                    items: financeiro
+                },
+                {
+                    id: 'pessoas',
+                    label: 'Pessoas',
+                    items: pessoas
+                },
+                {
+                    id: 'comunicacao',
+                    label: 'Comunicação',
+                    items: comunicacao
+                },
+                {
+                    id: 'configuracoes',
+                    label: 'Configurações',
+                    items: configuracoes
+                }
+            ];
         }
-    }["DashboardLayout.useMemo[navItems]"], [
+    }["DashboardLayout.useMemo[navSections]"], [
         permissions,
         permissionsLoading,
         pathname,
@@ -2051,65 +2128,86 @@ function DashboardLayout({ children }) {
                 children: "Carregando..."
             }, void 0, false, {
                 fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                lineNumber: 236,
+                lineNumber: 268,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-            lineNumber: 235,
+            lineNumber: 267,
             columnNumber: 7
         }, this);
     }
+    const displayName = user.displayName?.trim() || null;
+    const email = user.primaryEmail || null;
+    const primaryLabel = displayName || email || 'Usuário';
+    const initial = displayName?.charAt(0)?.toUpperCase() || email?.charAt(0)?.toUpperCase() || 'U';
     const footer = ({ collapsed })=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenu"], {
             children: [
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuTrigger"], {
                     asChild: true,
                     children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
                         variant: "ghost",
-                        className: collapsed ? 'relative h-9 w-9 p-0 text-foreground hover:bg-muted' : 'relative h-9 w-full justify-start gap-2 px-2 text-foreground hover:bg-muted',
+                        className: collapsed ? 'relative h-9 w-9 p-0 text-foreground hover:bg-muted' : 'relative h-auto min-h-9 w-full justify-start gap-2 px-2 py-1.5 text-foreground hover:bg-muted',
                         children: [
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$avatar$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Avatar"], {
-                                className: "h-8 w-8",
+                                className: "h-8 w-8 shrink-0",
                                 children: [
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$avatar$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AvatarImage"], {
                                         src: user.profileImageUrl || '/avatars/01.png',
-                                        alt: user.displayName || 'User'
+                                        alt: primaryLabel
                                     }, void 0, false, {
                                         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                        lineNumber: 253,
+                                        lineNumber: 293,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$avatar$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AvatarFallback"], {
                                         className: "bg-accent text-accent-foreground text-xs",
-                                        children: user.displayName?.charAt(0)?.toUpperCase() || user.primaryEmail?.charAt(0)?.toUpperCase() || 'U'
+                                        children: initial
                                     }, void 0, false, {
                                         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                        lineNumber: 257,
+                                        lineNumber: 297,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                lineNumber: 252,
+                                lineNumber: 292,
                                 columnNumber: 11
                             }, this),
                             !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
-                                className: "truncate text-sm font-medium",
-                                children: user.displayName || 'Usuário'
-                            }, void 0, false, {
+                                className: "min-w-0 flex-1 text-left",
+                                children: [
+                                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        className: "block truncate text-sm font-medium text-foreground",
+                                        children: primaryLabel
+                                    }, void 0, false, {
+                                        fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
+                                        lineNumber: 303,
+                                        columnNumber: 15
+                                    }, this),
+                                    displayName && email ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                        className: "block truncate text-xs text-muted-foreground",
+                                        children: email
+                                    }, void 0, false, {
+                                        fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
+                                        lineNumber: 307,
+                                        columnNumber: 17
+                                    }, this) : null
+                                ]
+                            }, void 0, true, {
                                 fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                lineNumber: 264,
+                                lineNumber: 302,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                        lineNumber: 244,
+                        lineNumber: 284,
                         columnNumber: 9
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                    lineNumber: 243,
+                    lineNumber: 283,
                     columnNumber: 7
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -2124,24 +2222,24 @@ function DashboardLayout({ children }) {
                                     className: "mr-2 h-4 w-4 text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                    lineNumber: 276,
+                                    lineNumber: 321,
                                     columnNumber: 11
                                 }, this),
-                                user.displayName || 'Usuário'
+                                primaryLabel
                             ]
                         }, void 0, true, {
                             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                            lineNumber: 275,
+                            lineNumber: 320,
                             columnNumber: 9
                         }, this),
-                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
+                        email ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
                             className: "focus:bg-muted text-xs text-muted-foreground",
-                            children: user.primaryEmail
+                            children: email
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                            lineNumber: 279,
-                            columnNumber: 9
-                        }, this),
+                            lineNumber: 325,
+                            columnNumber: 11
+                        }, this) : null,
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
                             className: "focus:bg-muted",
                             onClick: toggleDarkMode,
@@ -2151,7 +2249,7 @@ function DashboardLayout({ children }) {
                                         className: "mr-2 h-4 w-4 text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                        lineNumber: 285,
+                                        lineNumber: 332,
                                         columnNumber: 15
                                     }, this),
                                     "Modo claro"
@@ -2162,7 +2260,7 @@ function DashboardLayout({ children }) {
                                         className: "mr-2 h-4 w-4 text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                        lineNumber: 290,
+                                        lineNumber: 337,
                                         columnNumber: 15
                                     }, this),
                                     "Modo escuro"
@@ -2170,7 +2268,7 @@ function DashboardLayout({ children }) {
                             }, void 0, true)
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                            lineNumber: 282,
+                            lineNumber: 329,
                             columnNumber: 9
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2180,14 +2278,14 @@ function DashboardLayout({ children }) {
                                     className: "mr-2 h-4 w-4 text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                    lineNumber: 296,
+                                    lineNumber: 343,
                                     columnNumber: 11
                                 }, this),
                                 "Configurações"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                            lineNumber: 295,
+                            lineNumber: 342,
                             columnNumber: 9
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2198,26 +2296,26 @@ function DashboardLayout({ children }) {
                                     className: "mr-2 h-4 w-4"
                                 }, void 0, false, {
                                     fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                                    lineNumber: 303,
+                                    lineNumber: 350,
                                     columnNumber: 11
                                 }, this),
                                 "Sair"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                            lineNumber: 299,
+                            lineNumber: 346,
                             columnNumber: 9
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                    lineNumber: 270,
+                    lineNumber: 315,
                     columnNumber: 7
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-            lineNumber: 242,
+            lineNumber: 282,
             columnNumber: 5
         }, this);
     const logo = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -2225,12 +2323,12 @@ function DashboardLayout({ children }) {
         className: "hover:opacity-80 transition-opacity block",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$logo$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Logo"], {}, void 0, false, {
             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-            lineNumber: 312,
+            lineNumber: 359,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-        lineNumber: 311,
+        lineNumber: 358,
         columnNumber: 5
     }, this);
     const logoCollapsed = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
@@ -2241,12 +2339,12 @@ function DashboardLayout({ children }) {
             children: "P"
         }, void 0, false, {
             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-            lineNumber: 318,
+            lineNumber: 365,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-        lineNumber: 317,
+        lineNumber: 364,
         columnNumber: 5
     }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$contexts$2f$app$2d$context$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AppProvider"], {
@@ -2255,27 +2353,27 @@ function DashboardLayout({ children }) {
             children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$layout$2f$AppShell$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AppShell"], {
                 logo: logo,
                 logoCollapsed: logoCollapsed,
-                navItems: navItems,
+                navSections: navSections,
                 navLoading: permissionsLoading,
                 footer: footer,
                 children: children
             }, void 0, false, {
                 fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-                lineNumber: 327,
+                lineNumber: 374,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-            lineNumber: 326,
+            lineNumber: 373,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/drin-platform/app/dashboard/layout.tsx",
-        lineNumber: 325,
+        lineNumber: 372,
         columnNumber: 5
     }, this);
 }
-_s(DashboardLayout, "SAgeBjFBLlSrY/E6+rx1H/A1tpY=", false, function() {
+_s(DashboardLayout, "StMJpZlKGp6c94V+uQ4+yWW89PU=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$navigation$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["usePathname"],
         __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f40$stackframe$2f$stack$2f$dist$2f$esm$2f$lib$2f$hooks$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useUser"],
