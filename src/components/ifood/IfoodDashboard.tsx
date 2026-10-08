@@ -3,7 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { IfoodStoreCarousel } from "./IfoodStoreCarousel";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StoreCombobox } from "@/components/layout/StoreCombobox";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { PeriodSelector } from "./PeriodSelector";
 import { RealtimeIndicator } from "./RealtimeIndicator";
 import { IfoodKPICards } from "./IfoodKPICards";
@@ -61,18 +63,18 @@ function periodLabel(period: Period): string {
 // ---------------------------------------------------------------------------
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <div className="w-20 h-20 bg-[#141415] border border-[#374151] rounded-2xl flex items-center justify-center mb-5">
-        <Store className="h-9 w-9 text-gray-600" />
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="w-12 h-12 bg-card border border-border rounded-md flex items-center justify-center mb-4">
+        <Store className="h-5 w-5 text-muted-foreground" />
       </div>
-      <h3 className="text-lg font-semibold text-white mb-2">
+      <h3 className="text-base font-semibold text-foreground mb-1">
         Nenhuma loja iFood conectada
       </h3>
-      <p className="text-gray-500 text-sm max-w-xs mb-6">
+      <p className="text-muted-foreground text-sm max-w-sm mb-6">
         Conecte sua loja iFood para visualizar os dados em tempo real aqui.
       </p>
-      <Button asChild className="bg-[#22c55e] text-black hover:bg-[#16a34a]">
-        <Link href="/ifood/configuracoes">Conectar Loja</Link>
+      <Button asChild size="sm">
+        <Link href="/ifood/configuracoes">Conectar loja</Link>
       </Button>
     </div>
   );
@@ -251,22 +253,38 @@ export function IfoodDashboard() {
     selectedMerchantId !== "all" &&
     (selectedStore.ifoodStatus === "CLOSED" || selectedStore.status === "inactive" || selectedStore.status === "error");
 
+  const isSelectedError =
+    selectedStore &&
+    selectedMerchantId !== "all" &&
+    selectedStore.status === "error";
+
+  const storeSubtitle =
+    selectedMerchantId === "all"
+      ? `${connections.length} loja(s) · visão consolidada`
+      : selectedStore?.merchantName ?? "Loja selecionada";
+
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
   if (connectionsLoading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="flex gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="w-44 h-36 bg-[#141415] border border-[#374151] rounded-xl" />
+      <div className="space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-40" />
+            <Skeleton className="h-4 w-56" />
+          </div>
+          <Skeleton className="h-8 w-48" />
+        </div>
+        <Skeleton className="h-8 w-full max-w-md" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-28 w-full" />
           ))}
         </div>
-        <div className="h-9 w-72 bg-[#141415] border border-[#374151] rounded-lg" />
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-28 bg-[#141415] border border-[#374151] rounded-xl" />
-          ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-[360px] w-full" />
+          <Skeleton className="h-[360px] w-full" />
         </div>
       </div>
     );
@@ -277,32 +295,22 @@ export function IfoodDashboard() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Section header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span className="text-2xl">🛵</span> iFood
-          </h2>
-          <p className="text-gray-500 text-xs mt-0.5">
-            {selectedMerchantId === "all"
-              ? `${connections.length} loja(s) conectada(s) · visão consolidada`
-              : selectedStore?.merchantName ?? ""}
-          </p>
-        </div>
-      </div>
-
-      {/* Store carousel */}
-      <IfoodStoreCarousel
-        stores={connections}
-        selectedId={selectedMerchantId}
-        onSelect={handleSelectMerchant}
-        onSync={handleSync}
-        syncingId={syncingId}
+    <div className="space-y-6">
+      <PageHeader
+        title="Visão geral"
+        description={storeSubtitle}
+        actions={
+          <StoreCombobox
+            stores={connections}
+            selectedId={selectedMerchantId}
+            onSelect={handleSelectMerchant}
+            onSync={handleSync}
+            syncingId={syncingId}
+          />
+        }
       />
 
-      {/* Period + realtime indicator */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <PeriodSelector value={period} onChange={handlePeriodChange} />
         <RealtimeIndicator
           isRealtime={isRealtime}
@@ -311,34 +319,40 @@ export function IfoodDashboard() {
         />
       </div>
 
-      {/* Offline banner */}
-      {isSelectedOffline && (
-        <Alert className="bg-yellow-500/10 border-yellow-500/30">
-          <AlertTriangle className="h-4 w-4 text-yellow-400" />
-          <AlertDescription className="text-yellow-300 text-sm flex items-center justify-between flex-wrap gap-2">
-            <span>Sua loja está offline no iFood</span>
-            <Button
-              asChild
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs border-yellow-500/40 text-yellow-400 hover:bg-yellow-500/10"
-            >
+      {isSelectedError && (
+        <Alert className="bg-destructive/10 border-destructive/30">
+          <AlertTriangle className="h-4 w-4 text-destructive" />
+          <AlertDescription className="text-sm text-foreground flex items-center justify-between flex-wrap gap-2">
+            <span>
+              Erro de sincronização nesta loja. Os dados podem estar desatualizados.
+            </span>
+            <Button asChild size="sm" variant="outline" className="h-7 text-xs">
               <Link href="/ifood/configuracoes">Ver detalhes</Link>
             </Button>
           </AlertDescription>
         </Alert>
       )}
 
-      {/* KPI Cards */}
+      {isSelectedOffline && !isSelectedError && (
+        <Alert className="bg-warning/10 border-warning/30">
+          <AlertTriangle className="h-4 w-4 text-warning" />
+          <AlertDescription className="text-sm text-foreground flex items-center justify-between flex-wrap gap-2">
+            <span>Sua loja está offline no iFood</span>
+            <Button asChild size="sm" variant="outline" className="h-7 text-xs">
+              <Link href="/ifood/configuracoes">Ver detalhes</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
       <IfoodKPICards
         summary={summary}
         isLoading={summaryLoading}
         isRealtime={isRealtime}
       />
 
-      {/* Charts */}
       {period.type !== "1D" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <IfoodSalesByDayChart
             summary={summary}
             isLoading={summaryLoading}
@@ -351,7 +365,7 @@ export function IfoodDashboard() {
           />
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <IfoodSalesByHourChart
             summary={summary}
             isLoading={summaryLoading}

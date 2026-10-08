@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ResponsiveContainer,
   BarChart,
@@ -11,16 +12,13 @@ import {
   Tooltip,
   Cell,
 } from "recharts";
+import { BarChart3 } from "lucide-react";
 import { DashboardSummary } from "@/types/ifood-dashboard";
 
 interface Props {
   summary: DashboardSummary | null;
   isLoading: boolean;
   isRealtime: boolean;
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse bg-[#374151]/40 rounded ${className ?? ""}`} />;
 }
 
 interface ChartTooltipProps {
@@ -34,18 +32,30 @@ function CustomTooltip({ active, payload, label }: ChartTooltipProps) {
   const orders = payload.find((p) => p.dataKey === "orders")?.value as number | undefined;
   const revenue = payload.find((p) => p.dataKey === "revenue")?.value as number | undefined;
   return (
-    <div className="bg-[#1a1a1b] border border-[#374151] rounded-lg p-3 shadow-xl text-xs">
-      <p className="text-gray-400 mb-2 font-medium">{label}h</p>
-      <p className="text-white">
-        <span className="text-gray-400">Pedidos: </span>
+    <div className="bg-popover border border-border rounded-md p-3 text-xs shadow-md">
+      <p className="text-muted-foreground mb-2 font-medium">{label}h</p>
+      <p className="text-foreground">
+        <span className="text-muted-foreground">Pedidos: </span>
         {orders ?? 0}
       </p>
       {revenue !== undefined && revenue > 0 && (
-        <p className="text-white">
-          <span className="text-gray-400">Receita: </span>
+        <p className="text-foreground">
+          <span className="text-muted-foreground">Receita: </span>
           {`R$ ${revenue.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
         </p>
       )}
+    </div>
+  );
+}
+
+function EmptyChart() {
+  return (
+    <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-center px-4">
+      <BarChart3 className="h-5 w-5 text-muted-foreground" />
+      <p className="text-sm text-foreground">Nenhum pedido neste período</p>
+      <p className="text-xs text-muted-foreground">
+        Os dados aparecerão quando houver vendas no intervalo selecionado.
+      </p>
     </div>
   );
 }
@@ -55,19 +65,18 @@ export function IfoodSalesByHourChart({ summary, isLoading, isRealtime }: Props)
 
   if (isLoading) {
     return (
-      <Card className="bg-[#141415] border-[#374151]">
+      <Card className="bg-card border-border">
         <CardHeader>
-          <Skeleton className="h-4 w-48 mb-1" />
-          <Skeleton className="h-3 w-64" />
+          <Skeleton className="h-5 w-40 mb-1" />
+          <Skeleton className="h-4 w-56" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[240px] w-full" />
+          <Skeleton className="h-[300px] w-full" />
         </CardContent>
       </Card>
     );
   }
 
-  // Only show hours with data or the surrounding range
   const rawData = summary?.salesByHour ?? [];
   const maxHourWithData = rawData.reduce(
     (max, d) => (d.orders > 0 ? Math.max(max, d.hour) : max),
@@ -84,10 +93,12 @@ export function IfoodSalesByHourChart({ summary, isLoading, isRealtime }: Props)
   const hasData = data.some((d) => d.orders > 0);
 
   return (
-    <Card className="bg-[#141415] border-[#374151]">
+    <Card className="bg-card border-border">
       <CardHeader className="pb-2">
-        <CardTitle className="text-white text-base">Pedidos por Hora</CardTitle>
-        <CardDescription className="text-gray-500 text-xs">
+        <CardTitle className="text-base font-semibold text-foreground">
+          Pedidos por hora
+        </CardTitle>
+        <CardDescription className="text-sm text-muted-foreground">
           {isRealtime
             ? "Distribuição de pedidos de hoje · hora atual destacada"
             : "Distribuição de pedidos ao longo do dia"}
@@ -95,38 +106,39 @@ export function IfoodSalesByHourChart({ summary, isLoading, isRealtime }: Props)
       </CardHeader>
       <CardContent>
         {!hasData ? (
-          <div className="h-[240px] flex items-center justify-center text-gray-600 text-sm">
-            Nenhum pedido encontrado neste período
-          </div>
+          <EmptyChart />
         ) : (
-          <ResponsiveContainer width="100%" height={240}>
+          <ResponsiveContainer width="100%" height={300}>
             <BarChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2d2d2e" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
               <XAxis
                 dataKey="name"
-                stroke="#6b7280"
-                tick={{ fill: "#6b7280", fontSize: 10 }}
+                stroke="var(--muted-foreground)"
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
               />
               <YAxis
-                stroke="#6b7280"
-                tick={{ fill: "#6b7280", fontSize: 11 }}
+                stroke="var(--muted-foreground)"
+                tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
                 axisLine={false}
                 tickLine={false}
                 allowDecimals={false}
               />
-              <Tooltip content={<CustomTooltip />} cursor={{ fill: "#374151", opacity: 0.3 }} />
+              <Tooltip
+                content={<CustomTooltip />}
+                cursor={{ fill: "var(--muted)", opacity: 0.6 }}
+              />
               <Bar dataKey="orders" radius={[3, 3, 0, 0]}>
                 {data.map((entry) => (
                   <Cell
                     key={`cell-${entry.hour}`}
                     fill={
                       isRealtime && entry.hour === currentHour
-                        ? "#22c55e"
+                        ? "var(--primary)"
                         : entry.orders > 0
-                        ? "#166534"
-                        : "#1f2937"
+                        ? "var(--accent-foreground)"
+                        : "var(--muted)"
                     }
                   />
                 ))}
@@ -134,9 +146,9 @@ export function IfoodSalesByHourChart({ summary, isLoading, isRealtime }: Props)
             </BarChart>
           </ResponsiveContainer>
         )}
-        {isRealtime && (
-          <p className="text-xs text-gray-600 mt-2 text-center">
-            Barra verde = hora atual ({String(currentHour).padStart(2, "0")}h)
+        {isRealtime && hasData && (
+          <p className="text-xs text-muted-foreground mt-2 text-center">
+            Barra em destaque = hora atual ({String(currentHour).padStart(2, "0")}h)
           </p>
         )}
       </CardContent>

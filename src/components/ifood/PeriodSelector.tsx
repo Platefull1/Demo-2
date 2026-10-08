@@ -4,11 +4,13 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Period, PeriodType } from "@/types/ifood-dashboard";
 import { DateRange } from "react-day-picker";
+import { cn } from "@/lib/utils";
 
 interface Props {
   value: Period;
@@ -62,51 +64,44 @@ export function PeriodSelector({ value, onChange }: Props) {
         )}`
       : "Personalizado";
 
+  const quickValue = value.type === "custom" ? "" : value.type;
+
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <div className="flex bg-[#141415] rounded-lg p-1 gap-0.5">
-        {QUICK_PERIODS.map(({ label, type, days }) => (
-          <Button
-            key={type}
-            variant={value.type === type ? "default" : "ghost"}
-            size="sm"
-            onClick={() => handleQuick(type, days)}
-            className={`h-8 px-3 text-xs font-medium ${
-              value.type === type
-                ? "bg-[#22c55e] text-black hover:bg-[#16a34a]"
-                : "text-gray-400 hover:text-white hover:bg-transparent"
-            }`}
-          >
+      <ToggleGroup
+        type="single"
+        value={quickValue}
+        onValueChange={(next) => {
+          if (!next) return;
+          const found = QUICK_PERIODS.find((p) => p.type === next);
+          if (found) handleQuick(found.type, found.days);
+        }}
+        size="sm"
+      >
+        {QUICK_PERIODS.map(({ label, type }) => (
+          <ToggleGroupItem key={type} value={type} className="h-8 px-3 text-xs">
             {label}
-            {type === "1D" && value.type === "1D" && (
-              <span className="ml-1.5 flex items-center">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                </span>
-              </span>
-            )}
-          </Button>
+          </ToggleGroupItem>
         ))}
-      </div>
+      </ToggleGroup>
 
       <Popover open={customOpen} onOpenChange={setCustomOpen}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             size="sm"
-            className={`h-8 px-3 text-xs font-medium border-[#374151] ${
-              value.type === "custom"
-                ? "bg-[#22c55e]/10 border-[#22c55e]/50 text-green-400"
-                : "bg-[#141415] text-gray-400 hover:text-white hover:bg-[#374151]"
-            }`}
+            className={cn(
+              "h-8 px-3 text-xs font-medium",
+              value.type === "custom" &&
+                "bg-accent text-accent-foreground border-primary/40"
+            )}
           >
-            <CalendarIcon className="h-3 w-3 mr-1.5" />
+            <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
             {customLabel}
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-auto p-3 bg-[#141415] border-[#374151] shadow-2xl"
+          className="w-auto p-3 bg-popover border-border"
           align="start"
         >
           <Calendar
@@ -115,21 +110,21 @@ export function PeriodSelector({ value, onChange }: Props) {
             onSelect={setRange}
             numberOfMonths={2}
             disabled={{ after: new Date() }}
-            className="bg-[#141415] text-white"
+            className="bg-popover text-popover-foreground"
             locale={ptBR}
           />
-          <div className="flex justify-end gap-2 mt-3 border-t border-[#374151] pt-3">
+          <div className="flex justify-end gap-2 mt-3 border-t border-border pt-3">
             <Button
               size="sm"
               variant="ghost"
-              className="h-7 text-xs text-gray-400 hover:text-white"
+              className="h-7 text-xs"
               onClick={() => setCustomOpen(false)}
             >
               Cancelar
             </Button>
             <Button
               size="sm"
-              className="h-7 text-xs bg-[#22c55e] text-black hover:bg-[#16a34a]"
+              className="h-7 text-xs"
               onClick={handleCustomApply}
               disabled={!range?.from}
             >
@@ -139,8 +134,7 @@ export function PeriodSelector({ value, onChange }: Props) {
         </PopoverContent>
       </Popover>
 
-      {/* Period label */}
-      <span className="text-xs text-gray-500">
+      <span className="text-xs text-muted-foreground">
         {format(new Date(value.startDate + "T12:00:00"), "dd/MM/yyyy", { locale: ptBR })}
         {value.startDate !== value.endDate && (
           <>

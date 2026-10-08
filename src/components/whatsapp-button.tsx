@@ -8,61 +8,50 @@ export function WhatsAppButton() {
   const [isOpen, setIsOpen] = useState(false);
 
   const handleWhatsAppClick = () => {
-    // Verificar se estamos no lado do cliente
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
 
-    // Número do WhatsApp (substitua pelo número real)
     const phoneNumber = "5511999999999";
     const message = "Olá! Preciso de ajuda com a plataforma Drin.";
     const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
-    
+
     window.open(whatsappUrl, "_blank");
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div className="fixed bottom-4 right-4 z-50 md:bottom-6 md:right-6">
       {isOpen && (
-        <div className="absolute bottom-16 right-0 mb-2 bg-[#141415] border border-[#374151] rounded-lg p-4 shadow-lg min-w-[200px]">
+        <div className="absolute bottom-12 right-0 mb-2 bg-popover border border-border rounded-md p-3 shadow-md min-w-[200px]">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-white font-medium text-sm">Suporte</h3>
+            <h3 className="text-foreground font-medium text-sm">Suporte</h3>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsOpen(false)}
-              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+              className="h-6 w-6 p-0 text-muted-foreground"
             >
               <X className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-gray-400 text-xs mb-3">
+          <p className="text-muted-foreground text-xs mb-3">
             Precisa de ajuda? Entre em contato conosco via WhatsApp
           </p>
-          <Button
-            onClick={handleWhatsAppClick}
-            className="w-full bg-green-600 hover:bg-green-700 text-white text-sm"
-          >
-            <MessageCircle className="h-4 w-4 mr-2" />
+          <Button onClick={handleWhatsAppClick} size="sm" className="w-full text-sm">
+            <MessageCircle className="h-4 w-4 text-primary-foreground" />
             Abrir WhatsApp
           </Button>
         </div>
       )}
-      
+
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className="h-14 w-14 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110"
+        size="icon-sm"
+        className="h-10 w-10 rounded-full shadow-md"
+        aria-label="Abrir suporte"
       >
-        <MessageCircle className="h-6 w-6" />
+        <MessageCircle className="h-4 w-4" />
       </Button>
     </div>
   );
 }
-
-
-
-
-
-
-
-

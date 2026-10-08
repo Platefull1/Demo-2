@@ -7,23 +7,23 @@ import { IfoodDashboard } from "@/components/ifood/IfoodDashboard";
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-black">
-      <main className="w-full px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-background">
+      <main className="w-full px-6 py-6 md:px-8 space-y-6 pb-24">
         {/* iFood Dashboard */}
-        <section className="pt-8 pb-8">
+        <section>
           <IfoodDashboard />
         </section>
 
         {/* Divisor */}
-        <div className="border-t border-[#1f1f20] mb-8" />
+        <div className="border-t border-border" />
 
-        {/* Store Carousel (Saipos) */}
-        <section className="pb-10">
+        {/* Store Carousel (Saipos) — tokens/spacing leves apenas */}
+        <section className="space-y-4">
           <StoreCarousel />
         </section>
 
-        {/* Reports Section (Saipos) */}
-        <section className="pb-12">
+        {/* Reports Section (Saipos) — tokens/spacing leves apenas */}
+        <section className="space-y-4">
           <ReportsSection />
         </section>
       </main>
@@ -32,4 +32,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
