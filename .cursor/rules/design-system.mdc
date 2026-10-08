@@ -1,0 +1,98 @@
+---
+description: Regras de UI/UX do Platefull. Aplicar em TODA alteração de interface.
+alwaysApply: true
+---
+
+# Contexto
+Platefull é um sistema interno de gestão (back-office) usado principalmente
+em DESKTOP por gerentes e administração. Mobile é secundário (exceto apps
+de motoboy e contagem de estoque, que são mobile-first).
+
+# Layout
+- Desktop-first para telas administrativas. Usar a largura disponível:
+  container max-w-7xl (ou full width com sidebar). NUNCA coluna estreita
+  centralizada em desktop.
+- Shell padrão: sidebar fixa à esquerda (navegação por módulo) + header da
+  página (título, descrição curta, ações primárias à direita) + conteúdo.
+- Breakpoints: em < md, sidebar vira drawer e tabelas viram lista compacta.
+
+# Listas de dados
+- Mais de ~10 itens com atributos comparáveis => TABELA (shadcn Table /
+  TanStack Table), com ordenação, busca e paginação. Cards só para itens
+  heterogêneos ou dashboards.
+- Ações por linha em menu "..." na última coluna; ação principal = clique
+  na linha.
+- Não mostrar indicadores que não informam (ex.: barra de progresso em 0%).
+  Preferir texto ("0/8") ou badge de status.
+
+# Filtros
+- Uma única barra de ferramentas acima da lista: busca + selects/combobox
+  compactos + botão "Limpar". No máximo 1 linha no desktop.
+- Abas (Tabs) apenas para estados mutuamente exclusivos da mesma lista
+  (ex.: Para revisar / Aprovadas). Nunca dois níveis de abas com o mesmo
+  visual: navegação de módulo vai na sidebar ou em sub-nav discreta.
+
+# Modais
+- Dialog apenas para tarefas curtas (confirmar, editar poucos campos).
+  Fluxos longos ou listas => página própria ou Sheet lateral.
+- Para revisão de muitos itens: layout mestre-detalhe (lista à esquerda,
+  detalhe à direita).
+
+# Tipografia (escala fixa, não inventar tamanhos)
+- Título de página: text-2xl font-semibold
+- Título de seção/card: text-base font-semibold
+- Corpo: text-sm
+- Metadados: text-xs text-muted-foreground (nunca menor que text-xs)
+- Números/valores: tabular-nums, alinhados à direita em tabelas.
+
+# Espaçamento
+- Usar apenas a escala: 1, 2, 3, 4, 6, 8, 12 (Tailwind).
+- Entre seções: gap-6 ou gap-8. Dentro de cards: p-4 ou p-6. Linhas de
+  tabela: compactas (py-2).
+
+# Cor
+- Usar SOMENTE tokens do shadcn (bg-background, bg-card, text-foreground,
+  text-muted-foreground, border, primary, destructive). Proibido cores
+  hardcoded (#hex, yellow-500 etc.) fora do tema.
+- Cor tem significado: primary = ação principal/selecionado;
+  destructive = erro/excluir; success/warning = status. Nada de cor
+  decorativa.
+- Máximo 1 badge colorida por item. Demais metadados em texto muted.
+
+# Componentes
+- Sempre usar componentes de /components/ui (shadcn). Não recriar botão,
+  input, select, badge, table na mão.
+- Componentes compartilhados de layout em /components/layout:
+  PageHeader, Toolbar, DataTable, EmptyState, StatusBadge.
+- Estados obrigatórios em toda tela: loading (Skeleton), vazio (EmptyState
+  com ação), erro.
+
+# Texto
+- Sem abreviações em navegação ("Lançamentos", não "Lançam.").
+- Rótulos curtos, verbos nas ações ("Aprovar nota", "Baixar ata").
+
+# Tema (dark only) — manter a identidade atual
+Converter para o formato usado no globals.css do projeto (oklch ou HSL).
+
+--background:        #0A0A0A   (fundo da página)
+--card:              #141414   (superfícies, cards, sidebar)
+--popover:           #1A1A1A
+--muted:             #1F1F1F   (hover, linhas alternadas, inputs)
+--border / --input:  #262626
+--foreground:        #FAFAFA   (texto principal, valores)
+--muted-foreground:  #A1A1AA   (metadados — nunca mais escuro que isso)
+--primary:           #22C55E   (verde Platefull: ação principal, selecionado)
+--primary-foreground:#052E16
+--accent:            #0F2A1A   (fundo sutil de item selecionado / badge verde)
+--accent-foreground: #4ADE80
+--destructive:       #EF4444
+--warning:           #F59E0B
+--success:           #22C55E
+--ring:              #22C55E
+
+Regras de cor:
+- Verde SOMENTE em: botão primário, item/aba selecionado, indicador "ao vivo",
+  variação positiva. Nunca decorativo.
+- Ícones sempre em text-muted-foreground. Proibido ícone colorido por card.
+- Item selecionado = bg-accent + borda border-primary/40 (sem glow/sombra).
+- Valores numéricos em text-foreground, nunca muted.
