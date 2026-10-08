@@ -446,6 +446,7 @@ const SILENT_URL_PATTERNS = [
     /\/api\/checklist\//,
     /\/api\/cmv\//,
     /\/api\/food\//,
+    /\/api\/ifood\/merchants\/[^/]+\/interruptions/,
     /\/_next\//,
     /\/api\/auth\//,
     /stackframe/,
@@ -665,26 +666,33 @@ class ErrorBoundary extends __TURBOPACK__imported__module__$5b$project$5d2f$drin
         });
     }
     handleClose = ()=>{
-        this.setState({
-            hasError: false,
-            error: null
-        });
+        // Erro de render: limpar estado sem reload só remonta a árvore quebrada
+        if ("TURBOPACK compile-time truthy", 1) {
+            window.location.reload();
+            return;
+        }
+        //TURBOPACK unreachable
+        ;
     };
     render() {
         if (this.state.hasError && this.state.error) {
-            return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
-                children: [
-                    this.props.children,
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$error$2d$popup$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ErrorPopup"], {
-                        error: this.state.error,
-                        onClose: this.handleClose
-                    }, void 0, false, {
-                        fileName: "[project]/drin-platform/src/components/error-boundary.tsx",
-                        lineNumber: 65,
-                        columnNumber: 11
-                    }, this)
-                ]
-            }, void 0, true);
+            // Não re-renderiza children que já quebraram — isso deixa a tela preta/vazia
+            // e silencia a causa. Mostra o popup com a mensagem real do erro.
+            return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                className: "min-h-screen bg-black text-white flex items-center justify-center p-4",
+                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$error$2d$popup$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["ErrorPopup"], {
+                    error: this.state.error,
+                    onClose: this.handleClose
+                }, void 0, false, {
+                    fileName: "[project]/drin-platform/src/components/error-boundary.tsx",
+                    lineNumber: 68,
+                    columnNumber: 11
+                }, this)
+            }, void 0, false, {
+                fileName: "[project]/drin-platform/src/components/error-boundary.tsx",
+                lineNumber: 67,
+                columnNumber: 9
+            }, this);
         }
         return this.props.children;
     }
