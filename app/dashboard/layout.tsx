@@ -31,13 +31,19 @@ import {
   ListChecks,
   Bot,
   Clock,
+  LayoutDashboard,
+  Receipt,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { AppProvider } from '@/contexts/app-context';
 import { useToolPermissions } from '@/hooks/useToolPermissions';
 import { useCmvRealAccess } from '@/hooks/useCmvRealAccess';
 import { SystemTool } from '@/types/admin';
-import { AppShell, type AppShellNavItem } from '@/components/layout/AppShell';
+import {
+  AppShell,
+  type AppShellNavItem,
+  type AppShellNavSection,
+} from '@/components/layout/AppShell';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
@@ -60,168 +66,194 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.push('/');
   };
 
-  const navItems = useMemo<AppShellNavItem[]>(() => {
+  const navSections = useMemo<AppShellNavSection[]>(() => {
     if (permissionsLoading) return [];
 
-    const items: AppShellNavItem[] = [];
+    const item = (partial: AppShellNavItem): AppShellNavItem => partial;
 
-    items.push({
-      id: 'produtos',
-      label: 'Produtos',
-      href: '/produtos',
-      icon: Package,
-      locked: !permissions[SystemTool.PRODUTOS],
-      active: pathname === '/produtos',
-    });
+    const geral: AppShellNavItem[] = [
+      item({
+        id: 'visao-geral',
+        label: 'Visão geral',
+        href: '/dashboard',
+        icon: LayoutDashboard,
+        active: pathname === '/dashboard',
+      }),
+    ];
 
-    items.push({
-      id: 'conexoes',
-      label: 'Conexões',
-      href: '/connections',
-      icon: Link2,
-      locked: !permissions[SystemTool.CONEXOES],
-      active: pathname === '/connections',
-    });
+    const operacao: AppShellNavItem[] = [
+      item({
+        id: 'ifood',
+        label: 'iFood',
+        icon: ShoppingBag,
+        locked: !permissions[SystemTool.IFOOD],
+        active: Boolean(pathname?.startsWith('/ifood')),
+        children: permissions[SystemTool.IFOOD]
+          ? [
+              {
+                id: 'ifood-config',
+                label: 'Configurações',
+                href: '/ifood/configuracoes',
+                active: pathname === '/ifood/configuracoes',
+              },
+              {
+                id: 'ifood-operacional',
+                label: 'Operacional',
+                href: '/ifood/operacional',
+                active: pathname === '/ifood/operacional',
+              },
+              {
+                id: 'ifood-financeiro',
+                label: 'Financeiro',
+                href: '/ifood/financeiro',
+                active: pathname === '/ifood/financeiro',
+              },
+              {
+                id: 'ifood-cardapio',
+                label: 'Cardápio',
+                href: '/ifood/cardapio',
+                active: pathname === '/ifood/cardapio',
+              },
+            ]
+          : undefined,
+      }),
+      item({
+        id: 'tarefas',
+        label: 'Tarefas',
+        href: '/tarefas',
+        icon: ListChecks,
+        locked: !permissions[SystemTool.TAREFAS],
+        active: Boolean(pathname?.startsWith('/tarefas')),
+      }),
+      item({
+        id: 'checklist',
+        label: 'Checklist',
+        href: '/checklist',
+        icon: ClipboardCheck,
+        locked: !permissions[SystemTool.CHECKLIST],
+        active: Boolean(pathname?.startsWith('/checklist')),
+      }),
+    ];
 
-    items.push({
-      id: 'relatorios',
-      label: 'Central de Relatórios',
-      href: '/relatorios',
-      icon: FileBarChart2,
-      locked: !permissions[SystemTool.AGENDAMENTO_RELATORIOS],
-      active: pathname === '/relatorios' || Boolean(pathname?.startsWith('/relatorios/')),
-    });
-
-    items.push({
-      id: 'whatsapp',
-      label: 'WhatsApp Chat',
-      href: '/whatsapp-tools',
-      icon: MessageSquare,
-      locked: !permissions[SystemTool.WHATSAPP_CHAT],
-      active: pathname === '/whatsapp-tools',
-    });
-
-    items.push({
-      id: 'checklist',
-      label: 'Checklist',
-      href: '/checklist',
-      icon: ClipboardCheck,
-      locked: !permissions[SystemTool.CHECKLIST],
-      active: Boolean(pathname?.startsWith('/checklist')),
-    });
-
-    items.push({
-      id: 'etiquetagem',
-      label: 'Etiquetagem',
-      href: '/etiquetagem',
-      icon: Tag,
-      locked: !permissions[SystemTool.ETIQUETAGEM],
-      active: Boolean(pathname?.startsWith('/etiquetagem')),
-    });
-
-    items.push({
-      id: 'cmv',
-      label: 'CMV',
-      href: '/cmv',
-      icon: BarChart2,
-      locked: !permissions[SystemTool.CMV],
-      active: pathname === '/cmv' || Boolean(pathname?.startsWith('/cmv/')),
-    });
+    const financeiro: AppShellNavItem[] = [
+      item({
+        id: 'cmv',
+        label: 'CMV',
+        href: '/cmv',
+        icon: BarChart2,
+        locked: !permissions[SystemTool.CMV],
+        active: pathname === '/cmv' || Boolean(pathname?.startsWith('/cmv/')),
+      }),
+    ];
 
     if (!cmvRealLoading && canViewCmvReal) {
-      items.push({
-        id: 'cmv-real',
-        label: 'CMV Real',
-        href: '/cmv-real/notas',
-        icon: BarChart2,
-        active: Boolean(pathname?.startsWith('/cmv-real')),
-      });
+      financeiro.push(
+        item({
+          id: 'cmv-real',
+          label: 'CMV Real',
+          href: '/cmv-real/notas',
+          icon: Receipt,
+          active: Boolean(pathname?.startsWith('/cmv-real')),
+        })
+      );
     }
 
-    items.push({
-      id: 'estoque',
-      label: 'Estoque',
-      href: '/estoque',
-      icon: Warehouse,
-      locked: !permissions[SystemTool.ESTOQUE],
-      active: Boolean(pathname?.startsWith('/estoque')),
-    });
+    financeiro.push(
+      item({
+        id: 'estoque',
+        label: 'Estoque',
+        href: '/estoque',
+        icon: Warehouse,
+        locked: !permissions[SystemTool.ESTOQUE],
+        active: Boolean(pathname?.startsWith('/estoque')),
+      })
+    );
 
-    items.push({
-      id: 'rh',
-      label: 'RH',
-      href: '/rh',
-      icon: Users,
-      locked: !permissions[SystemTool.RH],
-      active:
-        Boolean(pathname?.startsWith('/rh')) ||
-        Boolean(pathname?.startsWith('/bonificacao')),
-    });
+    const pessoas: AppShellNavItem[] = [
+      item({
+        id: 'rh',
+        label: 'RH',
+        href: '/rh',
+        icon: Users,
+        locked: !permissions[SystemTool.RH],
+        active:
+          Boolean(pathname?.startsWith('/rh')) ||
+          Boolean(pathname?.startsWith('/bonificacao')),
+      }),
+      item({
+        id: 'pontos',
+        label: 'Pontos',
+        href: '/pontos',
+        icon: Clock,
+        locked: !permissions[SystemTool.PONTOS],
+        active: Boolean(pathname?.startsWith('/pontos')),
+      }),
+    ];
 
-    items.push({
-      id: 'pontos',
-      label: 'Pontos',
-      href: '/pontos',
-      icon: Clock,
-      locked: !permissions[SystemTool.PONTOS],
-      active: Boolean(pathname?.startsWith('/pontos')),
-    });
+    const comunicacao: AppShellNavItem[] = [
+      item({
+        id: 'whatsapp',
+        label: 'WhatsApp Chat',
+        href: '/whatsapp-tools',
+        icon: MessageSquare,
+        locked: !permissions[SystemTool.WHATSAPP_CHAT],
+        active: pathname === '/whatsapp-tools',
+      }),
+      item({
+        id: 'chat',
+        label: 'Chat',
+        href: '/chat',
+        icon: Bot,
+        locked: !permissions[SystemTool.CHAT],
+        active: Boolean(pathname?.startsWith('/chat')),
+      }),
+    ];
 
-    items.push({
-      id: 'tarefas',
-      label: 'Tarefas',
-      href: '/tarefas',
-      icon: ListChecks,
-      locked: !permissions[SystemTool.TAREFAS],
-      active: Boolean(pathname?.startsWith('/tarefas')),
-    });
+    const configuracoes: AppShellNavItem[] = [
+      item({
+        id: 'conexoes',
+        label: 'Conexões',
+        href: '/connections',
+        icon: Link2,
+        locked: !permissions[SystemTool.CONEXOES],
+        active: pathname === '/connections',
+      }),
+      item({
+        id: 'produtos',
+        label: 'Produtos',
+        href: '/produtos',
+        icon: Package,
+        locked: !permissions[SystemTool.PRODUTOS],
+        active: pathname === '/produtos',
+      }),
+      item({
+        id: 'etiquetagem',
+        label: 'Etiquetagem',
+        href: '/etiquetagem',
+        icon: Tag,
+        locked: !permissions[SystemTool.ETIQUETAGEM],
+        active: Boolean(pathname?.startsWith('/etiquetagem')),
+      }),
+      item({
+        id: 'relatorios',
+        label: 'Central de Relatórios',
+        href: '/relatorios',
+        icon: FileBarChart2,
+        locked: !permissions[SystemTool.AGENDAMENTO_RELATORIOS],
+        active:
+          pathname === '/relatorios' ||
+          Boolean(pathname?.startsWith('/relatorios/')),
+      }),
+    ];
 
-    items.push({
-      id: 'chat',
-      label: 'Chat',
-      href: '/chat',
-      icon: Bot,
-      locked: !permissions[SystemTool.CHAT],
-      active: Boolean(pathname?.startsWith('/chat')),
-    });
-
-    items.push({
-      id: 'ifood',
-      label: 'iFood',
-      icon: ShoppingBag,
-      locked: !permissions[SystemTool.IFOOD],
-      active: Boolean(pathname?.startsWith('/ifood')),
-      children: permissions[SystemTool.IFOOD]
-        ? [
-            {
-              id: 'ifood-config',
-              label: 'Configurações',
-              href: '/ifood/configuracoes',
-              active: pathname === '/ifood/configuracoes',
-            },
-            {
-              id: 'ifood-operacional',
-              label: 'Operacional',
-              href: '/ifood/operacional',
-              active: pathname === '/ifood/operacional',
-            },
-            {
-              id: 'ifood-financeiro',
-              label: 'Financeiro',
-              href: '/ifood/financeiro',
-              active: pathname === '/ifood/financeiro',
-            },
-            {
-              id: 'ifood-cardapio',
-              label: 'Cardápio',
-              href: '/ifood/cardapio',
-              active: pathname === '/ifood/cardapio',
-            },
-          ]
-        : undefined,
-    });
-
-    return items;
+    return [
+      { id: 'geral', label: 'Geral', items: geral },
+      { id: 'operacao', label: 'Operação', items: operacao },
+      { id: 'financeiro', label: 'Financeiro', items: financeiro },
+      { id: 'pessoas', label: 'Pessoas', items: pessoas },
+      { id: 'comunicacao', label: 'Comunicação', items: comunicacao },
+      { id: 'configuracoes', label: 'Configurações', items: configuracoes },
+    ];
   }, [
     permissions,
     permissionsLoading,
@@ -238,6 +270,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
+  const displayName = user.displayName?.trim() || null;
+  const email = user.primaryEmail || null;
+  const primaryLabel = displayName || email || 'Usuário';
+  const initial =
+    displayName?.charAt(0)?.toUpperCase() ||
+    email?.charAt(0)?.toUpperCase() ||
+    'U';
+
   const footer = ({ collapsed }: { collapsed: boolean }) => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -246,23 +286,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           className={
             collapsed
               ? 'relative h-9 w-9 p-0 text-foreground hover:bg-muted'
-              : 'relative h-9 w-full justify-start gap-2 px-2 text-foreground hover:bg-muted'
+              : 'relative h-auto min-h-9 w-full justify-start gap-2 px-2 py-1.5 text-foreground hover:bg-muted'
           }
         >
-          <Avatar className="h-8 w-8">
+          <Avatar className="h-8 w-8 shrink-0">
             <AvatarImage
               src={user.profileImageUrl || '/avatars/01.png'}
-              alt={user.displayName || 'User'}
+              alt={primaryLabel}
             />
             <AvatarFallback className="bg-accent text-accent-foreground text-xs">
-              {user.displayName?.charAt(0)?.toUpperCase() ||
-                user.primaryEmail?.charAt(0)?.toUpperCase() ||
-                'U'}
+              {initial}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
-            <span className="truncate text-sm font-medium">
-              {user.displayName || 'Usuário'}
+            <span className="min-w-0 flex-1 text-left">
+              <span className="block truncate text-sm font-medium text-foreground">
+                {primaryLabel}
+              </span>
+              {displayName && email ? (
+                <span className="block truncate text-xs text-muted-foreground">
+                  {email}
+                </span>
+              ) : null}
             </span>
           )}
         </Button>
@@ -274,11 +319,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         <DropdownMenuItem className="focus:bg-muted">
           <User className="mr-2 h-4 w-4 text-muted-foreground" />
-          {user.displayName || 'Usuário'}
+          {primaryLabel}
         </DropdownMenuItem>
-        <DropdownMenuItem className="focus:bg-muted text-xs text-muted-foreground">
-          {user.primaryEmail}
-        </DropdownMenuItem>
+        {email ? (
+          <DropdownMenuItem className="focus:bg-muted text-xs text-muted-foreground">
+            {email}
+          </DropdownMenuItem>
+        ) : null}
         <DropdownMenuItem className="focus:bg-muted" onClick={toggleDarkMode}>
           {isDarkMode ? (
             <>
@@ -327,7 +374,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <AppShell
           logo={logo}
           logoCollapsed={logoCollapsed}
-          navItems={navItems}
+          navSections={navSections}
           navLoading={permissionsLoading}
           footer={footer}
         >

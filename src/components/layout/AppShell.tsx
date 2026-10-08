@@ -39,6 +39,12 @@ export type AppShellNavItem = {
   children?: AppShellNavChild[];
 };
 
+export type AppShellNavSection = {
+  id: string;
+  label: string;
+  items: AppShellNavItem[];
+};
+
 export type AppShellFooterContext = {
   collapsed: boolean;
 };
@@ -47,7 +53,7 @@ export type AppShellProps = {
   children: ReactNode;
   logo: ReactNode;
   logoCollapsed?: ReactNode;
-  navItems: AppShellNavItem[];
+  navSections: AppShellNavSection[];
   footer: ReactNode | ((ctx: AppShellFooterContext) => ReactNode);
   navLoading?: boolean;
 };
@@ -68,6 +74,12 @@ function writeCollapsed(value: boolean) {
   } catch {
     // ignore quota / private mode
   }
+}
+
+function activeItemClass(active?: boolean) {
+  return active
+    ? "bg-accent text-foreground border-l-2 border-l-primary"
+    : "text-muted-foreground hover:bg-muted hover:text-foreground border-l-2 border-l-transparent";
 }
 
 function NavItemContent({
@@ -91,7 +103,7 @@ function NavItemContent({
     const locked = (
       <div
         className={cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed",
+          "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed border-l-2 border-l-transparent",
           collapsed && "justify-center px-2"
         )}
       >
@@ -115,9 +127,7 @@ function NavItemContent({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-          item.active
-            ? "bg-accent text-accent-foreground border border-primary/40"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent",
+          activeItemClass(item.active),
           collapsed && "justify-center px-2"
         )}
       >
@@ -154,9 +164,7 @@ function NavItemContent({
                 onClick={onNavigate}
                 className={cn(
                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors",
-                  child.active
-                    ? "bg-accent text-accent-foreground border border-primary/40"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent"
+                  activeItemClass(child.active)
                 )}
               >
                 {child.label}
@@ -174,9 +182,7 @@ function NavItemContent({
       onClick={onNavigate}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-        item.active
-          ? "bg-accent text-accent-foreground border border-primary/40"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent",
+        activeItemClass(item.active),
         collapsed && "justify-center px-2"
       )}
     >
@@ -195,12 +201,12 @@ function NavItemContent({
 }
 
 function SidebarNav({
-  navItems,
+  navSections,
   navLoading,
   collapsed,
   onNavigate,
 }: {
-  navItems: AppShellNavItem[];
+  navSections: AppShellNavSection[];
   navLoading?: boolean;
   collapsed: boolean;
   onNavigate?: () => void;
@@ -214,15 +220,27 @@ function SidebarNav({
   }
 
   return (
-    <nav className="flex flex-col gap-0.5">
-      {navItems.map((item) => (
-        <NavItemContent
-          key={item.id}
-          item={item}
-          collapsed={collapsed}
-          onNavigate={onNavigate}
-        />
-      ))}
+    <nav className="flex flex-col gap-4">
+      {navSections.map((section) => {
+        if (section.items.length === 0) return null;
+        return (
+          <div key={section.id} className="flex flex-col gap-0.5">
+            {!collapsed && (
+              <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {section.label}
+              </p>
+            )}
+            {section.items.map((item) => (
+              <NavItemContent
+                key={item.id}
+                item={item}
+                collapsed={collapsed}
+                onNavigate={onNavigate}
+              />
+            ))}
+          </div>
+        );
+      })}
     </nav>
   );
 }
@@ -230,7 +248,7 @@ function SidebarNav({
 function SidebarChrome({
   logo,
   logoCollapsed,
-  navItems,
+  navSections,
   navLoading,
   footer,
   collapsed,
@@ -240,7 +258,7 @@ function SidebarChrome({
 }: {
   logo: ReactNode;
   logoCollapsed?: ReactNode;
-  navItems: AppShellNavItem[];
+  navSections: AppShellNavSection[];
   navLoading?: boolean;
   footer: ReactNode | ((ctx: AppShellFooterContext) => ReactNode);
   collapsed: boolean;
@@ -278,7 +296,7 @@ function SidebarChrome({
 
       <div className="flex-1 overflow-y-auto px-2 py-3 [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
         <SidebarNav
-          navItems={navItems}
+          navSections={navSections}
           navLoading={navLoading}
           collapsed={collapsed}
           onNavigate={onNavigate}
@@ -316,7 +334,7 @@ export function AppShell({
   children,
   logo,
   logoCollapsed,
-  navItems,
+  navSections,
   footer,
   navLoading,
 }: AppShellProps) {
@@ -340,7 +358,6 @@ export function AppShell({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="min-h-screen bg-background text-foreground dark">
-        {/* Desktop sidebar */}
         <aside
           className={cn(
             "fixed inset-y-0 left-0 z-40 hidden md:flex transition-[width] duration-200",
@@ -351,7 +368,7 @@ export function AppShell({
             <SidebarChrome
               logo={logo}
               logoCollapsed={logoCollapsed}
-              navItems={navItems}
+              navSections={navSections}
               navLoading={navLoading}
               footer={footer}
               collapsed={hydrated ? collapsed : false}
@@ -361,7 +378,6 @@ export function AppShell({
           </div>
         </aside>
 
-        {/* Mobile top bar + drawer */}
         <div className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b border-border bg-card px-4 md:hidden">
           <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
             <SheetTrigger asChild>
@@ -380,7 +396,7 @@ export function AppShell({
             >
               <SidebarChrome
                 logo={logo}
-                navItems={navItems}
+                navSections={navSections}
                 navLoading={navLoading}
                 footer={footer}
                 collapsed={false}
