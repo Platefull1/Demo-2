@@ -13,7 +13,6 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { BarChart3 } from "lucide-react";
 import { DashboardSummary } from "@/types/ifood-dashboard";
 
 interface Props {
@@ -49,9 +48,8 @@ function CustomTooltip({ active, payload, label }: ChartTooltipProps) {
 
 function EmptyChart() {
   return (
-    <div className="h-[300px] flex flex-col items-center justify-center gap-2 text-center px-4">
-      <BarChart3 className="h-5 w-5 text-muted-foreground" />
-      <p className="text-sm text-foreground">Nenhum pedido neste período</p>
+    <div className="h-[280px] flex flex-col items-center justify-center gap-1 text-center px-4">
+      <p className="text-sm text-muted-foreground">Nenhum pedido neste período</p>
       <p className="text-xs text-muted-foreground">
         Os dados aparecerão quando houver vendas no intervalo selecionado.
       </p>
@@ -68,7 +66,7 @@ export function IfoodSalesByDayChart({ summary, isLoading, periodLabel }: Props)
           <Skeleton className="h-4 w-56" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[300px] w-full" />
+          <Skeleton className="h-[280px] w-full" />
         </CardContent>
       </Card>
     );
@@ -97,7 +95,7 @@ export function IfoodSalesByDayChart({ summary, isLoading, periodLabel }: Props)
         {!hasData ? (
           <EmptyChart />
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
+          <ResponsiveContainer width="100%" height={280}>
             <AreaChart data={data} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="ifoodRevenueGrad" x1="0" y1="0" x2="0" y2="1">

@@ -17,6 +17,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { IfoodConnection } from "@/types/ifood-dashboard";
 
@@ -77,22 +82,38 @@ export function StoreCombobox({
       : statusLabel(selectedStore?.ifoodStatus, selectedStore?.status);
 
   const isSyncing = syncingId === selectedId;
+  const showFullNameTooltip = selectedId !== "all" && Boolean(selectedStore?.merchantName);
+
+  const trigger = (
+    <Button
+      variant="outline"
+      size="sm"
+      role="combobox"
+      aria-expanded={open}
+      className="h-8 max-w-[240px] min-w-[160px] justify-between bg-card border-border text-foreground hover:bg-muted"
+    >
+      <span className="truncate">{selectedLabel}</span>
+      <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+    </Button>
+  );
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            role="combobox"
-            aria-expanded={open}
-            className="h-8 min-w-[180px] justify-between bg-card border-border text-foreground hover:bg-muted"
-          >
-            <span className="truncate">{selectedLabel}</span>
-            <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-          </Button>
-        </PopoverTrigger>
+        {showFullNameTooltip ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex max-w-full">
+                <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs">
+              {selectedLabel}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        )}
         <PopoverContent className="w-72 p-0 bg-popover border-border" align="end">
           <Command>
             <CommandInput placeholder="Buscar loja..." />
@@ -136,7 +157,9 @@ export function StoreCombobox({
                             : "opacity-0"
                         )}
                       />
-                      <span className="flex-1 truncate">{store.merchantName}</span>
+                      <span className="flex-1 truncate" title={store.merchantName}>
+                        {store.merchantName}
+                      </span>
                       <StatusDot tone={status.tone} />
                     </CommandItem>
                   );

@@ -177,15 +177,15 @@ export function StoreCarousel() {
   if (!isClient || isLoadingStores) {
     return (
       <div className="w-full">
-        <div className="mb-6 text-center">
-          <h2 className="text-2xl font-bold text-white mb-2">Suas Lojas</h2>
-          <p className="text-gray-400 text-sm">
+        <div className="mb-4 text-left space-y-1">
+          <h2 className="text-base font-semibold text-foreground">Suas Lojas</h2>
+          <p className="text-sm text-muted-foreground">
             {isLoadingStores ? "Carregando lojas da Saipos..." : "Carregando..."}
           </p>
         </div>
-        <div className="flex justify-center gap-6 animate-pulse">
+        <div className="flex gap-4 animate-pulse">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="w-48 h-40 bg-[#141415] border border-[#374151] rounded-lg"></div>
+            <div key={i} className="w-48 h-40 bg-card border border-border rounded-lg"></div>
           ))}
         </div>
       </div>
@@ -194,9 +194,9 @@ export function StoreCarousel() {
 
   return (
     <div className="w-full">
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-white mb-2">Suas Lojas</h2>
-        <p className="text-gray-400 text-sm">
+      <div className="mb-4 text-left space-y-1">
+        <h2 className="text-base font-semibold text-foreground">Suas Lojas</h2>
+        <p className="text-sm text-muted-foreground">
           {selectedStore 
             ? `Loja selecionada: ${selectedStore.name}` 
             : storesToShow.length > 0 

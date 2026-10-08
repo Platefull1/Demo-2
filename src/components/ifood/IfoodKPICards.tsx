@@ -2,8 +2,9 @@
 
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DollarSign, ShoppingCart, TrendingUp, Users, XCircle } from "lucide-react";
+import { XCircle } from "lucide-react";
 import { DashboardSummary } from "@/types/ifood-dashboard";
+import { cn } from "@/lib/utils";
 
 interface Props {
   summary: DashboardSummary | null;
@@ -32,12 +33,22 @@ function VariationBadge({ current, prev }: { current: number; prev: number }) {
   );
 }
 
-export function IfoodKPICards({ summary, isLoading, isRealtime }: Props) {
+function cellBorderClass(index: number) {
+  return cn(
+    // 2 colunas: divisor vertical entre colunas (células da esquerda)
+    (index === 0 || index === 2) && "border-r border-border",
+    // 2 colunas: divisor horizontal entre as duas linhas
+    (index === 0 || index === 1) && "border-b border-border xl:border-b-0",
+    // xl (4 colunas): só divisores verticais, sem borda na última célula
+    index < 3 && "xl:border-r"
+  );
+}
+
+export function IfoodKPICards({ summary, isLoading, isRealtime: _isRealtime }: Props) {
   const cards = [
     {
       title: "Vendas",
       tooltip: "Total de receita dos pedidos não cancelados no período",
-      icon: DollarSign,
       value: summary
         ? `R$ ${summary.totalSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
         : "R$ 0,00",
@@ -47,7 +58,6 @@ export function IfoodKPICards({ summary, isLoading, isRealtime }: Props) {
     {
       title: "Pedidos",
       tooltip: "Total de pedidos aceitos (excluindo cancelados e de teste)",
-      icon: ShoppingCart,
       value: summary ? summary.totalOrders.toString() : "0",
       current: summary?.totalOrders ?? 0,
       prev: summary?.prevTotalOrders ?? 0,
@@ -55,7 +65,6 @@ export function IfoodKPICards({ summary, isLoading, isRealtime }: Props) {
     {
       title: "Ticket médio",
       tooltip: "Receita total dividida pelo número de pedidos no período",
-      icon: TrendingUp,
       value: summary
         ? `R$ ${summary.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
         : "R$ 0,00",
@@ -65,7 +74,6 @@ export function IfoodKPICards({ summary, isLoading, isRealtime }: Props) {
     {
       title: "Clientes únicos",
       tooltip: "Número de telefones distintos que fizeram pedidos no período",
-      icon: Users,
       value: summary ? summary.uniqueCustomers.toString() : "0",
       current: summary?.uniqueCustomers ?? 0,
       prev: summary?.prevUniqueCustomers ?? 0,
@@ -74,46 +82,45 @@ export function IfoodKPICards({ summary, isLoading, isRealtime }: Props) {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Card key={i} className="bg-card border-border">
-            <CardContent className="p-5">
-              <Skeleton className="h-4 w-24 mb-3" />
-              <Skeleton className="h-8 w-32 mb-2" />
-              <Skeleton className="h-3 w-28" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="bg-card border-border">
+        <CardContent className="p-0">
+          <div className="grid grid-cols-2 xl:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className={cn("p-5", cellBorderClass(i))}>
+                <Skeleton className="h-4 w-20 mb-2" />
+                <Skeleton className="h-8 w-28 mb-2" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {cards.map((card) => (
-          <Card
-            key={card.title}
-            className={`bg-card border-border ${
-              isRealtime ? "border-border" : ""
-            }`}
-            title={card.tooltip}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-3">
-                <p className="text-sm text-muted-foreground">{card.title}</p>
-                <card.icon className="h-4 w-4 text-muted-foreground" />
+      <Card className="bg-card border-border">
+        <CardContent className="p-0">
+          <div className="grid grid-cols-2 xl:grid-cols-4">
+            {cards.map((card, index) => (
+              <div
+                key={card.title}
+                className={cn("p-5", cellBorderClass(index))}
+                title={card.tooltip}
+              >
+                <p className="text-sm text-muted-foreground mb-1">{card.title}</p>
+                <p className="text-3xl font-semibold text-foreground tabular-nums">
+                  {card.value}
+                </p>
+                <div className="mt-1">
+                  <VariationBadge current={card.current} prev={card.prev} />
+                </div>
               </div>
-              <p className="text-3xl font-semibold text-foreground tabular-nums">
-                {card.value}
-              </p>
-              <div className="mt-2 min-h-[1rem]">
-                <VariationBadge current={card.current} prev={card.prev} />
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {(summary?.cancelledOrders ?? 0) > 0 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
