@@ -44,7 +44,7 @@ function cellBorderClass(index: number) {
   );
 }
 
-export function IfoodKPICards({ summary, isLoading, isRealtime: _isRealtime }: Props) {
+export function IfoodKPICards({ summary, isLoading }: Props) {
   const cards = [
     {
       title: "Vendas",
