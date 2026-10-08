@@ -29,6 +29,8 @@ const config: Config = {
         'accent-foreground': 'var(--accent-foreground)',
         destructive: 'var(--destructive)',
         'destructive-foreground': 'var(--destructive-foreground)',
+        warning: 'var(--warning)',
+        success: 'var(--success)',
         // Sidebar palette
         sidebar: 'var(--sidebar)',
         'sidebar-foreground': 'var(--sidebar-foreground)',
