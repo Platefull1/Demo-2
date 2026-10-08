@@ -2059,7 +2059,8 @@ enum NfeItemStatus {
 enum CmvLancamentoTipo {
   COMPRA_NFE
   COMPRA_MANUAL
-  TRANSFERENCIA
+  TRANSFERENCIA_SAIDA
+  TRANSFERENCIA_ENTRADA
   DESPERDICIO
 }
 
@@ -2235,6 +2236,8 @@ model CmvLancamento {
   valorTotal      Decimal           @map("valor_total") @db.Decimal(14, 2)
   nfeItemId       String?           @unique @map("nfe_item_id")
   nfeItem         NfeItem?          @relation(fields: [nfeItemId], references: [id], onDelete: SetNull)
+  /// Loja que envia (TRANSFERENCIA_ENTRADA) ou recebe (TRANSFERENCIA_SAIDA)
+  lojaOrigem      String?           @map("loja_origem")
   lojaDestino     String?           @map("loja_destino")
   observacao      String?
   criadoPorId     String?           @map("criado_por_id")
@@ -2243,6 +2246,7 @@ model CmvLancamento {
 
   @@index([userId, storeSlug, competencia])
   @@index([userId, estoqueInsumoId, data])
+  @@index([userId, tipo, competencia])
   @@map("cmv_lancamentos")
 }
 
@@ -2271,8 +2275,11 @@ model CmvFechamento {
   storeSlug             String              @map("store_slug")
   competencia           String
   status                CmvFechamentoStatus @default(ABERTO)
+  /// Manual por padrão; campo pronto para preencher via Saipos total_pedidos depois.
   vendaMes              Decimal?            @map("venda_mes") @db.Decimal(14, 2)
-  ajustes               Json                @default("[]") // [{secao, descricao, valor}]
+  vendaMesOrigem        String?             @map("venda_mes_origem") // MANUAL | SAIPOS
+  /// Sempre vazio no mês novo: [{id, secao, descricao, valor, criadoPorId, criadoEm}]
+  ajustes               Json                @default("[]")
   refeicoesFuncionarios Json                @default("[]") @map("refeicoes_funcionarios") // [{descricao, valorVenda}]
   contagemId            String?             @map("contagem_id")
   snapshot              Json?

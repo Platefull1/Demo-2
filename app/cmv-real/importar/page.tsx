@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FileSpreadsheet, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { ImportarSaldoBlock } from './ImportarSaldoBlock';
 
 type PreviewStatus = 'casado' | 'sugerido' | 'nao_encontrado';
 
@@ -496,6 +497,8 @@ export default function CmvRealImportarPage() {
             </div>
           </div>
         )}
+
+        <ImportarSaldoBlock />
     </div>
   );
 }
