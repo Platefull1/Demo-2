@@ -35,8 +35,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const bodyClasses = [GeistSans.variable, GeistMono.variable, 'antialiased'].join(' ');
-  
+  const bodyClasses = [
+    GeistSans.variable,
+    GeistMono.variable,
+    'font-sans antialiased',
+  ].join(' ');
+
   return (
     <html lang="pt-BR" className="dark">
       <head>

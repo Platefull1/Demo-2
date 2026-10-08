@@ -45,8 +45,6 @@
   --sidebar-accent-foreground: #0A0A0A;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: #22C55E;
-  --font-geist-sans: "Geist Sans", sans-serif;
-  --font-geist-mono: "Geist Mono", monospace;
 }
 
 .dark {
@@ -87,13 +85,12 @@
   --sidebar-ring: #22C55E;
 }
 
-/* Light mode specific styles */
 @layer base {
   * {
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 
