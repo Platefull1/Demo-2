@@ -1,7 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ColumnDef } from '@tanstack/react-table';
 import { Loader2, Plus } from 'lucide-react';
+import { DataTable } from '@/components/layout/DataTable';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CMV_STORE_LABELS } from '@/lib/nfe/ui-labels';
 
 type Produto = { estoqueInsumoId: string; nome: string; unidade: string };
@@ -27,6 +38,17 @@ const TIPOS = [
 
 const STORES = Object.entries(CMV_STORE_LABELS);
 
+function labelTipo(t: string) {
+  return TIPOS.find((x) => x.value === t)?.label || t;
+}
+
+function formatValor(v: number) {
+  return v.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
 export default function CmvRealLancamentosPage() {
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lancs, setLancs] = useState<Lanc[]>([]);
@@ -49,6 +71,15 @@ export default function CmvRealLancamentosPage() {
 
   const lojasOpts =
     allowed && allowed.length > 0 ? allowed : STORES.map(([s]) => s);
+
+  const lojaLabel = CMV_STORE_LABELS[storeSlug] || storeSlug;
+
+  const produtoNome = useCallback(
+    (estoqueInsumoId: string) =>
+      produtos.find((p) => p.estoqueInsumoId === estoqueInsumoId)?.nome ||
+      estoqueInsumoId,
+    [produtos]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,7 +111,7 @@ export default function CmvRealLancamentosPage() {
               estoqueInsumoId: p.estoqueInsumoId,
               nome: p.nome,
               unidade: p.unidade,
-            })),
+            }))
         );
       }
     } catch (e) {
@@ -127,170 +158,259 @@ export default function CmvRealLancamentosPage() {
     }
   };
 
-  const labelTipo = (t: string) =>
-    TIPOS.find((x) => x.value === t)?.label || t;
+  const columns = useMemo<ColumnDef<Lanc, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'tipo',
+        header: 'Tipo',
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground">
+            {labelTipo(row.original.tipo)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'data',
+        header: 'Data',
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {new Date(row.original.data).toLocaleDateString('pt-BR')}
+          </span>
+        ),
+      },
+      {
+        id: 'produto',
+        accessorFn: (r) => produtoNome(r.estoqueInsumoId),
+        header: 'Produto',
+        cell: ({ row }) => (
+          <span className="block max-w-[240px] truncate text-foreground">
+            {produtoNome(row.original.estoqueInsumoId)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'quantidade',
+        header: 'Qtd',
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {row.original.quantidade}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'valorTotal',
+        header: 'Valor',
+        meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {formatValor(row.original.valorTotal)}
+          </span>
+        ),
+      },
+      {
+        id: 'lojaRef',
+        header: 'Loja',
+        enableSorting: false,
+        cell: ({ row }) => {
+          const l = row.original;
+          if (l.lojaDestino)
+            return (
+              <span className="text-muted-foreground text-xs">
+                → {CMV_STORE_LABELS[l.lojaDestino] || l.lojaDestino}
+              </span>
+            );
+          if (l.lojaOrigem)
+            return (
+              <span className="text-muted-foreground text-xs">
+                ← {CMV_STORE_LABELS[l.lojaOrigem] || l.lojaOrigem}
+              </span>
+            );
+          return <span className="text-muted-foreground">–</span>;
+        },
+      },
+    ],
+    [produtoNome]
+  );
+
+  const openForm = () => setShowForm(true);
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold text-foreground">Lançamentos</h2>
-          <p className="text-xs text-muted-foreground">Compras, desperdício e transferências</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2"
-        >
-          <Plus className="w-3.5 h-3.5" /> Novo
-        </button>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <label className="text-xs text-muted-foreground shrink-0">Loja</label>
-        <select
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Select
           value={storeSlug}
           disabled={lojaTravada && lojasOpts.length <= 1}
-          onChange={(e) => setStoreSlug(e.target.value)}
-          className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm disabled:opacity-60"
+          onValueChange={setStoreSlug}
         >
-          {lojasOpts.map((s) => (
-            <option key={s} value={s}>
-              {CMV_STORE_LABELS[s] || s}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-full sm:w-[180px] text-sm">
+            <SelectValue placeholder="Loja" />
+          </SelectTrigger>
+          <SelectContent>
+            {lojasOpts.map((s) => (
+              <SelectItem key={s} value={s}>
+                {CMV_STORE_LABELS[s] || s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setShowForm((v) => !v)}
+          className="shrink-0"
+        >
+          <Plus className="size-4" />
+          Novo lançamento
+        </Button>
       </div>
 
       {showForm && (
-        <div className="rounded-xl border border-border bg-card p-3 space-y-3">
-          <select
-            value={tipo}
-            onChange={(e) => setTipo(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
-          >
-            {TIPOS.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-          <input
+        <div className="rounded-md border border-border bg-card p-4 space-y-3 max-w-xl">
+          <p className="text-base font-semibold text-foreground">Novo lançamento</p>
+          <Select value={tipo} onValueChange={setTipo}>
+            <SelectTrigger className="h-9 w-full text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIPOS.map((t) => (
+                <SelectItem key={t.value} value={t.value}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
             type="date"
             value={data}
             onChange={(e) => setData(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
+            className="h-9"
           />
-          <select
-            value={produtoId}
-            onChange={(e) => setProdutoId(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
-          >
-            <option value="">Produto…</option>
-            {produtos.map((p) => (
-              <option key={p.estoqueInsumoId} value={p.estoqueInsumoId}>
-                {p.nome} ({p.unidade})
-              </option>
-            ))}
-          </select>
+          <Select value={produtoId || undefined} onValueChange={setProdutoId}>
+            <SelectTrigger className="h-9 w-full text-sm">
+              <SelectValue placeholder="Produto…" />
+            </SelectTrigger>
+            <SelectContent>
+              {produtos.map((p) => (
+                <SelectItem key={p.estoqueInsumoId} value={p.estoqueInsumoId}>
+                  {p.nome} ({p.unidade})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <Input
               inputMode="decimal"
               placeholder="Qtd"
               value={quantidade}
               onChange={(e) => setQuantidade(e.target.value)}
-              className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
+              className="h-9"
             />
-            <input
+            <Input
               inputMode="decimal"
               placeholder="Valor R$"
               value={valorTotal}
               onChange={(e) => setValorTotal(e.target.value)}
-              className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
+              className="h-9"
             />
           </div>
           {tipo === 'TRANSFERENCIA_SAIDA' && (
-            <select
-              value={lojaDestino}
-              onChange={(e) => setLojaDestino(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
-            >
-              <option value="">Loja destino…</option>
-              {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
-                <option key={s} value={s}>
-                  {lab}
-                </option>
-              ))}
-            </select>
+            <Select value={lojaDestino || undefined} onValueChange={setLojaDestino}>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Loja destino…" />
+              </SelectTrigger>
+              <SelectContent>
+                {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
+                  <SelectItem key={s} value={s}>
+                    {lab}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           {tipo === 'TRANSFERENCIA_ENTRADA' && (
-            <select
-              value={lojaOrigem}
-              onChange={(e) => setLojaOrigem(e.target.value)}
-              className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
-            >
-              <option value="">Loja origem…</option>
-              {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
-                <option key={s} value={s}>
-                  {lab}
-                </option>
-              ))}
-            </select>
+            <Select value={lojaOrigem || undefined} onValueChange={setLojaOrigem}>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Loja origem…" />
+              </SelectTrigger>
+              <SelectContent>
+                {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
+                  <SelectItem key={s} value={s}>
+                    {lab}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
-          <input
+          <Input
             placeholder="Observação (opcional)"
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
-            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
+            className="h-9"
           />
-          <button
+          <Button
             type="button"
             disabled={saving || !produtoId}
             onClick={() => void salvar()}
-            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-2.5 disabled:opacity-40"
+            className="w-full"
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Salvar'}
-          </button>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : 'Salvar'}
+          </Button>
         </div>
       )}
 
-      {msg && <p className="text-sm text-warning">{msg}</p>}
+      {msg ? (
+        <p className="text-sm text-warning" role="alert">
+          {msg}
+        </p>
+      ) : null}
 
-      {loading ? (
-        <div className="flex justify-center py-10">
-          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : lancs.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">Nenhum lançamento.</p>
-      ) : (
-        <ul className="space-y-2">
-          {lancs.map((l) => {
-            const prod = produtos.find((p) => p.estoqueInsumoId === l.estoqueInsumoId);
-            return (
-              <li
-                key={l.id}
-                className="rounded-xl border border-border bg-card px-3 py-2.5"
-              >
-                <div className="flex justify-between gap-2 text-sm">
-                  <span className="text-foreground font-medium">{labelTipo(l.tipo)}</span>
-                  <span className="text-muted-foreground text-xs">
-                    {new Date(l.data).toLocaleDateString('pt-BR')}
-                  </span>
-                </div>
-                <p className="text-sm text-foreground mt-0.5 truncate">
-                  {prod?.nome || l.estoqueInsumoId}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {l.quantidade} · R${' '}
-                  {l.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  {l.lojaDestino && ` → ${CMV_STORE_LABELS[l.lojaDestino] || l.lojaDestino}`}
-                  {l.lojaOrigem && ` ← ${CMV_STORE_LABELS[l.lojaOrigem] || l.lojaOrigem}`}
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <DataTable
+        columns={columns}
+        data={lancs}
+        loading={loading}
+        pageSize={50}
+        initialSorting={[{ id: 'data', desc: true }]}
+        emptyState={
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">
+                Nenhum lançamento em {lojaLabel}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Compras, desperdícios e transferências aparecem aqui.
+              </p>
+            </div>
+            <Button type="button" size="sm" onClick={openForm}>
+              <Plus className="size-4" />
+              Novo lançamento
+            </Button>
+          </div>
+        }
+        renderMobileRow={(l) => (
+          <>
+            <div className="flex items-center justify-between gap-2 text-sm">
+              <span className="font-medium text-foreground">
+                {labelTipo(l.tipo)}
+              </span>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {new Date(l.data).toLocaleDateString('pt-BR')}
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground truncate mt-0.5">
+              {produtoNome(l.estoqueInsumoId)}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+              {l.quantidade} · {formatValor(l.valorTotal)}
+              {l.lojaDestino &&
+                ` → ${CMV_STORE_LABELS[l.lojaDestino] || l.lojaDestino}`}
+              {l.lojaOrigem &&
+                ` ← ${CMV_STORE_LABELS[l.lojaOrigem] || l.lojaOrigem}`}
+            </p>
+          </>
+        )}
+      />
     </div>
   );
 }
