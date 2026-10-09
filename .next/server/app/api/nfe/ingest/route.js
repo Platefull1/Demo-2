@@ -1,0 +1,12 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/nfe/ingest/route.js")
+R.c("server/chunks/drin-platform_src_lib_nfe_pipeline_ts_e9896d4b._.js")
+R.c("server/chunks/797a3_next_dist_esm_build_templates_app-route_904de838.js")
+R.c("server/chunks/797a3_next_92c518d3._.js")
+R.c("server/chunks/[root-of-the-server]__cf531364._.js")
+R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
+R.c("server/chunks/797a3_next_8ffc8760._.js")
+R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
+R.c("server/chunks/drin-platform_3df58451._.js")
+R.c("server/chunks/drin-platform__next-internal_server_app_api_nfe_ingest_route_actions_3fd602ba.js")
+R.m(247606)
+module.exports=R.m(247606).exports

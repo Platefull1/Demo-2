@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../../../../drin-platform/app/%28app%29/cmv-real/page.tsx"],"sourcesContent":["import { redirect } from 'next/navigation';\r\n\r\nexport default function CmvRealIndexPage() {\r\n  redirect('/cmv-real/notas');\r\n}\r\n"],"names":[],"mappings":"uaAAA,EAAA,CAAA,CAAA,QAAA,IAAA,EAAA,EAAA,CAAA,CAAA,OAEe,SAAS,IACtB,CAAA,EAAA,EAAA,QAAA,AAAQ,EAAC,kBACX"}

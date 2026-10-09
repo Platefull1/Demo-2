@@ -1,0 +1,6 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 30, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/User/drin-platform/app/%28app%29/whatsapp-config/page.tsx"],"sourcesContent":["import { redirect } from 'next/navigation';\r\n\r\n/** Legado: mock de agendamento. A Central de Relatórios vive em /relatorios. */\r\nexport default function WhatsAppConfigRedirect() {\r\n  redirect('/relatorios');\r\n}\r\n"],"names":[],"mappings":";;;;AAAA;AAAA;;AAGe,SAAS;IACtB,IAAA,qNAAQ,EAAC;AACX"}}]
+}

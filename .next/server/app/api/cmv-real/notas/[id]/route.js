@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/cmv-real/notas/[id]/route.js")
+R.c("server/chunks/797a3_next_dist_esm_build_templates_app-route_a8250135.js")
+R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
+R.c("server/chunks/[root-of-the-server]__682eb3ce._.js")
+R.c("server/chunks/797a3_next_8ffc8760._.js")
+R.c("server/chunks/drin-platform_3df58451._.js")
+R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
+R.c("server/chunks/797a3_next_92c518d3._.js")
+R.c("server/chunks/0038a__next-internal_server_app_api_cmv-real_notas_[id]_route_actions_ebe8e552.js")
+R.m(217696)
+module.exports=R.m(217696).exports

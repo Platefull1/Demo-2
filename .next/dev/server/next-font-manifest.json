@@ -1,10 +1,70 @@
 {
   "app": {
-    "[project]/drin-platform/app/auth/login/page": [
+    "[project]/drin-platform/app/(app)/bonificacao/page": [
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
-    "[project]/drin-platform/app/dashboard/page": [
+    "[project]/drin-platform/app/(app)/chat/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/checklist/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/cmv-real/notas/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/cmv/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/connections/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/dashboard/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/etiquetagem/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/ifood/configuracoes/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/pontos/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/produtos/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/relatorios/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/rh/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/tarefas/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/whatsapp-config/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/whatsapp-tools/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/estoque/page": [
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ]

@@ -1,9 +1,10 @@
 var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/reports/complaints/resume/route.js")
-R.c("server/chunks/Demo-2_src_lib_d21e1640._.js")
-R.c("server/chunks/[root-of-the-server]__95cd910d._.js")
-R.c("server/chunks/[root-of-the-server]__ad20b4aa._.js")
-R.c("server/chunks/6e6c4_next_8a0b8c70._.js")
-R.c("server/chunks/6e6c4_next_dist_caea266e._.js")
-R.c("server/chunks/81d96__next-internal_server_app_api_reports_complaints_resume_route_actions_53dd4629.js")
-R.m(185073)
-module.exports=R.m(185073).exports
+R.c("server/chunks/[root-of-the-server]__c1e6d782._.js")
+R.c("server/chunks/drin-platform_src_lib_complaints_34cf1304._.js")
+R.c("server/chunks/drin-platform_src_lib_complaints_9dac5efb._.js")
+R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
+R.c("server/chunks/797a3_next_8ffc8760._.js")
+R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
+R.c("server/chunks/0038a__next-internal_server_app_api_reports_complaints_resume_route_actions_067316dc.js")
+R.m(468514)
+module.exports=R.m(468514).exports

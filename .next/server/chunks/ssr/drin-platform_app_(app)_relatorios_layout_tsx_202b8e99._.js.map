@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../../../../drin-platform/app/%28app%29/relatorios/layout.tsx"],"sourcesContent":["export default function RelatoriosLayout({\r\n  children,\r\n}: {\r\n  children: React.ReactNode;\r\n}) {\r\n  return children;\r\n}\r\n"],"names":[],"mappings":"wCAAe,SAAS,EAAiB,UACvC,CAAQ,CAGT,EACC,OAAO,CACT"}

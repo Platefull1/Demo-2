@@ -1,0 +1,3 @@
+{
+  "/(app)/rh/usuarios/[id]/permissoes/page": "app/(app)/rh/usuarios/[id]/permissoes/page.js"
+}

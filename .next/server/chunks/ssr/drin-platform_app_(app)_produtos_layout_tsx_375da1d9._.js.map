@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../../../../drin-platform/app/%28app%29/produtos/layout.tsx"],"sourcesContent":["export default function ProdutosLayout({\r\n  children,\r\n}: {\r\n  children: React.ReactNode;\r\n}) {\r\n  return children;\r\n}\r\n"],"names":[],"mappings":"wCAAe,SAAS,EAAe,UACrC,CAAQ,CAGT,EACC,OAAO,CACT"}
