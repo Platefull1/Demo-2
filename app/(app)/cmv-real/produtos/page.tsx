@@ -1,7 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Loader2, Save } from 'lucide-react';
+import { type ColumnDef } from '@tanstack/react-table';
+import { Loader2, Lock, Save, Search } from 'lucide-react';
+import { DataTable } from '@/components/layout/DataTable';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 
 type Item = {
   id: string;
@@ -19,6 +31,10 @@ const SECOES = [
   { value: 'EMBALAGEM', label: 'Embalagem' },
   { value: 'BEBIDA', label: 'Bebida' },
 ] as const;
+
+function secaoLabel(v: string) {
+  return SECOES.find((s) => s.value === v)?.label || v;
+}
 
 export default function CmvRealProdutosPage() {
   const [itens, setItens] = useState<Item[]>([]);
@@ -59,208 +75,269 @@ export default function CmvRealProdutosPage() {
     });
   }, [itens, filtro, secaoFiltro]);
 
-  const get = (id: string, field: keyof Item) => {
-    if (dirty[id] && field in dirty[id]) {
-      return dirty[id][field as keyof typeof dirty[typeof id]];
-    }
-    return itens.find((i) => i.id === id)?.[field];
-  };
+  const get = useCallback(
+    (id: string, field: keyof Item) => {
+      if (dirty[id] && field in dirty[id]) {
+        return dirty[id][field as keyof (typeof dirty)[string]];
+      }
+      return itens.find((i) => i.id === id)?.[field];
+    },
+    [dirty, itens]
+  );
 
-  const patchLocal = (id: string, patch: Partial<Item>) => {
+  const patchLocal = useCallback((id: string, patch: Partial<Item>) => {
     setDirty((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
-  };
+  }, []);
 
-  const salvar = async (id: string) => {
-    const changes = dirty[id];
-    if (!changes || Object.keys(changes).length === 0) return;
-    setSaving(id);
-    setMsg(null);
-    try {
-      const res = await fetch('/api/cmv-real/produtos', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, ...changes }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha');
-      setItens((prev) =>
-        prev.map((i) => (i.id === id ? { ...i, ...changes } : i)),
-      );
-      setDirty((prev) => {
-        const n = { ...prev };
-        delete n[id];
-        return n;
-      });
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Erro');
-    } finally {
-      setSaving(null);
-    }
-  };
+  const salvar = useCallback(
+    async (id: string) => {
+      const changes = dirty[id];
+      if (!changes || Object.keys(changes).length === 0) return;
+      setSaving(id);
+      setMsg(null);
+      try {
+        const res = await fetch('/api/cmv-real/produtos', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, ...changes }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Falha');
+        setItens((prev) =>
+          prev.map((i) => (i.id === id ? { ...i, ...changes } : i))
+        );
+        setDirty((prev) => {
+          const n = { ...prev };
+          delete n[id];
+          return n;
+        });
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : 'Erro');
+      } finally {
+        setSaving(null);
+      }
+    },
+    [dirty]
+  );
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
+  const columns = useMemo<ColumnDef<Item, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'nome',
+        header: 'Produto',
+        cell: ({ row }) => (
+          <div className="min-w-0 max-w-[260px]">
+            <p className="text-sm font-medium text-foreground truncate">
+              {row.original.nome}
+            </p>
+            <p className="text-xs text-muted-foreground truncate">
+              {row.original.slug}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: 'secao',
+        accessorFn: (r) => (get(r.id, 'secao') as string) || r.secao,
+        header: 'Seção',
+        cell: ({ row }) => {
+          const it = row.original;
+          const secao = (get(it.id, 'secao') as string) || it.secao;
+          if (!canConfig) {
+            return (
+              <span className="text-sm text-foreground">{secaoLabel(secao)}</span>
+            );
+          }
+          return (
+            <Select
+              value={secao}
+              onValueChange={(v) =>
+                patchLocal(it.id, { secao: v as Item['secao'] })
+              }
+            >
+              <SelectTrigger className="h-8 w-[140px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SECOES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        },
+      },
+      {
+        id: 'unidade',
+        accessorFn: (r) => (get(r.id, 'unidade') as string) || r.unidade,
+        header: 'Unidade',
+        cell: ({ row }) => {
+          const it = row.original;
+          const unidade = (get(it.id, 'unidade') as string) || it.unidade;
+          if (!canConfig) {
+            return <span className="text-sm text-foreground">{unidade}</span>;
+          }
+          return (
+            <Select
+              value={unidade}
+              onValueChange={(v) =>
+                patchLocal(it.id, { unidade: v as Item['unidade'] })
+              }
+            >
+              <SelectTrigger className="h-8 w-[72px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="KG">KG</SelectItem>
+                <SelectItem value="UN">UN</SelectItem>
+              </SelectContent>
+            </Select>
+          );
+        },
+      },
+      {
+        id: 'ordem',
+        accessorFn: (r) => Number(get(r.id, 'ordem') ?? r.ordem),
+        header: 'Ordem',
+        meta: { headerClassName: 'w-20', cellClassName: 'w-20' },
+        cell: ({ row }) => {
+          const it = row.original;
+          const ordem = Number(get(it.id, 'ordem') ?? it.ordem);
+          if (!canConfig) {
+            return (
+              <span className="text-sm tabular-nums text-foreground">{ordem}</span>
+            );
+          }
+          return (
+            <Input
+              type="number"
+              value={ordem}
+              onChange={(e) =>
+                patchLocal(it.id, { ordem: Number(e.target.value) || 0 })
+              }
+              className="h-8 w-16 text-xs tabular-nums"
+            />
+          );
+        },
+      },
+      {
+        id: 'ativo',
+        accessorFn: (r) => Boolean(get(r.id, 'ativo') ?? r.ativo),
+        header: 'Ativo',
+        cell: ({ row }) => {
+          const it = row.original;
+          const ativo = Boolean(get(it.id, 'ativo') ?? it.ativo);
+          if (!canConfig) {
+            return (
+              <span className="text-sm text-foreground">
+                {ativo ? 'Sim' : 'Não'}
+              </span>
+            );
+          }
+          return (
+            <Switch
+              checked={ativo}
+              onCheckedChange={(v) => patchLocal(it.id, { ativo: v })}
+              aria-label={`Ativo: ${it.nome}`}
+            />
+          );
+        },
+      },
+      {
+        id: 'actions',
+        header: '',
+        enableSorting: false,
+        meta: { headerClassName: 'w-24', cellClassName: 'w-24' },
+        cell: ({ row }) => {
+          if (!canConfig) return null;
+          const it = row.original;
+          const isDirty = Boolean(
+            dirty[it.id] && Object.keys(dirty[it.id]).length
+          );
+          if (!isDirty) return null;
+          return (
+            <Button
+              type="button"
+              size="sm"
+              disabled={saving === it.id}
+              onClick={() => void salvar(it.id)}
+              className="h-8"
+            >
+              {saving === it.id ? (
+                <Loader2 className="size-3.5 animate-spin" />
+              ) : (
+                <Save className="size-3.5" />
+              )}
+              Salvar
+            </Button>
+          );
+        },
+      },
+    ],
+    [canConfig, dirty, get, patchLocal, salvar, saving]
+  );
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-semibold text-foreground">Produtos CMV</h2>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Seção, unidade, ordem e ativo — após a importação.
-        </p>
-      </div>
-
+    <div className="space-y-6">
       {!canConfig && (
-        <p className="text-xs text-muted-foreground bg-card border border-border rounded-lg px-3 py-2">
-          Somente visualização. É necessária a permissão cmv_real.config para editar.
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Lock className="size-3.5 shrink-0 text-muted-foreground" />
+          Somente visualização. Peça acesso de configuração para editar.
         </p>
       )}
 
-      <div className="flex flex-col gap-2">
-        <input
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-          placeholder="Buscar produto…"
-          className="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm"
-        />
-        <select
-          value={secaoFiltro}
-          onChange={(e) => setSecaoFiltro(e.target.value)}
-          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm"
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={filtro}
+            onChange={(e) => setFiltro(e.target.value)}
+            placeholder="Buscar produto…"
+            className="h-8 pl-8 text-sm"
+          />
+        </div>
+        <Select
+          value={secaoFiltro || '__all__'}
+          onValueChange={(v) => setSecaoFiltro(v === '__all__' ? '' : v)}
         >
-          <option value="">Todas as seções</option>
-          {SECOES.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
+          <SelectTrigger className="h-8 w-full sm:w-[160px] text-sm">
+            <SelectValue placeholder="Seção" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todas as seções</SelectItem>
+            {SECOES.map((s) => (
+              <SelectItem key={s.value} value={s.value}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {msg && <p className="text-sm text-warning">{msg}</p>}
-
-      {filtered.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">
-          Nenhum produto. Importe o catálogo em Importar.
+      {msg ? (
+        <p className="text-sm text-warning" role="alert">
+          {msg}
         </p>
-      ) : (
-        <ul className="space-y-2">
-          {filtered.map((it) => {
-            const isDirty = Boolean(dirty[it.id] && Object.keys(dirty[it.id]).length);
-            const secao = (get(it.id, 'secao') as string) || it.secao;
-            const unidade = (get(it.id, 'unidade') as string) || it.unidade;
-            const ordem = Number(get(it.id, 'ordem') ?? it.ordem);
-            const ativo = Boolean(get(it.id, 'ativo') ?? it.ativo);
+      ) : null}
 
-            return (
-              <li
-                key={it.id}
-                className="rounded-xl border border-border bg-card p-3 space-y-2.5"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {it.nome}
-                    </p>
-                    <p className="text-[10px] text-muted-foreground truncate">{it.slug}</p>
-                  </div>
-                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={ativo}
-                      disabled={!canConfig}
-                      onChange={(e) =>
-                        patchLocal(it.id, { ativo: e.target.checked })
-                      }
-                      className="accent-primary"
-                    />
-                    Ativo
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block mb-0.5">
-                      Seção
-                    </label>
-                    <select
-                      value={secao}
-                      disabled={!canConfig}
-                      onChange={(e) =>
-                        patchLocal(it.id, {
-                          secao: e.target.value as Item['secao'],
-                        })
-                      }
-                      className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs disabled:opacity-60"
-                    >
-                      {SECOES.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-muted-foreground block mb-0.5">
-                      Unidade
-                    </label>
-                    <select
-                      value={unidade}
-                      disabled={!canConfig}
-                      onChange={(e) =>
-                        patchLocal(it.id, {
-                          unidade: e.target.value as Item['unidade'],
-                        })
-                      }
-                      className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs disabled:opacity-60"
-                    >
-                      <option value="KG">KG</option>
-                      <option value="UN">UN</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <label className="text-[10px] text-muted-foreground block mb-0.5">
-                      Ordem
-                    </label>
-                    <input
-                      type="number"
-                      value={ordem}
-                      disabled={!canConfig}
-                      onChange={(e) =>
-                        patchLocal(it.id, { ordem: Number(e.target.value) || 0 })
-                      }
-                      className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs disabled:opacity-60"
-                    />
-                  </div>
-                  {canConfig && (
-                    <button
-                      type="button"
-                      disabled={!isDirty || saving === it.id}
-                      onClick={() => void salvar(it.id)}
-                      className="flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2 disabled:opacity-40"
-                    >
-                      {saving === it.id ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Save className="w-3.5 h-3.5" />
-                      )}
-                      Salvar
-                    </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        pageSize={50}
+        initialSorting={[{ id: 'ordem', desc: false }]}
+        interactiveColumnIds={['secao', 'unidade', 'ordem', 'ativo', 'actions']}
+        emptyState={
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">Nenhum produto</p>
+            <p className="text-xs text-muted-foreground">
+              Importe o catálogo na aba Importar.
+            </p>
+          </div>
+        }
+      />
     </div>
   );
 }

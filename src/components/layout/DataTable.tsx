@@ -182,7 +182,12 @@ export function DataTable<TData>({
 
   return (
     <div className={cn("space-y-0", className)}>
-      <div className="hidden md:block rounded-md border border-border overflow-hidden">
+      <div
+        className={cn(
+          "rounded-md border border-border overflow-hidden",
+          renderMobileRow && "hidden md:block"
+        )}
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((hg) => (
