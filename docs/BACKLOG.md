@@ -18,6 +18,13 @@ Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 - Formulários de `FuncionarioForm` (campos legado) ainda podem ter hex interno — restyle superficial no Bloco A no shell da página novo.
 - Usuários: estado 403 a alinhar; item no menu Mais permanece (permissão na página).
 
+## CMV Real — refeições / venda Saipos (out/2026)
+
+- Sync de refeições e venda Saipos no fechamento: UI pronta; confirmar tokens `SAIPOS_DATA_TOKEN_*` por loja em produção.
+- Lançamento manual de refeição (`add_manual`) existe na API; ainda sem formulário na UI do fechamento.
+- Regras `refeicaoRegras` / `vendaMesConfig` no `NfeConfig` usam defaults em código; tela de edição das regras ainda não existe.
+- Export XLSX do fechamento ainda não inclui bloco de refeições / CMV líquido.
+
 ## Design system
 
 - Dívida residual de hex/amber em outras telas legadas fora do AppShell redesign.

@@ -9,6 +9,7 @@ import { prisma } from '@/lib/prisma';
 import { semanaFromDataEntrada } from './dates';
 import { competenciaAnterior, storeLabel } from './lojas';
 import { conciliarTransferencias, type AlertaTransferencia } from './transferencias';
+import { calcularCustoRefeicoes } from '@/lib/cmv-real/refeicoes';
 
 export type AjusteFechamento = {
   id: string;
@@ -103,12 +104,32 @@ export async function montarFechamento(params: {
   pendencias: string[];
   totais: {
     consumoValor: number;
+    consumoMp: number;
     comprasValor: number;
     transfEnviadaValor: number;
     transfRecebidaValor: number;
     ajustesValor: number;
     vendaMes: number | null;
+    pctCmvMpBruto: number | null;
+    custoRefeicoes: number;
+    consumoMpLiquido: number | null;
+    refeicoesPorCategoria: Array<{
+      categoria: string;
+      quantidade: number;
+      valorItens: number;
+      custo: number;
+    }>;
   };
+  refeicoes: Array<{
+    id: string;
+    data: string;
+    categoria: string;
+    consumidor: string | null;
+    formaPagamento: string | null;
+    valorItens: number;
+    origem: string;
+    ignorada: boolean;
+  }>;
 }> {
   const fechamento = await garantirFechamentoAberto(params);
   const ant = competenciaAnterior(params.competencia);
@@ -256,18 +277,92 @@ export async function montarFechamento(params: {
   const ajustes = parseAjustes(fechamento.ajustes);
   const ajustesValor = ajustes.reduce((a, x) => a + x.valor, 0);
 
+  // Aviso: API de Dados ~24h de atraso; sync definitivo a partir do dia 2 do mês seguinte
+  const [yStr, mStr] = params.competencia.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr); // 1–12; Date.UTC month é 0-based → m = mês seguinte
+  // competencia 2026-10 → Date.UTC(2026, 10, 2) = 02/11/2026
+  const syncDefinitivoApartir = new Date(Date.UTC(y, m, 2));
+  const hoje = new Date();
+  if (fechamento.status !== 'FECHADO') {
+    pendencias.push('Dados da Saipos até ontem (API de Dados ~24h de atraso)');
+  }
+  if (hoje < syncDefinitivoApartir) {
+    const label = syncDefinitivoApartir.toLocaleDateString('pt-BR', {
+      timeZone: 'UTC',
+    });
+    pendencias.push(
+      `Sync definitivo das refeições: rode a partir de ${label} (dia 2 do mês seguinte)`
+    );
+  }
+
+  const refeicaoRows = await prisma.cmvRefeicao.findMany({
+    where: {
+      userId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competencia,
+    },
+    orderBy: [{ data: 'asc' }, { createdAt: 'asc' }],
+  });
+
+  const consumoValor = linhas.reduce((a, l) => a + l.consumoValor, 0);
+  const consumoMp = linhas
+    .filter((l) => l.secao === 'MATERIA_PRIMA')
+    .reduce((a, l) => a + l.consumoValor, 0);
+  const vendaMes = fechamento.vendaMes != null ? n(fechamento.vendaMes) : null;
+
+  const calcRef =
+    vendaMes != null && vendaMes > 0
+      ? calcularCustoRefeicoes({
+          consumoMp,
+          vendaMes,
+          refeicoes: refeicaoRows.map((r) => ({
+            categoria: r.categoria,
+            valorItens: n(r.valorItens),
+            ignorada: r.ignorada,
+          })),
+        })
+      : {
+          pctCmvMpBruto: 0,
+          porCategoria: [] as Array<{
+            categoria: string;
+            quantidade: number;
+            valorItens: number;
+            custo: number;
+          }>,
+          custoTotal: 0,
+          consumoMpLiquido: consumoMp,
+        };
+
   return {
     fechamento,
     linhas,
     alertasTransferencia,
     pendencias,
+    refeicoes: refeicaoRows.map((r) => ({
+      id: r.id,
+      data: r.data.toISOString().slice(0, 10),
+      categoria: r.categoria,
+      consumidor: r.consumidor,
+      formaPagamento: r.formaPagamento,
+      valorItens: n(r.valorItens),
+      origem: r.origem,
+      ignorada: r.ignorada,
+    })),
     totais: {
-      consumoValor: linhas.reduce((a, l) => a + l.consumoValor, 0),
+      consumoValor,
+      consumoMp,
       comprasValor: linhas.reduce((a, l) => a + l.comprasValor, 0),
       transfEnviadaValor: linhas.reduce((a, l) => a + l.transfEnviadaValor, 0),
       transfRecebidaValor: linhas.reduce((a, l) => a + l.transfRecebidaValor, 0),
       ajustesValor,
-      vendaMes: fechamento.vendaMes != null ? n(fechamento.vendaMes) : null,
+      vendaMes,
+      pctCmvMpBruto:
+        vendaMes != null && vendaMes > 0 ? calcRef.pctCmvMpBruto : null,
+      custoRefeicoes: calcRef.custoTotal,
+      consumoMpLiquido:
+        vendaMes != null && vendaMes > 0 ? calcRef.consumoMpLiquido : null,
+      refeicoesPorCategoria: calcRef.porCategoria,
     },
   };
 }

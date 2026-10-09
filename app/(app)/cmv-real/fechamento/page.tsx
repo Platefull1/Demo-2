@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Lock, Unlock } from 'lucide-react';
+import { ChevronDown, ChevronRight, Download, Lock, RefreshCw, Unlock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -64,6 +64,15 @@ const SECAO_LABEL: Record<string, string> = {
   EMBALAGEM: 'Embalagem',
   BEBIDA: 'Bebida',
   GERAL: 'Geral',
+};
+
+const REFEICAO_CAT_LABEL: Record<string, string> = {
+  BOYS: 'Boys',
+  LOJA: 'Loja',
+  CENTRAL: 'Central',
+  SEGURANCA: 'Segurança',
+  SOCIO: 'Sócio',
+  OUTROS: 'Outros',
 };
 
 const COL_TOOLTIPS: Record<string, string> = {
@@ -150,10 +159,35 @@ export default function CmvRealFechamentoPage() {
   const [pendencias, setPendencias] = useState<string[]>([]);
   const [status, setStatus] = useState('ABERTO');
   const [vendaMes, setVendaMes] = useState('');
+  const [vendaMesOrigem, setVendaMesOrigem] = useState<string | null>(null);
+  const [vendaMesSaipos, setVendaMesSaipos] = useState<number | null>(null);
+  const [syncingRefeicoes, setSyncingRefeicoes] = useState(false);
+  const [refeicoes, setRefeicoes] = useState<
+    Array<{
+      id: string;
+      data: string;
+      categoria: string;
+      consumidor: string | null;
+      valorItens: number;
+      ignorada: boolean;
+      origem: string;
+    }>
+  >([]);
+  const [expandedCat, setExpandedCat] = useState<string | null>(null);
   const [totais, setTotais] = useState<{
     consumoValor: number;
+    consumoMp?: number;
     ajustesValor: number;
     vendaMes: number | null;
+    pctCmvMpBruto?: number | null;
+    custoRefeicoes?: number;
+    consumoMpLiquido?: number | null;
+    refeicoesPorCategoria?: Array<{
+      categoria: string;
+      quantidade: number;
+      valorItens: number;
+      custo: number;
+    }>;
   } | null>(null);
   const [canFechar, setCanFechar] = useState(false);
   const [canReabrir, setCanReabrir] = useState(false);
@@ -197,6 +231,8 @@ export default function CmvRealFechamentoPage() {
       setVendaMes(
         data.fechamento?.vendaMes != null ? String(data.fechamento.vendaMes) : ''
       );
+      setVendaMesOrigem(data.fechamento?.vendaMesOrigem ?? null);
+      setRefeicoes(data.refeicoesSaipos || []);
       setTotais(data.totais);
       setCanFechar(data.canFechar === true);
       setCanReabrir(data.canReabrir === true);
@@ -236,6 +272,66 @@ export default function CmvRealFechamentoPage() {
           vendaMes === '' ? null : Number(String(vendaMes).replace(',', '.')),
       });
       setMsg('Venda/mês salva');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const syncRefeicoes = async () => {
+    setSyncingRefeicoes(true);
+    setMsg(null);
+    try {
+      const res = await fetch(
+        `/api/cmv-real/refeicoes/sync?loja=${storeSlug}&competencia=${competencia}`,
+        { method: 'POST' }
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha no sync');
+      setVendaMesSaipos(
+        typeof data.vendaMesSaipos === 'number' ? data.vendaMesSaipos : null
+      );
+      setMsg(
+        `Refeições: ${data.upserted} upsert(s). Venda Saipos calculada: ${fmtMoney(data.vendaMesSaipos ?? 0)}`
+      );
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro no sync');
+    } finally {
+      setSyncingRefeicoes(false);
+    }
+  };
+
+  const usarVendaSaipos = async () => {
+    if (vendaMesSaipos == null) return;
+    const ok = window.confirm(
+      `Substituir a venda do mês pelo valor da Saipos (${fmtMoney(vendaMesSaipos)})?`
+    );
+    if (!ok) return;
+    try {
+      await patch({ action: 'usar_venda_saipos', vendaMesSaipos });
+      setMsg('Venda do mês atualizada com o valor da Saipos');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const setRefeicaoIgnorada = async (id: string, ignorada: boolean) => {
+    try {
+      const res = await fetch('/api/cmv-real/refeicoes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'set_ignorada',
+          storeSlug,
+          competencia,
+          id,
+          ignorada,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha');
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -410,7 +506,7 @@ export default function CmvRealFechamentoPage() {
         {totais && (
           <Card className="overflow-hidden">
             <CardContent className="p-0">
-              <div className="grid grid-cols-1 sm:grid-cols-3">
+              <div className="grid grid-cols-2 xl:grid-cols-4">
                 {[
                   {
                     label: 'Venda',
@@ -420,20 +516,31 @@ export default function CmvRealFechamentoPage() {
                         : '–',
                   },
                   {
-                    label: 'Consumo',
-                    value: fmtMoney(totais.consumoValor),
+                    label: 'Consumo MP',
+                    value: fmtMoney(totais.consumoMp ?? totais.consumoValor),
                   },
                   {
-                    label: 'Ajustes',
-                    value: fmtMoney(totais.ajustesValor),
+                    label: '% CMV MP bruto',
+                    value:
+                      totais.pctCmvMpBruto != null
+                        ? `${(totais.pctCmvMpBruto * 100).toFixed(1)}%`
+                        : '–',
+                  },
+                  {
+                    label: 'Consumo MP líquido',
+                    value:
+                      totais.consumoMpLiquido != null
+                        ? fmtMoney(totais.consumoMpLiquido)
+                        : '–',
                   },
                 ].map((k, i) => (
                   <div
                     key={k.label}
                     className={cn(
                       'px-4 py-4',
-                      i < 2 && 'sm:border-r border-border',
-                      i < 2 && 'border-b sm:border-b-0 border-border'
+                      (i === 0 || i === 2) && 'border-r border-border',
+                      (i === 0 || i === 1) && 'border-b border-border xl:border-b-0',
+                      i < 3 && 'xl:border-r'
                     )}
                   >
                     <p className="text-sm text-muted-foreground">{k.label}</p>
@@ -455,11 +562,12 @@ export default function CmvRealFechamentoPage() {
                 Venda do mês
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Preenchido manualmente por enquanto. Em breve virá do Saipos.
+                Manual e Saipos lado a lado — a Saipos só entra com confirmação.
+                {vendaMesOrigem ? ` Origem atual: ${vendaMesOrigem}.` : ''}
               </p>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs text-muted-foreground">Valor (R$)</label>
+              <label className="text-xs text-muted-foreground">Valor manual (R$)</label>
               <div className="flex gap-2">
                 <Input
                   value={vendaMes}
@@ -479,6 +587,25 @@ export default function CmvRealFechamentoPage() {
                   </Button>
                 )}
               </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <p className="text-sm text-muted-foreground">
+                Saipos:{' '}
+                <span className="tabular-nums text-foreground font-medium">
+                  {vendaMesSaipos != null ? fmtMoney(vendaMesSaipos) : '— (sincronize)'}
+                </span>
+              </p>
+              {canFechar && aberto && vendaMesSaipos != null && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8"
+                  onClick={() => void usarVendaSaipos()}
+                >
+                  Usar valor da Saipos
+                </Button>
+              )}
             </div>
           </div>
 
@@ -559,6 +686,137 @@ export default function CmvRealFechamentoPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* Refeições internas (Saipos) */}
+        <div className="rounded-md border border-border bg-card p-4 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-base font-semibold text-foreground">
+                Refeições internas
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Jantas / sócio da API de Dados Saipos. Custo = valor dos itens × %CMV MP bruto.
+                {totais?.custoRefeicoes != null
+                  ? ` Custo total: ${fmtMoney(totais.custoRefeicoes)}.`
+                  : ''}
+              </p>
+            </div>
+            {canFechar && aberto && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0"
+                disabled={syncingRefeicoes}
+                onClick={() => void syncRefeicoes()}
+              >
+                <RefreshCw
+                  className={cn('size-4', syncingRefeicoes && 'animate-spin')}
+                />
+                {syncingRefeicoes ? 'Sincronizando…' : 'Sincronizar Saipos'}
+              </Button>
+            )}
+          </div>
+
+          {(totais?.refeicoesPorCategoria?.length ?? 0) === 0 &&
+          refeicoes.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">
+              Nenhuma refeição nesta competência
+              <span className="block text-xs mt-1">
+                Sincronize a Saipos para importar jantas e sócio.
+              </span>
+            </p>
+          ) : (
+            <div className="rounded-md border border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="h-8 w-8" />
+                    <TableHead className="h-8">Categoria</TableHead>
+                    <TableHead className="h-8 text-right">Qtd</TableHead>
+                    <TableHead className="h-8 text-right">Valor itens</TableHead>
+                    <TableHead className="h-8 text-right">Custo</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(totais?.refeicoesPorCategoria || []).map((cat) => {
+                    const open = expandedCat === cat.categoria;
+                    const detalhes = refeicoes.filter(
+                      (r) => r.categoria === cat.categoria
+                    );
+                    return (
+                      <Fragment key={cat.categoria}>
+                        <TableRow
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() =>
+                            setExpandedCat(open ? null : cat.categoria)
+                          }
+                        >
+                          <TableCell className="py-1.5 w-8">
+                            {open ? (
+                              <ChevronDown className="size-3.5 text-muted-foreground" />
+                            ) : (
+                              <ChevronRight className="size-3.5 text-muted-foreground" />
+                            )}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-sm text-foreground">
+                            {REFEICAO_CAT_LABEL[cat.categoria] || cat.categoria}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-sm text-right tabular-nums text-foreground">
+                            {cat.quantidade}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-sm text-right tabular-nums text-foreground">
+                            {fmtMoney(cat.valorItens)}
+                          </TableCell>
+                          <TableCell className="py-1.5 text-sm text-right tabular-nums text-foreground">
+                            {fmtMoney(cat.custo)}
+                          </TableCell>
+                        </TableRow>
+                        {open &&
+                          detalhes.map((r) => (
+                            <TableRow
+                              key={r.id}
+                              className={cn(
+                                'bg-muted/30',
+                                r.ignorada && 'opacity-50'
+                              )}
+                            >
+                              <TableCell className="py-1" />
+                              <TableCell className="py-1 text-xs text-muted-foreground" colSpan={2}>
+                                {r.data}
+                                {r.consumidor ? ` · ${r.consumidor}` : ''}
+                                {r.origem === 'MANUAL' ? ' · manual' : ''}
+                                {r.ignorada ? ' · ignorada' : ''}
+                              </TableCell>
+                              <TableCell className="py-1 text-xs text-right tabular-nums text-foreground">
+                                {fmtMoney(r.valorItens)}
+                              </TableCell>
+                              <TableCell className="py-1 text-right">
+                                {canFechar && aberto && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void setRefeicaoIgnorada(r.id, !r.ignorada);
+                                    }}
+                                  >
+                                    {r.ignorada ? 'Restaurar' : 'Ignorar'}
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                      </Fragment>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
 
         {canFechar && aberto && (

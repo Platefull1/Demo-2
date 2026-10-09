@@ -89,10 +89,12 @@ export async function GET(req: NextRequest) {
           : null,
       vendaMesOrigem: data.fechamento.vendaMesOrigem,
       ajustes: parseAjustes(data.fechamento.ajustes),
+      /** Legado JSON no fechamento — preferir `refeicoesSaipos` */
       refeicoes: parseRefeicoes(data.fechamento.refeicoesFuncionarios),
       contagemId: data.fechamento.contagemId,
       fechadoEm: data.fechamento.fechadoEm,
     },
+    refeicoesSaipos: data.refeicoes,
     linhas: data.linhas,
     alertasTransferencia: data.alertasTransferencia,
     pendencias: data.pendencias,
@@ -104,6 +106,7 @@ export async function GET(req: NextRequest) {
  * PATCH /api/cmv-real/fechamento
  * body.action:
  *  - set_venda { storeSlug, competencia, vendaMes }
+ *  - usar_venda_saipos { storeSlug, competencia, vendaMesSaipos }
  *  - add_ajuste { storeSlug, competencia, secao, descricao, valor }
  *  - remove_ajuste { storeSlug, competencia, ajusteId }
  *  - set_refeicoes { storeSlug, competencia, refeicoes }
@@ -116,6 +119,7 @@ export async function PATCH(req: NextRequest) {
     storeSlug?: string;
     competencia?: string;
     vendaMes?: number | null;
+    vendaMesSaipos?: number;
     secao?: AjusteFechamento['secao'];
     descricao?: string;
     valor?: number;
@@ -174,6 +178,30 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       vendaMes: fechamento.vendaMes != null ? Number(fechamento.vendaMes) : null,
+      vendaMesOrigem: fechamento.vendaMesOrigem,
+    });
+  }
+
+  if (body.action === 'usar_venda_saipos') {
+    if (fechamento.status === 'FECHADO') {
+      return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
+    }
+    if (body.vendaMesSaipos == null || !Number.isFinite(Number(body.vendaMesSaipos))) {
+      return NextResponse.json(
+        { error: 'vendaMesSaipos obrigatório' },
+        { status: 400 }
+      );
+    }
+    fechamento = await prisma.cmvFechamento.update({
+      where: { id: fechamento.id },
+      data: {
+        vendaMes: decimal(Number(body.vendaMesSaipos)),
+        vendaMesOrigem: 'SAIPOS',
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      vendaMes: Number(fechamento.vendaMes),
       vendaMesOrigem: fechamento.vendaMesOrigem,
     });
   }
@@ -254,9 +282,12 @@ export async function PATCH(req: NextRequest) {
         fechadoPorId: tenant.actorUserId,
         snapshot: {
           totais: snap.totais,
+          refeicoes: snap.refeicoes,
           pendencias: snap.pendencias,
           alertasTransferencia: snap.alertasTransferencia,
           linhasCount: snap.linhas.length,
+          pctCmvMpBruto: snap.totais.pctCmvMpBruto,
+          custoRefeicoes: snap.totais.custoRefeicoes,
         },
       },
     });

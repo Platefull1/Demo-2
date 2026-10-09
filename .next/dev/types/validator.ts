@@ -1298,6 +1298,24 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../../app/api/cmv-real/refeicoes/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/cmv-real/refeicoes">> = Specific
+  const handler = {} as typeof import("../../../app/api/cmv-real/refeicoes/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
+// Validate ../../../app/api/cmv-real/refeicoes/sync/route.ts
+{
+  type __IsExpected<Specific extends RouteHandlerConfig<"/api/cmv-real/refeicoes/sync">> = Specific
+  const handler = {} as typeof import("../../../app/api/cmv-real/refeicoes/sync/route.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../../app/api/cmv-real/reprocessar/route.ts
 {
   type __IsExpected<Specific extends RouteHandlerConfig<"/api/cmv-real/reprocessar">> = Specific

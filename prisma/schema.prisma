@@ -101,6 +101,7 @@ model User {
   cmvLancamentos         CmvLancamento[]
   cmvSaldosEstoque       CmvSaldoEstoque[]
   cmvFechamentos         CmvFechamento[]
+  cmvRefeicoes           CmvRefeicao[]
   nfeConfig              NfeConfig?
 
   @@map("users")
@@ -2306,8 +2307,37 @@ model NfeConfig {
   toleranciaTotalPercent     Decimal  @default(0.5) @map("tolerancia_total_percent") @db.Decimal(14, 4)
   limiteVariacaoCustoPercent Decimal  @default(30) @map("limite_variacao_custo_percent") @db.Decimal(14, 4)
   maxTentativas              Int      @default(3) @map("max_tentativas")
+  /// Regras texto→categoria de refeição interna (lista ordenada). Vazio = seed DEFAULT_REFEICAO_REGRAS.
+  refeicaoRegras             Json     @default("[]") @map("refeicao_regras")
+  /// { incluirTaxaEntrega, usarTotalLiquido, incluirIfood }
+  vendaMesConfig             Json     @default("{}") @map("venda_mes_config")
   createdAt                  DateTime @default(now()) @map("created_at")
   updatedAt                  DateTime @updatedAt @map("updated_at")
 
   @@map("nfe_configs")
+}
+
+/// Refeições internas (jantas / sócio) sincronizadas da API de Dados Saipos.
+model CmvRefeicao {
+  id              String   @id @default(cuid())
+  userId          String   @map("user_id")
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug       String   @map("store_slug")
+  competencia     String
+  data            DateTime @db.Date
+  /// BOYS | LOJA | CENTRAL | SEGURANCA | SOCIO | OUTROS
+  categoria       String
+  consumidor      String?
+  formaPagamento  String?  @map("forma_pagamento")
+  valorItens      Decimal  @map("valor_itens") @db.Decimal(14, 2)
+  saiposSaleId    String?  @map("saipos_sale_id")
+  /// SAIPOS | MANUAL
+  origem          String   @default("SAIPOS")
+  ignorada        Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, storeSlug, saiposSaleId])
+  @@index([userId, storeSlug, competencia])
+  @@map("cmv_refeicoes")
 }
