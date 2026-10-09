@@ -1,7 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { FileSpreadsheet, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { ChevronDown, Loader2, RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { FileDropzone } from './FileDropzone';
 import { ImportarSaldoBlock } from './ImportarSaldoBlock';
 
 type PreviewStatus = 'casado' | 'sugerido' | 'nao_encontrado';
@@ -37,6 +46,12 @@ function defaultAction(status: PreviewStatus): RowAction {
   return null; // sugerido: exige escolha
 }
 
+function statusLabel(status: PreviewStatus) {
+  if (status === 'casado') return 'Encontrado';
+  if (status === 'sugerido') return 'Sugerido';
+  return 'Não encontrado';
+}
+
 export default function CmvRealImportarPage() {
   const [file, setFile] = useState<File | null>(null);
   const [abas, setAbas] = useState<string[]>([]);
@@ -62,7 +77,10 @@ export default function CmvRealImportarPage() {
         const data = await res.json();
         const list = Array.isArray(data) ? data : data.insumos ?? [];
         setCatalogo(
-          list.map((i: { id: string; nome: string }) => ({ id: i.id, nome: i.nome })),
+          list.map((i: { id: string; nome: string }) => ({
+            id: i.id,
+            nome: i.nome,
+          }))
         );
       } catch {
         /* ignore */
@@ -102,7 +120,10 @@ export default function CmvRealImportarPage() {
       const fd = new FormData();
       fd.set('action', 'listar-abas');
       fd.set('file', f);
-      const res = await fetch('/api/cmv-real/importar-catalogo', { method: 'POST', body: fd });
+      const res = await fetch('/api/cmv-real/importar-catalogo', {
+        method: 'POST',
+        body: fd,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha ao ler abas');
       setAbas(data.abas || []);
@@ -114,6 +135,16 @@ export default function CmvRealImportarPage() {
     }
   }, []);
 
+  const onFile = useCallback(
+    (f: File | null) => {
+      setFile(f);
+      setAbas([]);
+      setRows(null);
+      if (f) void listarAbas(f);
+    },
+    [listarAbas]
+  );
+
   const gerarPreview = useCallback(async () => {
     if (!file || !aba) return;
     setLoading(true);
@@ -123,7 +154,10 @@ export default function CmvRealImportarPage() {
       fd.set('action', 'preview');
       fd.set('file', file);
       fd.set('aba', aba);
-      const res = await fetch('/api/cmv-real/importar-catalogo', { method: 'POST', body: fd });
+      const res = await fetch('/api/cmv-real/importar-catalogo', {
+        method: 'POST',
+        body: fd,
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha no preview');
       const itens = (data.itens as PreviewItem[]).map((p) => {
@@ -150,7 +184,11 @@ export default function CmvRealImportarPage() {
     }
   }, [file, aba]);
 
-  const setRowAction = (idx: number, action: RowAction, chosen?: CatalogOption) => {
+  const setRowAction = (
+    idx: number,
+    action: RowAction,
+    chosen?: CatalogOption
+  ) => {
     setRows((prev) => {
       if (!prev) return prev;
       return prev.map((r, i) => {
@@ -172,7 +210,12 @@ export default function CmvRealImportarPage() {
           };
         }
         if (action === 'escolher') {
-          return { ...r, action: 'escolher', chosenId: undefined, chosenNome: undefined };
+          return {
+            ...r,
+            action: 'escolher',
+            chosenId: undefined,
+            chosenNome: undefined,
+          };
         }
         return { ...r, action, chosenId: undefined, chosenNome: undefined };
       });
@@ -231,7 +274,7 @@ export default function CmvRealImportarPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha ao confirmar');
-      setMsg(`Catálogo atualizado: ${data.upserted} produtos em CmvRealInsumoConfig.`);
+      setMsg(`Catálogo atualizado: ${data.upserted} produtos.`);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {
@@ -248,7 +291,7 @@ export default function CmvRealImportarPage() {
       if (!res.ok) throw new Error(data.error || 'Falha ao reprocessar');
       setReproc(
         `Reprocessadas: ${data.processadas} · Sugestões: ${data.sugeridos} · ` +
-          `Aprovadas: ${data.aprovadas} · Ainda em revisão: ${data.aindaEmRevisao}`,
+          `Aprovadas: ${data.aprovadas} · Ainda em revisão: ${data.aindaEmRevisao}`
       );
     } catch (e) {
       setReproc(e instanceof Error ? e.message : 'Erro');
@@ -258,124 +301,115 @@ export default function CmvRealImportarPage() {
   }, []);
 
   const confirmLabel = rows
-    ? `Vincular ${counts.vincular} · Criar ${counts.criar} · Ignorar ${counts.ignorar}`
-    : 'Confirmar';
+    ? `Confirmar importação · Vincular ${counts.vincular} · Criar ${counts.criar} · Ignorar ${counts.ignorar}`
+    : 'Confirmar importação';
 
   return (
     <div className="space-y-6">
-        <div>
-          <h2 className="text-base font-semibold flex items-center gap-2 text-foreground">
-            <FileSpreadsheet className="w-4 h-4 text-muted-foreground" />
-            Importar catálogo
-          </h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Lê a planilha CMV DESPERDÍCIO e cria/atualiza CmvRealInsumoConfig (sem saldo).
-          </p>
+      {/* Etapa 1 */}
+      <section className="rounded-md border border-border bg-card p-4 space-y-4">
+        <div className="flex gap-3">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground tabular-nums">
+            1
+          </span>
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-base font-semibold text-foreground">
+              Importar catálogo
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Envie a planilha CMV Desperdício para criar ou atualizar a lista de
+              insumos.
+            </p>
+            <details className="text-xs text-muted-foreground">
+              <summary className="cursor-pointer inline-flex items-center gap-1 hover:text-foreground">
+                Detalhes técnicos
+                <ChevronDown className="size-3" />
+              </summary>
+              <p className="mt-1.5">
+                Atualiza a configuração de insumos do CMV Real (sem importar
+                saldo). Aba da planilha corresponde ao mês.
+              </p>
+            </details>
+          </div>
         </div>
 
-        <section className="rounded-xl border border-border bg-card p-4 space-y-4">
-          <label className="flex flex-col gap-2 text-sm">
-            <span className="text-muted-foreground">Arquivo .xlsx</span>
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1.5 file:text-primary"
-              onChange={(e) => {
-                const f = e.target.files?.[0] || null;
-                setFile(f);
-                setAbas([]);
-                setRows(null);
-                if (f) void listarAbas(f);
-              }}
-            />
-          </label>
+        <FileDropzone file={file} disabled={loading} onFile={onFile} />
 
-          {abas.length > 0 && (
-            <label className="flex flex-col gap-2 text-sm">
-              <span className="text-muted-foreground">Aba (mês)</span>
-              <select
-                value={aba}
-                onChange={(e) => setAba(e.target.value)}
-                className="bg-background border border-border rounded-lg px-3 py-2"
-              >
+        {abas.length > 0 && (
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Aba (mês)</label>
+            <Select value={aba} onValueChange={setAba}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
                 {abas.map((a) => (
-                  <option key={a} value={a}>
+                  <SelectItem key={a} value={a}>
                     {a}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-            </label>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={!file || !aba || loading}
-              onClick={() => void gerarPreview()}
-              className="inline-flex items-center gap-2 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 text-sm disabled:opacity-40"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-              Prévia do catálogo
-            </button>
-            <button
-              type="button"
-              disabled={!canConfirm}
-              onClick={() => void confirmar()}
-              title={
-                counts.pendentes > 0
-                  ? `${counts.pendentes} sugestão(ões) sem decisão`
-                  : undefined
-              }
-              className="inline-flex items-center gap-2 rounded-lg border border-primary/40 text-primary hover:bg-primary/10 px-4 py-2 text-sm disabled:opacity-40"
-            >
-              {confirmLabel}
-            </button>
+              </SelectContent>
+            </Select>
           </div>
+        )}
 
-          {resumo && (
-            <p className="text-sm text-muted-foreground">
-              {resumo.total} na planilha · {resumo.casados} casados · {resumo.sugeridos}{' '}
-              sugeridos · {resumo.naoEncontrados} não encontrados
-              {resumo.catalogoEstoqueSize != null && (
-                <> · catálogo Estoque: {resumo.catalogoEstoqueSize} produtos</>
-              )}
-              {counts.pendentes > 0 && (
-                <span className="text-warning">
-                  {' '}
-                  · {counts.pendentes} sugestão(ões) aguardando decisão
-                </span>
-              )}
-            </p>
-          )}
-          {msg && <p className="text-sm text-warning">{msg}</p>}
-        </section>
-
-        <section className="rounded-xl border border-border bg-card p-4 space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Após importar o catálogo</h2>
-          <p className="text-xs text-muted-foreground">
-            Reprocessa notas em revisão para gerar sugestões por similaridade.
-          </p>
-          <button
+        <div className="flex flex-wrap gap-2">
+          <Button
             type="button"
-            disabled={loading}
-            onClick={() => void reprocessar()}
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card text-foreground hover:bg-muted px-4 py-2 text-sm disabled:opacity-40"
+            variant="outline"
+            size="sm"
+            disabled={!file || !aba || loading}
+            onClick={() => void gerarPreview()}
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-            Reprocessar notas em revisão
-          </button>
-          {reproc && <p className="text-sm text-muted-foreground">{reproc}</p>}
-        </section>
+            {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+            Pré-visualizar
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canConfirm}
+            onClick={() => void confirmar()}
+            title={
+              counts.pendentes > 0
+                ? `${counts.pendentes} sugestão(ões) sem decisão`
+                : undefined
+            }
+          >
+            {confirmLabel}
+          </Button>
+        </div>
+
+        {resumo && (
+          <p className="text-sm text-muted-foreground">
+            {resumo.total} na planilha · {resumo.casados} encontrados ·{' '}
+            {resumo.sugeridos} sugeridos · {resumo.naoEncontrados} não
+            encontrados
+            {resumo.catalogoEstoqueSize != null && (
+              <> · {resumo.catalogoEstoqueSize} produtos no estoque</>
+            )}
+            {counts.pendentes > 0 && (
+              <span className="text-warning">
+                {' '}
+                · {counts.pendentes} sugestão(ões) aguardando decisão
+              </span>
+            )}
+          </p>
+        )}
+        {msg && (
+          <p className="text-sm text-warning" role="alert">
+            {msg}
+          </p>
+        )}
 
         {rows && (
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="rounded-md border border-border overflow-hidden">
             <div className="max-h-[60vh] overflow-auto">
               <table className="w-full text-xs">
                 <thead className="bg-muted sticky top-0 z-10">
                   <tr className="text-left text-muted-foreground">
                     <th className="px-3 py-2">Linha</th>
                     <th className="px-3 py-2">Produto</th>
-                    <th className="px-3 py-2">Match</th>
+                    <th className="px-3 py-2">Correspondência</th>
                     <th className="px-3 py-2 min-w-[220px]">Ação</th>
                   </tr>
                 </thead>
@@ -383,13 +417,17 @@ export default function CmvRealImportarPage() {
                   {rows.map((r, idx) => (
                     <tr
                       key={`${r.linha}-${r.nome}`}
-                      className={`border-t border-border ${
-                        r.action === null ? 'bg-warning/5' : ''
-                      }`}
+                      className={
+                        r.action === null
+                          ? 'border-t border-border bg-warning/5'
+                          : 'border-t border-border'
+                      }
                     >
-                      <td className="px-3 py-2 text-muted-foreground align-top">{r.linha}</td>
+                      <td className="px-3 py-2 text-muted-foreground align-top">
+                        {r.linha}
+                      </td>
                       <td className="px-3 py-2 align-top">
-                        <div>{r.nome}</div>
+                        <div className="text-foreground">{r.nome}</div>
                         <div className="text-muted-foreground">
                           {r.secao} · {r.unidade}
                         </div>
@@ -404,7 +442,7 @@ export default function CmvRealImportarPage() {
                                 : 'text-destructive'
                           }
                         >
-                          {r.status}
+                          {statusLabel(r.status)}
                           {r.estoqueNome ? ` → ${r.estoqueNome}` : ''}
                           {r.score != null && r.status === 'sugerido'
                             ? ` (${Math.round(r.score * 100)}%)`
@@ -418,7 +456,7 @@ export default function CmvRealImportarPage() {
                             onChange={(e) =>
                               setRowAction(idx, e.target.value as RowAction)
                             }
-                            className="w-full bg-background border border-border rounded-lg px-2 py-1.5"
+                            className="w-full bg-background border border-border rounded-md px-2 py-1.5"
                           >
                             <option value="vincular">
                               Vincular → {r.estoqueNome || r.estoqueInsumoId}
@@ -442,7 +480,7 @@ export default function CmvRealImportarPage() {
                                 if (!v) setRowAction(idx, null);
                                 else setRowAction(idx, v as RowAction);
                               }}
-                              className={`w-full bg-background border rounded-lg px-2 py-1.5 ${
+                              className={`w-full bg-background border rounded-md px-2 py-1.5 ${
                                 r.action === null
                                   ? 'border-warning/50'
                                   : 'border-border'
@@ -453,7 +491,9 @@ export default function CmvRealImportarPage() {
                                 Vincular à sugestão
                                 {r.estoqueNome ? ` (${r.estoqueNome})` : ''}
                               </option>
-                              <option value="escolher">Escolher outro produto</option>
+                              <option value="escolher">
+                                Escolher outro produto
+                              </option>
                               <option value="criar">Criar novo</option>
                               <option value="ignorar">Ignorar</option>
                             </select>
@@ -461,10 +501,12 @@ export default function CmvRealImportarPage() {
                               <select
                                 value={r.chosenId || ''}
                                 onChange={(e) => {
-                                  const opt = catalogo.find((c) => c.id === e.target.value);
+                                  const opt = catalogo.find(
+                                    (c) => c.id === e.target.value
+                                  );
                                   if (opt) setRowAction(idx, 'escolher', opt);
                                 }}
-                                className="w-full bg-background border border-border rounded-lg px-2 py-1.5"
+                                className="w-full bg-background border border-border rounded-md px-2 py-1.5"
                               >
                                 <option value="">Selecione o produto…</option>
                                 {catalogo.map((c) => (
@@ -483,7 +525,7 @@ export default function CmvRealImportarPage() {
                             onChange={(e) =>
                               setRowAction(idx, e.target.value as RowAction)
                             }
-                            className="w-full bg-background border border-border rounded-lg px-2 py-1.5"
+                            className="w-full bg-background border border-border rounded-md px-2 py-1.5"
                           >
                             <option value="ignorar">Ignorar (não criar)</option>
                             <option value="criar">Criar novo</option>
@@ -497,8 +539,42 @@ export default function CmvRealImportarPage() {
             </div>
           </div>
         )}
+      </section>
 
-        <ImportarSaldoBlock />
+      {/* Etapa 2 */}
+      <section className="rounded-md border border-border bg-card p-4 space-y-3">
+        <div className="flex gap-3">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground tabular-nums">
+            2
+          </span>
+          <div className="min-w-0 space-y-1">
+            <h2 className="text-base font-semibold text-foreground">
+              Reprocessar notas em revisão
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              Depois de atualizar o catálogo, rode isso para gerar novas
+              sugestões nas notas ainda em revisão.
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={loading}
+          onClick={() => void reprocessar()}
+        >
+          {loading ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <RefreshCw className="size-4" />
+          )}
+          Reprocessar notas em revisão
+        </Button>
+        {reproc && <p className="text-sm text-muted-foreground">{reproc}</p>}
+      </section>
+
+      <ImportarSaldoBlock />
     </div>
   );
 }

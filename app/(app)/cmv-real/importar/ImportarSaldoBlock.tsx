@@ -1,8 +1,18 @@
 'use client';
 
 import { useCallback, useState } from 'react';
-import { Loader2, Upload } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { CMV_STORE_LABELS } from '@/lib/nfe/ui-labels';
+import { FileDropzone } from './FileDropzone';
 
 type SaldoPreview = {
   linha: number;
@@ -25,7 +35,7 @@ export function ImportarSaldoBlock() {
   const [aba, setAba] = useState('');
   const [storeSlug, setStoreSlug] = useState('ahu');
   const [competencia, setCompetencia] = useState(
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   );
   const [itens, setItens] = useState<SaldoPreview[] | null>(null);
   const [resumo, setResumo] = useState<{
@@ -59,6 +69,16 @@ export function ImportarSaldoBlock() {
       setLoading(false);
     }
   }, []);
+
+  const onFile = useCallback(
+    (f: File | null) => {
+      setFile(f);
+      setAbas([]);
+      setItens(null);
+      if (f) void listarAbas(f);
+    },
+    [listarAbas]
+  );
 
   const preview = useCallback(async () => {
     if (!file || !aba) return;
@@ -120,7 +140,7 @@ export function ImportarSaldoBlock() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha');
       setMsg(
-        `Saldo gravado (${CMV_STORE_LABELS[storeSlug] || storeSlug} / ${competencia}): ${data.upserted} itens. Vira estoque inicial do mês seguinte.`,
+        `Saldo gravado (${CMV_STORE_LABELS[storeSlug] || storeSlug} / ${competencia}): ${data.upserted} itens. Vira estoque inicial do mês seguinte.`
       );
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -130,129 +150,147 @@ export function ImportarSaldoBlock() {
   }, [itens, storeSlug, competencia]);
 
   return (
-    <section className="rounded-xl border border-border bg-card p-4 space-y-4">
-      <div>
-        <h3 className="text-sm font-semibold text-foreground">Saldo (estoque final)</h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Uma planilha por loja. Lê AE (qtd) e AG (custo médio). Não importa o
-          bloco de resumo (linha 187+).
-        </p>
+    <section className="rounded-md border border-border bg-card p-4 space-y-4">
+      <div className="flex gap-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground tabular-nums">
+          3
+        </span>
+        <div className="min-w-0 space-y-1">
+          <h3 className="text-base font-semibold text-foreground">
+            Importar saldo (estoque final)
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Envie a planilha de saldo da loja. Usamos a quantidade e o custo
+            médio de cada insumo.
+          </p>
+          <details className="text-xs text-muted-foreground">
+            <summary className="cursor-pointer inline-flex items-center gap-1 hover:text-foreground">
+              Detalhes técnicos
+              <ChevronDown className="size-3" />
+            </summary>
+            <p className="mt-1.5 pl-0.5">
+              Uma planilha por loja. Colunas AE (quantidade) e AG (custo médio).
+              O bloco de resumo a partir da linha 187 não é importado.
+            </p>
+          </details>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Loja</span>
-          <select
-            value={storeSlug}
-            onChange={(e) => setStoreSlug(e.target.value)}
-            className="bg-background border border-border rounded-lg px-3 py-2"
-          >
-            {Object.entries(CMV_STORE_LABELS).map(([s, lab]) => (
-              <option key={s} value={s}>
-                {lab}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Competência do saldo</span>
-          <input
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">Loja</label>
+          <Select value={storeSlug} onValueChange={setStoreSlug}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.entries(CMV_STORE_LABELS).map(([s, lab]) => (
+                <SelectItem key={s} value={s}>
+                  {lab}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">
+            Competência do saldo
+          </label>
+          <Input
             type="month"
             value={competencia}
             onChange={(e) => setCompetencia(e.target.value)}
-            className="bg-background border border-border rounded-lg px-3 py-2"
+            className="h-9"
           />
-        </label>
+        </div>
       </div>
 
-      <label className="flex flex-col gap-2 text-sm">
-        <span className="text-muted-foreground">Arquivo .xlsx da loja</span>
-        <input
-          type="file"
-          accept=".xlsx,.xls"
-          className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1.5 file:text-primary"
-          onChange={(e) => {
-            const f = e.target.files?.[0] || null;
-            setFile(f);
-            setAbas([]);
-            setItens(null);
-            if (f) void listarAbas(f);
-          }}
-        />
-      </label>
+      <FileDropzone file={file} disabled={loading} onFile={onFile} />
 
       {abas.length > 0 && (
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="text-muted-foreground text-xs">Aba (ex.: SETEMBRO 2026)</span>
-          <select
-            value={aba}
-            onChange={(e) => setAba(e.target.value)}
-            className="bg-background border border-border rounded-lg px-3 py-2"
-          >
-            {abas.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">Aba da planilha</label>
+          <Select value={aba} onValueChange={setAba}>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {abas.map((a) => (
+                <SelectItem key={a} value={a}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       <div className="flex flex-wrap gap-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           disabled={!file || !aba || loading}
           onClick={() => void preview()}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground font-medium px-4 py-2 text-sm disabled:opacity-40"
         >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Upload className="w-4 h-4" />
-          )}
-          Prévia do saldo
-        </button>
-        <button
+          {loading ? <Loader2 className="size-4 animate-spin" /> : null}
+          Pré-visualizar
+        </Button>
+        <Button
           type="button"
+          size="sm"
           disabled={!itens || loading}
           onClick={() => void confirmar()}
-          className="inline-flex items-center gap-2 rounded-lg border border-primary/40 text-primary px-4 py-2 text-sm disabled:opacity-40"
         >
           Gravar saldo
-        </button>
+        </Button>
       </div>
 
       {resumo && (
         <p className="text-xs text-muted-foreground">
-          {resumo.total} linhas · {resumo.casados} casados · {resumo.sugeridos}{' '}
-          sugeridos · {resumo.naoEncontrados} sem match
+          {resumo.total} linhas · {resumo.casados} encontrados ·{' '}
+          {resumo.sugeridos} sugeridos · {resumo.naoEncontrados} sem correspondência
         </p>
       )}
-      {msg && <p className="text-sm text-warning">{msg}</p>}
+      {msg && (
+        <p className="text-sm text-warning" role="alert">
+          {msg}
+        </p>
+      )}
 
       {itens && itens.length > 0 && (
-        <div className="overflow-x-auto max-h-64 overflow-y-auto">
+        <div className="overflow-x-auto max-h-64 overflow-y-auto rounded-md border border-border">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-muted-foreground text-left">
-                <th className="py-1 pr-2">Linha</th>
-                <th className="py-1 pr-2">Produto</th>
-                <th className="py-1 pr-2">Qtd AE</th>
-                <th className="py-1 pr-2">Custo AG</th>
-                <th className="py-1">Match</th>
+              <tr className="text-muted-foreground text-left bg-muted/50">
+                <th className="py-2 px-2">Linha</th>
+                <th className="py-2 px-2">Produto</th>
+                <th className="py-2 px-2 text-right">Qtd</th>
+                <th className="py-2 px-2 text-right">Custo médio</th>
+                <th className="py-2 px-2">Correspondência</th>
               </tr>
             </thead>
             <tbody>
               {itens.slice(0, 80).map((i) => (
                 <tr key={i.linha} className="border-t border-border">
-                  <td className="py-1 pr-2 text-muted-foreground">{i.linha}</td>
-                  <td className="py-1 pr-2 text-foreground truncate max-w-[180px]">
+                  <td className="py-1.5 px-2 text-muted-foreground">{i.linha}</td>
+                  <td className="py-1.5 px-2 text-foreground truncate max-w-[180px]">
                     {i.nome}
                   </td>
-                  <td className="py-1 pr-2">{i.qtdFinal}</td>
-                  <td className="py-1 pr-2">{i.custoMedio ?? '—'}</td>
-                  <td className="py-1 text-muted-foreground">
-                    {i.status}
+                  <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
+                    {i.qtdFinal}
+                  </td>
+                  <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
+                    {i.custoMedio ?? '–'}
+                  </td>
+                  <td className="py-1.5 px-2 text-muted-foreground">
+                    {i.status === 'casado'
+                      ? 'Encontrado'
+                      : i.status === 'sugerido'
+                        ? 'Sugerido'
+                        : i.status === 'nao_encontrado'
+                          ? 'Não encontrado'
+                          : i.status}
                     {i.estoqueNome ? ` → ${i.estoqueNome}` : ''}
                   </td>
                 </tr>
