@@ -76,6 +76,9 @@ function writeCollapsed(value: boolean) {
   }
 }
 
+const navFocusClass =
+  "outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+
 function activeItemClass(active?: boolean) {
   return active
     ? "bg-accent text-foreground border-l-2 border-l-primary"
@@ -127,6 +130,7 @@ function NavItemContent({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+          navFocusClass,
           activeItemClass(item.active),
           collapsed && "justify-center px-2"
         )}
@@ -164,6 +168,7 @@ function NavItemContent({
                 onClick={onNavigate}
                 className={cn(
                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors",
+                  navFocusClass,
                   activeItemClass(child.active)
                 )}
               >
@@ -182,6 +187,7 @@ function NavItemContent({
       onClick={onNavigate}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+        navFocusClass,
         activeItemClass(item.active),
         collapsed && "justify-center px-2"
       )}

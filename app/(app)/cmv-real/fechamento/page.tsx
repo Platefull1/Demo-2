@@ -204,12 +204,12 @@ export default function CmvRealFechamentoPage() {
     <div className="space-y-4 max-w-none">
       <div className="flex flex-wrap items-end gap-2">
         <div>
-          <label className="text-[10px] text-gray-500 block">Loja</label>
+          <label className="text-[10px] text-muted-foreground block">Loja</label>
           <select
             value={storeSlug}
             disabled={lojaTravada && lojasOpts.length <= 1}
             onChange={(e) => setStoreSlug(e.target.value)}
-            className="bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm"
+            className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
           >
             {lojasOpts.map((s) => (
               <option key={s} value={s}>
@@ -219,17 +219,17 @@ export default function CmvRealFechamentoPage() {
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-gray-500 block">Competência</label>
+          <label className="text-[10px] text-muted-foreground block">Competência</label>
           <input
             type="month"
             value={competencia}
             onChange={(e) => setCompetencia(e.target.value)}
-            className="bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm"
+            className="bg-card border border-border rounded-lg px-3 py-2 text-sm"
           />
         </div>
         <a
           href={`/api/cmv-real/fechamento?storeSlug=${storeSlug}&competencia=${competencia}&export=xlsx`}
-          className="inline-flex items-center gap-1 rounded-lg border border-[#2a2a2e] px-3 py-2 text-xs text-gray-300"
+          className="inline-flex items-center gap-1 rounded-lg border border-border px-3 py-2 text-xs text-muted-foreground"
         >
           <Download className="w-3.5 h-3.5" /> XLSX
         </a>
@@ -241,7 +241,7 @@ export default function CmvRealFechamentoPage() {
                 setMsg(e.message),
               )
             }
-            className="inline-flex items-center gap-1 rounded-lg bg-emerald-500 text-black text-xs font-semibold px-3 py-2"
+            className="inline-flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2"
           >
             <Lock className="w-3.5 h-3.5" /> Fechar mês
           </button>
@@ -254,14 +254,14 @@ export default function CmvRealFechamentoPage() {
                 setMsg(e.message),
               )
             }
-            className="inline-flex items-center gap-1 rounded-lg border border-amber-500/40 text-amber-300 text-xs px-3 py-2"
+            className="inline-flex items-center gap-1 rounded-lg border border-border text-foreground text-xs px-3 py-2"
           >
             <Unlock className="w-3.5 h-3.5" /> Reabrir
           </button>
         )}
         <span
           className={`text-[10px] uppercase px-2 py-1 rounded ${
-            aberto ? 'bg-amber-500/20 text-amber-300' : 'bg-emerald-500/20 text-emerald-300'
+            aberto ? 'bg-warning/20 text-warning' : 'bg-success/20 text-success'
           }`}
         >
           {status}
@@ -269,23 +269,23 @@ export default function CmvRealFechamentoPage() {
       </div>
 
       {pendencias.length > 0 && (
-        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 space-y-1">
-          <p className="text-xs font-semibold text-amber-300">Pendências (não bloqueiam)</p>
+        <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 space-y-1">
+          <p className="text-xs font-semibold text-warning">Pendências (não bloqueiam)</p>
           {pendencias.map((p, i) => (
-            <p key={i} className="text-xs text-amber-100/90">
+            <p key={i} className="text-xs text-warning">
               • {p}
             </p>
           ))}
         </div>
       )}
 
-      {msg && <p className="text-sm text-amber-300">{msg}</p>}
+      {msg && <p className="text-sm text-warning">{msg}</p>}
 
       {/* Venda + ajustes */}
       <div className="grid md:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-3 space-y-2">
-          <p className="text-xs font-semibold text-gray-400">Venda / mês</p>
-          <p className="text-[10px] text-gray-600">
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">Venda / mês</p>
+          <p className="text-[10px] text-muted-foreground">
             Manual por enquanto — preparado para Saipos total_pedidos.
           </p>
           <div className="flex gap-2">
@@ -294,42 +294,42 @@ export default function CmvRealFechamentoPage() {
               disabled={!aberto || !canFechar}
               onChange={(e) => setVendaMes(e.target.value)}
               placeholder="R$"
-              className="flex-1 bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm disabled:opacity-50"
+              className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm disabled:opacity-50"
             />
             {canFechar && aberto && (
               <button
                 type="button"
                 onClick={() => void salvarVenda()}
-                className="rounded-lg bg-amber-500 text-black text-xs font-semibold px-3"
+                className="rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3"
               >
                 Salvar
               </button>
             )}
           </div>
           {totais && (
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-muted-foreground">
               Consumo R$ {fmt(totais.consumoValor)} · Ajustes R${' '}
               {fmt(totais.ajustesValor)}
             </p>
           )}
         </div>
 
-        <div className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-3 space-y-2">
-          <p className="text-xs font-semibold text-gray-400">Ajustes manuais</p>
-          <p className="text-[10px] text-gray-600">
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">Ajustes manuais</p>
+          <p className="text-[10px] text-muted-foreground">
             Sempre vazios no mês novo — nunca copiados.
           </p>
           {ajustes.length === 0 ? (
-            <p className="text-xs text-gray-500">Nenhum ajuste</p>
+            <p className="text-xs text-muted-foreground">Nenhum ajuste</p>
           ) : (
             <ul className="space-y-1">
               {ajustes.map((a) => (
                 <li
                   key={a.id}
-                  className="flex justify-between gap-2 text-xs text-gray-300 border-b border-[#2a2a2e] pb-1"
+                  className="flex justify-between gap-2 text-xs text-muted-foreground border-b border-border pb-1"
                 >
                   <span>
-                    <span className="text-gray-500">{a.secao}</span> · {a.descricao}
+                    <span className="text-muted-foreground">{a.secao}</span> · {a.descricao}
                   </span>
                   <span className="font-medium">R$ {fmt(a.valor)}</span>
                 </li>
@@ -341,7 +341,7 @@ export default function CmvRealFechamentoPage() {
               <select
                 value={adjSecao}
                 onChange={(e) => setAdjSecao(e.target.value)}
-                className="bg-[#0a0a0c] border border-[#2a2a2e] rounded px-2 py-1.5 text-xs col-span-2"
+                className="bg-background border border-border rounded px-2 py-1.5 text-xs col-span-2"
               >
                 <option value="MATERIA_PRIMA">Matéria-prima</option>
                 <option value="EMBALAGEM">Embalagem</option>
@@ -352,18 +352,18 @@ export default function CmvRealFechamentoPage() {
                 placeholder="Descrição"
                 value={adjDesc}
                 onChange={(e) => setAdjDesc(e.target.value)}
-                className="bg-[#0a0a0c] border border-[#2a2a2e] rounded px-2 py-1.5 text-xs col-span-2"
+                className="bg-background border border-border rounded px-2 py-1.5 text-xs col-span-2"
               />
               <input
                 placeholder="Valor"
                 value={adjValor}
                 onChange={(e) => setAdjValor(e.target.value)}
-                className="bg-[#0a0a0c] border border-[#2a2a2e] rounded px-2 py-1.5 text-xs"
+                className="bg-background border border-border rounded px-2 py-1.5 text-xs"
               />
               <button
                 type="button"
                 onClick={() => void addAjuste()}
-                className="rounded bg-amber-500/90 text-black text-xs font-semibold"
+                className="rounded bg-primary text-primary-foreground text-xs font-semibold"
               >
                 + Ajuste
               </button>
@@ -374,14 +374,14 @@ export default function CmvRealFechamentoPage() {
 
       {/* Contagem */}
       {canFechar && aberto && (
-        <div className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-3 space-y-2">
-          <p className="text-xs font-semibold text-gray-400">
+        <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+          <p className="text-xs font-semibold text-muted-foreground">
             Estoque final (contagem)
           </p>
           <select
             value={contagemEscolhida}
             onChange={(e) => setContagemEscolhida(e.target.value)}
-            className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm"
           >
             <option value="">Selecionar contagem concluída…</option>
             {contagens.map((c) => (
@@ -398,7 +398,7 @@ export default function CmvRealFechamentoPage() {
             <select
               value={storeOverrideContagem}
               onChange={(e) => setStoreOverrideContagem(e.target.value)}
-              className="w-full bg-[#0a0a0c] border border-amber-500/40 rounded-lg px-3 py-2 text-sm"
+              className="w-full bg-background border border-warning/40 rounded-lg px-3 py-2 text-sm"
             >
               <option value="">Associar à loja…</option>
               {Object.entries(CMV_STORE_LABELS).map(([s, lab]) => (
@@ -412,7 +412,7 @@ export default function CmvRealFechamentoPage() {
             type="button"
             disabled={!contagemEscolhida}
             onClick={() => void aplicarContagem()}
-            className="rounded-lg bg-amber-500 text-black text-xs font-semibold px-3 py-2 disabled:opacity-40"
+            className="rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2 disabled:opacity-40"
           >
             Aplicar como estoque final
           </button>
@@ -421,14 +421,14 @@ export default function CmvRealFechamentoPage() {
 
       {loading ? (
         <div className="flex justify-center py-16">
-          <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[#2a2a2e]">
+        <div className="overflow-x-auto rounded-xl border border-border">
           <table className="text-xs min-w-[1100px] w-full border-collapse">
             <thead>
-              <tr className="bg-[#121214] text-gray-500">
-                <th className="sticky left-0 z-10 bg-[#121214] text-left px-2 py-2 min-w-[160px] border-r border-[#2a2a2e]">
+              <tr className="bg-card text-muted-foreground">
+                <th className="sticky left-0 z-10 bg-card text-left px-2 py-2 min-w-[160px] border-r border-border">
                   Produto
                 </th>
                 <th className="px-2 py-2 text-right">Ini</th>
@@ -449,10 +449,10 @@ export default function CmvRealFechamentoPage() {
             <tbody>
               {[...porSecao.entries()].map(([secao, items]) => (
                 <Fragment key={secao}>
-                  <tr className="bg-[#1a1a1e]">
+                  <tr className="bg-muted">
                     <td
                       colSpan={14}
-                      className="sticky left-0 z-10 bg-[#1a1a1e] px-2 py-1.5 text-[10px] uppercase tracking-wide text-amber-400/80 font-semibold"
+                      className="sticky left-0 z-10 bg-muted px-2 py-1.5 text-[10px] uppercase tracking-wide text-muted-foreground font-semibold"
                     >
                       {secao}
                     </td>
@@ -460,9 +460,9 @@ export default function CmvRealFechamentoPage() {
                   {items.map((l) => (
                     <tr
                       key={l.estoqueInsumoId}
-                      className="border-t border-[#2a2a2e] hover:bg-[#141416]"
+                      className="border-t border-border hover:bg-muted"
                     >
-                      <td className="sticky left-0 z-10 bg-[#0a0a0c] px-2 py-1.5 text-white border-r border-[#2a2a2e] max-w-[180px] truncate">
+                      <td className="sticky left-0 z-10 bg-background px-2 py-1.5 text-foreground border-r border-border max-w-[180px] truncate">
                         {l.nome}
                       </td>
                       <td className="px-2 py-1.5 text-right tabular-nums">
@@ -474,15 +474,15 @@ export default function CmvRealFechamentoPage() {
                       {[1, 2, 3, 4, 5].map((s) => (
                         <td
                           key={s}
-                          className="px-2 py-1.5 text-right tabular-nums text-gray-400"
+                          className="px-2 py-1.5 text-right tabular-nums text-muted-foreground"
                         >
                           {fmt(l.comprasPorSemana[String(s)]?.qtd ?? 0, 1)}
                         </td>
                       ))}
-                      <td className="px-2 py-1.5 text-right tabular-nums text-red-300/80">
+                      <td className="px-2 py-1.5 text-right tabular-nums text-destructive">
                         {fmt(l.transfEnviadaQtd, 1)}
                       </td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-emerald-300/80">
+                      <td className="px-2 py-1.5 text-right tabular-nums text-success">
                         {fmt(l.transfRecebidaQtd, 1)}
                       </td>
                       <td className="px-2 py-1.5 text-right tabular-nums">
@@ -494,7 +494,7 @@ export default function CmvRealFechamentoPage() {
                       <td className="px-2 py-1.5 text-right tabular-nums font-medium">
                         {fmt(l.consumoQtd, 1)}
                       </td>
-                      <td className="px-2 py-1.5 text-right tabular-nums text-amber-200/90">
+                      <td className="px-2 py-1.5 text-right tabular-nums text-foreground">
                         {fmt(l.consumoValor)}
                       </td>
                     </tr>

@@ -130,10 +130,10 @@ export function ImportarSaldoBlock() {
   }, [itens, storeSlug, competencia]);
 
   return (
-    <section className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-4 space-y-4">
+    <section className="rounded-xl border border-border bg-card p-4 space-y-4">
       <div>
-        <h3 className="text-sm font-semibold text-white">Saldo (estoque final)</h3>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <h3 className="text-sm font-semibold text-foreground">Saldo (estoque final)</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
           Uma planilha por loja. Lê AE (qtd) e AG (custo médio). Não importa o
           bloco de resumo (linha 187+).
         </p>
@@ -141,11 +141,11 @@ export function ImportarSaldoBlock() {
 
       <div className="grid sm:grid-cols-2 gap-3">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-400 text-xs">Loja</span>
+          <span className="text-muted-foreground text-xs">Loja</span>
           <select
             value={storeSlug}
             onChange={(e) => setStoreSlug(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-3 py-2"
+            className="bg-background border border-border rounded-lg px-3 py-2"
           >
             {Object.entries(CMV_STORE_LABELS).map(([s, lab]) => (
               <option key={s} value={s}>
@@ -155,22 +155,22 @@ export function ImportarSaldoBlock() {
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-400 text-xs">Competência do saldo</span>
+          <span className="text-muted-foreground text-xs">Competência do saldo</span>
           <input
             type="month"
             value={competencia}
             onChange={(e) => setCompetencia(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-3 py-2"
+            className="bg-background border border-border rounded-lg px-3 py-2"
           />
         </label>
       </div>
 
       <label className="flex flex-col gap-2 text-sm">
-        <span className="text-gray-400">Arquivo .xlsx da loja</span>
+        <span className="text-muted-foreground">Arquivo .xlsx da loja</span>
         <input
           type="file"
           accept=".xlsx,.xls"
-          className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-amber-500/20 file:px-3 file:py-1.5 file:text-amber-300"
+          className="text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary/20 file:px-3 file:py-1.5 file:text-primary"
           onChange={(e) => {
             const f = e.target.files?.[0] || null;
             setFile(f);
@@ -183,11 +183,11 @@ export function ImportarSaldoBlock() {
 
       {abas.length > 0 && (
         <label className="flex flex-col gap-1 text-sm">
-          <span className="text-gray-400 text-xs">Aba (ex.: SETEMBRO 2026)</span>
+          <span className="text-muted-foreground text-xs">Aba (ex.: SETEMBRO 2026)</span>
           <select
             value={aba}
             onChange={(e) => setAba(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-3 py-2"
+            className="bg-background border border-border rounded-lg px-3 py-2"
           >
             {abas.map((a) => (
               <option key={a} value={a}>
@@ -203,7 +203,7 @@ export function ImportarSaldoBlock() {
           type="button"
           disabled={!file || !aba || loading}
           onClick={() => void preview()}
-          className="inline-flex items-center gap-2 rounded-lg bg-amber-500/90 text-black font-medium px-4 py-2 text-sm disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg bg-primary text-primary-foreground font-medium px-4 py-2 text-sm disabled:opacity-40"
         >
           {loading ? (
             <Loader2 className="w-4 h-4 animate-spin" />
@@ -216,25 +216,25 @@ export function ImportarSaldoBlock() {
           type="button"
           disabled={!itens || loading}
           onClick={() => void confirmar()}
-          className="inline-flex items-center gap-2 rounded-lg border border-green-500/40 text-green-400 px-4 py-2 text-sm disabled:opacity-40"
+          className="inline-flex items-center gap-2 rounded-lg border border-primary/40 text-primary px-4 py-2 text-sm disabled:opacity-40"
         >
           Gravar saldo
         </button>
       </div>
 
       {resumo && (
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-muted-foreground">
           {resumo.total} linhas · {resumo.casados} casados · {resumo.sugeridos}{' '}
           sugeridos · {resumo.naoEncontrados} sem match
         </p>
       )}
-      {msg && <p className="text-sm text-amber-300">{msg}</p>}
+      {msg && <p className="text-sm text-warning">{msg}</p>}
 
       {itens && itens.length > 0 && (
         <div className="overflow-x-auto max-h-64 overflow-y-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-500 text-left">
+              <tr className="text-muted-foreground text-left">
                 <th className="py-1 pr-2">Linha</th>
                 <th className="py-1 pr-2">Produto</th>
                 <th className="py-1 pr-2">Qtd AE</th>
@@ -244,14 +244,14 @@ export function ImportarSaldoBlock() {
             </thead>
             <tbody>
               {itens.slice(0, 80).map((i) => (
-                <tr key={i.linha} className="border-t border-[#2a2a2e]">
-                  <td className="py-1 pr-2 text-gray-500">{i.linha}</td>
-                  <td className="py-1 pr-2 text-white truncate max-w-[180px]">
+                <tr key={i.linha} className="border-t border-border">
+                  <td className="py-1 pr-2 text-muted-foreground">{i.linha}</td>
+                  <td className="py-1 pr-2 text-foreground truncate max-w-[180px]">
                     {i.nome}
                   </td>
                   <td className="py-1 pr-2">{i.qtdFinal}</td>
                   <td className="py-1 pr-2">{i.custoMedio ?? '—'}</td>
-                  <td className="py-1 text-gray-400">
+                  <td className="py-1 text-muted-foreground">
                     {i.status}
                     {i.estoqueNome ? ` → ${i.estoqueNome}` : ''}
                   </td>

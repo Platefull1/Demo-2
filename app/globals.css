@@ -125,4 +125,13 @@
   .animate-slide-out-to-left {
     animation: slide-out-to-left 0.3s cubic-bezier(0.4, 0, 1, 1) forwards;
   }
+
+  /* Scroll horizontal sem barra (ex.: sub-nav do CMV Real) */
+  .scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

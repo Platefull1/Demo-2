@@ -134,25 +134,25 @@ export default function CmvRealLancamentosPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h2 className="text-base font-semibold text-white">Lançamentos</h2>
-          <p className="text-xs text-gray-500">Compras, desperdício e transferências</p>
+          <h2 className="text-base font-semibold text-foreground">Lançamentos</h2>
+          <p className="text-xs text-muted-foreground">Compras, desperdício e transferências</p>
         </div>
         <button
           type="button"
           onClick={() => setShowForm((v) => !v)}
-          className="flex items-center gap-1 rounded-lg bg-amber-500 text-black text-xs font-semibold px-3 py-2"
+          className="flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2"
         >
           <Plus className="w-3.5 h-3.5" /> Novo
         </button>
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="text-xs text-gray-500 shrink-0">Loja</label>
+        <label className="text-xs text-muted-foreground shrink-0">Loja</label>
         <select
           value={storeSlug}
           disabled={lojaTravada && lojasOpts.length <= 1}
           onChange={(e) => setStoreSlug(e.target.value)}
-          className="flex-1 bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm disabled:opacity-60"
+          className="flex-1 bg-card border border-border rounded-lg px-3 py-2 text-sm disabled:opacity-60"
         >
           {lojasOpts.map((s) => (
             <option key={s} value={s}>
@@ -163,11 +163,11 @@ export default function CmvRealLancamentosPage() {
       </div>
 
       {showForm && (
-        <div className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-3 space-y-3">
+        <div className="rounded-xl border border-border bg-card p-3 space-y-3">
           <select
             value={tipo}
             onChange={(e) => setTipo(e.target.value)}
-            className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           >
             {TIPOS.map((t) => (
               <option key={t.value} value={t.value}>
@@ -179,12 +179,12 @@ export default function CmvRealLancamentosPage() {
             type="date"
             value={data}
             onChange={(e) => setData(e.target.value)}
-            className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           />
           <select
             value={produtoId}
             onChange={(e) => setProdutoId(e.target.value)}
-            className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           >
             <option value="">Produto…</option>
             {produtos.map((p) => (
@@ -199,21 +199,21 @@ export default function CmvRealLancamentosPage() {
               placeholder="Qtd"
               value={quantidade}
               onChange={(e) => setQuantidade(e.target.value)}
-              className="bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+              className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
             />
             <input
               inputMode="decimal"
               placeholder="Valor R$"
               value={valorTotal}
               onChange={(e) => setValorTotal(e.target.value)}
-              className="bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+              className="bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
             />
           </div>
           {tipo === 'TRANSFERENCIA_SAIDA' && (
             <select
               value={lojaDestino}
               onChange={(e) => setLojaDestino(e.target.value)}
-              className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
             >
               <option value="">Loja destino…</option>
               {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
@@ -227,7 +227,7 @@ export default function CmvRealLancamentosPage() {
             <select
               value={lojaOrigem}
               onChange={(e) => setLojaOrigem(e.target.value)}
-              className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+              className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
             >
               <option value="">Loja origem…</option>
               {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
@@ -241,27 +241,27 @@ export default function CmvRealLancamentosPage() {
             placeholder="Observação (opcional)"
             value={observacao}
             onChange={(e) => setObservacao(e.target.value)}
-            className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+            className="w-full bg-background border border-border rounded-lg px-3 py-2.5 text-sm"
           />
           <button
             type="button"
             disabled={saving || !produtoId}
             onClick={() => void salvar()}
-            className="w-full rounded-lg bg-amber-500 text-black font-semibold text-sm py-2.5 disabled:opacity-40"
+            className="w-full rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-2.5 disabled:opacity-40"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Salvar'}
           </button>
         </div>
       )}
 
-      {msg && <p className="text-sm text-amber-300">{msg}</p>}
+      {msg && <p className="text-sm text-warning">{msg}</p>}
 
       {loading ? (
         <div className="flex justify-center py-10">
-          <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       ) : lancs.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-8">Nenhum lançamento.</p>
+        <p className="text-sm text-muted-foreground text-center py-8">Nenhum lançamento.</p>
       ) : (
         <ul className="space-y-2">
           {lancs.map((l) => {
@@ -269,18 +269,18 @@ export default function CmvRealLancamentosPage() {
             return (
               <li
                 key={l.id}
-                className="rounded-xl border border-[#2a2a2e] bg-[#121214] px-3 py-2.5"
+                className="rounded-xl border border-border bg-card px-3 py-2.5"
               >
                 <div className="flex justify-between gap-2 text-sm">
-                  <span className="text-amber-300 font-medium">{labelTipo(l.tipo)}</span>
-                  <span className="text-gray-500 text-xs">
+                  <span className="text-foreground font-medium">{labelTipo(l.tipo)}</span>
+                  <span className="text-muted-foreground text-xs">
                     {new Date(l.data).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
-                <p className="text-sm text-white mt-0.5 truncate">
+                <p className="text-sm text-foreground mt-0.5 truncate">
                   {prod?.nome || l.estoqueInsumoId}
                 </p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   {l.quantidade} · R${' '}
                   {l.valorTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   {l.lojaDestino && ` → ${CMV_STORE_LABELS[l.lojaDestino] || l.lojaDestino}`}

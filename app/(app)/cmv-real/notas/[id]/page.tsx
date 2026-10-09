@@ -63,9 +63,9 @@ function parseFator(raw: string): number | null {
 }
 
 function statusBadgeClass(status: string): string {
-  if (status === 'APROVADA') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-  if (status === 'IGNORADA') return 'bg-gray-500/15 text-gray-400 border-gray-500/30';
-  return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+  if (status === 'APROVADA') return 'bg-success/15 text-success border-success/30';
+  if (status === 'IGNORADA') return 'bg-muted text-muted-foreground border-border';
+  return 'bg-warning/15 text-warning border-warning/30';
 }
 
 export default function CmvRealNotaDetalhePage() {
@@ -279,7 +279,7 @@ export default function CmvRealNotaDetalhePage() {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -287,10 +287,10 @@ export default function CmvRealNotaDetalhePage() {
   if (!nota) {
     return (
       <div className="space-y-3">
-        <Link href="/cmv-real/notas" className="text-sm text-gray-400 flex items-center gap-1">
+        <Link href="/cmv-real/notas" className="text-sm text-muted-foreground flex items-center gap-1">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
-        <p className="text-sm text-amber-300">{msg || 'Nota não encontrada'}</p>
+        <p className="text-sm text-warning">{msg || 'Nota não encontrada'}</p>
       </div>
     );
   }
@@ -324,7 +324,7 @@ export default function CmvRealNotaDetalhePage() {
     return (
       <p
         className={`text-[11px] leading-relaxed ${
-          alertaVermelho ? 'text-red-400' : 'text-gray-400'
+          alertaVermelho ? 'text-destructive' : 'text-muted-foreground'
         }`}
       >
         {formatNumBr(it.quantidade, it.quantidade % 1 === 0 ? 0 : 2)} {undNota} ×{' '}
@@ -365,16 +365,16 @@ export default function CmvRealNotaDetalhePage() {
     return (
       <article
         key={it.id}
-        className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-3 space-y-3"
+        className="rounded-xl border border-border bg-card p-3 space-y-3"
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[11px] text-gray-500">Item {it.numeroItem}</p>
-            <p className="text-sm text-white font-medium leading-snug mt-0.5">
+            <p className="text-[11px] text-muted-foreground">Item {it.numeroItem}</p>
+            <p className="text-sm text-foreground font-medium leading-snug mt-0.5">
               {it.descricao}
             </p>
           </div>
-          <div className="text-right shrink-0 text-xs text-gray-400">
+          <div className="text-right shrink-0 text-xs text-muted-foreground">
             <div>
               {it.quantidade} {it.unidadeComercial}
             </div>
@@ -391,8 +391,8 @@ export default function CmvRealNotaDetalhePage() {
           <div
             className={`rounded-lg px-2.5 py-2 text-xs ${
               ambiguo
-                ? 'bg-amber-500/15 border border-amber-500/40 text-amber-200'
-                : 'bg-orange-500/15 border border-orange-500/40 text-orange-200'
+                ? 'bg-warning/15 border border-warning/40 text-warning'
+                : 'bg-warning/15 border border-warning/40 text-warning'
             }`}
           >
             {ambiguo && <p className="font-medium">{textoAlertaAmbiguo(it.unidadeComercial)}</p>}
@@ -407,7 +407,7 @@ export default function CmvRealNotaDetalhePage() {
         {editavel && canRevisar ? (
           <>
             <div className="space-y-1.5">
-              <p className="text-[11px] uppercase tracking-wide text-gray-500">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                 Produto
               </p>
               {sugs.length > 0 && !d.outro ? (
@@ -417,8 +417,8 @@ export default function CmvRealNotaDetalhePage() {
                       <label
                         className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 cursor-pointer ${
                           d.produtoId === s.id
-                            ? 'border-amber-500/50 bg-amber-500/10'
-                            : 'border-[#2a2a2e] bg-[#0a0a0c]'
+                            ? 'border-warning/50 bg-warning/10'
+                            : 'border-border bg-background'
                         }`}
                       >
                         <input
@@ -431,18 +431,18 @@ export default function CmvRealNotaDetalhePage() {
                               [it.id]: { ...d, produtoId: s.id, outro: false },
                             }))
                           }
-                          className="mt-1 accent-amber-500"
+                          className="mt-1 accent-primary"
                         />
                         <span className="flex-1 min-w-0">
-                          <span className="text-sm text-white block truncate">
+                          <span className="text-sm text-foreground block truncate">
                             {s.nome}
                             {idx === 0 ? (
-                              <span className="text-[10px] text-amber-400 ml-1">
+                              <span className="text-[10px] text-muted-foreground ml-1">
                                 (melhor)
                               </span>
                             ) : null}
                           </span>
-                          <span className="text-[10px] text-gray-500">
+                          <span className="text-[10px] text-muted-foreground">
                             score {(s.score * 100).toFixed(0)}%
                           </span>
                         </span>
@@ -460,7 +460,7 @@ export default function CmvRealNotaDetalhePage() {
                     [it.id]: { ...d, outro: !d.outro },
                   }))
                 }
-                className="text-[11px] text-gray-400 underline"
+                className="text-[11px] text-muted-foreground underline"
               >
                 {d.outro || sugs.length === 0
                   ? 'Escolher da lista CMV'
@@ -480,7 +480,7 @@ export default function CmvRealNotaDetalhePage() {
                       },
                     }))
                   }
-                  className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-2.5 py-2 text-sm"
+                  className="w-full bg-background border border-border rounded-lg px-2.5 py-2 text-sm"
                 >
                   <option value="">Selecione…</option>
                   {produtos.map((p) => (
@@ -493,7 +493,7 @@ export default function CmvRealNotaDetalhePage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm text-gray-300 font-medium">
+              <label className="block text-sm text-muted-foreground font-medium">
                 {pergunta}
               </label>
               <div className="relative">
@@ -509,11 +509,11 @@ export default function CmvRealNotaDetalhePage() {
                   }
                   className={`w-full rounded-lg pl-3 pr-10 py-2.5 text-base font-semibold ${
                     ambiguo
-                      ? 'bg-amber-500/20 border-2 border-amber-400 text-amber-100'
-                      : 'bg-[#0a0a0c] border border-[#2a2a2e] text-white'
+                      ? 'bg-primary/20 border-2 border-primary text-foreground'
+                      : 'bg-background border border-border text-foreground'
                   }`}
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
                   {sufixo}
                 </span>
               </div>
@@ -521,7 +521,7 @@ export default function CmvRealNotaDetalhePage() {
             </div>
 
             {canMapeamentoCriar && (
-              <label className="flex items-center gap-2 text-xs text-gray-400">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
                   checked={d.criarMap}
@@ -531,7 +531,7 @@ export default function CmvRealNotaDetalhePage() {
                       [it.id]: { ...d, criarMap: e.target.checked },
                     }))
                   }
-                  className="accent-amber-500"
+                  className="accent-primary"
                 />
                 Salvar mapeamento para próximas notas
               </label>
@@ -542,7 +542,7 @@ export default function CmvRealNotaDetalhePage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void confirmar(it.id)}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-amber-500 text-black font-semibold text-sm py-2.5 active:scale-[0.98] disabled:opacity-50"
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-2.5 active:scale-[0.98] disabled:opacity-50"
               >
                 {busy ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -555,14 +555,14 @@ export default function CmvRealNotaDetalhePage() {
                 type="button"
                 disabled={busy}
                 onClick={() => void ignorar(it.id)}
-                className="rounded-lg border border-[#2a2a2e] px-3 py-2.5 text-sm text-gray-400 active:bg-[#1a1a1e]"
+                className="rounded-lg border border-border px-3 py-2.5 text-sm text-muted-foreground active:bg-muted"
               >
                 Ignorar
               </button>
             </div>
           </>
         ) : (
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             {it.estoqueInsumoId
               ? `Mapeado · fator ${it.fatorConversao ?? '—'}`
               : it.status}
@@ -576,7 +576,7 @@ export default function CmvRealNotaDetalhePage() {
     <div className="space-y-4">
       <Link
         href="/cmv-real/notas"
-        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300"
+        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-muted-foreground"
       >
         <ArrowLeft className="w-3.5 h-3.5" /> Notas
       </Link>
@@ -584,10 +584,10 @@ export default function CmvRealNotaDetalhePage() {
       <header className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold text-white">
+            <h2 className="text-lg font-semibold text-foreground">
               NF {nota.numero}
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5">
               {storeLabel(nota.storeSlug)} ·{' '}
               {new Date(nota.dataEntrada).toLocaleDateString('pt-BR')} · R${' '}
               {nota.valorTotal.toLocaleString('pt-BR', {
@@ -601,17 +601,17 @@ export default function CmvRealNotaDetalhePage() {
             {notaStatusLabel(nota.status)}
           </span>
         </div>
-        <p className="text-sm text-gray-300">
+        <p className="text-sm text-muted-foreground">
           {nota.fornecedor.nomeFantasia || nota.fornecedor.razaoSocial}
         </p>
-        <p className="text-[11px] text-gray-600">{nota.fornecedor.cnpj}</p>
+        <p className="text-[11px] text-muted-foreground">{nota.fornecedor.cnpj}</p>
 
         {canMapeamentoEditar && !nota.fornecedor.ignorarCmv && (
           <button
             type="button"
             disabled={saving === 'fornecedor'}
             onClick={() => void fornecedorFora()}
-            className="w-full flex items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 text-red-300 text-sm font-medium py-2.5 active:bg-red-500/20"
+            className="w-full flex items-center justify-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm font-medium py-2.5 active:bg-destructive/20"
           >
             <Ban className="w-4 h-4" />
             Fornecedor fora do CMV
@@ -620,14 +620,14 @@ export default function CmvRealNotaDetalhePage() {
       </header>
 
       {msg && (
-        <p className="text-sm text-amber-300 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+        <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
           {msg}
         </p>
       )}
 
       {pendentes.length > 0 && (
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-amber-400">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-warning">
             Pendentes ({pendentes.length})
           </h3>
           {pendentes.map((it) => renderItem(it, true))}
@@ -636,7 +636,7 @@ export default function CmvRealNotaDetalhePage() {
 
       {resolvidos.length > 0 && (
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Resolvidos ({resolvidos.length})
           </h3>
           {resolvidos.map((it) => renderItem(it, false))}
@@ -648,7 +648,7 @@ export default function CmvRealNotaDetalhePage() {
           type="button"
           disabled={saving === 'aprovar'}
           onClick={() => void aprovar()}
-          className="w-full rounded-xl bg-emerald-500 text-black font-semibold text-sm py-3 sticky bottom-4 shadow-lg"
+          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-3 sticky bottom-4 shadow-lg"
         >
           {saving === 'aprovar' ? (
             <Loader2 className="w-4 h-4 animate-spin mx-auto" />

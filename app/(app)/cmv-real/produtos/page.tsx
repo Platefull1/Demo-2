@@ -101,7 +101,7 @@ export default function CmvRealProdutosPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-16">
-        <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
       </div>
     );
   }
@@ -109,14 +109,14 @@ export default function CmvRealProdutosPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-semibold text-white">Produtos CMV</h2>
-        <p className="text-xs text-gray-500 mt-0.5">
+        <h2 className="text-base font-semibold text-foreground">Produtos CMV</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
           Seção, unidade, ordem e ativo — após a importação.
         </p>
       </div>
 
       {!canConfig && (
-        <p className="text-xs text-gray-500 bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2">
+        <p className="text-xs text-muted-foreground bg-card border border-border rounded-lg px-3 py-2">
           Somente visualização. É necessária a permissão cmv_real.config para editar.
         </p>
       )}
@@ -126,12 +126,12 @@ export default function CmvRealProdutosPage() {
           value={filtro}
           onChange={(e) => setFiltro(e.target.value)}
           placeholder="Buscar produto…"
-          className="w-full bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2.5 text-sm"
+          className="w-full bg-card border border-border rounded-lg px-3 py-2.5 text-sm"
         />
         <select
           value={secaoFiltro}
           onChange={(e) => setSecaoFiltro(e.target.value)}
-          className="w-full bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm"
+          className="w-full bg-card border border-border rounded-lg px-3 py-2 text-sm"
         >
           <option value="">Todas as seções</option>
           {SECOES.map((s) => (
@@ -142,10 +142,10 @@ export default function CmvRealProdutosPage() {
         </select>
       </div>
 
-      {msg && <p className="text-sm text-amber-300">{msg}</p>}
+      {msg && <p className="text-sm text-warning">{msg}</p>}
 
       {filtered.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-8">
+        <p className="text-sm text-muted-foreground text-center py-8">
           Nenhum produto. Importe o catálogo em Importar.
         </p>
       ) : (
@@ -160,16 +160,16 @@ export default function CmvRealProdutosPage() {
             return (
               <li
                 key={it.id}
-                className="rounded-xl border border-[#2a2a2e] bg-[#121214] p-3 space-y-2.5"
+                className="rounded-xl border border-border bg-card p-3 space-y-2.5"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
+                    <p className="text-sm font-medium text-foreground truncate">
                       {it.nome}
                     </p>
-                    <p className="text-[10px] text-gray-600 truncate">{it.slug}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{it.slug}</p>
                   </div>
-                  <label className="flex items-center gap-1.5 text-xs text-gray-400 shrink-0">
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
                     <input
                       type="checkbox"
                       checked={ativo}
@@ -177,7 +177,7 @@ export default function CmvRealProdutosPage() {
                       onChange={(e) =>
                         patchLocal(it.id, { ativo: e.target.checked })
                       }
-                      className="accent-amber-500"
+                      className="accent-primary"
                     />
                     Ativo
                   </label>
@@ -185,7 +185,7 @@ export default function CmvRealProdutosPage() {
 
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-gray-500 block mb-0.5">
+                    <label className="text-[10px] text-muted-foreground block mb-0.5">
                       Seção
                     </label>
                     <select
@@ -196,7 +196,7 @@ export default function CmvRealProdutosPage() {
                           secao: e.target.value as Item['secao'],
                         })
                       }
-                      className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-2 py-2 text-xs disabled:opacity-60"
+                      className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs disabled:opacity-60"
                     >
                       {SECOES.map((s) => (
                         <option key={s.value} value={s.value}>
@@ -206,7 +206,7 @@ export default function CmvRealProdutosPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="text-[10px] text-gray-500 block mb-0.5">
+                    <label className="text-[10px] text-muted-foreground block mb-0.5">
                       Unidade
                     </label>
                     <select
@@ -217,7 +217,7 @@ export default function CmvRealProdutosPage() {
                           unidade: e.target.value as Item['unidade'],
                         })
                       }
-                      className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-2 py-2 text-xs disabled:opacity-60"
+                      className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs disabled:opacity-60"
                     >
                       <option value="KG">KG</option>
                       <option value="UN">UN</option>
@@ -227,7 +227,7 @@ export default function CmvRealProdutosPage() {
 
                 <div className="flex items-end gap-2">
                   <div className="flex-1">
-                    <label className="text-[10px] text-gray-500 block mb-0.5">
+                    <label className="text-[10px] text-muted-foreground block mb-0.5">
                       Ordem
                     </label>
                     <input
@@ -237,7 +237,7 @@ export default function CmvRealProdutosPage() {
                       onChange={(e) =>
                         patchLocal(it.id, { ordem: Number(e.target.value) || 0 })
                       }
-                      className="w-full bg-[#0a0a0c] border border-[#2a2a2e] rounded-lg px-2 py-2 text-xs disabled:opacity-60"
+                      className="w-full bg-background border border-border rounded-lg px-2 py-2 text-xs disabled:opacity-60"
                     />
                   </div>
                   {canConfig && (
@@ -245,7 +245,7 @@ export default function CmvRealProdutosPage() {
                       type="button"
                       disabled={!isDirty || saving === it.id}
                       onClick={() => void salvar(it.id)}
-                      className="flex items-center gap-1 rounded-lg bg-amber-500 text-black text-xs font-semibold px-3 py-2 disabled:opacity-40"
+                      className="flex items-center gap-1 rounded-lg bg-primary text-primary-foreground text-xs font-semibold px-3 py-2 disabled:opacity-40"
                     >
                       {saving === it.id ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
