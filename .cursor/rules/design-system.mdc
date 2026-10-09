@@ -1,98 +1,108 @@
 ---
-description: Regras de UI/UX do Platefull. Aplicar em TODA alteração de interface.
+description: Regras de UI/UX do Platefull. Aplicar em TODA alteração de interface. Em conflito com outras skills, esta rule prevalece.
 alwaysApply: true
 ---
 
+# Precedência
+- Em conflito com outras skills ou instruções genéricas de design, **esta rule prevalece**.
+- Em tarefas de redesign / frontend-design: **NÃO alterar lógica** (queries, server actions, API routes, hooks de dados, polling, cálculos, tipos, nomes de props de dados ou comportamento). Só apresentação (JSX, classes Tailwind, componentes visuais). Se o visual exigir mudar lógica, parar e perguntar.
+
 # Contexto
-Platefull é um sistema interno de gestão (back-office) usado principalmente
-em DESKTOP por gerentes e administração. Mobile é secundário (exceto apps
-de motoboy e contagem de estoque, que são mobile-first).
+Platefull é back-office interno, **desktop-first** (gerentes/administração).
+Mobile é secundário, **exceto**:
+- `/rider/**` — app motoboy (fora do AppShell)
+- `/estoque/**` — contagem semanal mobile-first (fora do AppShell por enquanto)
 
-# Layout
-- Desktop-first para telas administrativas. Usar a largura disponível:
-  container max-w-7xl (ou full width com sidebar). NUNCA coluna estreita
-  centralizada em desktop.
-- Shell padrão: sidebar fixa à esquerda (navegação por módulo) + header da
-  página (título, descrição curta, ações primárias à direita) + conteúdo.
-- Breakpoints: em < md, sidebar vira drawer e tabelas viram lista compacta.
+Shell autenticado: route group `app/(app)/` com `AppShell`.
 
-# Listas de dados
-- Mais de ~10 itens com atributos comparáveis => TABELA (shadcn Table /
-  TanStack Table), com ordenação, busca e paginação. Cards só para itens
-  heterogêneos ou dashboards.
-- Ações por linha em menu "..." na última coluna; ação principal = clique
-  na linha.
-- Não mostrar indicadores que não informam (ex.: barra de progresso em 0%).
-  Preferir texto ("0/8") ou badge de status.
+# Tokens de cor (fonte: `app/globals.css`, tema `.dark`)
+Usar **somente** tokens shadcn/Tailwind. Proibido hex/cores Tailwind soltas (`yellow-500`, `#22c55e`) fora do tema.
 
-# Filtros
-- Uma única barra de ferramentas acima da lista: busca + selects/combobox
-  compactos + botão "Limpar". No máximo 1 linha no desktop.
-- Abas (Tabs) apenas para estados mutuamente exclusivos da mesma lista
-  (ex.: Para revisar / Aprovadas). Nunca dois níveis de abas com o mesmo
-  visual: navegação de módulo vai na sidebar ou em sub-nav discreta.
+| Token | Valor dark | Uso |
+|-------|------------|-----|
+| `--background` | `#0A0A0A` | fundo da página |
+| `--card` | `#141414` | superfícies, cards, sidebar |
+| `--popover` | `#1A1A1A` | menus, tooltips |
+| `--muted` | `#1F1F1F` | hover, inputs sutis |
+| `--border` / `--input` | `#262626` | bordas |
+| `--foreground` | `#FAFAFA` | texto e valores |
+| `--muted-foreground` | `#A1A1AA` | metadados (nunca mais escuro) |
+| `--primary` | `#22C55E` | ação principal / selecionado / ao vivo |
+| `--primary-foreground` | `#052E16` | texto sobre primary |
+| `--accent` | `#0F2A1A` | fundo de item selecionado |
+| `--accent-foreground` | `#4ADE80` | texto sobre accent |
+| `--destructive` | `#EF4444` | erro / excluir |
+| `--warning` | `#F59E0B` | alerta |
+| `--success` | `#22C55E` | variação positiva / status ok |
+| `--ring` | `#22C55E` | foco |
 
-# Modais
-- Dialog apenas para tarefas curtas (confirmar, editar poucos campos).
-  Fluxos longos ou listas => página própria ou Sheet lateral.
-- Para revisão de muitos itens: layout mestre-detalhe (lista à esquerda,
-  detalhe à direita).
+Regras de verde:
+- Verde **somente** em: botão primário, item/aba selecionado, indicador "ao vivo", variação positiva.
+- Ícones sempre `text-muted-foreground`. Proibido ícone colorido por card.
+- Item selecionado (sidebar): `bg-accent` + `border-l-2 border-l-primary` (sem glow).
+- Valores numéricos em `text-foreground`, nunca muted — mesmo quando 0.
 
-# Tipografia (escala fixa, não inventar tamanhos)
-- Título de página: text-2xl font-semibold
-- Título de seção/card: text-base font-semibold
-- Corpo: text-sm
-- Metadados: text-xs text-muted-foreground (nunca menor que text-xs)
-- Números/valores: tabular-nums, alinhados à direita em tabelas.
+# Tipografia
+- Fonte do app: **Geist Sans** via `geist/font` + `font-sans` no `body` (`app/layout.tsx`, `tailwind.config.ts`).
+- Escala fixa:
+  - Título de página: `text-2xl font-semibold`
+  - Título de seção/card: `text-base font-semibold`
+  - Corpo: `text-sm`
+  - Metadados: `text-xs text-muted-foreground` (nunca menor que `text-xs`)
+- Números/valores: `tabular-nums`, alinhados à direita em tabelas.
+- Sem abreviações em navegação ("Lançamentos", não "Lançam." — exceto labels já existentes em módulos legados até redesign).
+- Rótulos curtos; verbos nas ações ("Aprovar nota", "Baixar ata").
 
-# Espaçamento
-- Usar apenas a escala: 1, 2, 3, 4, 6, 8, 12 (Tailwind).
-- Entre seções: gap-6 ou gap-8. Dentro de cards: p-4 ou p-6. Linhas de
-  tabela: compactas (py-2).
+# Espaçamento e página
+- Escala Tailwind: 1, 2, 3, 4, 6, 8, 12.
+- Entre seções: `gap-6` ou `gap-8`. Dentro de cards: `p-4` ou `p-6`. Linhas de tabela: `py-2`.
+- Padding de página (padrão dashboard): `px-6 py-6 md:px-8`, `space-y-6` / `gap-6`.
+- Desktop: largura disponível ao lado da sidebar. **Nunca** coluna estreita centralizada em telas administrativas.
 
-# Cor
-- Usar SOMENTE tokens do shadcn (bg-background, bg-card, text-foreground,
-  text-muted-foreground, border, primary, destructive). Proibido cores
-  hardcoded (#hex, yellow-500 etc.) fora do tema.
-- Cor tem significado: primary = ação principal/selecionado;
-  destructive = erro/excluir; success/warning = status. Nada de cor
-  decorativa.
-- Máximo 1 badge colorida por item. Demais metadados em texto muted.
+# Layout / AppShell
+- Componente: `src/components/layout/AppShell.tsx`
+- Layout autenticado: `app/(app)/layout.tsx` (auth Stack, permissões, `navSections`, footer).
+- Sidebar ~240px, colapsável (localStorage `platefull_sidebar_collapsed`); `< md` → Sheet/drawer.
+- Seções de nav com rótulo `text-xs uppercase tracking-wide text-muted-foreground`.
+- Item ativo: `bg-accent text-foreground border-l-2 border-l-primary`.
+- `PageHeader` (`src/components/layout/PageHeader.tsx`): título + ações à direita; subtítulo opcional `text-sm muted`. Preferir `flex-col` até quebrar em linha.
+- `StoreCombobox` (`src/components/layout/StoreCombobox.tsx`): seletor compacto de loja (não carrossel). Truncar nome longo + tooltip com nome completo. Sync = botão `outline` `sm`.
+
+# KPIs (faixa)
+Padrão da dashboard iFood (`IfoodKPICards`):
+- **Um único** `Card` com `grid grid-cols-2 xl:grid-cols-4`.
+- Divisores por breakpoint (não `divide-x` cego):
+  - 2 cols: borda vertical nas células da esquerda; borda horizontal na primeira linha; em `xl` remover horizontal.
+  - 4 cols (`xl`): só bordas verticais entre células; sem borda na última.
+- Sem ícones nos KPI cells.
+- Rótulo `text-sm text-muted-foreground`; valor `text-3xl font-semibold tabular-nums text-foreground`.
+- Variação vs período anterior em `text-xs` (`text-success` / `text-destructive`) **somente** se `prev*` já existir nos dados.
+
+# Gráficos
+- Card com título `text-base font-semibold`, descrição `text-sm text-muted-foreground`.
+- Altura ~280px.
+- Grade/eixos: `border` / `muted-foreground` `text-xs`; série em `primary` / `var(--primary)`.
+- Tooltip: `bg-popover border-border`.
+- Empty state discreto: texto centralizado, **sem** ícone grande ("Nenhum pedido neste período" + apoio `text-xs muted`).
+- Loading: `Skeleton` do shadcn no formato do card.
+
+# Listas, filtros, modais
+- Mais de ~10 itens com atributos comparáveis → **tabela** (shadcn Table / TanStack). Cards só para itens heterogêneos ou dashboards.
+- Ações por linha em menu "..." na última coluna; ação principal = clique na linha.
+- Filtros: uma Toolbar acima da lista (busca + selects compactos + "Limpar"), no máximo 1 linha no desktop.
+- Tabs só para estados mutuamente exclusivos da mesma lista. Navegação de módulo → sidebar ou sub-nav discreta (ex.: tabs do CMV Real).
+- Dialog só para tarefas curtas. Fluxos longos / listas → página ou Sheet.
+- Revisão de muitos itens → mestre-detalhe.
+- Sem texto de seção centralizado (`text-center` em headers de bloco). Alinhar à esquerda.
 
 # Componentes
-- Sempre usar componentes de /components/ui (shadcn). Não recriar botão,
-  input, select, badge, table na mão.
-- Componentes compartilhados de layout em /components/layout:
-  PageHeader, Toolbar, DataTable, EmptyState, StatusBadge.
-- Estados obrigatórios em toda tela: loading (Skeleton), vazio (EmptyState
-  com ação), erro.
+- UI base: `src/components/ui/*` (shadcn). Não recriar Button, Input, Select, Badge, Table.
+- Layout compartilhado: `AppShell`, `PageHeader`, `StoreCombobox` (e futuros PageHeader/Toolbar/DataTable/EmptyState alinhados a este padrão).
+- Estados obrigatórios em toda tela: loading (Skeleton), vazio (EmptyState com ação quando fizer sentido), erro (alerta inline discreto).
 
-# Texto
-- Sem abreviações em navegação ("Lançamentos", não "Lançam.").
-- Rótulos curtos, verbos nas ações ("Aprovar nota", "Baixar ata").
-
-# Tema (dark only) — manter a identidade atual
-Converter para o formato usado no globals.css do projeto (oklch ou HSL).
-
---background:        #0A0A0A   (fundo da página)
---card:              #141414   (superfícies, cards, sidebar)
---popover:           #1A1A1A
---muted:             #1F1F1F   (hover, linhas alternadas, inputs)
---border / --input:  #262626
---foreground:        #FAFAFA   (texto principal, valores)
---muted-foreground:  #A1A1AA   (metadados — nunca mais escuro que isso)
---primary:           #22C55E   (verde Platefull: ação principal, selecionado)
---primary-foreground:#052E16
---accent:            #0F2A1A   (fundo sutil de item selecionado / badge verde)
---accent-foreground: #4ADE80
---destructive:       #EF4444
---warning:           #F59E0B
---success:           #22C55E
---ring:              #22C55E
-
-Regras de cor:
-- Verde SOMENTE em: botão primário, item/aba selecionado, indicador "ao vivo",
-  variação positiva. Nunca decorativo.
-- Ícones sempre em text-muted-foreground. Proibido ícone colorido por card.
-- Item selecionado = bg-accent + borda border-primary/40 (sem glow/sombra).
-- Valores numéricos em text-foreground, nunca muted.
+# O que não entra no AppShell
+- `/`, `/auth/**`, `/handler/**` — público/OAuth
+- `/rider/**` — motoboy
+- `/estoque/**` — contagem (candidato futuro: Histórico / Produtos / Alertas se virarem rotas desktop)
+- `/calenza-adm/**` — admin próprio
+- `/api/**`, rotas de debug
