@@ -512,7 +512,7 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("space-y-0", className),
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "hidden md:block rounded-md border border-border overflow-hidden",
+                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("rounded-md border border-border overflow-hidden", renderMobileRow && "hidden md:block"),
                 children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Table"], {
                     children: [
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableHeader"], {
@@ -533,29 +533,29 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                                         sorted: header.column.getIsSorted()
                                                     }, void 0, false, {
                                                         fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                                        lineNumber: 205,
+                                                        lineNumber: 210,
                                                         columnNumber: 27
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                                lineNumber: 196,
+                                                lineNumber: 201,
                                                 columnNumber: 25
                                             }, this) : (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(header.column.columnDef.header, header.getContext())
                                         }, header.id, false, {
                                             fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                            lineNumber: 194,
+                                            lineNumber: 199,
                                             columnNumber: 21
                                         }, this);
                                     })
                                 }, hg.id, false, {
                                     fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                    lineNumber: 189,
+                                    lineNumber: 194,
                                     columnNumber: 15
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                            lineNumber: 187,
+                            lineNumber: 192,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableBody"], {
@@ -577,7 +577,7 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                                     "aria-hidden": cellIndex === 0 ? undefined : true
                                                 }, void 0, false, {
                                                     fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                                    lineNumber: 239,
+                                                    lineNumber: 244,
                                                     columnNumber: 27
                                                 }, this) : null,
                                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -585,31 +585,31 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                                     children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(cell.column.columnDef.cell, cell.getContext())
                                                 }, void 0, false, {
                                                     fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                                    lineNumber: 249,
+                                                    lineNumber: 254,
                                                     columnNumber: 25
                                                 }, this)
                                             ]
                                         }, cell.id, true, {
                                             fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                            lineNumber: 230,
+                                            lineNumber: 235,
                                             columnNumber: 23
                                         }, this);
                                     })
                                 }, row.id, false, {
                                     fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                    lineNumber: 223,
+                                    lineNumber: 228,
                                     columnNumber: 17
                                 }, this);
                             })
                         }, void 0, false, {
                             fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                            lineNumber: 219,
+                            lineNumber: 224,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                    lineNumber: 186,
+                    lineNumber: 191,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
@@ -631,14 +631,14 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                 children: content
                             }, void 0, false, {
                                 fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                lineNumber: 278,
+                                lineNumber: 283,
                                 columnNumber: 19
                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "px-3 py-3 pr-12",
                                 children: content
                             }, void 0, false, {
                                 fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                lineNumber: 285,
+                                lineNumber: 290,
                                 columnNumber: 19
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -647,24 +647,24 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                         children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(cell.column.columnDef.cell, cell.getContext())
                                     }, cell.id, false, {
                                         fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                        lineNumber: 292,
+                                        lineNumber: 297,
                                         columnNumber: 23
                                     }, this))
                             }, void 0, false, {
                                 fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                                lineNumber: 287,
+                                lineNumber: 292,
                                 columnNumber: 17
                             }, this)
                         ]
                     }, row.id, true, {
                         fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                        lineNumber: 276,
+                        lineNumber: 281,
                         columnNumber: 15
                     }, this);
                 })
             }, void 0, false, {
                 fileName: "[project]/drin-platform/src/components/layout/DataTable.tsx",
-                lineNumber: 271,
+                lineNumber: 276,
                 columnNumber: 9
             }, this) : null,
             pagination
