@@ -45,7 +45,7 @@ import {
   type AppShellNavSection,
 } from '@/components/layout/AppShell';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+export default function AppGroupLayout({ children }: { children: React.ReactNode }) {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const pathname = usePathname();
 
@@ -197,7 +197,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         href: '/whatsapp-tools',
         icon: MessageSquare,
         locked: !permissions[SystemTool.WHATSAPP_CHAT],
-        active: pathname === '/whatsapp-tools',
+        active:
+          pathname === '/whatsapp-tools' ||
+          Boolean(pathname?.startsWith('/whatsapp-config')),
       }),
       item({
         id: 'chat',

@@ -55,11 +55,8 @@ export default function CmvRealLayout({ children }: { children: React.ReactNode 
         <div
           className={`mx-auto px-3 pt-3 pb-2 ${wide ? 'max-w-6xl' : 'max-w-lg'}`}
         >
-          <div className="flex items-center justify-between mb-2">
+          <div className="mb-2">
             <h1 className="text-base font-semibold text-white">CMV Real</h1>
-            <Link href="/dashboard" className="text-xs text-gray-500 hover:text-gray-300">
-              Voltar
-            </Link>
           </div>
           <nav className="flex gap-0.5 overflow-x-auto">
             {TABS.map((t) => {
