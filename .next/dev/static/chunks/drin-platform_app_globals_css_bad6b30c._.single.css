@@ -554,6 +554,14 @@ body {
   top: 100%;
 }
 
+.right-1 {
+  right: .25rem;
+}
+
+.left-2\.5 {
+  left: .625rem;
+}
+
 .z-10 {
   z-index: 10;
 }
@@ -588,6 +596,14 @@ body {
 
 .z-\[9999\] {
   z-index: 9999;
+}
+
+.z-0 {
+  z-index: 0;
+}
+
+.z-\[1\] {
+  z-index: 1;
 }
 
 .col-span-1 {
@@ -920,6 +936,22 @@ body {
 
 .table {
   display: table;
+}
+
+.\!table {
+  display: table !important;
+}
+
+.table-caption {
+  display: table-caption;
+}
+
+.table-cell {
+  display: table-cell;
+}
+
+.table-row {
+  display: table-row;
 }
 
 .grid {
@@ -1414,6 +1446,22 @@ body {
   width: 1px;
 }
 
+.w-0 {
+  width: 0;
+}
+
+.w-\[120px\] {
+  width: 120px;
+}
+
+.w-\[140px\] {
+  width: 140px;
+}
+
+.w-\[88px\] {
+  width: 88px;
+}
+
 .min-w-0 {
   min-width: 0;
 }
@@ -1600,6 +1648,10 @@ body {
 
 .basis-full {
   flex-basis: 100%;
+}
+
+.caption-bottom {
+  caption-side: bottom;
 }
 
 .border-collapse {
@@ -2025,6 +2077,12 @@ body {
   margin-bottom: calc(2rem * var(--tw-space-y-reverse));
 }
 
+.space-y-0 > :not([hidden]) ~ :not([hidden]) {
+  --tw-space-y-reverse: 0;
+  margin-top: calc(0px * calc(1 - var(--tw-space-y-reverse)));
+  margin-bottom: calc(0px * var(--tw-space-y-reverse));
+}
+
 .divide-y > :not([hidden]) ~ :not([hidden]) {
   --tw-divide-y-reverse: 0;
   border-top-width: calc(1px * calc(1 - var(--tw-divide-y-reverse)));
@@ -2043,6 +2101,10 @@ body {
 
 .divide-\[\#2a2a2e\]\/60 > :not([hidden]) ~ :not([hidden]) {
   border-color: #2a2a2e99;
+}
+
+.divide-border > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--border);
 }
 
 .self-start {
@@ -2701,6 +2763,10 @@ body {
 .border-yellow-600 {
   --tw-border-opacity: 1;
   border-color: rgb(202 138 4 / var(--tw-border-opacity, 1));
+}
+
+.border-primary {
+  border-color: var(--primary);
 }
 
 .border-l-primary {
@@ -3871,6 +3937,10 @@ body {
 
 .pt-6 {
   padding-top: 1.5rem;
+}
+
+.pr-12 {
+  padding-right: 3rem;
 }
 
 .text-left {
@@ -5565,6 +5635,10 @@ body {
   background-color: #ffffff08;
 }
 
+.hover\:bg-transparent:hover {
+  background-color: #0000;
+}
+
 .hover\:text-\[\#001F05\]\/80:hover {
   color: #001f05cc;
 }
@@ -5830,6 +5904,10 @@ body {
 
 .focus\:text-accent-foreground:focus {
   color: var(--accent-foreground);
+}
+
+.focus\:text-destructive:focus {
+  color: var(--destructive);
 }
 
 .focus\:outline-none:focus {
@@ -6258,6 +6336,10 @@ body {
   background-color: var(--input);
 }
 
+.data-\[state\=selected\]\:bg-muted[data-state="selected"] {
+  background-color: var(--muted);
+}
+
 .data-\[inset\]\:pl-8[data-inset] {
   padding-left: 2rem;
 }
@@ -6373,6 +6455,10 @@ body {
 
   .sm\:hidden {
     display: none;
+  }
+
+  .sm\:w-\[200px\] {
+    width: 200px;
   }
 
   .sm\:max-w-\[140px\] {
@@ -6594,6 +6680,10 @@ body {
     display: none;
   }
 
+  .lg\:w-fit {
+    width: fit-content;
+  }
+
   .lg\:basis-1\/4 {
     flex-basis: 25%;
   }
@@ -6628,6 +6718,10 @@ body {
 
   .lg\:items-center {
     align-items: center;
+  }
+
+  .lg\:justify-end {
+    justify-content: flex-end;
   }
 
   .lg\:justify-between {
@@ -6706,6 +6800,10 @@ body {
 .\[\&\:first-child\[data-selected\=true\]_button\]\:rounded-l-md:first-child[data-selected="true"] button {
   border-top-left-radius: .375rem;
   border-bottom-left-radius: .375rem;
+}
+
+.\[\&\:has\(\[role\=checkbox\]\)\]\:pr-0:has([role="checkbox"]) {
+  padding-right: 0;
 }
 
 .\[\&\:last-child\[data-selected\=true\]_button\]\:rounded-r-md:last-child[data-selected="true"] button {
@@ -6814,6 +6912,10 @@ body {
   color: var(--warning);
 }
 
+.\[\&\>tr\]\:last\:border-b-0:last-child > tr {
+  border-bottom-width: 0;
+}
+
 .\[\&_\[cmdk-group-heading\]\]\:px-2 [cmdk-group-heading] {
   padding-left: .5rem;
   padding-right: .5rem;
@@ -6887,6 +6989,14 @@ body {
 
 .\[\&_svg\]\:shrink-0 svg {
   flex-shrink: 0;
+}
+
+.\[\&_tr\:last-child\]\:border-0 tr:last-child {
+  border-width: 0;
+}
+
+.\[\&_tr\]\:border-b tr {
+  border-bottom-width: 1px;
 }
 
 [data-slot="card-content"] .\[\[data-slot\=card-content\]_\&\]\:bg-transparent, [data-slot="popover-content"] .\[\[data-slot\=popover-content\]_\&\]\:bg-transparent {
