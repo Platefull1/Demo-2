@@ -1,9 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
-import { Loader2, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ColumnDef } from '@tanstack/react-table';
+import { Loader2, MoreHorizontal, Search } from 'lucide-react';
+import { DataTable } from '@/components/layout/DataTable';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { storeLabel } from '@/lib/nfe/ui-labels';
+import { cn } from '@/lib/utils';
 
 type NotaRow = {
   id: string;
@@ -25,7 +44,7 @@ type NotaRow = {
 
 type TabStatus = 'EM_REVISAO' | 'APROVADA' | 'IGNORADA';
 
-const TABS: { status: TabStatus; label: string }[] = [
+const STATUS_TABS: { status: TabStatus; label: string }[] = [
   { status: 'EM_REVISAO', label: 'Para revisar' },
   { status: 'APROVADA', label: 'Aprovadas' },
   { status: 'IGNORADA', label: 'Fora do CMV' },
@@ -46,16 +65,47 @@ const MESES = [
   'Dezembro',
 ];
 
-function emptyLabel(status: TabStatus): string {
-  if (status === 'APROVADA') return 'Nenhuma nota aprovada neste mês.';
-  if (status === 'IGNORADA') return 'Nenhuma nota fora do CMV neste mês.';
-  return 'Nenhuma nota para revisar neste mês.';
+function itensProntosOf(n: NotaRow): number {
+  return (
+    n.itensProntos ??
+    Math.max(0, n.itensTotal - n.itensSugeridos - n.itensSemMap)
+  );
+}
+
+function fornecedorNome(n: NotaRow): string {
+  return n.fornecedor.nomeFantasia || n.fornecedor.razaoSocial;
+}
+
+function formatValor(v: number): string {
+  return v.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+function emptyTitle(status: TabStatus, mes: number, ano: number): string {
+  const periodo = `${MESES[mes - 1]}/${ano}`;
+  if (status === 'APROVADA') return `Nenhuma nota aprovada em ${periodo}`;
+  if (status === 'IGNORADA') return `Nenhuma nota fora do CMV em ${periodo}`;
+  return `Nenhuma nota para revisar em ${periodo}`;
+}
+
+function emptyHint(status: TabStatus): string {
+  if (status === 'APROVADA')
+    return 'Notas aprovadas neste período aparecerão aqui.';
+  if (status === 'IGNORADA')
+    return 'Notas marcadas como fora do CMV aparecerão aqui.';
+  return 'Quando houver notas pendentes de revisão neste período, elas aparecerão aqui.';
 }
 
 export default function CmvRealNotasPage() {
   const agora = new Date();
   const [notas, setNotas] = useState<NotaRow[]>([]);
-  const [counts, setCounts] = useState({ EM_REVISAO: 0, APROVADA: 0, IGNORADA: 0 });
+  const [counts, setCounts] = useState({
+    EM_REVISAO: 0,
+    APROVADA: 0,
+    IGNORADA: 0,
+  });
   const [loading, setLoading] = useState(true);
   const [lojaTravada, setLojaTravada] = useState(false);
   const [allowed, setAllowed] = useState<string[] | null>(null);
@@ -65,9 +115,8 @@ export default function CmvRealNotasPage() {
   const [ano, setAno] = useState(agora.getFullYear());
   const [canMapeamentoEditar, setCanMapeamentoEditar] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [search, setSearch] = useState('');
 
   const anos = [agora.getFullYear(), agora.getFullYear() - 1, agora.getFullYear() - 2];
 
@@ -106,217 +155,318 @@ export default function CmvRealNotasPage() {
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (!menuOpenId) return;
-    const onDoc = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpenId(null);
+  const fornecedorFora = useCallback(
+    async (notaId: string) => {
+      if (
+        !confirm(
+          'Marcar este fornecedor como fora do CMV? A nota será ignorada.'
+        )
+      )
+        return;
+      setSavingId(notaId);
+      setMsg(null);
+      try {
+        const res = await fetch(`/api/cmv-real/notas/${notaId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'fornecedor_fora_cmv' }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Falha');
+        await load();
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : 'Erro');
+      } finally {
+        setSavingId(null);
       }
-    };
-    document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
-  }, [menuOpenId]);
-
-  const fornecedorFora = async (notaId: string) => {
-    if (!confirm('Marcar este fornecedor como fora do CMV? A nota será ignorada.'))
-      return;
-    setSavingId(notaId);
-    setMenuOpenId(null);
-    setMsg(null);
-    try {
-      const res = await fetch(`/api/cmv-real/notas/${notaId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'fornecedor_fora_cmv' }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Falha');
-      await load();
-    } catch (e) {
-      setMsg(e instanceof Error ? e.message : 'Erro');
-    } finally {
-      setSavingId(null);
-    }
-  };
+    },
+    [load]
+  );
 
   const lojasOpts =
     allowed && allowed.length > 0
       ? allowed
       : ['ahu', 'pilarzinho', 'portao', 'uberaba'];
 
-  return (
-    <div className="space-y-4">
-      {/* Abas de status */}
-      <div className="flex gap-1 overflow-x-auto">
-        {TABS.map((t) => {
-          const active = status === t.status;
-          const n = counts[t.status] ?? 0;
-          const label =
-            t.status === 'EM_REVISAO' ? `${t.label} (${n})` : t.label;
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return notas;
+    return notas.filter((n) => {
+      const forn = fornecedorNome(n).toLowerCase();
+      return n.numero.toLowerCase().includes(q) || forn.includes(q);
+    });
+  }, [notas, search]);
+
+  const columns = useMemo<ColumnDef<NotaRow, unknown>[]>(
+    () => [
+      {
+        accessorKey: 'numero',
+        header: 'NF',
+        cell: ({ row }) => (
+          <span className="font-medium text-foreground">
+            {row.original.numero}
+          </span>
+        ),
+      },
+      {
+        id: 'loja',
+        accessorFn: (r) => storeLabel(r.storeSlug),
+        header: 'Loja',
+        cell: ({ row }) => (
+          <Badge
+            variant="secondary"
+            className="bg-muted text-muted-foreground border-transparent font-normal"
+          >
+            {storeLabel(row.original.storeSlug)}
+          </Badge>
+        ),
+      },
+      {
+        id: 'fornecedor',
+        accessorFn: (r) => fornecedorNome(r),
+        header: 'Fornecedor',
+        cell: ({ row }) => (
+          <span className="block max-w-[240px] truncate text-foreground">
+            {fornecedorNome(row.original)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'dataEntrada',
+        header: 'Data',
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {new Date(row.original.dataEntrada).toLocaleDateString('pt-BR')}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'valorTotal',
+        header: 'Valor',
+        meta: {
+          headerClassName: 'text-right',
+          cellClassName: 'text-right',
+        },
+        cell: ({ row }) => (
+          <span className="tabular-nums text-foreground">
+            {formatValor(row.original.valorTotal)}
+          </span>
+        ),
+      },
+      {
+        id: 'itens',
+        accessorFn: (r) => itensProntosOf(r),
+        header: 'Itens prontos',
+        cell: ({ row }) => {
+          const prontos = itensProntosOf(row.original);
+          const total = row.original.itensTotal;
+          const completo = total > 0 && prontos >= total;
           return (
-            <button
-              key={t.status}
-              type="button"
-              onClick={() => setStatus(t.status)}
-              className={`shrink-0 text-xs font-medium px-3 py-2 rounded-lg transition-colors ${
-                active
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'text-gray-500 hover:text-gray-300 hover:bg-[#1a1a1e]'
-              }`}
+            <span
+              className={cn(
+                'tabular-nums',
+                completo ? 'text-success' : 'text-muted-foreground'
+              )}
             >
-              {label}
-              {t.status !== 'EM_REVISAO' && n > 0 ? (
-                <span className="ml-1 opacity-70">({n})</span>
-              ) : null}
-            </button>
+              {prontos}/{total}
+            </span>
           );
-        })}
-      </div>
+        },
+      },
+      {
+        id: 'actions',
+        header: '',
+        enableSorting: false,
+        meta: { headerClassName: 'w-10', cellClassName: 'w-10' },
+        cell: ({ row }) => {
+          const n = row.original;
+          const show =
+            canMapeamentoEditar &&
+            !n.fornecedor.ignorarCmv &&
+            n.status === 'EM_REVISAO';
+          if (!show) return null;
+          const busy = savingId === n.id;
+          return (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={busy}
+                  aria-label="Mais opções"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {busy ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <MoreHorizontal className="size-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    void fornecedorFora(n.id);
+                  }}
+                >
+                  Fornecedor fora do CMV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          );
+        },
+      },
+    ],
+    [canMapeamentoEditar, savingId, fornecedorFora]
+  );
 
-      {/* Filtros loja + mês */}
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={storeSlug}
-          disabled={lojaTravada && (allowed?.length ?? 0) <= 1}
-          onChange={(e) => setStoreSlug(e.target.value)}
-          className="flex-1 min-w-[120px] bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm disabled:opacity-60"
+  const storeSelectDisabled = lojaTravada && (allowed?.length ?? 0) <= 1;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <ToggleGroup
+          type="single"
+          value={status}
+          onValueChange={(v) => {
+            if (v) setStatus(v as TabStatus);
+          }}
+          size="sm"
+          className="w-full lg:w-fit flex-wrap"
         >
-          {!lojaTravada && <option value="">Todas as lojas</option>}
-          {lojasOpts.map((s) => (
-            <option key={s} value={s}>
-              {storeLabel(s)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={mes}
-          onChange={(e) => setMes(Number(e.target.value))}
-          className="bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm"
-        >
-          {MESES.map((m, i) => (
-            <option key={m} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
-        <select
-          value={ano}
-          onChange={(e) => setAno(Number(e.target.value))}
-          className="bg-[#121214] border border-[#2a2a2e] rounded-lg px-3 py-2 text-sm"
-        >
-          {anos.map((a) => (
-            <option key={a} value={a}>
-              {a}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {msg && <p className="text-sm text-amber-300">{msg}</p>}
-
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-5 h-5 animate-spin text-amber-400" />
-        </div>
-      ) : notas.length === 0 ? (
-        <p className="text-sm text-gray-500 text-center py-10">{emptyLabel(status)}</p>
-      ) : (
-        <ul className="space-y-2">
-          {notas.map((n) => {
-            const prontos = n.itensProntos ?? Math.max(
-              0,
-              n.itensTotal - n.itensSugeridos - n.itensSemMap,
-            );
-            const total = n.itensTotal || 1;
-            const pct = Math.min(100, Math.round((prontos / total) * 100));
-            const menuOpen = menuOpenId === n.id;
-            const busy = savingId === n.id;
-
+          {STATUS_TABS.map((t) => {
+            const n = counts[t.status] ?? 0;
             return (
-              <li key={n.id} className="relative">
-                <div className="flex items-stretch rounded-xl border border-[#2a2a2e] bg-[#121214] overflow-hidden">
-                  <Link
-                    href={`/cmv-real/notas/${n.id}`}
-                    className="flex-1 min-w-0 flex items-center gap-3 px-3 py-3 active:bg-[#1a1a1e]"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 text-sm font-medium text-white">
-                        <span>NF {n.numero}</span>
-                        <span className="text-[10px] text-gray-400 bg-[#2a2a2e] px-1.5 py-0.5 rounded">
-                          {storeLabel(n.storeSlug)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">
-                        {n.fornecedor.nomeFantasia || n.fornecedor.razaoSocial}
-                      </p>
-                      <p className="text-[11px] text-gray-500 mt-1">
-                        {new Date(n.dataEntrada).toLocaleDateString('pt-BR')} · R${' '}
-                        {n.valorTotal.toLocaleString('pt-BR', {
-                          minimumFractionDigits: 2,
-                        })}
-                      </p>
-                      <div className="mt-2">
-                        <div className="flex items-center justify-between text-[11px] mb-1">
-                          <span className="text-gray-400">
-                            {prontos} de {n.itensTotal} itens prontos
-                          </span>
-                          <span className="text-gray-600">{pct}%</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-[#2a2a2e] overflow-hidden">
-                          <div
-                            className={`h-full rounded-full transition-all ${
-                              pct >= 100 ? 'bg-emerald-500' : 'bg-amber-500'
-                            }`}
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-gray-600 shrink-0" />
-                  </Link>
-
-                  {canMapeamentoEditar &&
-                    !n.fornecedor.ignorarCmv &&
-                    n.status === 'EM_REVISAO' && (
-                      <div className="relative border-l border-[#2a2a2e] flex items-center">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          aria-label="Mais opções"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setMenuOpenId(menuOpen ? null : n.id);
-                          }}
-                          className="px-2.5 h-full text-gray-500 hover:text-gray-300 hover:bg-[#1a1a1e] disabled:opacity-50"
-                        >
-                          {busy ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <MoreHorizontal className="w-4 h-4" />
-                          )}
-                        </button>
-                        {menuOpen && (
-                          <div
-                            ref={menuRef}
-                            className="absolute right-0 top-full mt-1 z-30 w-52 rounded-lg border border-[#2a2a2e] bg-[#1c1c1e] shadow-xl py-1"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => void fornecedorFora(n.id)}
-                              className="w-full text-left px-3 py-2.5 text-sm text-red-300 hover:bg-red-500/10"
-                            >
-                              Fornecedor fora do CMV
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                </div>
-              </li>
+              <ToggleGroupItem
+                key={t.status}
+                value={t.status}
+                className="text-xs px-2.5"
+              >
+                {t.label}
+                <span className="tabular-nums opacity-80">({n})</span>
+              </ToggleGroupItem>
             );
           })}
-        </ul>
-      )}
+        </ToggleGroup>
+
+        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+          <div className="relative w-full sm:w-[200px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="NF ou fornecedor"
+              className="h-8 pl-8 text-sm"
+            />
+          </div>
+          <Select
+            value={
+              storeSlug ||
+              (!lojaTravada ? '__all__' : lojasOpts[0] ?? '__all__')
+            }
+            disabled={storeSelectDisabled}
+            onValueChange={(v) => setStoreSlug(v === '__all__' ? '' : v)}
+          >
+            <SelectTrigger className="h-8 w-[140px] text-sm">
+              <SelectValue placeholder="Loja" />
+            </SelectTrigger>
+            <SelectContent>
+              {!lojaTravada && (
+                <SelectItem value="__all__">Todas as lojas</SelectItem>
+              )}
+              {lojasOpts.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {storeLabel(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+            <SelectTrigger className="h-8 w-[120px] text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MESES.map((m, i) => (
+                <SelectItem key={m} value={String(i + 1)}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={String(ano)} onValueChange={(v) => setAno(Number(v))}>
+            <SelectTrigger className="h-8 w-[88px] text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {anos.map((a) => (
+                <SelectItem key={a} value={String(a)}>
+                  {a}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {msg ? (
+        <p className="text-sm text-warning" role="alert">
+          {msg}
+        </p>
+      ) : null}
+
+      <DataTable
+        columns={columns}
+        data={filtered}
+        loading={loading}
+        pageSize={50}
+        initialSorting={[{ id: 'dataEntrada', desc: true }]}
+        getRowHref={(row) => `/cmv-real/notas/${row.id}`}
+        emptyState={
+          <div className="space-y-1">
+            <p className="text-sm text-muted-foreground">
+              {emptyTitle(status, mes, ano)}
+            </p>
+            <p className="text-xs text-muted-foreground">{emptyHint(status)}</p>
+          </div>
+        }
+        renderMobileRow={(n) => {
+          const prontos = itensProntosOf(n);
+          const completo = n.itensTotal > 0 && prontos >= n.itensTotal;
+          return (
+            <>
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <span>NF {n.numero}</span>
+                <Badge
+                  variant="secondary"
+                  className="bg-muted text-muted-foreground border-transparent font-normal"
+                >
+                  {storeLabel(n.storeSlug)}
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                {fornecedorNome(n)}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                {new Date(n.dataEntrada).toLocaleDateString('pt-BR')}
+                {' · '}
+                {formatValor(n.valorTotal)}
+                {' · '}
+                <span className={completo ? 'text-success' : undefined}>
+                  {prontos}/{n.itensTotal}
+                </span>
+              </p>
+            </>
+          );
+        }}
+      />
     </div>
   );
 }
