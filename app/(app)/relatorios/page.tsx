@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  ArrowLeft,
-  FileBarChart2,
   Plus,
   Pencil,
   ToggleLeft,
@@ -18,17 +16,17 @@ import {
   Download,
   MessageSquareWarning,
   FileText,
+  FileBarChart2,
   CheckSquare,
-  Square,
-  MessagesSquare,
   Trash2,
   Settings2,
-  Store,
-  Users,
-  UserRound,
 } from 'lucide-react';
 import ToolProtection from '@/components/auth/ToolProtection';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Button } from '@/components/ui/button';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { SystemTool } from '@/types/admin';
+import { periodLabel as periodLabelShared } from './_lib/complaints-review';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -77,36 +75,6 @@ interface ComplaintRunRow {
   confirmadasCount?: number;
 }
 
-interface ComplaintEvidence {
-  id: string;
-  messageType: string;
-  snippet: string;
-  hasMedia?: boolean;
-  timestamp: string;
-}
-
-interface ComplaintReviewItem {
-  id: string;
-  contactId: string;
-  contactName: string | null;
-  contactPhone: string;
-  clientLabel: string;
-  numeroPedido: string | null;
-  resumo: string;
-  dataOcorrencia: string;
-  confirmadoPorHumano: boolean;
-  sessionSlot?: number;
-  origem?: string;
-  lojaGrupo?: string | null;
-  sessionLabel?: string;
-  origemLabel?: string;
-  evidencias: ComplaintEvidence[];
-  categoria?: string | null;
-  lojaId?: string | null;
-  lojaIdentificada?: boolean;
-  entregadorId?: string | null;
-  ridersDisponiveis?: { id: string; name: string }[];
-}
 
 interface IfoodGroupRow {
   id: string;
@@ -121,42 +89,6 @@ interface IfoodGroupRow {
 interface WppGroupOpt {
   id: string;
   name: string;
-}
-
-interface ComplaintConversationMessage {
-  id: string;
-  direction: string;
-  speaker: 'CLIENTE' | 'ATENDENTE' | 'IA';
-  messageType: string;
-  snippet: string;
-  hasMedia?: boolean;
-  timestamp: string;
-}
-
-interface ComplaintConversation {
-  contactId: string;
-  contactPhone: string;
-  contactName: string | null;
-  clientLabel: string;
-  truncated: boolean;
-  messages: ComplaintConversationMessage[];
-}
-
-interface LojaOption {
-  id: string;
-  nome: string;
-}
-
-interface ComplaintReviewData {
-  id: string;
-  periodStart: string;
-  status: string;
-  totalReclamacoes: number | null;
-  confirmadasCount: number;
-  hasAta: boolean;
-  complaints: ComplaintReviewItem[];
-  lojas: LojaOption[];
-  ridersPorLoja: Record<string, { id: string; name: string }[]>;
 }
 
 interface ReportForm {
@@ -204,127 +136,12 @@ const GRUPO_LABELS: Record<string, string> = {
 
 const GRUPO_ORDER = ['geral', 'cupons', 'ticket_medio', 'canal'];
 
-const CATEGORIA_LABELS: Record<string, string> = {
-  QUALIDADE: 'Qualidade',
-  PIZZA_VIRADA: 'Pizza Virada',
-  ESQUECEU_BEBIDA: 'Esqueceu Bebida',
-  PEDIDO_ERRADO: 'Pedido Errado',
-  PEDIDO_ATRASADO: 'Pedido Atrasado',
-  OUTROS: 'Outros',
-};
-
-const CATEGORIA_COLORS: Record<string, string> = {
-  QUALIDADE: 'bg-red-500/10 text-red-300 border-red-500/25',
-  PIZZA_VIRADA: 'bg-orange-500/10 text-orange-300 border-orange-500/25',
-  ESQUECEU_BEBIDA: 'bg-yellow-500/10 text-yellow-300 border-yellow-500/25',
-  PEDIDO_ERRADO: 'bg-purple-500/10 text-purple-300 border-purple-500/25',
-  PEDIDO_ATRASADO: 'bg-blue-500/10 text-blue-300 border-blue-500/25',
-  OUTROS: 'bg-gray-500/10 text-gray-300 border-gray-500/25',
-};
-
-// Categorias que requerem seleção de entregador
-const CATEGORIAS_COM_ENTREGADOR = ['PIZZA_VIRADA', 'ESQUECEU_BEBIDA', 'PEDIDO_ERRADO'];
-
-type ReviewCanalFilter = 'todas' | 'conversas' | 'grupos' | 'semLoja';
-
-interface LojaGroup {
-  lojaKey: string;
-  items: ComplaintReviewItem[];
-}
-
-interface OrganizedReview {
-  conversasPorLoja: LojaGroup[];
-  semLoja: ComplaintReviewItem[];
-  gruposPorLoja: LojaGroup[];
-  counts: {
-    conversas: number;
-    semLoja: number;
-    grupos: number;
-    total: number;
-  };
-  lojaNames: string[];
-}
-
-function resolveLojaNome(
-  c: ComplaintReviewItem,
-  lojaById: Map<string, string>,
-): string | null {
-  return (c.lojaId ? lojaById.get(c.lojaId) : null) ?? c.lojaGrupo ?? null;
-}
-
-/** Grupo iFood: origem explícita, JID de grupo ou lojaGrupo preenchido (legado). */
-function isGrupoComplaint(c: ComplaintReviewItem): boolean {
-  if (String(c.origem || '').toUpperCase() === 'GRUPO_IFOOD') return true;
-  if (c.lojaGrupo && String(c.lojaGrupo).trim()) return true;
-  const contactId = String(c.contactId || '');
-  if (contactId.includes('@g.us')) return true;
-  const label = String(c.origemLabel || '').toLowerCase();
-  if (label.includes('ifood')) return true;
-  return false;
-}
-
-function toSortedLojaGroups(
-  map: Record<string, ComplaintReviewItem[]>,
-): LojaGroup[] {
-  return Object.entries(map)
-    .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
-    .map(([lojaKey, items]) => ({ lojaKey, items }));
-}
-
-/** Separa conversas 1:1, sem loja e grupos iFood — nunca mistura canais. */
-function organizeReviewComplaints(
-  complaints: ComplaintReviewItem[],
-  lojas: LojaOption[],
-): OrganizedReview {
-  const lojaById = new Map(lojas.map((l) => [l.id, l.nome]));
-  const conversasMap: Record<string, ComplaintReviewItem[]> = {};
-  const gruposMap: Record<string, ComplaintReviewItem[]> = {};
-  const semLoja: ComplaintReviewItem[] = [];
-
-  for (const c of complaints) {
-    if (isGrupoComplaint(c)) {
-      const nome = resolveLojaNome(c, lojaById) ?? c.lojaGrupo ?? 'Grupo sem loja';
-      (gruposMap[nome] ??= []).push(c);
-      continue;
-    }
-
-    const nome = resolveLojaNome(c, lojaById);
-    if (!nome || c.lojaIdentificada === false) {
-      semLoja.push(c);
-      continue;
-    }
-    (conversasMap[nome] ??= []).push(c);
-  }
-
-  const conversasPorLoja = toSortedLojaGroups(conversasMap);
-  const gruposPorLoja = toSortedLojaGroups(gruposMap);
-  const lojaNames = Array.from(
-    new Set([
-      ...conversasPorLoja.map((g) => g.lojaKey),
-      ...gruposPorLoja.map((g) => g.lojaKey),
-    ]),
-  ).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-  return {
-    conversasPorLoja,
-    semLoja,
-    gruposPorLoja,
-    counts: {
-      conversas: conversasPorLoja.reduce((n, g) => n + g.items.length, 0),
-      semLoja: semLoja.length,
-      grupos: gruposPorLoja.reduce((n, g) => n + g.items.length, 0),
-      total: complaints.length,
-    },
-    lojaNames,
-  };
-}
-
 const inputCls =
-  'w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/40 transition-colors';
+  'w-full bg-background border border-input rounded-lg px-3.5 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors';
 
-const labelCls = 'text-xs font-medium text-gray-400 mb-1.5 block';
+const labelCls = 'text-xs font-medium text-muted-foreground mb-1.5 block';
 
-const sectionCls = 'text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3';
+const sectionCls = 'text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3';
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -339,18 +156,16 @@ function ptDateTime(iso: string): string {
   });
 }
 
-function periodLabel(isoStart: string): string {
-  const d = new Date(isoStart);
-  const month = d.toLocaleString('pt-BR', { month: 'long', timeZone: 'America/Sao_Paulo' });
-  const year = d.toLocaleString('pt-BR', { year: 'numeric', timeZone: 'America/Sao_Paulo' });
-  return `${month.charAt(0).toUpperCase()}${month.slice(1)}/${year}`;
-}
+const periodLabel = periodLabelShared;
 
 function statusBadge(status: string) {
-  if (status === 'CONCLUIDO') return 'text-green-400 bg-green-500/10 border-green-500/20';
-  if (status === 'ERRO') return 'text-red-400 bg-red-500/10 border-red-500/20';
-  if (status === 'EM_ANDAMENTO') return 'text-sky-400 bg-sky-500/10 border-sky-500/20';
-  return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+  if (status === 'CONCLUIDO')
+    return 'text-success bg-success/10 border-success/20';
+  if (status === 'ERRO')
+    return 'text-destructive bg-destructive/10 border-destructive/20';
+  if (status === 'EM_ANDAMENTO')
+    return 'text-foreground bg-muted border-border';
+  return 'text-warning bg-warning/10 border-warning/20';
 }
 
 function Modal({
@@ -363,15 +178,16 @@ function Modal({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl w-full max-w-2xl shadow-2xl my-6">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2e]">
-          <h2 className="text-base font-semibold text-white">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-background/80 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="bg-card border border-border rounded-xl w-full max-w-2xl shadow-lg my-6">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">{title}</h2>
           <button
+            type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#2a2a2e] transition-colors"
+            className="size-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
           >
-            <X className="w-4 h-4" />
+            <X className="size-4" />
           </button>
         </div>
         {children}
@@ -380,855 +196,15 @@ function Modal({
   );
 }
 
-function ComplaintReviewCard({
-  c,
-  lojas,
-  ridersPorLoja,
-  runId,
-  togglingComplaintId,
-  onToggleConfirm,
-  onUpdateLoja,
-  onUpdateEntregador,
-  onUpdateCategoria,
-  onOpenConversation,
-}: {
-  c: ComplaintReviewItem;
-  lojas: LojaOption[];
-  ridersPorLoja: Record<string, { id: string; name: string }[]>;
-  runId: string;
-  togglingComplaintId: string | null;
-  onToggleConfirm: (id: string, next: boolean) => void;
-  onUpdateLoja: (id: string, lojaId: string | null) => void;
-  onUpdateEntregador: (id: string, entregadorId: string | null) => void;
-  onUpdateCategoria: (id: string, categoria: string | null) => void;
-  onOpenConversation: (runId: string, contactId: string) => void;
-}) {
-  const isGrupo = isGrupoComplaint(c);
-  const lojaPendente = !c.lojaId || c.lojaIdentificada === false;
-  const showEntregador = Boolean(
-    c.categoria && CATEGORIAS_COM_ENTREGADOR.includes(c.categoria),
-  );
-
-  return (
-    <li
-      className={`rounded-xl border p-4 transition-colors ${
-        c.confirmadoPorHumano
-          ? 'border-amber-500/30 bg-amber-500/[0.04]'
-          : 'border-[#2a2a2e] bg-[#0d0d0f]'
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <button
-          type="button"
-          disabled={togglingComplaintId === c.id}
-          onClick={() => onToggleConfirm(c.id, !c.confirmadoPorHumano)}
-          className="mt-0.5 shrink-0 text-amber-400 disabled:opacity-50"
-          aria-label={c.confirmadoPorHumano ? 'Remover da ata' : 'Incluir na ata'}
-        >
-          {togglingComplaintId === c.id ? (
-            <Loader2 className="w-5 h-5 animate-spin" />
-          ) : c.confirmadoPorHumano ? (
-            <CheckSquare className="w-5 h-5" />
-          ) : (
-            <Square className="w-5 h-5 text-gray-500" />
-          )}
-        </button>
-
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-medium text-white">
-              {c.clientLabel ||
-                `${c.contactName || (isGrupo ? 'Grupo' : 'Cliente')} — ${c.contactPhone || c.contactId}`}
-            </span>
-            {c.sessionLabel && (
-              <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e]">
-                {c.sessionLabel}
-              </span>
-            )}
-            <span
-              className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                isGrupo
-                  ? 'bg-orange-500/10 text-orange-300 border-orange-500/25'
-                  : 'bg-sky-500/10 text-sky-300 border-sky-500/25'
-              }`}
-            >
-              {isGrupo ? c.origemLabel || 'Grupo iFood' : 'Cliente'}
-            </span>
-            <span className="text-xs text-gray-500">
-              {new Date(c.dataOcorrencia).toLocaleDateString('pt-BR', {
-                timeZone: 'America/Sao_Paulo',
-              })}
-            </span>
-            {c.numeroPedido && (
-              <span className="text-xs text-amber-300/90">Pedido {c.numeroPedido}</span>
-            )}
-            {c.categoria && (
-              <span
-                className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium border ${
-                  CATEGORIA_COLORS[c.categoria] ??
-                  'bg-gray-500/10 text-gray-300 border-gray-500/25'
-                }`}
-              >
-                {CATEGORIA_LABELS[c.categoria] ?? c.categoria}
-              </span>
-            )}
-            {c.confirmadoPorHumano && (
-              <span className="text-xs text-green-400/90">Na ata</span>
-            )}
-          </div>
-
-          {lojaPendente && (
-            <div className="mt-2">
-              {isGrupo && (c.lojaGrupo || c.clientLabel) ? (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-sky-500/10 text-sky-300 border border-sky-500/25">
-                  Grupo: {c.lojaGrupo || 'iFood'}
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/25">
-                  <AlertCircle className="w-3 h-3" />
-                  Loja não identificada
-                </span>
-              )}
-            </div>
-          )}
-
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
-            {lojas.length > 0 && (
-              <div className="flex items-center gap-1.5 min-w-[180px] flex-1">
-                <label className="text-xs text-gray-500 shrink-0">Loja:</label>
-                <select
-                  value={c.lojaId ?? ''}
-                  onChange={(e) => onUpdateLoja(c.id, e.target.value || null)}
-                  className={`flex-1 bg-[#0a0a0a] rounded-lg px-2 py-1 text-xs text-white focus:outline-none ${
-                    lojaPendente
-                      ? 'border border-amber-500/30 focus:border-amber-500/60'
-                      : 'border border-[#2a2a2e] focus:border-amber-500/40'
-                  }`}
-                >
-                  <option value="">— Selecione a loja —</option>
-                  {lojas.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div className="flex items-center gap-1.5 min-w-[180px] flex-1">
-              <label className="text-xs text-gray-500 shrink-0">Etiqueta:</label>
-              <select
-                value={c.categoria ?? ''}
-                onChange={(e) => onUpdateCategoria(c.id, e.target.value || null)}
-                className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
-              >
-                <option value="">— Sem etiqueta —</option>
-                {Object.entries(CATEGORIA_LABELS).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <p className="text-sm text-gray-300 mt-1.5">{c.resumo}</p>
-
-          {showEntregador && (
-            <div className="mt-2 flex items-center gap-2">
-              <label className="text-xs text-gray-500 shrink-0">Entregador:</label>
-              {!c.lojaId ? (
-                <span className="text-xs text-amber-300/80">
-                  Selecione a loja para listar os entregadores
-                </span>
-              ) : (
-                <select
-                  value={c.entregadorId ?? ''}
-                  onChange={(e) => onUpdateEntregador(c.id, e.target.value || null)}
-                  className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-amber-500/40"
-                >
-                  <option value="">— Não identificado —</option>
-                  {(ridersPorLoja[c.lojaId] ?? []).map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
-          {showEntregador &&
-            c.lojaId &&
-            (ridersPorLoja[c.lojaId] ?? []).length === 0 && (
-              <p className="mt-1 text-[11px] text-gray-500">
-                Nenhum motoboy ativo cadastrado nesta loja no RH.
-              </p>
-            )}
-
-          {c.evidencias.length > 0 && (
-            <div className="mt-2 space-y-1">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">
-                {isGrupo ? 'Evidências (grupo iFood)' : 'Evidências (cliente)'}
-              </p>
-              {c.evidencias.map((ev) => (
-                <div
-                  key={ev.id}
-                  className="text-xs text-gray-400 pl-2 border-l border-[#2a2a2e]"
-                >
-                  {ev.hasMedia ||
-                  ev.messageType === 'image' ||
-                  ev.messageType === 'sticker' ? (
-                    <ConversationMedia
-                      messageId={ev.id}
-                      messageType={ev.messageType}
-                    />
-                  ) : (
-                    <p>
-                      {ev.messageType !== 'text' && (
-                        <span className="text-amber-400/80 mr-1">[{ev.messageType}]</span>
-                      )}
-                      {ev.snippet}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-
-          {!isGrupo && (
-            <button
-              type="button"
-              onClick={() => onOpenConversation(runId, c.contactId)}
-              className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-amber-300/90 hover:text-amber-200"
-            >
-              <MessagesSquare className="w-3.5 h-3.5" />
-              Ver conversa completa
-            </button>
-          )}
-        </div>
-      </div>
-    </li>
-  );
-}
-
-function ReviewSectionHeader({
-  icon,
-  title,
-  count,
-  accent,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  count: number;
-  accent?: 'sky' | 'amber' | 'orange';
-}) {
-  const accentCls =
-    accent === 'amber'
-      ? 'border-amber-500/25 bg-amber-500/10 text-amber-200'
-      : accent === 'orange'
-        ? 'border-orange-500/25 bg-orange-500/10 text-orange-200'
-        : 'border-sky-500/25 bg-sky-500/10 text-sky-200';
-
-  return (
-    <div className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 ${accentCls}`}>
-      <span className="shrink-0 opacity-90">{icon}</span>
-      <h4 className="text-sm font-semibold">{title}</h4>
-      <span className="text-xs opacity-70">({count})</span>
-    </div>
-  );
-}
-
-function LojaSubheader({ name, count }: { name: string; count: number }) {
-  return (
-    <div className="flex items-center gap-2 mt-4 mb-2">
-      <Store className="w-3.5 h-3.5 text-gray-500" />
-      <span className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-        {name}
-      </span>
-      <span className="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#1a1a1e] text-gray-400 border border-[#2a2a2e]">
-        {count}
-      </span>
-      <span className="flex-1 h-px bg-[#2a2a2e]" />
-    </div>
-  );
-}
-
-function ReviewModal({
-  loading,
-  data,
-  togglingComplaintId,
-  generatingId,
-  downloadingId,
-  onClose,
-  onToggleConfirm,
-  onBatchConfirm,
-  onUpdateLoja,
-  onUpdateEntregador,
-  onUpdateCategoria,
-  onOpenConversation,
-  onGenerateAta,
-  onDownloadAta,
-}: {
-  loading: boolean;
-  data: ComplaintReviewData | null;
-  togglingComplaintId: string | null;
-  generatingId: string | null;
-  downloadingId: string | null;
-  onClose: () => void;
-  onToggleConfirm: (id: string, next: boolean) => void;
-  onBatchConfirm: (ids: string[], next: boolean) => void;
-  onUpdateLoja: (id: string, lojaId: string | null) => void;
-  onUpdateEntregador: (id: string, entregadorId: string | null) => void;
-  onUpdateCategoria: (id: string, categoria: string | null) => void;
-  onOpenConversation: (runId: string, contactId: string) => void;
-  onGenerateAta: (runId: string) => void;
-  onDownloadAta: (runId: string) => void;
-}) {
-  const [canal, setCanal] = useState<ReviewCanalFilter>('todas');
-  const [lojaFilter, setLojaFilter] = useState<string | null>(null);
-  const [categoriaFilter, setCategoriaFilter] = useState<string | null>(null);
-
-  const organized = useMemo(
-    () =>
-      data
-        ? organizeReviewComplaints(data.complaints, data.lojas ?? [])
-        : null,
-    [data],
-  );
-
-  const categoriasPresentes = useMemo(() => {
-    if (!data) return [] as string[];
-    const presentes = new Set<string>();
-    for (const c of data.complaints) {
-      if (c.categoria) presentes.add(c.categoria);
-    }
-    return Object.keys(CATEGORIA_LABELS).filter((k) => presentes.has(k));
-  }, [data]);
-
-  // Reset filters when opening another run
-  useEffect(() => {
-    setCanal('todas');
-    setLojaFilter(null);
-    setCategoriaFilter(null);
-  }, [data?.id]);
-
-  const matchCategoria = (c: ComplaintReviewItem) =>
-    !categoriaFilter || c.categoria === categoriaFilter;
-
-  const visibleIds = useMemo(() => {
-    if (!organized) return [] as string[];
-    const ids: string[] = [];
-    const matchLoja = (key: string) => !lojaFilter || lojaFilter === key;
-
-    if (canal === 'todas' || canal === 'conversas') {
-      for (const g of organized.conversasPorLoja) {
-        if (matchLoja(g.lojaKey)) {
-          ids.push(...g.items.filter(matchCategoria).map((i) => i.id));
-        }
-      }
-    }
-    if ((canal === 'todas' || canal === 'semLoja') && !lojaFilter) {
-      ids.push(...organized.semLoja.filter(matchCategoria).map((i) => i.id));
-    }
-    if (canal === 'todas' || canal === 'grupos') {
-      for (const g of organized.gruposPorLoja) {
-        if (matchLoja(g.lojaKey)) {
-          ids.push(...g.items.filter(matchCategoria).map((i) => i.id));
-        }
-      }
-    }
-    return ids;
-  }, [organized, canal, lojaFilter, categoriaFilter]);
-
-  const visibleSelectedCount = useMemo(() => {
-    if (!data) return 0;
-    const set = new Set(visibleIds);
-    return data.complaints.filter((c) => set.has(c.id) && c.confirmadoPorHumano).length;
-  }, [data, visibleIds]);
-
-  const cardProps = data
-    ? {
-        lojas: data.lojas ?? [],
-        ridersPorLoja: data.ridersPorLoja ?? {},
-        runId: data.id,
-        togglingComplaintId,
-        onToggleConfirm,
-        onUpdateLoja,
-        onUpdateEntregador,
-        onUpdateCategoria,
-        onOpenConversation,
-      }
-    : null;
-
-  const showConversas = canal === 'todas' || canal === 'conversas';
-  const showSemLoja = (canal === 'todas' || canal === 'semLoja') && !lojaFilter;
-  const showGrupos = canal === 'todas' || canal === 'grupos';
-
-  const conversasFiltered =
-    organized?.conversasPorLoja
-      .filter((g) => !lojaFilter || g.lojaKey === lojaFilter)
-      .map((g) => ({ ...g, items: g.items.filter(matchCategoria) }))
-      .filter((g) => g.items.length > 0) ?? [];
-  const gruposFiltered =
-    organized?.gruposPorLoja
-      .filter((g) => !lojaFilter || g.lojaKey === lojaFilter)
-      .map((g) => ({ ...g, items: g.items.filter(matchCategoria) }))
-      .filter((g) => g.items.length > 0) ?? [];
-  const semLojaFiltered = organized?.semLoja.filter(matchCategoria) ?? [];
-
-  const canalTabs: { id: ReviewCanalFilter; label: string; count: number }[] = organized
-    ? [
-        { id: 'todas', label: 'Todas', count: organized.counts.total },
-        { id: 'conversas', label: 'Conversas', count: organized.counts.conversas },
-        { id: 'grupos', label: 'Grupos', count: organized.counts.grupos },
-        { id: 'semLoja', label: 'Sem loja', count: organized.counts.semLoja },
-      ]
-    : [];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-5">
-      <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl w-full max-w-6xl h-[min(92vh,920px)] shadow-2xl flex flex-col overflow-hidden">
-        {/* Header */}
-        <div className="shrink-0 flex items-start justify-between gap-3 px-5 sm:px-6 py-4 border-b border-[#2a2a2e]">
-          <div className="min-w-0">
-            <h2 className="text-base sm:text-lg font-semibold text-white truncate">
-              {data
-                ? `Revisão — ${periodLabel(data.periodStart)}`
-                : 'Revisão de reclamações'}
-            </h2>
-            <p className="text-xs text-gray-500 mt-1">
-              Marque o que entra na ata. Conversas e grupos ficam separados; atribua loja quando
-              faltar.
-            </p>
-          </div>
-          <div className="flex items-center gap-3 shrink-0">
-            {data && (
-              <span className="hidden sm:inline text-xs font-medium text-amber-300/90 tabular-nums">
-                {data.confirmadasCount} de {data.complaints.length} na ata
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#2a2a2e] transition-colors"
-              aria-label="Fechar"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-
-        {/* Filters */}
-        {!loading && data && organized && (
-          <div className="shrink-0 px-5 sm:px-6 py-3 border-b border-[#2a2a2e] space-y-3 bg-[#0d0d0f]">
-            <div className="flex flex-wrap gap-1.5">
-              {canalTabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => {
-                    setCanal(tab.id);
-                    if (tab.id === 'semLoja') setLojaFilter(null);
-                  }}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
-                    canal === tab.id
-                      ? 'bg-amber-500/15 text-amber-200 border-amber-500/35'
-                      : 'bg-[#1a1a1e] text-gray-400 border-[#2a2a2e] hover:text-gray-200'
-                  }`}
-                >
-                  {tab.label}
-                  <span className="tabular-nums opacity-70">{tab.count}</span>
-                </button>
-              ))}
-            </div>
-
-            {canal !== 'semLoja' && (() => {
-              const chipLojas =
-                canal === 'grupos'
-                  ? organized.gruposPorLoja.map((g) => g.lojaKey)
-                  : canal === 'conversas'
-                    ? organized.conversasPorLoja.map((g) => g.lojaKey)
-                    : organized.lojaNames;
-              if (chipLojas.length === 0) return null;
-              return (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-gray-500 mr-1">
-                  Loja
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setLojaFilter(null)}
-                  className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                    !lojaFilter
-                      ? 'bg-white/10 text-white border-white/20'
-                      : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
-                  }`}
-                >
-                  Todas
-                </button>
-                {chipLojas.map((nome) => (
-                  <button
-                    key={nome}
-                    type="button"
-                    onClick={() => setLojaFilter(nome)}
-                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                      lojaFilter === nome
-                        ? 'bg-sky-500/15 text-sky-200 border-sky-500/35'
-                        : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
-                    }`}
-                  >
-                    <Store className="w-3 h-3 opacity-70" />
-                    {nome}
-                  </button>
-                ))}
-              </div>
-              );
-            })()}
-
-            {categoriasPresentes.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider text-gray-500 mr-1">
-                  Etiqueta
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setCategoriaFilter(null)}
-                  className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                    !categoriaFilter
-                      ? 'bg-white/10 text-white border-white/20'
-                      : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
-                  }`}
-                >
-                  Todas
-                </button>
-                {categoriasPresentes.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() => setCategoriaFilter(cat)}
-                    className={`inline-flex px-2.5 py-1 rounded-md text-[11px] font-medium border transition-colors ${
-                      categoriaFilter === cat
-                        ? CATEGORIA_COLORS[cat] ??
-                          'bg-white/10 text-white border-white/20'
-                        : 'bg-transparent text-gray-500 border-[#2a2a2e] hover:text-gray-300'
-                    }`}
-                  >
-                    {CATEGORIA_LABELS[cat] ?? cat}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                disabled={visibleIds.length === 0}
-                onClick={() => onBatchConfirm(visibleIds, true)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-green-300 border border-green-500/25 bg-green-500/10 hover:bg-green-500/15 disabled:opacity-40"
-              >
-                <CheckSquare className="w-3.5 h-3.5" />
-                Incluir todas desta visão
-              </button>
-              <button
-                type="button"
-                disabled={visibleIds.length === 0}
-                onClick={() => onBatchConfirm(visibleIds, false)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold text-gray-400 border border-[#2a2a2e] hover:text-gray-200 disabled:opacity-40"
-              >
-                <Square className="w-3.5 h-3.5" />
-                Limpar desta visão
-              </button>
-              <span className="text-[11px] text-gray-500 ml-auto tabular-nums">
-                {visibleSelectedCount}/{visibleIds.length} selecionadas nesta visão
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 sm:px-6 py-4">
-          {loading || !cardProps ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-            </div>
-          ) : !organized || organized.counts.total === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-16">
-              Nenhuma reclamação neste período.
-            </p>
-          ) : (
-            <div className="space-y-8">
-              {showConversas && (
-                <section className="space-y-3">
-                  <ReviewSectionHeader
-                    icon={<UserRound className="w-4 h-4" />}
-                    title="Conversas com clientes"
-                    count={conversasFiltered.reduce((n, g) => n + g.items.length, 0)}
-                    accent="sky"
-                  />
-                  {conversasFiltered.length === 0 ? (
-                    <p className="text-xs text-gray-500 pl-1">
-                      Nenhuma conversa neste filtro.
-                    </p>
-                  ) : (
-                    conversasFiltered.map((g) => (
-                      <div key={`conv-${g.lojaKey}`}>
-                        <LojaSubheader name={g.lojaKey} count={g.items.length} />
-                        <ul className="space-y-2.5">
-                          {g.items.map((c) => (
-                            <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
-                          ))}
-                        </ul>
-                      </div>
-                    ))
-                  )}
-                </section>
-              )}
-
-              {showSemLoja && (
-                <section className="space-y-3">
-                  <ReviewSectionHeader
-                    icon={<AlertCircle className="w-4 h-4" />}
-                    title="Sem loja identificada"
-                    count={semLojaFiltered.length}
-                    accent="amber"
-                  />
-                  {semLojaFiltered.length === 0 ? (
-                    <p className="text-xs text-gray-500 pl-1">
-                      {organized.semLoja.length === 0
-                        ? 'Todas as conversas já têm loja.'
-                        : 'Nenhuma reclamação neste filtro de etiqueta.'}
-                    </p>
-                  ) : (
-                    <ul className="space-y-2.5">
-                      {semLojaFiltered.map((c) => (
-                        <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
-                      ))}
-                    </ul>
-                  )}
-                </section>
-              )}
-
-              {showGrupos && (
-                <section className="space-y-3">
-                  <ReviewSectionHeader
-                    icon={<Users className="w-4 h-4" />}
-                    title="Grupos iFood"
-                    count={gruposFiltered.reduce((n, g) => n + g.items.length, 0)}
-                    accent="orange"
-                  />
-                  {gruposFiltered.length === 0 ? (
-                    <p className="text-xs text-gray-500 pl-1">
-                      {organized.counts.grupos === 0
-                        ? 'Nenhuma reclamação de grupo iFood neste período. Confira se os grupos estão cadastrados e se o monitoramento já processou as mensagens.'
-                        : 'Nenhum registro de grupo neste filtro.'}
-                    </p>
-                  ) : (
-                    gruposFiltered.map((g) => (
-                      <div key={`grp-${g.lojaKey}`}>
-                        <LojaSubheader name={g.lojaKey} count={g.items.length} />
-                        <ul className="space-y-2.5">
-                          {g.items.map((c) => (
-                            <ComplaintReviewCard key={c.id} c={c} {...cardProps} />
-                          ))}
-                        </ul>
-                      </div>
-                    ))
-                  )}
-                </section>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="shrink-0 flex flex-wrap items-center gap-2 px-5 sm:px-6 py-3.5 border-t border-[#2a2a2e] bg-[#0d0d0f]">
-          {data && (
-            <span className="text-xs text-gray-400 tabular-nums mr-auto">
-              <span className="text-amber-300 font-medium">{data.confirmadasCount}</span>
-              {' '}incluídas de {data.complaints.length}
-            </span>
-          )}
-          {data && (
-            <>
-              <button
-                type="button"
-                disabled={data.confirmadasCount < 1 || generatingId === data.id}
-                onClick={() => onGenerateAta(data.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {generatingId === data.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <FileText className="w-3.5 h-3.5" />
-                )}
-                {data.hasAta ? 'Regenerar ata' : 'Gerar ata'}
-              </button>
-              <button
-                type="button"
-                disabled={!data.hasAta || downloadingId === data.id}
-                onClick={() => onDownloadAta(data.id)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e] hover:border-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {downloadingId === data.id ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Download className="w-3.5 h-3.5" />
-                )}
-                Baixar ata
-              </button>
-            </>
-          )}
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex items-center px-3 py-2 rounded-xl text-xs font-semibold text-gray-300 border border-[#2a2a2e] hover:bg-[#1a1a1e] transition-colors"
-          >
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ConversationMedia({
-  messageId,
-  messageType,
-}: {
-  messageId: string;
-  messageType: string;
-}) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [failed, setFailed] = useState(false);
-  const [isThumbnail, setIsThumbnail] = useState(false);
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    let objectUrl: string | null = null;
-    (async () => {
-      try {
-        const res = await fetch(`/api/whatsapp-messages/${messageId}/media`);
-        if (!res.ok) {
-          if (!cancelled) setFailed(true);
-          return;
-        }
-        const contentType = res.headers.get('content-type') ?? '';
-        if (contentType.startsWith('image/')) {
-          // Proxy direto: resposta é o binário da imagem original
-          const blob = await res.blob();
-          objectUrl = URL.createObjectURL(blob);
-          if (!cancelled) {
-            setIsThumbnail(false);
-            setUrl(objectUrl);
-          }
-        } else {
-          // Resposta JSON com { url }
-          const data = await res.json().catch(() => ({}));
-          if (!data.url) {
-            if (!cancelled) setFailed(true);
-            return;
-          }
-          if (!cancelled) {
-            setIsThumbnail(Boolean(data.isThumbnail));
-            setUrl(data.url as string);
-          }
-        }
-      } catch {
-        if (!cancelled) setFailed(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [messageId]);
-
-  useEffect(() => {
-    if (!lightboxOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [lightboxOpen]);
-
-  if (failed) {
-    return <p className="text-xs text-gray-500 mt-1">Foto indisponível</p>;
-  }
-  if (!url) {
-    return <Loader2 className="w-4 h-4 text-gray-500 animate-spin mt-2" />;
-  }
-
-  const label =
-    messageType === 'sticker' ? 'Figurinha' : 'Foto da conversa';
-
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => setLightboxOpen(true)}
-        className="mt-2 block rounded-lg border border-[#2a2a2e] overflow-hidden hover:border-amber-500/40 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50"
-        title="Clique para ampliar"
-      >
-        <img
-          src={url}
-          alt={label}
-          className="max-h-24 w-auto max-w-[200px] object-cover cursor-zoom-in"
-        />
-      </button>
-      <p className="text-[10px] text-gray-500 mt-1">
-        {isThumbnail
-          ? 'Prévia de baixa resolução (mídia original não arquivada)'
-          : 'Clique na imagem para ampliar'}
-      </p>
-
-      {lightboxOpen && (
-        <div
-          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-6"
-          onClick={() => setLightboxOpen(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-label={label}
-        >
-          <button
-            type="button"
-            onClick={() => setLightboxOpen(false)}
-            className="absolute top-4 right-4 w-9 h-9 rounded-lg flex items-center justify-center text-gray-300 hover:text-white hover:bg-white/10 transition-colors"
-            aria-label="Fechar"
-          >
-            <X className="w-5 h-5" />
-          </button>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={label}
-            className="rounded-lg shadow-2xl block"
-            style={{
-              maxWidth: '90vw',
-              maxHeight: '88vh',
-              width: 'auto',
-              height: 'auto',
-              objectFit: 'contain',
-            }}
-            onClick={(e) => e.stopPropagation()}
-          />
-          {isThumbnail && (
-            <p className="absolute bottom-6 left-1/2 -translate-x-1/2 text-xs text-amber-200/90 text-center max-w-md px-4">
-              Esta é só a prévia do WhatsApp. A foto em resolução completa não foi salva no arquivo.
-            </p>
-          )}
-        </div>
-      )}
-    </>
-  );
-}
-
 // ── Página ─────────────────────────────────────────────────────────────────
 
 function RelatoriosContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const [tab, setTab] = useState<TabId>('agendados');
+  const [tab, setTab] = useState<TabId>(() =>
+    searchParams.get('tab') === 'reclamacoes' ? 'reclamacoes' : 'agendados',
+  );
   const [reports, setReports] = useState<ReportRow[]>([]);
   const [complaintRuns, setComplaintRuns] = useState<ComplaintRunRow[]>([]);
   const [catalog, setCatalog] = useState<CatalogField[]>([]);
@@ -1239,12 +215,6 @@ function RelatoriosContent() {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
-  const [reviewRunId, setReviewRunId] = useState<string | null>(null);
-  const [reviewData, setReviewData] = useState<ComplaintReviewData | null>(null);
-  const [loadingReview, setLoadingReview] = useState(false);
-  const [togglingComplaintId, setTogglingComplaintId] = useState<string | null>(null);
-  const [conversation, setConversation] = useState<ComplaintConversation | null>(null);
-  const [loadingConversation, setLoadingConversation] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [ifoodGroups, setIfoodGroups] = useState<IfoodGroupRow[]>([]);
@@ -1481,168 +451,8 @@ function RelatoriosContent() {
     }
   }
 
-  async function openReview(runId: string) {
-    setReviewRunId(runId);
-    setLoadingReview(true);
-    setReviewData(null);
-    try {
-      const res = await fetch(`/api/reports/complaints/${runId}/review`);
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.error || 'Não foi possível carregar a revisão.');
-        setReviewRunId(null);
-        return;
-      }
-      setReviewData(data as ComplaintReviewData);
-    } catch {
-      alert('Falha de rede ao carregar revisão.');
-      setReviewRunId(null);
-    } finally {
-      setLoadingReview(false);
-    }
-  }
-
-  function closeReview() {
-    setReviewRunId(null);
-    setReviewData(null);
-    setLoadingReview(false);
-  }
-
-  async function batchToggleConfirm(ids: string[], next: boolean) {
-    if (!reviewData || ids.length === 0) return;
-    const targets = reviewData.complaints.filter(
-      (c) => ids.includes(c.id) && c.confirmadoPorHumano !== next,
-    );
-    for (const c of targets) {
-      await toggleComplaintConfirm(c.id, next);
-    }
-  }
-
-  async function toggleComplaintConfirm(complaintId: string, next: boolean) {
-    if (!reviewData) return;
-    setTogglingComplaintId(complaintId);
-    try {
-      const res = await fetch(`/api/reports/complaints/complaints/${complaintId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ confirmadoPorHumano: next }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.error || 'Não foi possível salvar.');
-        return;
-      }
-
-      setReviewData((prev) => {
-        if (!prev) return prev;
-        const complaints = prev.complaints.map((c) =>
-          c.id === complaintId ? { ...c, confirmadoPorHumano: next } : c,
-        );
-        const confirmadasCount = complaints.filter((c) => c.confirmadoPorHumano).length;
-        setComplaintRuns((runs) =>
-          runs.map((r) =>
-            r.id === prev.id ? { ...r, confirmadasCount } : r,
-          ),
-        );
-        return { ...prev, complaints, confirmadasCount };
-      });
-    } catch {
-      alert('Falha de rede ao salvar.');
-    } finally {
-      setTogglingComplaintId(null);
-    }
-  }
-
-  async function updateComplaintEntregador(complaintId: string, entregadorId: string | null) {
-    if (!reviewData) return;
-    try {
-      const res = await fetch(`/api/reports/complaints/complaints/${complaintId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entregadorId }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.error || 'Não foi possível salvar o entregador.');
-        return;
-      }
-      setReviewData((prev) => {
-        if (!prev) return prev;
-        const complaints = prev.complaints.map((c) =>
-          c.id === complaintId ? { ...c, entregadorId } : c,
-        );
-        return { ...prev, complaints };
-      });
-    } catch {
-      alert('Falha de rede ao salvar o entregador.');
-    }
-  }
-
-  async function updateComplaintLoja(complaintId: string, lojaId: string | null) {
-    if (!reviewData) return;
-    try {
-      const res = await fetch(`/api/reports/complaints/complaints/${complaintId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          lojaId,
-          lojaIdentificada: Boolean(lojaId),
-          entregadorId: null, // troca de loja limpa o entregador anterior
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.error || 'Não foi possível salvar a loja.');
-        return;
-      }
-      setReviewData((prev) => {
-        if (!prev) return prev;
-        const complaints = prev.complaints.map((c) =>
-          c.id === complaintId
-            ? { ...c, lojaId, lojaIdentificada: Boolean(lojaId), entregadorId: null }
-            : c,
-        );
-        return { ...prev, complaints };
-      });
-    } catch {
-      alert('Falha de rede ao salvar a loja.');
-    }
-  }
-
-  async function updateComplaintCategoria(complaintId: string, categoria: string | null) {
-    if (!reviewData) return;
-    const clearsEntregador =
-      !categoria || !CATEGORIAS_COM_ENTREGADOR.includes(categoria);
-    try {
-      const res = await fetch(`/api/reports/complaints/complaints/${complaintId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoria,
-          ...(clearsEntregador ? { entregadorId: null } : {}),
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.error || 'Não foi possível salvar a etiqueta.');
-        return;
-      }
-      setReviewData((prev) => {
-        if (!prev) return prev;
-        const complaints = prev.complaints.map((c) =>
-          c.id === complaintId
-            ? {
-                ...c,
-                categoria,
-                ...(clearsEntregador ? { entregadorId: null } : {}),
-              }
-            : c,
-        );
-        return { ...prev, complaints };
-      });
-    } catch {
-      alert('Falha de rede ao salvar a etiqueta.');
-    }
+  function openReview(runId: string) {
+    router.push(`/relatorios/reclamacoes/${runId}`);
   }
 
   async function handleReclassify() {
@@ -1656,10 +466,6 @@ function RelatoriosContent() {
         return;
       }
       alert(data.mensagem || 'Reclassificação concluída.');
-      // Recarrega os dados de revisão se algum run estiver aberto
-      if (reviewRunId) {
-        void openReview(reviewRunId);
-      }
     } catch {
       alert('Falha de rede ao reclassificar.');
     } finally {
@@ -1681,34 +487,11 @@ function RelatoriosContent() {
           r.id === runId ? { ...r, ataStoragePath: data.ataStoragePath ?? 'generated' } : r,
         ),
       );
-      if (reviewData?.id === runId) {
-        setReviewData((prev) => (prev ? { ...prev, hasAta: true } : prev));
-      }
       alert('Ata gerada com sucesso. Use "Baixar ata" para obter o arquivo.');
     } catch {
       alert('Falha de rede ao gerar a ata.');
     } finally {
       setGeneratingId(null);
-    }
-  }
-
-  async function openConversation(runId: string, contactId: string) {
-    setConversation(null);
-    setLoadingConversation(true);
-    try {
-      const res = await fetch(
-        `/api/reports/complaints/${runId}/conversation?contactId=${encodeURIComponent(contactId)}`,
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.error || 'Não foi possível carregar a conversa.');
-        return;
-      }
-      setConversation(data as ComplaintConversation);
-    } catch {
-      alert('Falha de rede ao carregar a conversa.');
-    } finally {
-      setLoadingConversation(false);
     }
   }
 
@@ -1832,77 +615,49 @@ function RelatoriosContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 mb-8">
-          <div className="flex items-start gap-3">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="mt-1 w-8 h-8 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#1c1c1e] transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <FileBarChart2 className="w-6 h-6 text-amber-400" />
-                <h1 className="text-2xl font-bold text-white">Central de Relatórios</h1>
-              </div>
-              <p className="text-sm text-gray-500 mt-1">
-                Relatórios Saipos agendados e atas mensais de reclamações
-              </p>
-            </div>
-          </div>
-
-          {tab === 'agendados' && (
-            <button
-              onClick={openCreate}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-semibold hover:bg-amber-400 transition-colors"
-            >
-              <Plus className="w-4 h-4" />
+    <div className="w-full px-6 py-6 md:px-8 space-y-6">
+      <PageHeader
+        title="Central de Relatórios"
+        description="Relatórios Saipos agendados e atas mensais de reclamações"
+        actions={
+          tab === 'agendados' ? (
+            <Button type="button" size="sm" onClick={openCreate}>
+              <Plus className="size-4" />
               Novo relatório
-            </button>
-          )}
-        </div>
+            </Button>
+          ) : null
+        }
+      />
 
-        {/* Tabs */}
-        <div className="flex gap-1 mb-6 p-1 rounded-xl bg-[#111113] border border-[#2a2a2e] w-fit">
-          <button
-            type="button"
-            onClick={() => setTab('agendados')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'agendados'
-                ? 'bg-amber-500 text-black'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            Agendados (Saipos)
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab('reclamacoes')}
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              tab === 'reclamacoes'
-                ? 'bg-amber-500 text-black'
-                : 'text-gray-400 hover:text-white'
-            }`}
-          >
-            <MessageSquareWarning className="w-3.5 h-3.5" />
-            Reclamações
-          </button>
-        </div>
+      <ToggleGroup
+        type="single"
+        value={tab}
+        onValueChange={(v) => {
+          if (v) setTab(v as TabId);
+        }}
+        size="sm"
+        className="w-fit"
+      >
+        <ToggleGroupItem value="agendados" className="text-xs px-3">
+          Agendados (Saipos)
+        </ToggleGroupItem>
+        <ToggleGroupItem value="reclamacoes" className="text-xs px-3 gap-1.5">
+          <MessageSquareWarning className="size-3.5" />
+          Reclamações
+        </ToggleGroupItem>
+      </ToggleGroup>
 
         {tab === 'reclamacoes' ? (
           <div className="space-y-6">
             {/* Configuração grupos iFood */}
-            <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl p-4 md:p-5">
+            <div className="bg-card border border-border rounded-2xl p-4 md:p-5">
               <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-white inline-flex items-center gap-2">
-                    <Settings2 className="w-4 h-4 text-amber-400/80" />
+                  <h3 className="text-sm font-semibold text-foreground inline-flex items-center gap-2">
+                    <Settings2 className="w-4 h-4 text-muted-foreground" />
                     Grupos iFood (por loja)
                   </h3>
-                  <p className="text-xs text-gray-500 mt-1 max-w-xl">
+                  <p className="text-xs text-muted-foreground mt-1 max-w-xl">
                     Grupos WhatsApp onde os atendentes registram reclamações de pedidos iFood
                     (foto + legenda). Só esses grupos são capturados — não qualquer grupo da sessão.
                   </p>
@@ -1913,7 +668,7 @@ function RelatoriosContent() {
                     setShowAddIfoodGroup((v) => !v);
                     if (!ifoodFormSlot && sessions[0]) setIfoodFormSlot(sessions[0].slot);
                   }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 text-warning border border-primary/30 hover:bg-primary/25"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Adicionar grupo
@@ -1921,7 +676,7 @@ function RelatoriosContent() {
               </div>
 
               {showAddIfoodGroup && (
-                <div className="mb-4 rounded-xl border border-[#2a2a2e] bg-[#0d0d0f] p-4 space-y-3">
+                <div className="mb-4 rounded-xl border border-border bg-background p-4 space-y-3">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label className={labelCls}>Sessão WhatsApp</label>
@@ -1995,7 +750,7 @@ function RelatoriosContent() {
                     <button
                       type="button"
                       onClick={() => setShowAddIfoodGroup(false)}
-                      className="px-3 py-1.5 rounded-lg text-xs text-gray-400 border border-[#2a2a2e]"
+                      className="px-3 py-1.5 rounded-lg text-xs text-muted-foreground border border-border"
                     >
                       Cancelar
                     </button>
@@ -2003,7 +758,7 @@ function RelatoriosContent() {
                       type="button"
                       disabled={savingIfoodGroup}
                       onClick={() => void saveIfoodGroup()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 text-black disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground disabled:opacity-50"
                     >
                       {savingIfoodGroup ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2016,10 +771,10 @@ function RelatoriosContent() {
 
               {loadingIfoodGroups ? (
                 <div className="flex py-4 justify-center">
-                  <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
+                  <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
                 </div>
               ) : ifoodGroups.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhum grupo cadastrado ainda.</p>
+                <p className="text-sm text-muted-foreground">Nenhum grupo cadastrado ainda.</p>
               ) : (
                 <ul className="space-y-2">
                   {ifoodGroups.map((g) => {
@@ -2027,19 +782,19 @@ function RelatoriosContent() {
                     return (
                       <li
                         key={g.id}
-                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#2a2a2e] bg-[#0d0d0f] px-3 py-2.5"
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-background px-3 py-2.5"
                       >
                         <div className="min-w-0">
-                          <p className="text-sm text-white font-medium">
+                          <p className="text-sm text-foreground font-medium">
                             {g.lojaNome}
-                            <span className="text-xs text-gray-500 font-normal ml-2">
+                            <span className="text-xs text-muted-foreground font-normal ml-2">
                               ({g.lojaSlug})
                             </span>
                             {!g.ativo && (
-                              <span className="ml-2 text-xs text-red-400">inativo</span>
+                              <span className="ml-2 text-xs text-destructive">inativo</span>
                             )}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">
+                          <p className="text-xs text-muted-foreground truncate">
                             {session?.label || `Sessão ${g.sessionSlot}`} · {g.groupWhatsAppId}
                           </p>
                         </div>
@@ -2047,7 +802,7 @@ function RelatoriosContent() {
                           type="button"
                           disabled={deletingIfoodGroupId === g.id}
                           onClick={() => void deleteIfoodGroup(g.id)}
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-red-300/90 border border-red-500/20 hover:bg-red-500/10 disabled:opacity-50"
+                          className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-red-300/90 border border-destructive/20 hover:bg-destructive/10 disabled:opacity-50"
                         >
                           {deletingIfoodGroupId === g.id ? (
                             <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2069,7 +824,7 @@ function RelatoriosContent() {
                 type="button"
                 disabled={reclassifying}
                 onClick={handleReclassify}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e] hover:border-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted text-muted-foreground border border-border hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 title="Classifica por categoria e loja as reclamações que ainda não foram classificadas"
               >
                 {reclassifying ? (
@@ -2083,36 +838,36 @@ function RelatoriosContent() {
 
             {loadingComplaints ? (
             <div className="flex items-center justify-center py-20">
-              <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+              <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
             </div>
           ) : complaintRuns.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3 text-center">
-              <MessageSquareWarning className="w-8 h-8 text-amber-400/50" />
-              <p className="text-white font-medium">Nenhuma revisão de reclamações ainda</p>
-              <p className="text-sm text-gray-500 max-w-md">
+              <MessageSquareWarning className="w-8 h-8 text-warning/50" />
+              <p className="text-foreground font-medium">Nenhuma revisão de reclamações ainda</p>
+              <p className="text-sm text-muted-foreground max-w-md">
                 Após a classificação mensal, revise as reclamações detectadas, marque quais
                 entram na ata e gere o documento manualmente.
               </p>
             </div>
           ) : (
-            <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl overflow-hidden">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-[#2a2a2e] text-left">
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <tr className="border-b border-border text-left">
+                      <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Período
                       </th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Reclamações
                       </th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Status
                       </th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                         Executado em
                       </th>
-                      <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                      <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">
                         Ações
                       </th>
                     </tr>
@@ -2129,19 +884,19 @@ function RelatoriosContent() {
                       const hasAta = Boolean(run.ataStoragePath);
 
                       return (
-                      <tr key={run.id} className="border-b border-[#2a2a2e] last:border-0">
-                        <td className="px-4 py-3.5 font-medium text-white">
+                      <tr key={run.id} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3.5 font-medium text-foreground">
                           {periodLabel(run.periodStart)}
                         </td>
-                        <td className="px-4 py-3.5 text-gray-300">
+                        <td className="px-4 py-3.5 text-muted-foreground">
                           {run.totalReclamacoes ?? 0}
-                          <span className="text-xs text-gray-500 ml-1">
+                          <span className="text-xs text-muted-foreground ml-1">
                             {run.status === 'EM_ANDAMENTO' || run.status === 'PROCESSANDO'
                               ? 'reclamações até agora'
                               : `/ ${run.totalConversas ?? '—'} conversas`}
                           </span>
                           {confirmadas > 0 && (
-                            <span className="block text-xs text-green-400/80 mt-0.5">
+                            <span className="block text-xs text-success mt-0.5">
                               {confirmadas} na ata
                             </span>
                           )}
@@ -2154,25 +909,25 @@ function RelatoriosContent() {
                               {run.status}
                             </span>
                             {run.status === 'PROCESSANDO' && (
-                              <span className="text-xs text-amber-300/90">
+                              <span className="text-xs text-warning/90">
                                 {run.conversasProcessadas ?? 0} de {run.totalConversas ?? '—'}{' '}
                                 conversas processadas
                               </span>
                             )}
                             {run.status === 'EM_ANDAMENTO' && (
-                              <span className="text-xs text-sky-300/90">
+                              <span className="text-xs text-muted-foreground">
                                 Acumulando ao longo do mês — revise quando quiser
                               </span>
                             )}
                           </div>
                         </td>
-                        <td className="px-4 py-3.5 text-gray-400 text-xs">
+                        <td className="px-4 py-3.5 text-muted-foreground text-xs">
                           {ptDateTime(run.executadoEm)}
                         </td>
                         <td className="px-4 py-3.5">
                           <div className="flex flex-wrap items-center justify-end gap-1.5">
                             {run.status === 'PROCESSANDO' && !hasComplaints && (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-gray-500 border border-[#2a2a2e] opacity-60">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-muted-foreground border border-border opacity-60">
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                                 Aguardando término
                               </span>
@@ -2181,7 +936,7 @@ function RelatoriosContent() {
                               <button
                                 type="button"
                                 onClick={() => openReview(run.id)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1a1a1e] text-gray-200 border border-[#2a2a2e] hover:border-amber-500/30 transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted text-foreground border border-border hover:border-primary/30 transition-colors"
                               >
                                 <CheckSquare className="w-3.5 h-3.5" />
                                 Revisar
@@ -2199,7 +954,7 @@ function RelatoriosContent() {
                                     : 'Marque ao menos uma reclamação na revisão'
                                 }
                                 onClick={() => handleGenerateAta(run.id)}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 hover:bg-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary/15 text-warning border border-primary/30 hover:bg-primary/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                               >
                                 {generatingId === run.id ? (
                                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2213,7 +968,7 @@ function RelatoriosContent() {
                               type="button"
                               disabled={!hasAta || downloadingId === run.id}
                               onClick={() => handleDownloadAta(run.id)}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#1a1a1e] text-gray-300 border border-[#2a2a2e] hover:border-amber-500/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-muted text-muted-foreground border border-border hover:border-primary/30 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                             >
                               {downloadingId === run.id ? (
                                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -2235,52 +990,52 @@ function RelatoriosContent() {
           </div>
         ) : loading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
+            <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
           </div>
         ) : reports.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-4 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-              <FileBarChart2 className="w-8 h-8 text-amber-400/50" />
+            <div className="w-16 h-16 rounded-2xl bg-warning/10 flex items-center justify-center">
+              <FileBarChart2 className="w-8 h-8 text-warning/50" />
             </div>
             <div>
-              <p className="text-white font-medium">Nenhum relatório cadastrado</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-foreground font-medium">Nenhum relatório cadastrado</p>
+              <p className="text-sm text-muted-foreground mt-1">
                 Crie o primeiro relatório agendado do Saipos
               </p>
             </div>
             <button
               onClick={openCreate}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-black text-sm font-semibold hover:bg-amber-400 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
             >
               <Plus className="w-4 h-4" />
               Novo relatório
             </button>
           </div>
         ) : (
-          <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#2a2a2e] text-left">
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  <tr className="border-b border-border text-left">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Nome
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Fonte
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Horário
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Escopo
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Ativo
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                       Última execução
                     </th>
-                    <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right">
+                    <th className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider text-right">
                       Ações
                     </th>
                   </tr>
@@ -2289,28 +1044,28 @@ function RelatoriosContent() {
                   {reports.map((r) => (
                     <tr
                       key={r.id}
-                      className={`border-b border-[#2a2a2e] last:border-0 ${
+                      className={`border-b border-border last:border-0 ${
                         !r.ativo ? 'opacity-60' : ''
                       }`}
                     >
                       <td className="px-4 py-3.5">
-                        <span className="font-medium text-white">{r.nome}</span>
-                        <p className="text-xs text-gray-500 mt-0.5">
+                        <span className="font-medium text-foreground">{r.nome}</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {r.campos.length} campo{r.campos.length === 1 ? '' : 's'}
                         </p>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-300">
-                        <span className="px-2 py-0.5 rounded-lg bg-[#1c1c1e] text-xs border border-[#2a2a2e]">
+                      <td className="px-4 py-3.5 text-muted-foreground">
+                        <span className="px-2 py-0.5 rounded-lg bg-muted text-xs border border-border">
                           {r.fonte === 'SAIPOS_DASHBOARD' ? 'Saipos' : r.fonte}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-300">
+                      <td className="px-4 py-3.5 text-muted-foreground">
                         <span className="inline-flex items-center gap-1.5">
-                          <Clock className="w-3.5 h-3.5 text-gray-500" />
+                          <Clock className="w-3.5 h-3.5 text-muted-foreground" />
                           {r.horario}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-gray-300">
+                      <td className="px-4 py-3.5 text-muted-foreground">
                         {ESCOPO_LABELS[r.escopoLoja] ?? r.escopoLoja}
                       </td>
                       <td className="px-4 py-3.5">
@@ -2321,13 +1076,13 @@ function RelatoriosContent() {
                           className="inline-flex items-center gap-1.5 text-xs disabled:opacity-40"
                         >
                           {togglingId === r.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin text-gray-500" />
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                           ) : r.ativo ? (
-                            <ToggleRight className="w-5 h-5 text-green-400" />
+                            <ToggleRight className="w-5 h-5 text-success" />
                           ) : (
-                            <ToggleLeft className="w-5 h-5 text-gray-500" />
+                            <ToggleLeft className="w-5 h-5 text-muted-foreground" />
                           )}
-                          <span className={r.ativo ? 'text-green-400' : 'text-gray-500'}>
+                          <span className={r.ativo ? 'text-success' : 'text-muted-foreground'}>
                             {r.ativo ? 'Ativo' : 'Inativo'}
                           </span>
                         </button>
@@ -2338,8 +1093,8 @@ function RelatoriosContent() {
                             <span
                               className={`inline-flex items-center gap-1 text-xs font-medium ${
                                 r.ultimaExecucao.status === 'SUCESSO'
-                                  ? 'text-green-400'
-                                  : 'text-red-400'
+                                  ? 'text-success'
+                                  : 'text-destructive'
                               }`}
                             >
                               {r.ultimaExecucao.status === 'SUCESSO' ? (
@@ -2349,19 +1104,19 @@ function RelatoriosContent() {
                               )}
                               {r.ultimaExecucao.status === 'SUCESSO' ? 'Sucesso' : 'Falha'}
                             </span>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-muted-foreground">
                               {ptDateTime(r.ultimaExecucao.executadoEm)}
                             </span>
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-600">Nunca executado</span>
+                          <span className="text-xs text-muted-foreground">Nunca executado</span>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <button
                           onClick={() => openEdit(r)}
                           title="Editar"
-                          className="inline-flex w-8 h-8 rounded-lg items-center justify-center text-gray-500 hover:text-white hover:bg-[#2a2a2e] transition-colors"
+                          className="inline-flex w-8 h-8 rounded-lg items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
                         >
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
@@ -2373,7 +1128,6 @@ function RelatoriosContent() {
             </div>
           </div>
         )}
-      </div>
 
       {/* Modal criar/editar */}
       {showModal && (
@@ -2387,7 +1141,7 @@ function RelatoriosContent() {
 
               <div>
                 <label className={labelCls}>
-                  Nome <span className="text-red-400">*</span>
+                  Nome <span className="text-destructive">*</span>
                 </label>
                 <input
                   autoFocus
@@ -2405,14 +1159,14 @@ function RelatoriosContent() {
                   <select value={form.fonte} disabled className={`${inputCls} opacity-70 cursor-not-allowed`}>
                     <option value="SAIPOS_DASHBOARD">Saipos Dashboard</option>
                   </select>
-                  <p className="text-xs text-gray-600 mt-1.5">
+                  <p className="text-xs text-muted-foreground mt-1.5">
                     Única fonte disponível por enquanto
                   </p>
                 </div>
 
                 <div>
                   <label className={labelCls}>
-                    Horário <span className="text-red-400">*</span>
+                    Horário <span className="text-destructive">*</span>
                   </label>
                   <input
                     type="time"
@@ -2426,7 +1180,7 @@ function RelatoriosContent() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>
-                    Escopo de loja <span className="text-red-400">*</span>
+                    Escopo de loja <span className="text-destructive">*</span>
                   </label>
                   <select
                     value={form.escopoLoja}
@@ -2448,7 +1202,7 @@ function RelatoriosContent() {
                   >
                     <span
                       className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
-                        form.ativo ? 'bg-amber-500' : 'bg-[#3a3a3e]'
+                        form.ativo ? 'bg-primary' : 'bg-muted'
                       }`}
                       role="switch"
                       aria-checked={form.ativo}
@@ -2458,7 +1212,7 @@ function RelatoriosContent() {
                         style={{ left: form.ativo ? '18px' : '2px' }}
                       />
                     </span>
-                    <span className="text-sm text-gray-300">
+                    <span className="text-sm text-muted-foreground">
                       {form.ativo ? 'Ativo' : 'Inativo'}
                     </span>
                   </button>
@@ -2467,7 +1221,7 @@ function RelatoriosContent() {
 
               <div>
                 <label className={labelCls}>
-                  Enviar via <span className="text-red-400">*</span>
+                  Enviar via <span className="text-destructive">*</span>
                 </label>
                 <select
                   value={form.sessionSlot ?? ''}
@@ -2488,12 +1242,12 @@ function RelatoriosContent() {
                 {form.sessionSlot &&
                   sessions.find((s) => s.slot === form.sessionSlot) &&
                   !sessions.find((s) => s.slot === form.sessionSlot)?.isConnected && (
-                    <p className="text-xs text-amber-400 mt-1.5">
+                    <p className="text-xs text-warning mt-1.5">
                       Esta sessão está desconectada. Reconecte em Conexões para o envio funcionar.
                     </p>
                   )}
                 {sessions.length === 0 && (
-                  <p className="text-xs text-gray-500 mt-1.5">
+                  <p className="text-xs text-muted-foreground mt-1.5">
                     Nenhuma sessão cadastrada. Conecte um número em Conexões.
                   </p>
                 )}
@@ -2501,7 +1255,7 @@ function RelatoriosContent() {
 
               <div>
                 <label className={labelCls}>
-                  Destino WhatsApp <span className="text-red-400">*</span>
+                  Destino WhatsApp <span className="text-destructive">*</span>
                 </label>
                 <input
                   type="text"
@@ -2517,20 +1271,20 @@ function RelatoriosContent() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className={sectionCls + ' mb-0'}>Campos do relatório</p>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-muted-foreground">
                   {form.campos.length} selecionado{form.campos.length === 1 ? '' : 's'}
                 </span>
               </div>
 
               {catalog.length === 0 ? (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Catálogo vazio. Rode o seed do SaiposFieldCatalog.
                 </p>
               ) : (
                 <div className="space-y-5">
                   {catalogByGrupo.map(({ grupo, label, campos }) => (
                     <div key={grupo}>
-                      <p className="text-xs font-semibold text-amber-400/80 mb-2">{label}</p>
+                      <p className="text-xs font-semibold text-muted-foreground mb-2">{label}</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {campos.map((c) => {
                           const checked = form.campos.includes(c.key);
@@ -2539,17 +1293,17 @@ function RelatoriosContent() {
                               key={c.key}
                               className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer transition-colors ${
                                 checked
-                                  ? 'bg-amber-500/10 border-amber-500/40'
-                                  : 'bg-[#0a0a0a] border-[#2a2a2e] hover:border-[#3a3a3e]'
+                                  ? 'bg-primary/10 border-primary/40'
+                                  : 'bg-background border-border hover:border-muted-foreground/30'
                               }`}
                             >
                               <input
                                 type="checkbox"
                                 checked={checked}
                                 onChange={() => toggleCampo(c.key)}
-                                className="mt-0.5 accent-amber-500"
+                                className="mt-0.5 accent-primary"
                               />
-                              <span className="text-sm text-gray-200 leading-snug">
+                              <span className="text-sm text-foreground leading-snug">
                                 {c.label}
                               </span>
                             </label>
@@ -2563,24 +1317,24 @@ function RelatoriosContent() {
             </div>
 
             {error && (
-              <p className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-xl px-3 py-2.5 flex items-center gap-2">
+              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-xl px-3 py-2.5 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
               </p>
             )}
           </div>
 
-          <div className="flex gap-3 px-6 pb-6 pt-2 border-t border-[#2a2a2e]">
+          <div className="flex gap-3 px-6 pb-6 pt-2 border-t border-border">
             <button
               onClick={closeModal}
-              className="flex-1 py-2.5 rounded-xl border border-[#2a2a2e] text-sm text-gray-400 hover:text-white hover:bg-[#1c1c1e] transition-colors"
+              className="flex-1 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
             >
               Cancelar
             </button>
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-semibold hover:bg-amber-400 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {saving ? 'Salvando...' : editing ? 'Salvar alterações' : 'Criar relatório'}
@@ -2589,112 +1343,6 @@ function RelatoriosContent() {
         </Modal>
       )}
 
-      {reviewRunId && (
-        <ReviewModal
-          loading={loadingReview}
-          data={reviewData}
-          togglingComplaintId={togglingComplaintId}
-          generatingId={generatingId}
-          downloadingId={downloadingId}
-          onClose={closeReview}
-          onToggleConfirm={toggleComplaintConfirm}
-          onBatchConfirm={batchToggleConfirm}
-          onUpdateLoja={updateComplaintLoja}
-          onUpdateEntregador={updateComplaintEntregador}
-          onUpdateCategoria={updateComplaintCategoria}
-          onOpenConversation={openConversation}
-          onGenerateAta={handleGenerateAta}
-          onDownloadAta={handleDownloadAta}
-        />
-      )}
-
-      {(loadingConversation || conversation) && (
-        <div className="fixed inset-0 z-[60] flex items-start justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className="bg-[#111113] border border-[#2a2a2e] rounded-2xl w-full max-w-3xl shadow-2xl my-6">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2e]">
-              <h2 className="text-base font-semibold text-white">
-                {conversation?.clientLabel || 'Conversa completa'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setConversation(null);
-                  setLoadingConversation(false);
-                }}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#2a2a2e] transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            <div className="px-6 py-4 max-h-[70vh] overflow-y-auto">
-              {loadingConversation ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-6 h-6 text-gray-500 animate-spin" />
-                </div>
-              ) : conversation?.messages.length === 0 ? (
-                <p className="text-sm text-gray-500">Nenhuma mensagem neste período.</p>
-              ) : (
-                <div className="space-y-3">
-                  {conversation?.truncated && (
-                    <p className="text-xs text-amber-300/80">
-                      Conversa longa: mostrando as primeiras 500 mensagens do período.
-                    </p>
-                  )}
-                  {conversation?.messages.map((m) => {
-                    const isClient = m.speaker === 'CLIENTE';
-                    const speakerCls =
-                      m.speaker === 'CLIENTE'
-                        ? 'text-sky-300'
-                        : m.speaker === 'ATENDENTE'
-                          ? 'text-amber-300'
-                          : 'text-gray-400';
-                    return (
-                      <div
-                        key={m.id}
-                        className={`rounded-xl border px-3 py-2 ${
-                          isClient
-                            ? 'border-sky-500/20 bg-sky-500/5'
-                            : 'border-[#2a2a2e] bg-[#0d0d0f]'
-                        }`}
-                      >
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <span className={`text-[11px] font-semibold uppercase ${speakerCls}`}>
-                            {m.speaker}
-                          </span>
-                          <span className="text-[11px] text-gray-500">
-                            {ptDateTime(m.timestamp)}
-                          </span>
-                          {m.messageType !== 'text' &&
-                            m.messageType !== 'image' &&
-                            m.messageType !== 'sticker' && (
-                            <span className="text-[11px] text-gray-500">[{m.messageType}]</span>
-                          )}
-                        </div>
-                        {m.messageType === 'image' || m.messageType === 'sticker' || m.hasMedia ? (
-                          <>
-                            <ConversationMedia messageId={m.id} messageType={m.messageType} />
-                            {m.snippet &&
-                              !/^\[.+\]$/.test(m.snippet) &&
-                              !m.snippet.startsWith('/9j/') && (
-                              <p className="text-sm text-gray-200 whitespace-pre-wrap break-words mt-1.5">
-                                {m.snippet}
-                              </p>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-sm text-gray-200 whitespace-pre-wrap break-words">
-                            {m.snippet === `[${m.messageType}]` ? '' : m.snippet}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -2705,7 +1353,15 @@ export default function RelatoriosPage() {
       tool={SystemTool.AGENDAMENTO_RELATORIOS}
       toolName="Central de Relatórios"
     >
-      <RelatoriosContent />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-6 h-6 text-muted-foreground animate-spin" />
+          </div>
+        }
+      >
+        <RelatoriosContent />
+      </Suspense>
     </ToolProtection>
   );
 }
