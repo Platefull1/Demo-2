@@ -111,7 +111,8 @@ export default function CmvRealNotaDetalhePage() {
     try {
       const [resNota, resProd] = await Promise.all([
         fetch(`/api/cmv-real/notas/${id}`, { cache: 'no-store' }),
-        fetch('/api/cmv-real/produtos', { cache: 'no-store' }),
+        // Mesma fonte da aba Produtos em /estoque
+        fetch('/api/cmv-real/produtos?fonte=estoque', { cache: 'no-store' }),
       ]);
       const data = await resNota.json();
       if (!resNota.ok) throw new Error(data.error || 'Erro');
@@ -125,21 +126,19 @@ export default function CmvRealNotaDetalhePage() {
       if (resProd.ok) {
         const pd = await resProd.json();
         setProdutos(
-          (pd.itens || [])
-            .filter((p: { ativo: boolean }) => p.ativo !== false)
-            .map(
-              (p: {
-                estoqueInsumoId: string;
-                nome: string;
-                unidade: string;
-                secao: string;
-              }) => ({
-                estoqueInsumoId: p.estoqueInsumoId,
-                nome: p.nome,
-                unidade: p.unidade,
-                secao: p.secao,
-              }),
-            ),
+          (pd.itens || []).map(
+            (p: {
+              estoqueInsumoId: string;
+              nome: string;
+              unidade: string;
+              secao: string;
+            }) => ({
+              estoqueInsumoId: p.estoqueInsumoId,
+              nome: p.nome,
+              unidade: p.unidade,
+              secao: p.secao,
+            }),
+          ),
         );
       }
 
@@ -463,7 +462,7 @@ export default function CmvRealNotaDetalhePage() {
                 className="text-[11px] text-muted-foreground underline"
               >
                 {d.outro || sugs.length === 0
-                  ? 'Escolher da lista CMV'
+                  ? 'Escolher da lista'
                   : 'Outro produto…'}
               </button>
 

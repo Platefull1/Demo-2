@@ -208,14 +208,29 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     });
     if (!item) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 });
 
+    const insumo = await prisma.estoqueInsumo.findFirst({
+      where: {
+        id: body.estoqueInsumoId,
+        userId: { in: tenant.userIds },
+      },
+      select: { id: true, unidade: true, categoriaId: true },
+    });
+    if (!insumo) {
+      return NextResponse.json(
+        { error: 'Produto não encontrado no estoque' },
+        { status: 404 },
+      );
+    }
+
     const cfg = await prisma.cmvRealInsumoConfig.findFirst({
       where: {
         userId: tenant.tenantUserId,
         estoqueInsumoId: body.estoqueInsumoId,
-        ativo: true,
       },
     });
-    const unidade = cfg?.unidade ?? 'KG';
+    const unidade =
+      cfg?.unidade ??
+      (insumo.unidade.toLowerCase() === 'un' ? 'UN' : 'KG');
     const fator = Number(body.fatorConversao);
     const qtdConv = Number(item.quantidade) * fator;
 

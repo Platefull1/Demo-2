@@ -2,13 +2,88 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { dedupeInsumosByNome } from '@/lib/estoque-nome';
+import { dedupeInsumosBySlug } from '@/lib/estoque-tenant';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 
-/** GET /api/cmv-real/produtos — lista CmvRealInsumoConfig do tenant */
-export async function GET() {
+type CmvSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
+type CmvUnidade = 'KG' | 'UN';
+
+function secaoFromCategoria(categoriaId: string): CmvSecao {
+  const id = categoriaId.toLowerCase();
+  if (id.includes('embalag')) return 'EMBALAGEM';
+  if (id.includes('bebid')) return 'BEBIDA';
+  return 'MATERIA_PRIMA';
+}
+
+function unidadeFromEstoque(unidade: string): CmvUnidade {
+  return unidade.toLowerCase() === 'un' ? 'UN' : 'KG';
+}
+
+/**
+ * GET /api/cmv-real/produtos
+ * - default: CmvRealInsumoConfig (tela /cmv-real/produtos)
+ * - ?fonte=estoque: catálogo da aba Produtos do /estoque (seletor de notas)
+ */
+export async function GET(req: NextRequest) {
   const { tenant, ctx, error } = await requireCmvRealAccess(P.CMV_REAL_VISUALIZAR);
   if (error) return error;
+
+  const fonte = req.nextUrl.searchParams.get('fonte');
+  const canConfig =
+    tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_CONFIG) ?? false);
+
+  if (fonte === 'estoque') {
+    const [insumos, cmvConfigs] = await Promise.all([
+      prisma.estoqueInsumo.findMany({
+        where: { userId: { in: tenant.userIds } },
+        orderBy: [{ categoriaId: 'asc' }, { createdAt: 'asc' }],
+      }),
+      prisma.cmvRealInsumoConfig.findMany({
+        where: { userId: tenant.tenantUserId },
+        select: {
+          id: true,
+          estoqueInsumoId: true,
+          secao: true,
+          unidade: true,
+          ordem: true,
+          ativo: true,
+        },
+      }),
+    ]);
+
+    let deduped = dedupeInsumosBySlug(insumos, tenant.tenantUserId);
+    deduped = dedupeInsumosByNome(deduped, tenant.tenantUserId);
+
+    const cmvByInsumoId = new Map(
+      cmvConfigs.map((c) => [c.estoqueInsumoId, c] as const),
+    );
+
+    const itens = deduped
+      .map((p) => {
+        const cmv = cmvByInsumoId.get(p.id);
+        return {
+          id: cmv?.id ?? null,
+          estoqueInsumoId: p.id,
+          nome: p.nome,
+          slug: p.insumoId,
+          secao: (cmv?.secao ?? secaoFromCategoria(p.categoriaId)) as CmvSecao,
+          unidade: (cmv?.unidade ?? unidadeFromEstoque(p.unidade)) as CmvUnidade,
+          ordem: cmv?.ordem ?? 0,
+          ativo: cmv?.ativo ?? true,
+        };
+      })
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+
+    return NextResponse.json({
+      ok: true,
+      tenantUserId: tenant.tenantUserId,
+      canConfig,
+      fonte: 'estoque',
+      itens,
+    });
+  }
 
   const configs = await prisma.cmvRealInsumoConfig.findMany({
     where: { userId: tenant.tenantUserId },
@@ -23,8 +98,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     tenantUserId: tenant.tenantUserId,
-    canConfig:
-      tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_CONFIG) ?? false),
+    canConfig,
     itens: configs.map((c) => ({
       id: c.id,
       estoqueInsumoId: c.estoqueInsumoId,
