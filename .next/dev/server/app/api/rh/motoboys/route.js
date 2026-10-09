@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/rh/motoboys/route.js")
+R.c("server/chunks/6e6c4_next_646defc0._.js")
+R.c("server/chunks/6e6c4_@opentelemetry_api_build_esm_87922719._.js")
+R.c("server/chunks/6e6c4_@stackframe_stack-shared_dist_esm_7af97463._.js")
+R.c("server/chunks/6e6c4_@stackframe_stack_dist_esm_6ea35336._.js")
+R.c("server/chunks/6e6c4_5461c8ab._.js")
+R.c("server/chunks/[root-of-the-server]__85b6f30b._.js")
+R.c("server/chunks/Demo-2__next-internal_server_app_api_rh_motoboys_route_actions_9c9c4d14.js")
+R.m("[project]/Demo-2/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/Demo-2/app/api/rh/motoboys/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/Demo-2/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/Demo-2/app/api/rh/motoboys/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

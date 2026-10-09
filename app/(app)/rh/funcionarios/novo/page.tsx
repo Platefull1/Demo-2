@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLoja } from '@/contexts/LojaContext';
-import { ArrowLeft, Plus, X, User, Briefcase, DollarSign, Clock, AlertTriangle } from 'lucide-react';
+import { Plus, X, AlertTriangle } from 'lucide-react';
 import {
   DadosPessoaisFields,
   ComposicaoSalarialForm,
@@ -13,6 +13,11 @@ import {
   type DadosPessoaisValues,
 } from '@/components/rh/FuncionarioForm';
 import { limparCPF } from '@/lib/validacoes';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 interface Cargo {
   id: string;
@@ -29,13 +34,10 @@ interface Loja {
 
 const DIAS_SEMANA = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 
-function SectionTitle({ icon, title }: { icon: React.ReactNode; title: string }) {
+function SectionTitle({ title }: { title: string }) {
   return (
-    <div className="flex items-center gap-2 mb-5 pb-3 border-b border-[#2a2a2e]">
-      <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-        {icon}
-      </div>
-      <h2 className="text-base font-semibold text-white">{title}</h2>
+    <div className="mb-5 pb-3 border-b border-border">
+      <h2 className="text-base font-semibold text-foreground">{title}</h2>
     </div>
   );
 }
@@ -208,376 +210,351 @@ export default function NovoFuncionarioPage() {
   };
 
   const inputCls =
-    'w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors';
-  const labelCls = 'block text-xs font-medium text-gray-400 mb-1.5';
+    'flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+  const labelCls = 'block text-xs text-muted-foreground mb-1.5';
+  const chipSelected =
+    'border-primary bg-accent text-accent-foreground';
+  const chipIdle =
+    'border-border text-muted-foreground hover:border-muted-foreground/40';
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* Empty Fields Confirmation Dialog */}
+    <div className="space-y-6">
       {showEmptyFieldsDialog && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
-              </div>
-              <h3 className="text-base font-semibold text-white">Campos vazios</h3>
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl p-6 max-w-sm w-full space-y-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="size-5 text-warning shrink-0" />
+              <h3 className="text-base font-semibold text-foreground">Campos vazios</h3>
             </div>
-            <p className="text-sm text-gray-400 mb-3">
+            <p className="text-sm text-muted-foreground">
               Ainda existem campos vazios. Gostaria de continuar mesmo assim?
             </p>
-            <ul className="mb-5 space-y-1.5">
+            <ul className="space-y-1.5">
               {emptyFieldsList.map((field) => (
-                <li key={field} className="flex items-center gap-2 text-xs text-amber-400">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                <li key={field} className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <span className="size-1.5 rounded-full bg-warning shrink-0" />
                   {field}
                 </li>
               ))}
             </ul>
-            <div className="flex gap-3">
-              <button
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
                 onClick={() => setShowEmptyFieldsDialog(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#2a2a2e] text-gray-300 text-sm font-medium hover:bg-[#3a3a3e] transition-colors"
               >
                 Voltar e preencher
-              </button>
-              <button
-                onClick={handleConfirmContinue}
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
                 disabled={submitting}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-semibold hover:bg-amber-400 disabled:opacity-60 transition-colors"
+                onClick={handleConfirmContinue}
               >
                 {submitting ? 'Cadastrando...' : 'Continuar assim'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Create Cargo Modal */}
       {showCargoModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6 max-w-sm w-full">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="text-base font-semibold text-white">Novo Cargo</h3>
-              <button
+        <div className="fixed inset-0 bg-background/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border rounded-xl p-6 max-w-sm w-full space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-foreground">Novo cargo</h3>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
                 onClick={() => setShowCargoModal(false)}
-                className="text-gray-500 hover:text-white"
               >
-                <X className="w-5 h-5" />
-              </button>
+                <X className="size-4 text-muted-foreground" />
+              </Button>
             </div>
             <div className="space-y-4">
               <div>
                 <label className={labelCls}>Nome do cargo *</label>
-                <input
-                  type="text"
+                <Input
                   value={novoCargo}
                   onChange={(e) => setNovoCargo(e.target.value)}
                   placeholder="Ex: Pizzaiolo"
-                  className={inputCls}
                 />
               </div>
               <div>
-                <label className={labelCls}>RAT % (Risco Acidente de Trabalho)</label>
-                <input
+                <label className={labelCls}>RAT % (risco de acidente de trabalho)</label>
+                <Input
                   type="number"
                   step="0.5"
                   min="0"
                   max="3"
                   value={novoCargoRat || ''}
                   onChange={(e) => setNovoCargoRat(e.target.value)}
-                  className={inputCls}
                 />
               </div>
             </div>
-            <div className="flex gap-3 mt-5">
-              <button
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
                 onClick={() => setShowCargoModal(false)}
-                className="flex-1 py-2.5 rounded-xl bg-[#2a2a2e] text-gray-300 text-sm font-medium hover:bg-[#3a3a3e] transition-colors"
               >
                 Cancelar
-              </button>
-              <button
-                onClick={handleSaveCargo}
+              </Button>
+              <Button
+                type="button"
+                className="flex-1"
                 disabled={savingCargo || !novoCargo.trim()}
-                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-black text-sm font-semibold hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                onClick={handleSaveCargo}
               >
                 {savingCargo ? 'Salvando...' : 'Criar cargo'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       )}
 
-      <div className="max-w-3xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <button
-            onClick={() => router.push('/rh/funcionarios')}
-            className="w-9 h-9 rounded-xl bg-[#1c1c1e] border border-[#2a2a2e] flex items-center justify-center hover:bg-[#2a2a2e] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 text-gray-400" />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Novo Funcionário</h1>
-            <p className="text-sm text-gray-400">Preencha os dados para cadastrar</p>
-          </div>
-        </div>
+      <PageHeader
+        title="Novo funcionário"
+        description="Preencha os dados para cadastrar"
+        actions={
+          <Button type="button" variant="outline" onClick={() => router.push('/rh/funcionarios')}>
+            Voltar
+          </Button>
+        }
+      />
 
-        {errors.submit && (
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm mb-6">
-            {errors.submit}
-          </div>
-        )}
+      {errors.submit && (
+        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
+          {errors.submit}
+        </p>
+      )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Dados Pessoais */}
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6">
-            <SectionTitle icon={<User className="w-4 h-4 text-amber-500" />} title="Dados Pessoais" />
-            <DadosPessoaisFields
-              values={dadosPessoais}
-              onChange={(p) => setDadosPessoais((prev) => ({ ...prev, ...p }))}
-              errors={errors}
-              folhaStatus={folhaStatus}
-            />
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
+        <Card className="p-4 md:p-6">
+          <SectionTitle title="Dados pessoais" />
+          <DadosPessoaisFields
+            values={dadosPessoais}
+            onChange={(p) => setDadosPessoais((prev) => ({ ...prev, ...p }))}
+            errors={errors}
+            folhaStatus={folhaStatus}
+          />
+        </Card>
 
-          {/* Cargo e Lotação */}
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6">
-            <SectionTitle
-              icon={<Briefcase className="w-4 h-4 text-amber-500" />}
-              title="Cargo e Lotação"
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Cargo</label>
-                <div className="flex gap-2">
-                  <select
-                    value={cargoId}
-                    onChange={(e) => setCargoId(e.target.value)}
-                    className="flex-1 bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
-                  >
-                    <option value="">Selecionar...</option>
-                    {cargos.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.nome}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => setShowCargoModal(true)}
-                    className="w-10 h-10 rounded-xl bg-[#2a2a2e] flex items-center justify-center hover:bg-[#3a3a3e] transition-colors text-gray-400"
-                    title="Criar novo cargo"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Loja</label>
+        <Card className="p-4 md:p-6">
+          <SectionTitle title="Cargo e lotação" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Cargo</label>
+              <div className="flex gap-2">
                 <select
-                  value={lojaId}
-                  onChange={(e) => setLojaId(e.target.value)}
-                  className="w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                  value={cargoId}
+                  onChange={(e) => setCargoId(e.target.value)}
+                  className={cn(inputCls, 'flex-1')}
                 >
                   <option value="">Selecionar...</option>
-                  {lojas.map((l: Loja) => (
-                    <option key={l.id} value={l.id}>
-                      {l.nome}
+                  {cargos.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.nome}
                     </option>
                   ))}
                 </select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-9 shrink-0"
+                  onClick={() => setShowCargoModal(true)}
+                  title="Criar novo cargo"
+                >
+                  <Plus className="size-4 text-muted-foreground" />
+                </Button>
               </div>
-              <div className="sm:col-span-2">
-                <label className={labelCls}>Observações</label>
-                <textarea
-                  value={observacoes}
-                  onChange={(e) => setObservacoes(e.target.value)}
-                  placeholder="Observações sobre o funcionário..."
-                  rows={3}
-                  className={`${inputCls} resize-none`}
+            </div>
+            <div>
+              <label className={labelCls}>Loja</label>
+              <select
+                value={lojaId}
+                onChange={(e) => setLojaId(e.target.value)}
+                className={inputCls}
+              >
+                <option value="">Selecionar...</option>
+                {lojas.map((l: Loja) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="sm:col-span-2">
+              <label className={labelCls}>Observações</label>
+              <textarea
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Observações sobre o funcionário..."
+                rows={3}
+                className={cn(inputCls, 'h-auto py-2 resize-none')}
+              />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4 md:p-6">
+          <SectionTitle title="Composição salarial" />
+          <ComposicaoSalarialForm
+            values={composicao}
+            onChange={(p) => setComposicao((prev) => ({ ...prev, ...p }))}
+            errors={errors}
+            parseMoney={parseMoney}
+          />
+        </Card>
+
+        <Card className="p-4 md:p-6">
+          <SectionTitle title="Escala de trabalho" />
+          <div className="space-y-5">
+            <div>
+              <label className={labelCls}>Regime de escala</label>
+              <div className="flex gap-3">
+                {(['6x1', '5x2'] as const).map((e) => (
+                  <button
+                    key={e}
+                    type="button"
+                    onClick={() => setEscala(e)}
+                    className={cn(
+                      'flex-1 py-2.5 rounded-lg text-sm font-medium border transition-colors',
+                      escala === e ? chipSelected : chipIdle
+                    )}
+                  >
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className={labelCls}>Turno</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(['manhã', 'tarde', 'noite', 'integral'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTurno(t)}
+                    className={cn(
+                      'py-2.5 rounded-lg text-sm font-medium border capitalize transition-colors',
+                      turno === t ? chipSelected : chipIdle
+                    )}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelCls}>Horário de entrada</label>
+                <input
+                  type="time"
+                  value={horarioEntrada}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setHorarioEntrada(v);
+                    setHorarioDigest((prev) => (prev === horarioEntrada ? v : prev));
+                  }}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Horário de saída</label>
+                <input
+                  type="time"
+                  value={horarioSaida}
+                  onChange={(e) => setHorarioSaida(e.target.value)}
+                  className={inputCls}
                 />
               </div>
             </div>
-          </div>
 
-          {/* Composição Salarial */}
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6">
-            <SectionTitle
-              icon={<DollarSign className="w-4 h-4 text-amber-500" />}
-              title="Composição Salarial"
-            />
-            <ComposicaoSalarialForm
-              values={composicao}
-              onChange={(p) => setComposicao((prev) => ({ ...prev, ...p }))}
-              errors={errors}
-              parseMoney={parseMoney}
-            />
-          </div>
+            <div>
+              <label className={labelCls}>Horário do resumo de tarefas (WhatsApp)</label>
+              <input
+                type="time"
+                value={horarioDigest}
+                onChange={(e) => setHorarioDigest(e.target.value)}
+                className={inputCls}
+              />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Horário em que o bot envia a lista de tarefas do dia. Padrão: horário de entrada.
+              </p>
+            </div>
 
-          {/* Escala de Trabalho */}
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6">
-            <SectionTitle
-              icon={<Clock className="w-4 h-4 text-amber-500" />}
-              title="Escala de Trabalho"
-            />
-            <div className="space-y-5">
-              {/* Escala */}
-              <div>
-                <label className={labelCls}>Regime de escala</label>
-                <div className="flex gap-3">
-                  {(['6x1', '5x2'] as const).map((e) => (
-                    <button
-                      key={e}
-                      type="button"
-                      onClick={() => setEscala(e)}
-                      className={`flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-colors ${
-                        escala === e
-                          ? e === '6x1'
-                            ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                            : 'border-green-500 bg-green-500/10 text-green-400'
-                          : 'border-[#2a2a2e] text-gray-500 hover:border-[#3a3a3e]'
-                      }`}
-                    >
-                      {e}
-                    </button>
-                  ))}
-                </div>
+            <div>
+              <label className={labelCls}>
+                Dias de folga fixos ({diasFolga.length} dia{diasFolga.length !== 1 ? 's' : ''})
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {DIAS_SEMANA.map((dia) => (
+                  <button
+                    key={dia}
+                    type="button"
+                    onClick={() => toggleDiaFolga(dia)}
+                    className={cn(
+                      'px-3 py-2 rounded-lg text-xs font-medium border transition-colors',
+                      diasFolga.includes(dia) ? chipSelected : chipIdle
+                    )}
+                  >
+                    {dia}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Turno */}
-              <div>
-                <label className={labelCls}>Turno</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(['manhã', 'tarde', 'noite', 'integral'] as const).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTurno(t)}
-                      className={`py-2.5 rounded-xl text-sm font-medium border-2 capitalize transition-colors ${
-                        turno === t
-                          ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                          : 'border-[#2a2a2e] text-gray-500 hover:border-[#3a3a3e]'
-                      }`}
-                    >
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Horários */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Horário de entrada</label>
-                  <input
-                    type="time"
-                    value={horarioEntrada}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setHorarioEntrada(v);
-                      // Mantém o digest alinhado à entrada enquanto o usuário não customizou
-                      setHorarioDigest((prev) => (prev === horarioEntrada ? v : prev));
-                    }}
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Horário de saída</label>
-                  <input
-                    type="time"
-                    value={horarioSaida}
-                    onChange={(e) => setHorarioSaida(e.target.value)}
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className={labelCls}>Horário do resumo de tarefas (WhatsApp)</label>
-                <input
-                  type="time"
-                  value={horarioDigest}
-                  onChange={(e) => setHorarioDigest(e.target.value)}
-                  className={inputCls}
-                />
-                <p className="text-xs text-gray-500 mt-1.5">
-                  Horário em que o bot envia a lista de tarefas do dia. Padrão: horário de entrada.
-                </p>
-              </div>
-
-              {/* Dias de Folga */}
-              <div>
-                <label className={labelCls}>
-                  Dias de folga fixos ({diasFolga.length} dia{diasFolga.length !== 1 ? 's' : ''})
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {DIAS_SEMANA.map((dia) => (
-                    <button
-                      key={dia}
-                      type="button"
-                      onClick={() => toggleDiaFolga(dia)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-colors ${
-                        diasFolga.includes(dia)
-                          ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                          : 'border-[#2a2a2e] text-gray-500 hover:border-[#3a3a3e]'
-                      }`}
-                    >
-                      {dia}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Qual domingo do mês — folga mensal obrigatória por lei */}
-              <div>
-                <label className={labelCls}>Domingo de folga no mês (DSR)</label>
-                <div className="flex flex-wrap gap-2">
-                  {([
+            <div>
+              <label className={labelCls}>Domingo de folga no mês (DSR)</label>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
                     { value: '1', label: '1º domingo' },
                     { value: '2', label: '2º domingo' },
                     { value: '3', label: '3º domingo' },
                     { value: '4', label: '4º domingo' },
                     { value: 'ultimo', label: 'Último domingo' },
-                  ]).map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setDomingoFolga(opt.value)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium border-2 transition-colors ${
-                        domingoFolga === opt.value
-                          ? 'border-amber-500 bg-amber-500/10 text-amber-400'
-                          : 'border-[#2a2a2e] text-gray-500 hover:border-[#3a3a3e]'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+                  ] as const
+                ).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setDomingoFolga(opt.value)}
+                    className={cn(
+                      'px-3 py-2 rounded-lg text-sm font-medium border transition-colors',
+                      domingoFolga === opt.value ? chipSelected : chipIdle
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+        </Card>
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => router.push('/rh/funcionarios')}
-              className="flex-1 py-3 rounded-xl bg-[#1c1c1e] border border-[#2a2a2e] text-gray-300 font-medium hover:bg-[#2a2a2e] transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 py-3 rounded-xl bg-amber-500 text-black font-semibold hover:bg-amber-400 disabled:opacity-60 transition-colors"
-            >
-              {submitting ? 'Cadastrando...' : 'Cadastrar funcionário'}
-            </button>
-          </div>
-        </form>
-      </div>
+        <div className="flex gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => router.push('/rh/funcionarios')}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" className="flex-1" disabled={submitting}>
+            {submitting ? 'Cadastrando...' : 'Cadastrar funcionário'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/rh/mapeamento-ponto/route.js")
+R.c("server/chunks/6e6c4_next_9c04ae2e._.js")
+R.c("server/chunks/6e6c4_@opentelemetry_api_build_esm_87922719._.js")
+R.c("server/chunks/6e6c4_@stackframe_stack-shared_dist_esm_7af97463._.js")
+R.c("server/chunks/6e6c4_@stackframe_stack_dist_esm_6ea35336._.js")
+R.c("server/chunks/6e6c4_63d285c9._.js")
+R.c("server/chunks/[root-of-the-server]__a3918d18._.js")
+R.c("server/chunks/Demo-2__next-internal_server_app_api_rh_mapeamento-ponto_route_actions_700ebdd1.js")
+R.m("[project]/Demo-2/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/Demo-2/app/api/rh/mapeamento-ponto/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/Demo-2/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/Demo-2/app/api/rh/mapeamento-ponto/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

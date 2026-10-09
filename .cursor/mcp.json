@@ -1,12 +1,12 @@
 {
   "mcpServers": {
     "shadcn": {
-      "command": "npx",
-      "args": ["shadcn@latest", "mcp"]
+      "command": "npx.cmd",
+      "args": ["-y", "shadcn@latest", "mcp"]
     },
     "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "command": "npx.cmd",
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "msedge"]
     }
   }
 }

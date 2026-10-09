@@ -353,6 +353,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
   type __Unused = __Check
 }
 
+// Validate ../../../app/(app)/relatorios/reclamacoes/[runId]/page.tsx
+{
+  type __IsExpected<Specific extends AppPageConfig<"/relatorios/reclamacoes/[runId]">> = Specific
+  const handler = {} as typeof import("../../../app/(app)/relatorios/reclamacoes/[runId]/page.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
+
 // Validate ../../../app/(app)/rh/alertas/page.tsx
 {
   type __IsExpected<Specific extends AppPageConfig<"/rh/alertas">> = Specific
@@ -3038,6 +3047,15 @@ type RouteHandlerConfig<Route extends AppRouteHandlerRoutes = AppRouteHandlerRou
 
 
 
+
+// Validate ../../../app/(app)/bonificacao/layout.tsx
+{
+  type __IsExpected<Specific extends LayoutConfig<"/bonificacao">> = Specific
+  const handler = {} as typeof import("../../../app/(app)/bonificacao/layout.js")
+  type __Check = __IsExpected<typeof handler>
+  // @ts-ignore
+  type __Unused = __Check
+}
 
 // Validate ../../../app/(app)/chat/layout.tsx
 {
