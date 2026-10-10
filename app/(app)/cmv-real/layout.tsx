@@ -1,22 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useCmvRealAccess } from '@/hooks/useCmvRealAccess';
+import { notasListHref, parseNotasListFilters } from '@/lib/nfe/notas-list-query';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { href: '/cmv-real/notas', label: 'Revisão', match: '/cmv-real/notas' },
+  { href: '/cmv-real/notas', label: 'Revisão', match: '/cmv-real/notas', preserveFilters: true },
   { href: '/cmv-real/lancamentos', label: 'Lançamentos', match: '/cmv-real/lancamentos' },
   { href: '/cmv-real/fechamento', label: 'Fechamento', match: '/cmv-real/fechamento' },
   { href: '/cmv-real/produtos', label: 'Produtos', match: '/cmv-real/produtos' },
   { href: '/cmv-real/importar', label: 'Importar', match: '/cmv-real/importar' },
 ];
 
-export default function CmvRealLayout({ children }: { children: React.ReactNode }) {
+function CmvRealLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { canView, lojaNaoConfigurada, loading } = useCmvRealAccess();
+
+  const revisaoHref = pathname?.startsWith('/cmv-real/notas')
+    ? notasListHref(parseNotasListFilters(searchParams))
+    : '/cmv-real/notas';
 
   if (loading) {
     return (
@@ -57,10 +64,12 @@ export default function CmvRealLayout({ children }: { children: React.ReactNode 
         <nav className="flex gap-1 overflow-x-auto border-b border-border -mx-1 px-1 scrollbar-none">
           {TABS.map((t) => {
             const active = pathname?.startsWith(t.match);
+            const href =
+              'preserveFilters' in t && t.preserveFilters ? revisaoHref : t.href;
             return (
               <Link
                 key={t.href}
-                href={t.href}
+                href={href}
                 className={cn(
                   'shrink-0 text-sm font-medium px-3 py-2 -mb-px border-b-2 transition-colors',
                   'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm',
@@ -77,5 +86,13 @@ export default function CmvRealLayout({ children }: { children: React.ReactNode 
       </div>
       <div>{children}</div>
     </div>
+  );
+}
+
+export default function CmvRealLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={null}>
+      <CmvRealLayoutInner>{children}</CmvRealLayoutInner>
+    </Suspense>
   );
 }

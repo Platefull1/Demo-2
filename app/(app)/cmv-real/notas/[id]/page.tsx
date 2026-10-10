@@ -1,9 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Check, Ban } from 'lucide-react';
+import {
+  notasListHref,
+  parseNotasListFilters,
+} from '@/lib/nfe/notas-list-query';
 import {
   CUSTO_KG_MAX,
   CUSTO_KG_MIN,
@@ -68,10 +72,15 @@ function statusBadgeClass(status: string): string {
   return 'bg-warning/15 text-warning border-warning/30';
 }
 
-export default function CmvRealNotaDetalhePage() {
+function CmvRealNotaDetalhePageInner() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const id = String(params?.id || '');
+  const backHref = useMemo(() => {
+    const f = parseNotasListFilters(searchParams);
+    return notasListHref(f);
+  }, [searchParams]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
@@ -251,12 +260,16 @@ export default function CmvRealNotaDetalhePage() {
   };
 
   const fornecedorFora = async () => {
-    if (!confirm('Marcar este fornecedor como fora do CMV? A nota será ignorada.'))
+    if (
+      !confirm(
+        'Marcar este fornecedor como fora do CMV em todas as lojas? As notas em revisão deste fornecedor serão ignoradas.',
+      )
+    )
       return;
     setSaving('fornecedor');
     try {
       await post({ action: 'fornecedor_fora_cmv' });
-      router.push('/cmv-real/notas');
+      router.push(backHref);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
       setSaving(null);
@@ -268,7 +281,7 @@ export default function CmvRealNotaDetalhePage() {
     setMsg(null);
     try {
       await post({ action: 'aprovar_nota' });
-      router.push('/cmv-real/notas');
+      router.push(backHref);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
       setSaving(null);
@@ -286,7 +299,7 @@ export default function CmvRealNotaDetalhePage() {
   if (!nota) {
     return (
       <div className="space-y-3">
-        <Link href="/cmv-real/notas" className="text-sm text-muted-foreground flex items-center gap-1">
+        <Link href={backHref} className="text-sm text-muted-foreground flex items-center gap-1">
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
         <p className="text-sm text-warning">{msg || 'Nota não encontrada'}</p>
@@ -532,7 +545,7 @@ export default function CmvRealNotaDetalhePage() {
                   }
                   className="accent-primary"
                 />
-                Salvar mapeamento para próximas notas
+                Salvar mapeamento para todas as lojas
               </label>
             )}
 
@@ -574,7 +587,7 @@ export default function CmvRealNotaDetalhePage() {
   return (
     <div className="space-y-4">
       <Link
-        href="/cmv-real/notas"
+        href={backHref}
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-muted-foreground"
       >
         <ArrowLeft className="w-3.5 h-3.5" /> Notas
@@ -657,5 +670,19 @@ export default function CmvRealNotaDetalhePage() {
         </button>
       )}
     </div>
+  );
+}
+
+export default function CmvRealNotaDetalhePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <CmvRealNotaDetalhePageInner />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Loader2, MoreHorizontal, Search } from 'lucide-react';
 import { DataTable } from '@/components/layout/DataTable';
@@ -21,6 +22,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  buildNotasListQuery,
+  parseNotasListFilters,
+} from '@/lib/nfe/notas-list-query';
 import { storeLabel } from '@/lib/nfe/ui-labels';
 import { cn } from '@/lib/utils';
 
@@ -98,8 +103,44 @@ function emptyHint(status: TabStatus): string {
   return 'Quando houver notas pendentes de revisão neste período, elas aparecerão aqui.';
 }
 
-export default function CmvRealNotasPage() {
-  const agora = new Date();
+function CmvRealNotasPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const agora = useMemo(() => new Date(), []);
+  const filterDefaults = useMemo(
+    () => ({ mes: agora.getMonth() + 1, ano: agora.getFullYear() }),
+    [agora],
+  );
+
+  const filters = useMemo(
+    () => parseNotasListFilters(searchParams, filterDefaults),
+    [searchParams, filterDefaults],
+  );
+
+  const storeSlug = filters.storeSlug;
+  const status = (
+    STATUS_TABS.some((t) => t.status === filters.status)
+      ? filters.status
+      : 'EM_REVISAO'
+  ) as TabStatus;
+  const mes = filters.mes;
+  const ano = filters.ano;
+
+  const setFilters = useCallback(
+    (patch: Partial<{ status: TabStatus; storeSlug: string; mes: number; ano: number }>) => {
+      const next = {
+        status: patch.status ?? status,
+        storeSlug: patch.storeSlug !== undefined ? patch.storeSlug : storeSlug,
+        mes: patch.mes ?? mes,
+        ano: patch.ano ?? ano,
+      };
+      const qs = buildNotasListQuery(next);
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname, status, storeSlug, mes, ano],
+  );
+
   const [notas, setNotas] = useState<NotaRow[]>([]);
   const [counts, setCounts] = useState({
     EM_REVISAO: 0,
@@ -109,16 +150,17 @@ export default function CmvRealNotasPage() {
   const [loading, setLoading] = useState(true);
   const [lojaTravada, setLojaTravada] = useState(false);
   const [allowed, setAllowed] = useState<string[] | null>(null);
-  const [storeSlug, setStoreSlug] = useState('');
-  const [status, setStatus] = useState<TabStatus>('EM_REVISAO');
-  const [mes, setMes] = useState(agora.getMonth() + 1);
-  const [ano, setAno] = useState(agora.getFullYear());
   const [canMapeamentoEditar, setCanMapeamentoEditar] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   const anos = [agora.getFullYear(), agora.getFullYear() - 1, agora.getFullYear() - 2];
+
+  const listQuery = useMemo(
+    () => buildNotasListQuery({ status, storeSlug, mes, ano }),
+    [status, storeSlug, mes, ano],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -140,16 +182,17 @@ export default function CmvRealNotasPage() {
       if (
         data.lojaTravada &&
         Array.isArray(data.allowedStoreSlugs) &&
-        data.allowedStoreSlugs.length === 1
+        data.allowedStoreSlugs.length === 1 &&
+        data.allowedStoreSlugs[0] !== storeSlug
       ) {
-        setStoreSlug(data.allowedStoreSlugs[0]);
+        setFilters({ storeSlug: data.allowedStoreSlugs[0] });
       }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {
       setLoading(false);
     }
-  }, [storeSlug, status, mes, ano]);
+  }, [storeSlug, status, mes, ano, setFilters]);
 
   useEffect(() => {
     void load();
@@ -159,7 +202,7 @@ export default function CmvRealNotasPage() {
     async (notaId: string) => {
       if (
         !confirm(
-          'Marcar este fornecedor como fora do CMV? A nota será ignorada.'
+          'Marcar este fornecedor como fora do CMV em todas as lojas? As notas em revisão deste fornecedor serão ignoradas.'
         )
       )
         return;
@@ -337,7 +380,7 @@ export default function CmvRealNotasPage() {
           type="single"
           value={status}
           onValueChange={(v) => {
-            if (v) setStatus(v as TabStatus);
+            if (v) setFilters({ status: v as TabStatus });
           }}
           size="sm"
           className="w-full lg:w-fit flex-wrap"
@@ -373,7 +416,9 @@ export default function CmvRealNotasPage() {
               (!lojaTravada ? '__all__' : lojasOpts[0] ?? '__all__')
             }
             disabled={storeSelectDisabled}
-            onValueChange={(v) => setStoreSlug(v === '__all__' ? '' : v)}
+            onValueChange={(v) =>
+              setFilters({ storeSlug: v === '__all__' ? '' : v })
+            }
           >
             <SelectTrigger className="h-8 w-[140px] text-sm">
               <SelectValue placeholder="Loja" />
@@ -389,7 +434,10 @@ export default function CmvRealNotasPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={String(mes)} onValueChange={(v) => setMes(Number(v))}>
+          <Select
+            value={String(mes)}
+            onValueChange={(v) => setFilters({ mes: Number(v) })}
+          >
             <SelectTrigger className="h-8 w-[120px] text-sm">
               <SelectValue />
             </SelectTrigger>
@@ -401,7 +449,10 @@ export default function CmvRealNotasPage() {
               ))}
             </SelectContent>
           </Select>
-          <Select value={String(ano)} onValueChange={(v) => setAno(Number(v))}>
+          <Select
+            value={String(ano)}
+            onValueChange={(v) => setFilters({ ano: Number(v) })}
+          >
             <SelectTrigger className="h-8 w-[88px] text-sm">
               <SelectValue />
             </SelectTrigger>
@@ -428,7 +479,11 @@ export default function CmvRealNotasPage() {
         loading={loading}
         pageSize={50}
         initialSorting={[{ id: 'dataEntrada', desc: true }]}
-        getRowHref={(row) => `/cmv-real/notas/${row.id}`}
+        getRowHref={(row) =>
+          listQuery
+            ? `/cmv-real/notas/${row.id}?${listQuery}`
+            : `/cmv-real/notas/${row.id}`
+        }
         emptyState={
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">
@@ -468,5 +523,19 @@ export default function CmvRealNotasPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function CmvRealNotasPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        </div>
+      }
+    >
+      <CmvRealNotasPageInner />
+    </Suspense>
   );
 }

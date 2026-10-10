@@ -158,21 +158,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     });
     if (!nota) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
 
-    await prisma.$transaction(async (tx) => {
-      await tx.nfeFornecedor.update({
-        where: { id: nota.fornecedorId },
-        data: { ignorarCmv: true, motivoIgnorar: 'Marcado na revisão CMV Real' },
-      });
-      await tx.nfeNota.update({
-        where: { id: nota.id },
-        data: { status: 'IGNORADA' },
-      });
-      await tx.nfeItem.updateMany({
-        where: { notaId: nota.id },
-        data: { status: 'IGNORADO' },
-      });
+    const { ignorarNotasFornecedorEmRevisao } = await import(
+      '@/lib/nfe/aplicar-mapeamento'
+    );
+    const notasIgnoradas = await ignorarNotasFornecedorEmRevisao({
+      tenantUserId: tenant.tenantUserId,
+      fornecedorId: nota.fornecedorId,
+      motivoIgnorar: 'Marcado na revisão CMV Real',
     });
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, notasIgnoradas });
   }
 
   if (body.action === 'ignorar_item') {
@@ -238,6 +232,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     const canCreateMap =
       tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_CRIAR) ?? false);
 
+    let itensPropagados = 0;
     if (body.criarMapeamento && canCreateMap) {
       const { chaveMapeamentoDesc, chaveMapeamentoEan, normalizarDescricao, normalizarUnidade } =
         await import('@/lib/nfe/normalize');
@@ -273,6 +268,20 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         },
       });
       mapeamentoId = map.id;
+
+      const { aplicarMapeamentoEmNotasPendentes } = await import(
+        '@/lib/nfe/aplicar-mapeamento'
+      );
+      itensPropagados = await aplicarMapeamentoEmNotasPendentes({
+        tenantUserId: tenant.tenantUserId,
+        fornecedorId: item.nota.fornecedorId,
+        chave,
+        estoqueInsumoId: body.estoqueInsumoId,
+        fatorConversao: fator,
+        mapeamentoId: map.id,
+        unidadeConvertida: unidade === 'UN' ? 'UN' : 'KG',
+        excludeItemId: item.id,
+      });
     }
 
     await prisma.nfeItem.update({
@@ -291,7 +300,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, itensPropagados });
   }
 
   if (body.action === 'aprovar_nota') {
