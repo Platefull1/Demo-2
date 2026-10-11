@@ -8,8 +8,10 @@
  * 1) Extrair N (internas/caixa), P (peso/vol da interna), sufixo (caixas/internas)
  * 2) qtd == internas → fator = P (sem alerta)
  * 3) qtd == caixas → fator = N×P (sem alerta)
- * 4) sem sufixo / não bate → FATOR_AMBIGUO (comportamento legado)
- * 5) Bebidas: "(6)", 6 Pack, LT12, C/6 → fator multipack
+ * 4) "QTD. X CX/DP" na descrição (fornecedores bagunçados): mesma regra 2/3
+ *    — só ativa se o texto tiver esse padrão; notas limpas não mudam
+ * 5) sem sufixo / não bate → FATOR_AMBIGUO (comportamento legado)
+ * 6) Bebidas: "(6)", 6 Pack, LT12, C/6 → fator multipack
  */
 
 export type FatorSugeridoOrigem =
@@ -68,6 +70,45 @@ export interface SufixoCx {
   /** UND extras em "c CXS E u UND" */
   undExtras: number;
   raw: string;
+}
+
+/**
+ * Fornecedores que colocam caixas na descrição: "… 6X400G QTD. 4.00 CX".
+ * Só casa com QTD/QTDE explícito — não afeta notas sem esse texto.
+ */
+export interface QtdDeclarada {
+  quantidade: number;
+  unidade: string;
+  raw: string;
+}
+
+export function extrairQtdDeclaradaNaDescricao(descricao: string): {
+  corpo: string;
+  qtdDeclarada: QtdDeclarada | null;
+} {
+  const text = String(descricao || '');
+  const re =
+    /\bqt(?:d|de)\.?\s*:?\s*(\d+(?:[.,]\d+)?)\s*(cxs?|dp|fd|pct|unid|und|un)\b/i;
+  const m = text.match(re);
+  if (!m || m.index == null) {
+    return { corpo: text, qtdDeclarada: null };
+  }
+  const quantidade = parseDecimalBr(m[1]);
+  if (quantidade == null) {
+    return { corpo: text, qtdDeclarada: null };
+  }
+  let unidade = m[2].toUpperCase();
+  if (unidade === 'CXS') unidade = 'CX';
+  if (unidade === 'UND' || unidade === 'UNID') unidade = 'UN';
+
+  const corpo = `${text.slice(0, m.index)} ${text.slice(m.index + m[0].length)}`
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    corpo,
+    qtdDeclarada: { quantidade, unidade, raw: m[0].trim() },
+  };
 }
 
 /** Parseia "1 CX COM 20", "2 CXS E 0 UND", "5 CXS E 0 UND". */
@@ -154,6 +195,7 @@ export function descricaoTemPack(descricao: string): boolean {
   if (/\b\d+\s*cxs?\b/i.test(text)) return true;
   if (/\b\d+\s*[xX×]\s*\d+/i.test(text)) return true;
   if (/\(\s*\d+\s*\)/.test(text)) return true;
+  if (extrairQtdDeclaradaNaDescricao(text).qtdDeclarada) return true;
   const { sufixo } = separarSufixoFornecedor(text);
   if (sufixo && parseSufixoCx(sufixo)) return true;
   return false;
@@ -349,7 +391,8 @@ export function sugerirFatorDaDescricao(
     }
   }
 
-  const pack = extrairPackNP(corpo, opts?.kgPorUnidade);
+  const { corpo: corpoSemQtd, qtdDeclarada } = extrairQtdDeclaradaNaDescricao(corpo);
+  const pack = extrairPackNP(corpoSemQtd, opts?.kgPorUnidade);
   const suf = sufixo ? parseSufixoCx(sufixo) : null;
 
   // ── Padrão confirmado por quantidade + sufixo ────────────────────────────
@@ -418,6 +461,55 @@ export function sugerirFatorDaDescricao(
         opts,
       );
     }
+  }
+
+  // ── "QTD. X CX/DP" na descrição (só se o texto tiver esse padrão) ─────────
+  // Ex.: 6X400G QTD. 4.00 CX com quantidade 24 → 24 = 4×6 → fator = P (0,4 kg)
+  if (
+    qtdDeclarada &&
+    pack.n != null &&
+    pack.p != null &&
+    qtd != null &&
+    Number.isFinite(qtd) &&
+    qtd > 0
+  ) {
+    const caixas = qtdDeclarada.quantidade;
+    const internas = round4(caixas * pack.n);
+
+    if (almostEq(qtd, internas)) {
+      return anexarSanidade(
+        {
+          fator: pack.p,
+          origem: 'DESCRICAO',
+          detalhe: `qtd=${qtd} = QTD×N (${caixas}×${pack.n}) → fator=P=${pack.p} KG (${qtdDeclarada.raw})${qtdInfo}`,
+        },
+        opts,
+      );
+    }
+
+    if (almostEq(qtd, caixas)) {
+      const fator = round4(pack.n * pack.p);
+      return anexarSanidade(
+        {
+          fator,
+          origem: 'DESCRICAO',
+          detalhe: `qtd=${qtd} = QTD caixas → fator=N×P=${pack.n}×${pack.p}=${fator} KG (${qtdDeclarada.raw})${qtdInfo}`,
+        },
+        opts,
+      );
+    }
+
+    // QTD presente mas números não fecham → P (menos risco de inflar) + ambíguo
+    return anexarSanidade(
+      {
+        fator: pack.p,
+        origem: 'DESCRICAO',
+        detalhe: `QTD ${qtdDeclarada.raw} + NxP; qtd=${qtd} ≠ ${caixas} nem ${internas} → P=${pack.p} KG${qtdInfo}`,
+        ambiguo: true,
+        alertas: ['FATOR_AMBIGUO'],
+      },
+      opts,
+    );
   }
 
   // ── Sem confirmação por qtd: legado + FATOR_AMBIGUO ───────────────────────

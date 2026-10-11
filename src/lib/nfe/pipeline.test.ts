@@ -8,6 +8,7 @@ import { ratearImpostoNota } from './fcp-st';
 import {
   extrairMultipackDaDescricao,
   extrairPesoKgDaDescricao,
+  extrairQtdDeclaradaNaDescricao,
   sugerirFatorDaDescricao,
 } from './fator-sugerido';
 import {
@@ -326,6 +327,51 @@ describe('fator sugerido da descrição', () => {
       secao: 'MATERIA_PRIMA',
     });
     assert.ok(s?.alertas?.includes('FATOR_SUSPEITO'));
+  });
+
+  it('extrai QTD. 4.00 CX da descrição', () => {
+    const r = extrairQtdDeclaradaNaDescricao(
+      'ABACAXI DIVINA MESA RODELAS 6X400G QTD. 4.00 CX',
+    );
+    assert.equal(r.qtdDeclarada?.quantidade, 4);
+    assert.equal(r.qtdDeclarada?.unidade, 'CX');
+    assert.ok(r.corpo.includes('6X400G'));
+    assert.ok(!/\bQTD\b/i.test(r.corpo));
+  });
+
+  it('ABACAXI 6X400G QTD. 4.00 CX | qtd 24 → P=0,4 (não N×P)', () => {
+    const s = sugerirFatorDaDescricao(
+      'ABACAXI DIVINA MESA RODELAS 6X400G QTD. 4.00 CX',
+      { unidadeComercial: 'CX', quantidadeNota: 24 },
+    );
+    assert.equal(s?.fator, 0.4);
+    assert.ok(!s?.alertas?.includes('FATOR_AMBIGUO'));
+  });
+
+  it('EXT TOMATE 3X1,7KG QTD. 8.00 DP | qtd 24 → P=1,7', () => {
+    const s = sugerirFatorDaDescricao(
+      'EXT.T.FS.TOMADORO.BONARE GOURMET SACHE 3X1,7KG QTD. 8.00 DP',
+      { unidadeComercial: 'DP', quantidadeNota: 24 },
+    );
+    assert.equal(s?.fator, 1.7);
+    assert.ok(!s?.alertas?.includes('FATOR_AMBIGUO'));
+  });
+
+  it('QTD. 4 CX com qtd=4 → fator N×P (nota conta caixas)', () => {
+    const s = sugerirFatorDaDescricao(
+      'ABACAXI DIVINA MESA RODELAS 6X400G QTD. 4.00 CX',
+      { unidadeComercial: 'CX', quantidadeNota: 4 },
+    );
+    assert.equal(s?.fator, 2.4);
+  });
+
+  it('sem QTD na descrição → comportamento legado (N×P ambiguo)', () => {
+    const s = sugerirFatorDaDescricao('ABACAXI DIVINA MESA RODELAS 6X400G', {
+      unidadeComercial: 'CX',
+      quantidadeNota: 24,
+    });
+    assert.equal(s?.fator, 2.4);
+    assert.equal(s?.ambiguo, true);
   });
 });
 
