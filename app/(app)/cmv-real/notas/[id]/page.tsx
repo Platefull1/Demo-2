@@ -13,10 +13,13 @@ import {
   CUSTO_KG_MIN,
   formatNumBr,
   notaStatusLabel,
-  perguntaFator,
   storeLabel,
-  textoAlertaAmbiguo,
 } from '@/lib/nfe/ui-labels';
+import {
+  interpretarRevisaoItem,
+  linhaConferenciaCaixaFechada,
+  textoAlertaAmbiguoRevisao,
+} from '@/lib/nfe/revisao-interpretacao';
 
 type Sugestao = { id: string; nome: string; score: number };
 
@@ -307,14 +310,21 @@ function CmvRealNotaDetalhePageInner() {
     );
   }
 
-  const renderContaAoVivo = (it: Item, fatorRaw: string, produtoId: string) => {
+  const renderContaAoVivo = (
+    it: Item,
+    fatorRaw: string,
+    produtoId: string,
+    interp: ReturnType<typeof interpretarRevisaoItem>,
+  ) => {
     const fator = parseFator(fatorRaw);
     if (fator == null) return null;
 
     const prod = produtoById.get(produtoId);
     const undCmv = (prod?.unidade || 'KG') as 'KG' | 'UN';
-    const sufixo = undCmv === 'UN' ? 'un' : 'kg';
-    const undNota = (it.unidadeComercial || 'UN').toUpperCase();
+    const sufixo = interp.sufixo;
+    const qtdLabel = interp.unidadeNaoConfiavel
+      ? interp.qtdExibicao
+      : `${formatNumBr(it.quantidade, it.quantidade % 1 === 0 ? 0 : 2)} ${(it.unidadeComercial || 'UN').toUpperCase()}`;
     const valor = it.valorLiquido ?? it.valorBruto;
     const qtdConv = it.quantidade * fator;
     const custo = qtdConv > 0 ? valor / qtdConv : 0;
@@ -333,28 +343,40 @@ function CmvRealNotaDetalhePageInner() {
     const foraHistorico = ref != null && ref > 0 && desvioHist > limiteVariacao;
     const alertaVermelho = foraFaixa || foraHistorico;
 
+    const conferencia = linhaConferenciaCaixaFechada({
+      nPack: interp.nPack,
+      fator,
+      valorItem: valor,
+      sufixo,
+      mostrar:
+        interp.unidadeNaoConfiavel &&
+        interp.contagem !== 'caixas' &&
+        undCmv !== 'UN',
+    });
+
     return (
-      <p
-        className={`text-[11px] leading-relaxed ${
+      <div
+        className={`text-[11px] leading-relaxed space-y-0.5 ${
           alertaVermelho ? 'text-destructive' : 'text-muted-foreground'
         }`}
       >
-        {formatNumBr(it.quantidade, it.quantidade % 1 === 0 ? 0 : 2)} {undNota} ×{' '}
-        {formatNumBr(fator)} {sufixo} = {formatNumBr(qtdConv)} {sufixo}
-        {' · '}
-        R$ {formatNumBr(custo)}/{sufixo}
+        <p>
+          {qtdLabel} × {formatNumBr(fator)} {sufixo} = {formatNumBr(qtdConv)}{' '}
+          {sufixo}
+          {' · '}
+          R$ {formatNumBr(custo)}/{sufixo}
+        </p>
+        {conferencia && <p>{conferencia}</p>}
         {foraFaixa && (
-          <span className="block mt-0.5">
-            Fora da faixa esperada (R$ {formatNumBr(CUSTO_KG_MIN)}–{formatNumBr(CUSTO_KG_MAX)}/
-            {sufixo})
-          </span>
+          <p>
+            Fora da faixa esperada (R$ {formatNumBr(CUSTO_KG_MIN)}–
+            {formatNumBr(CUSTO_KG_MAX)}/{sufixo})
+          </p>
         )}
         {foraHistorico && ref != null && (
-          <span className="block mt-0.5">
-            Histórico ≈ R$ {formatNumBr(ref)}/{sufixo}
-          </span>
+          <p>Histórico ≈ R$ {formatNumBr(ref)}/{sufixo}</p>
         )}
-      </p>
+      </div>
     );
   };
 
@@ -372,7 +394,13 @@ function CmvRealNotaDetalhePageInner() {
 
     const prod = produtoById.get(d.produtoId);
     const undCmv = prod?.unidade || 'KG';
-    const { pergunta, sufixo } = perguntaFator(it.unidadeComercial, undCmv);
+    const interp = interpretarRevisaoItem({
+      descricao: it.descricao,
+      quantidade: it.quantidade,
+      unidadeComercial: it.unidadeComercial,
+      unidadeCmv: undCmv,
+    });
+    const { pergunta, sufixo } = interp;
 
     return (
       <article
@@ -388,7 +416,18 @@ function CmvRealNotaDetalhePageInner() {
           </div>
           <div className="text-right shrink-0 text-xs text-muted-foreground">
             <div>
-              {it.quantidade} {it.unidadeComercial}
+                  {interp.unidadeNaoConfiavel ? (
+                <>
+                  {interp.qtdExibicao}
+                  {interp.unidadeOriginalParen
+                    ? ` (${interp.unidadeOriginalParen})`
+                    : null}
+                </>
+              ) : (
+                <>
+                  {it.quantidade} {it.unidadeComercial}
+                </>
+              )}
             </div>
             <div>
               R${' '}
@@ -407,7 +446,14 @@ function CmvRealNotaDetalhePageInner() {
                 : 'bg-warning/15 border border-warning/40 text-warning'
             }`}
           >
-            {ambiguo && <p className="font-medium">{textoAlertaAmbiguo(it.unidadeComercial)}</p>}
+            {ambiguo && (
+              <p className="font-medium">
+                {textoAlertaAmbiguoRevisao(
+                  it.unidadeComercial,
+                  interp.unidadeNaoConfiavel,
+                )}
+              </p>
+            )}
             {suspeito && (
               <p className={ambiguo ? 'mt-1.5' : ''}>
                 Custo fora da faixa esperada — confira o valor digitado.
@@ -505,6 +551,11 @@ function CmvRealNotaDetalhePageInner() {
             </div>
 
             <div className="space-y-1.5">
+              {interp.linhaInterpretacao && (
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {interp.linhaInterpretacao}
+                </p>
+              )}
               <label className="block text-sm text-muted-foreground font-medium">
                 {pergunta}
               </label>
@@ -529,7 +580,7 @@ function CmvRealNotaDetalhePageInner() {
                   {sufixo}
                 </span>
               </div>
-              {renderContaAoVivo(it, d.fator, d.produtoId)}
+              {renderContaAoVivo(it, d.fator, d.produtoId, interp)}
             </div>
 
             {canMapeamentoCriar && (
