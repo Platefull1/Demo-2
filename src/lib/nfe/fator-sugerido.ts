@@ -425,8 +425,27 @@ export function sugerirFatorDaDescricao(
           ? suf.caixas * n + suf.undExtras
           : null;
 
+    const matchInternas = internas != null && almostEq(qtd, internas);
+    const matchCaixas = almostEq(qtd, suf.caixas);
+
+    // Empate c = k = qtd (ex.: "1 CX COM 1", qtd 1): o sufixo declara caixas.
+    // Caso real: RECHEIO 8X1,005KG - 1 CX COM 1 → caixa fechada N×P, não 1 pacote.
+    if (matchInternas && matchCaixas && n != null) {
+      const fator = round4(n * pack.p);
+      return anexarSanidade(
+        {
+          fator,
+          origem: 'DESCRICAO',
+          detalhe: `qtd=${qtd} empate c=k → caixa N×P=${n}×${pack.p}=${fator} KG (${suf.raw})${qtdInfo}`,
+          ambiguo: true,
+          alertas: ['FATOR_AMBIGUO'],
+        },
+        opts,
+      );
+    }
+
     // Regra 2: qtd == internas → fator = P
-    if (internas != null && almostEq(qtd, internas)) {
+    if (matchInternas) {
       return anexarSanidade(
         {
           fator: pack.p,
@@ -438,7 +457,7 @@ export function sugerirFatorDaDescricao(
     }
 
     // Regra 2b: N desconhecido + "c CXS" + qtd ≠ c → tratar qtd como internas → P
-    if (internas == null && !almostEq(qtd, suf.caixas)) {
+    if (internas == null && !matchCaixas) {
       return anexarSanidade(
         {
           fator: pack.p,
@@ -450,7 +469,7 @@ export function sugerirFatorDaDescricao(
     }
 
     // Regra 3: qtd == caixas → fator = N×P
-    if (n != null && almostEq(qtd, suf.caixas)) {
+    if (n != null && matchCaixas) {
       const fator = round4(n * pack.p);
       return anexarSanidade(
         {

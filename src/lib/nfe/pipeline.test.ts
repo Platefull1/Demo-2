@@ -303,6 +303,21 @@ describe('fator sugerido da descrição', () => {
     assert.equal(s?.fator, 0.5);
   });
 
+  it('RECHEIO 8X1,005KG - 1 CX COM 1 | qtd 1 → empate caixa N×P=8,04', () => {
+    const s = sugerirFatorDaDescricao(
+      'RECHEIO DOCEIRO MORANGO 8X1,005KG - 1 CX COM 1',
+      {
+        unidadeComercial: 'KG',
+        quantidadeNota: 1,
+        valorLiquido: 23.99,
+        secao: 'MATERIA_PRIMA',
+      },
+    );
+    assert.equal(s?.fator, 8.04);
+    assert.equal(s?.ambiguo, true);
+    assert.ok(s?.alertas?.includes('FATOR_AMBIGUO'));
+  });
+
   it('COCA (6) → fator 6', () => {
     const s = sugerirFatorDaDescricao('COCA-COLA ORIGINAL PET 2L (6) FL', {
       unidadeComercial: 'G',

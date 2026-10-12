@@ -260,7 +260,38 @@ export function scoreCatalogMatch(
   }
 
   if (weightTotal <= 0) return null;
-  return { score: weightMatched / weightTotal, matchedTokens, specificity };
+
+  let score = weightMatched / weightTotal;
+  // Uma única palavra casada não pode ser 100% (ex.: catálogo "MORANGO"
+  // vs NF "RECHEIO DOCEIRO MORANGO").
+  if (matchedTokens <= 1) {
+    score = Math.min(score, 0.89);
+  }
+
+  return { score, matchedTokens, specificity };
+}
+
+/**
+ * Catálogo genérico/curto vs descrição NF mais específica
+ * (ex.: "MORANGO" vs "RECHEIO DOCEIRO MORANGO").
+ */
+export function catalogoPareceGenericoDemais(
+  descricaoNfe: string,
+  catalogNome: string,
+  opts?: { secao?: CmvRealSecao | null },
+): boolean {
+  const secao = opts?.secao ?? null;
+  const cat = tokenizeCatalogName(catalogNome, secao);
+  const nfe = tokenizeNfeDescricao(descricaoNfe, secao);
+  if (cat.required.length === 0 || nfe.length <= 1) return false;
+
+  const catAll = [...cat.required, ...cat.optional];
+  const matched = cat.required.filter((t) => tokenInHaystack(t, nfe));
+  if (matched.length === 0) return false;
+  if (matched.length > 1) return false;
+
+  const extrasNaNf = nfe.filter((t) => !tokenInHaystack(t, catAll));
+  return extrasNaNf.length >= 1;
 }
 
 /**

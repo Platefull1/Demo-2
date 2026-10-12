@@ -8,20 +8,26 @@ import {
   notasListHref,
   parseNotasListFilters,
 } from '@/lib/nfe/notas-list-query';
+import { formatNumBr, notaStatusLabel, storeLabel } from '@/lib/nfe/ui-labels';
+import { catalogoPareceGenericoDemais } from '@/lib/nfe/similarity';
 import {
-  CUSTO_KG_MAX,
-  CUSTO_KG_MIN,
-  formatNumBr,
-  notaStatusLabel,
-  storeLabel,
-} from '@/lib/nfe/ui-labels';
-import {
+  formatFatorBr,
   interpretarRevisaoItem,
-  linhaConferenciaCaixaFechada,
+  opcaoEProvavel,
+  parseFatorBr,
   textoAlertaAmbiguoRevisao,
+  type OpcaoPesoId,
 } from '@/lib/nfe/revisao-interpretacao';
 
 type Sugestao = { id: string; nome: string; score: number };
+
+type DraftItem = {
+  produtoId: string;
+  fator: string;
+  criarMap: boolean;
+  outro: boolean;
+  opcaoPeso: OpcaoPesoId | null;
+};
 
 type Item = {
   id: string;
@@ -64,9 +70,7 @@ function parseSugestoes(raw: unknown): Sugestao[] {
 }
 
 function parseFator(raw: string): number | null {
-  const n = Number(String(raw).replace(',', '.'));
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return n;
+  return parseFatorBr(raw);
 }
 
 function statusBadgeClass(status: string): string {
@@ -92,7 +96,6 @@ function CmvRealNotaDetalhePageInner() {
   const [canMapeamentoCriar, setCanMapeamentoCriar] = useState(false);
   const [canMapeamentoEditar, setCanMapeamentoEditar] = useState(false);
   const [custoMedioPorInsumo, setCustoMedioPorInsumo] = useState<Record<string, number>>({});
-  const [limiteVariacao, setLimiteVariacao] = useState(30);
   const [nota, setNota] = useState<{
     id: string;
     numero: string;
@@ -110,12 +113,7 @@ function CmvRealNotaDetalhePageInner() {
   } | null>(null);
   const [produtos, setProdutos] = useState<ProdutoOpt[]>([]);
 
-  const [draft, setDraft] = useState<
-    Record<
-      string,
-      { produtoId: string; fator: string; criarMap: boolean; outro: boolean }
-    >
-  >({});
+  const [draft, setDraft] = useState<Record<string, DraftItem>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -132,38 +130,62 @@ function CmvRealNotaDetalhePageInner() {
       setCanMapeamentoCriar(data.canMapeamentoCriar === true);
       setCanMapeamentoEditar(data.canMapeamentoEditar === true);
       setCustoMedioPorInsumo(data.custoMedioPorInsumo || {});
-      setLimiteVariacao(Number(data.limiteVariacaoCustoPercent ?? 30));
       setNota(data.nota);
 
+      let prodList: ProdutoOpt[] = [];
       if (resProd.ok) {
         const pd = await resProd.json();
-        setProdutos(
-          (pd.itens || []).map(
-            (p: {
-              estoqueInsumoId: string;
-              nome: string;
-              unidade: string;
-              secao: string;
-            }) => ({
-              estoqueInsumoId: p.estoqueInsumoId,
-              nome: p.nome,
-              unidade: p.unidade,
-              secao: p.secao,
-            }),
-          ),
+        prodList = (pd.itens || []).map(
+          (p: {
+            estoqueInsumoId: string;
+            nome: string;
+            unidade: string;
+            secao: string;
+          }) => ({
+            estoqueInsumoId: p.estoqueInsumoId,
+            nome: p.nome,
+            unidade: p.unidade,
+            secao: p.secao,
+          }),
         );
+        setProdutos(prodList);
       }
 
-      const next: typeof draft = {};
+      const prodMap = new Map(prodList.map((p) => [p.estoqueInsumoId, p]));
+      const custoMedio: Record<string, number> = data.custoMedioPorInsumo || {};
+
+      const next: Record<string, DraftItem> = {};
       for (const it of data.nota.itens as Item[]) {
         const sugs = parseSugestoes(it.sugestoes);
         const first =
           it.estoqueInsumoId || it.sugestaoInsumoId || sugs[0]?.id || '';
+        const prod = prodMap.get(first);
+        const undCmv = prod?.unidade || 'KG';
+        const valor = it.valorLiquido ?? it.valorBruto;
+        const interp = interpretarRevisaoItem({
+          descricao: it.descricao,
+          quantidade: it.quantidade,
+          unidadeComercial: it.unidadeComercial,
+          unidadeCmv: undCmv,
+          valorItem: valor,
+          secao: prod?.secao,
+          custoMedio: first ? custoMedio[first] : undefined,
+        });
+
+        let fatorNum = it.fatorConversao ?? it.fatorSugerido ?? 1;
+        let opcaoPeso: OpcaoPesoId | null = null;
+        if (interp.opcoes.length > 0 && interp.opcaoPadrao) {
+          opcaoPeso = interp.opcaoPadrao;
+          const opt = interp.opcoes.find((o) => o.id === opcaoPeso);
+          if (opt?.fator != null) fatorNum = opt.fator;
+        }
+
         next[it.id] = {
           produtoId: first,
-          fator: String(it.fatorConversao ?? it.fatorSugerido ?? 1),
+          fator: formatFatorBr(fatorNum),
           criarMap: true,
           outro: false,
+          opcaoPeso,
         };
       }
       setDraft(next);
@@ -310,76 +332,6 @@ function CmvRealNotaDetalhePageInner() {
     );
   }
 
-  const renderContaAoVivo = (
-    it: Item,
-    fatorRaw: string,
-    produtoId: string,
-    interp: ReturnType<typeof interpretarRevisaoItem>,
-  ) => {
-    const fator = parseFator(fatorRaw);
-    if (fator == null) return null;
-
-    const prod = produtoById.get(produtoId);
-    const undCmv = (prod?.unidade || 'KG') as 'KG' | 'UN';
-    const sufixo = interp.sufixo;
-    const qtdLabel = interp.unidadeNaoConfiavel
-      ? interp.qtdExibicao
-      : `${formatNumBr(it.quantidade, it.quantidade % 1 === 0 ? 0 : 2)} ${(it.unidadeComercial || 'UN').toUpperCase()}`;
-    const valor = it.valorLiquido ?? it.valorBruto;
-    const qtdConv = it.quantidade * fator;
-    const custo = qtdConv > 0 ? valor / qtdConv : 0;
-
-    const isMateriaPrima = !prod || prod.secao === 'MATERIA_PRIMA';
-    const foraFaixa =
-      isMateriaPrima &&
-      undCmv === 'KG' &&
-      (custo < CUSTO_KG_MIN || custo > CUSTO_KG_MAX);
-
-    const ref = produtoId ? custoMedioPorInsumo[produtoId] : undefined;
-    const desvioHist =
-      ref != null && ref > 0 && limiteVariacao > 0
-        ? (Math.abs(custo - ref) / ref) * 100
-        : 0;
-    const foraHistorico = ref != null && ref > 0 && desvioHist > limiteVariacao;
-    const alertaVermelho = foraFaixa || foraHistorico;
-
-    const conferencia = linhaConferenciaCaixaFechada({
-      nPack: interp.nPack,
-      fator,
-      valorItem: valor,
-      sufixo,
-      mostrar:
-        interp.unidadeNaoConfiavel &&
-        interp.contagem !== 'caixas' &&
-        undCmv !== 'UN',
-    });
-
-    return (
-      <div
-        className={`text-[11px] leading-relaxed space-y-0.5 ${
-          alertaVermelho ? 'text-destructive' : 'text-muted-foreground'
-        }`}
-      >
-        <p>
-          {qtdLabel} × {formatNumBr(fator)} {sufixo} = {formatNumBr(qtdConv)}{' '}
-          {sufixo}
-          {' · '}
-          R$ {formatNumBr(custo)}/{sufixo}
-        </p>
-        {conferencia && <p>{conferencia}</p>}
-        {foraFaixa && (
-          <p>
-            Fora da faixa esperada (R$ {formatNumBr(CUSTO_KG_MIN)}–
-            {formatNumBr(CUSTO_KG_MAX)}/{sufixo})
-          </p>
-        )}
-        {foraHistorico && ref != null && (
-          <p>Histórico ≈ R$ {formatNumBr(ref)}/{sufixo}</p>
-        )}
-      </div>
-    );
-  };
-
   const renderItem = (it: Item, editavel: boolean) => {
     const sugs = parseSugestoes(it.sugestoes);
     const d = draft[it.id] || {
@@ -387,6 +339,7 @@ function CmvRealNotaDetalhePageInner() {
       fator: '1',
       criarMap: false,
       outro: false,
+      opcaoPeso: null,
     };
     const ambiguo = (it.alertas || []).includes('FATOR_AMBIGUO');
     const suspeito = (it.alertas || []).includes('FATOR_SUSPEITO');
@@ -394,13 +347,42 @@ function CmvRealNotaDetalhePageInner() {
 
     const prod = produtoById.get(d.produtoId);
     const undCmv = prod?.unidade || 'KG';
+    const valor = it.valorLiquido ?? it.valorBruto;
     const interp = interpretarRevisaoItem({
       descricao: it.descricao,
       quantidade: it.quantidade,
       unidadeComercial: it.unidadeComercial,
       unidadeCmv: undCmv,
+      valorItem: valor,
+      secao: prod?.secao,
+      custoMedio: d.produtoId
+        ? custoMedioPorInsumo[d.produtoId]
+        : undefined,
     });
     const { pergunta, sufixo } = interp;
+    const usaCards = interp.opcoes.length > 0;
+    const produtoGenerico =
+      Boolean(prod?.nome) &&
+      catalogoPareceGenericoDemais(it.descricao, prod!.nome, {
+        secao: (prod?.secao as 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA') || null,
+      });
+
+    const selecionarOpcao = (opcaoId: OpcaoPesoId) => {
+      const opt = interp.opcoes.find((o) => o.id === opcaoId);
+      setDraft((p) => ({
+        ...p,
+        [it.id]: {
+          ...d,
+          opcaoPeso: opcaoId,
+          fator:
+            opt?.fator != null
+              ? formatFatorBr(opt.fator)
+              : d.opcaoPeso === 'outro'
+                ? d.fator
+                : '',
+        },
+      }));
+    };
 
     return (
       <article
@@ -468,6 +450,11 @@ function CmvRealNotaDetalhePageInner() {
               <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                 Produto
               </p>
+              {produtoGenerico && (
+                <p className="text-xs text-warning font-medium">
+                  Confira: é o mesmo produto?
+                </p>
+              )}
               {sugs.length > 0 && !d.outro ? (
                 <ul className="space-y-1">
                   {sugs.slice(0, 3).map((s, idx) => (
@@ -475,7 +462,9 @@ function CmvRealNotaDetalhePageInner() {
                       <label
                         className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 cursor-pointer ${
                           d.produtoId === s.id
-                            ? 'border-warning/50 bg-warning/10'
+                            ? produtoGenerico
+                              ? 'border-warning/50 bg-warning/10'
+                              : 'border-primary/40 bg-accent'
                             : 'border-border bg-background'
                         }`}
                       >
@@ -483,18 +472,41 @@ function CmvRealNotaDetalhePageInner() {
                           type="radio"
                           name={`prod-${it.id}`}
                           checked={d.produtoId === s.id}
-                          onChange={() =>
+                          onChange={() => {
+                            const novo = produtoById.get(s.id);
+                            const nextInterp = interpretarRevisaoItem({
+                              descricao: it.descricao,
+                              quantidade: it.quantidade,
+                              unidadeComercial: it.unidadeComercial,
+                              unidadeCmv: novo?.unidade || 'KG',
+                              valorItem: valor,
+                              secao: novo?.secao,
+                              custoMedio: custoMedioPorInsumo[s.id],
+                            });
+                            const padrao = nextInterp.opcaoPadrao;
+                            const opt = nextInterp.opcoes.find(
+                              (o) => o.id === padrao,
+                            );
                             setDraft((p) => ({
                               ...p,
-                              [it.id]: { ...d, produtoId: s.id, outro: false },
-                            }))
-                          }
+                              [it.id]: {
+                                ...d,
+                                produtoId: s.id,
+                                outro: false,
+                                opcaoPeso: padrao,
+                                fator:
+                                  opt?.fator != null
+                                    ? formatFatorBr(opt.fator)
+                                    : d.fator,
+                              },
+                            }));
+                          }}
                           className="mt-1 accent-primary"
                         />
                         <span className="flex-1 min-w-0">
                           <span className="text-sm text-foreground block truncate">
                             {s.nome}
-                            {idx === 0 ? (
+                            {idx === 0 && !produtoGenerico ? (
                               <span className="text-[10px] text-muted-foreground ml-1">
                                 (melhor)
                               </span>
@@ -518,7 +530,11 @@ function CmvRealNotaDetalhePageInner() {
                     [it.id]: { ...d, outro: !d.outro },
                   }))
                 }
-                className="text-[11px] text-muted-foreground underline"
+                className={
+                  produtoGenerico
+                    ? 'text-sm font-semibold text-primary underline underline-offset-2'
+                    : 'text-[11px] text-muted-foreground underline'
+                }
               >
                 {d.outro || sugs.length === 0
                   ? 'Escolher da lista'
@@ -538,7 +554,7 @@ function CmvRealNotaDetalhePageInner() {
                       },
                     }))
                   }
-                  className="w-full bg-background border border-border rounded-lg px-2.5 py-2 text-sm"
+                  className="w-full bg-background border border-border text-sm rounded-lg px-2.5 py-2"
                 >
                   <option value="">Selecione…</option>
                   {produtos.map((p) => (
@@ -550,37 +566,135 @@ function CmvRealNotaDetalhePageInner() {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              {interp.linhaInterpretacao && (
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  {interp.linhaInterpretacao}
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground font-medium">
+                {usaCards ? 'O que veio na nota?' : pergunta}
+              </p>
+
+              {usaCards ? (
+                <ul className="space-y-2">
+                  {interp.opcoes.map((opt) => {
+                    const selected =
+                      (d.opcaoPeso ?? interp.opcaoPadrao) === opt.id;
+                    const provavel = opcaoEProvavel(opt.id, interp);
+                    return (
+                      <li key={opt.id}>
+                        <button
+                          type="button"
+                          onClick={() => selecionarOpcao(opt.id)}
+                          className={`w-full text-left rounded-xl border px-3 py-3 transition-colors ${
+                            selected
+                              ? 'border-primary bg-accent'
+                              : 'border-border bg-background hover:bg-muted'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2.5">
+                            <span
+                              className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                                selected
+                                  ? 'border-primary bg-primary'
+                                  : 'border-muted-foreground'
+                              }`}
+                            >
+                              {selected ? (
+                                <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />
+                              ) : null}
+                            </span>
+                            <div className="min-w-0 flex-1 space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-sm font-medium text-foreground">
+                                  {opt.label}
+                                </span>
+                                {provavel && (
+                                  <span className="text-[10px] uppercase tracking-wide text-accent-foreground bg-accent border border-primary/30 rounded px-1.5 py-0.5">
+                                    provável
+                                  </span>
+                                )}
+                              </div>
+                              {opt.id !== 'outro' &&
+                                opt.totalKg != null &&
+                                opt.custoPorKg != null && (
+                                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
+                                    <span className="text-xl font-semibold tabular-nums text-foreground">
+                                      {formatNumBr(opt.totalKg)} kg
+                                    </span>
+                                    <span className="text-base font-semibold tabular-nums text-foreground">
+                                      R$ {formatNumBr(opt.custoPorKg)}/kg
+                                    </span>
+                                  </div>
+                                )}
+                              {opt.precoImprovavel && (
+                                <p className="text-xs text-destructive font-medium">
+                                  preço improvável
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+
+              {(!usaCards || d.opcaoPeso === 'outro') && (
+                <div className="space-y-1.5">
+                  {usaCards && (
+                    <label className="block text-xs text-muted-foreground">
+                      Informe o peso (kg por unidade da nota)
+                    </label>
+                  )}
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={d.fator}
+                      onChange={(e) =>
+                        setDraft((p) => ({
+                          ...p,
+                          [it.id]: {
+                            ...d,
+                            opcaoPeso: usaCards ? 'outro' : d.opcaoPeso,
+                            fator: e.target.value,
+                          },
+                        }))
+                      }
+                      className={`w-full rounded-lg pl-3 pr-10 py-2.5 text-base font-semibold ${
+                        ambiguo && !usaCards
+                          ? 'bg-primary/20 border-2 border-primary text-foreground'
+                          : 'bg-background border border-border text-foreground'
+                      }`}
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                      {sufixo}
+                    </span>
+                  </div>
+                  {(() => {
+                    const fator = parseFator(d.fator);
+                    if (fator == null) return null;
+                    const qtdConv = it.quantidade * fator;
+                    const custo = qtdConv > 0 ? valor / qtdConv : 0;
+                    return (
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {formatNumBr(
+                          it.quantidade,
+                          it.quantidade % 1 === 0 ? 0 : 2,
+                        )}{' '}
+                        × {formatFatorBr(fator)} {sufixo} ={' '}
+                        {formatNumBr(qtdConv)} {sufixo}
+                        {' · '}
+                        R$ {formatNumBr(custo)}/{sufixo}
+                      </p>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {suspeito && !usaCards && (
+                <p className="text-xs text-destructive">
+                  Custo fora da faixa esperada — confira o valor digitado.
                 </p>
               )}
-              <label className="block text-sm text-muted-foreground font-medium">
-                {pergunta}
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="decimal"
-                  value={d.fator}
-                  onChange={(e) =>
-                    setDraft((p) => ({
-                      ...p,
-                      [it.id]: { ...d, fator: e.target.value },
-                    }))
-                  }
-                  className={`w-full rounded-lg pl-3 pr-10 py-2.5 text-base font-semibold ${
-                    ambiguo
-                      ? 'bg-primary/20 border-2 border-primary text-foreground'
-                      : 'bg-background border border-border text-foreground'
-                  }`}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
-                  {sufixo}
-                </span>
-              </div>
-              {renderContaAoVivo(it, d.fator, d.produtoId, interp)}
             </div>
 
             {canMapeamentoCriar && (
