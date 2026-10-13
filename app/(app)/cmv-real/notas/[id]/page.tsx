@@ -648,6 +648,7 @@ function CmvRealNotaDetalhePageInner() {
                     <input
                       type="text"
                       inputMode="decimal"
+                      autoComplete="off"
                       value={d.fator}
                       onChange={(e) =>
                         setDraft((p) => ({
@@ -659,13 +660,13 @@ function CmvRealNotaDetalhePageInner() {
                           },
                         }))
                       }
-                      className={`w-full rounded-lg pl-3 pr-10 py-2.5 text-base font-semibold ${
+                      className={`w-full rounded-lg bg-muted pl-3 pr-10 py-2.5 text-base font-semibold text-foreground caret-foreground placeholder:text-muted-foreground ${
                         ambiguo && !usaCards
-                          ? 'bg-primary/20 border-2 border-primary text-foreground'
-                          : 'bg-background border border-border text-foreground'
+                          ? 'border-2 border-warning'
+                          : 'border border-border'
                       }`}
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium pointer-events-none">
                       {sufixo}
                     </span>
                   </div>
