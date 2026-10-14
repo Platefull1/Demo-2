@@ -122,15 +122,7 @@ type Aba = 'registros' | 'pendencias' | 'relatorio';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const STALE_SYNC_MS = 60 * 60 * 1000;
-
-const PUNCH_COLUMNS = [
-  { key: 'entrada1', short: 'E1', full: 'Entrada 1' },
-  { key: 'saida1', short: 'S1', full: 'Saída 1' },
-  { key: 'entrada2', short: 'E2', full: 'Entrada 2' },
-  { key: 'saida2', short: 'S2', full: 'Saída 2' },
-  { key: 'entrada3', short: 'E3', full: 'Entrada 3' },
-  { key: 'saida3', short: 'S3', full: 'Saída 3' },
-] as const;
+const NAME_PARTICLES = new Set(['de', 'da', 'do', 'das', 'dos', 'e']);
 
 function shiftIsoDate(iso: string, days: number) {
   const [y, m, d] = iso.split('-').map(Number);
@@ -143,41 +135,284 @@ function shiftIsoDate(iso: string, days: number) {
   return `${yy}-${mm}-${dd}`;
 }
 
-function Horario({ value }: { value: string | null }) {
-  if (!value) return <span className="text-muted-foreground">–</span>;
-  return <span className="tabular-nums text-foreground">{value}</span>;
+function formatProperName(name: string) {
+  return name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part, index) => {
+      const lower = part.toLocaleLowerCase('pt-BR');
+      if (index > 0 && NAME_PARTICLES.has(lower)) return lower;
+      return lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1);
+    })
+    .join(' ');
 }
 
-function PunchHeader({ short, full }: { short: string; full: string }) {
+function parseHhMm(value: string | null): number | null {
+  if (!value) return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+function formatDuration(totalMinutes: number) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${hours}h${String(minutes).padStart(2, '0')}`;
+}
+
+function formatHourMark(minutes: number) {
+  const hours = Math.floor(minutes / 60) % 24;
+  return String(hours).padStart(2, '0');
+}
+
+type Turno = {
+  index: number;
+  entrada: string;
+  saida: string | null;
+  startMin: number;
+  endMin: number | null;
+  crossesMidnight: boolean;
+};
+
+type DayScale = {
+  startMin: number;
+  endMin: number;
+  marks: number[];
+};
+
+function extractTurns(registro: RegistroPonto): Turno[] {
+  const pairs: Array<[string | null, string | null]> = [
+    [registro.entrada1, registro.saida1],
+    [registro.entrada2, registro.saida2],
+    [registro.entrada3, registro.saida3],
+  ];
+  const turns: Turno[] = [];
+  pairs.forEach(([entrada, saida], index) => {
+    if (!entrada) return;
+    const startMin = parseHhMm(entrada);
+    if (startMin === null) return;
+    const endMin = parseHhMm(saida);
+    const crossesMidnight = endMin !== null && endMin < startMin;
+    turns.push({
+      index: index + 1,
+      entrada,
+      saida,
+      startMin,
+      endMin,
+      crossesMidnight,
+    });
+  });
+  return turns;
+}
+
+function computeDayScale(registros: RegistroPonto[]): DayScale | null {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const registro of registros) {
+    for (const turn of extractTurns(registro)) {
+      min = Math.min(min, turn.startMin);
+      if (turn.endMin !== null && !turn.crossesMidnight) {
+        max = Math.max(max, turn.endMin);
+      } else {
+        max = Math.max(max, turn.startMin);
+      }
+    }
+  }
+  if (!Number.isFinite(min)) return null;
+  if (max < min) max = min;
+  const startMin = Math.floor(min / 60) * 60;
+  let endMin = Math.ceil(max / 60) * 60;
+  if (endMin <= startMin) endMin = startMin + 60;
+  const marks: number[] = [];
+  for (let mark = startMin; mark <= endMin; mark += 180) {
+    marks.push(mark);
+  }
+  return { startMin, endMin, marks };
+}
+
+function turnTooltip(turn: Turno, isToday: boolean, nowMin: number) {
+  if (turn.saida) {
+    const endForDuration = turn.crossesMidnight
+      ? turn.endMin! + 24 * 60
+      : turn.endMin!;
+    const duration = formatDuration(endForDuration - turn.startMin);
+    return `Turno ${turn.index}: ${turn.entrada} – ${turn.saida} (${duration})`;
+  }
+  if (isToday) {
+    const duration = formatDuration(Math.max(0, nowMin - turn.startMin));
+    return `Turno ${turn.index}: ${turn.entrada} – em aberto (${duration})`;
+  }
+  return `Turno ${turn.index}: ${turn.entrada} – em aberto`;
+}
+
+function TurnsLabel({ turns }: { turns: Turno[] }) {
+  if (turns.length === 0) {
+    return <span className="text-sm text-muted-foreground">–</span>;
+  }
   return (
-    <>
-      <span className="hidden lg:inline">{full}</span>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="lg:hidden cursor-default">{short}</span>
-        </TooltipTrigger>
-        <TooltipContent>{full}</TooltipContent>
-      </Tooltip>
-    </>
+    <span className="text-sm tabular-nums text-foreground">
+      {turns.map((turn, index) => (
+        <span key={turn.index}>
+          {index > 0 ? <span className="text-muted-foreground"> · </span> : null}
+          {turn.saida ? (
+            <>
+              {turn.entrada} – {turn.saida}
+            </>
+          ) : (
+            <>
+              {turn.entrada} – <span className="text-muted-foreground">em aberto</span>
+            </>
+          )}
+        </span>
+      ))}
+    </span>
   );
 }
 
 function StatusRegistro({ registro }: { registro: RegistroPonto }) {
-  const flags = [
-    registro.folga ? 'Folga' : null,
-    registro.compensado ? 'Compensado' : null,
-    registro.neutro ? 'Neutro' : null,
-  ].filter((label): label is string => Boolean(label));
+  const label = registro.folga ? 'Folga' : registro.compensado ? 'Compensado' : null;
+  const badge = label ? (
+    <Badge variant="outline" className="font-normal text-muted-foreground">
+      {label}
+    </Badge>
+  ) : null;
 
-  if (flags.length === 0) return <span className="text-muted-foreground">–</span>;
+  if (registro.neutro) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex min-h-5 items-center cursor-default">
+            {badge}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>Neutro</TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return badge;
+}
+
+function DayTimeline({
+  turns,
+  scale,
+  isToday,
+  nowMin,
+}: {
+  turns: Turno[];
+  scale: DayScale | null;
+  isToday: boolean;
+  nowMin: number;
+}) {
+  if (!scale) {
+    return <div className="h-2 w-full rounded bg-muted" aria-hidden />;
+  }
+
+  const span = Math.max(1, scale.endMin - scale.startMin);
+  const toPct = (minutes: number) =>
+    Math.min(100, Math.max(0, ((minutes - scale.startMin) / span) * 100));
+  const nowPct =
+    isToday && nowMin >= scale.startMin && nowMin <= scale.endMin
+      ? toPct(nowMin)
+      : null;
 
   return (
-    <div className="flex flex-wrap gap-1">
-      {flags.map((label) => (
-        <Badge key={label} variant="outline" className="font-normal text-muted-foreground">
-          {label}
-        </Badge>
-      ))}
+    <div className="relative h-5 w-full min-w-[140px]">
+      <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 rounded bg-muted" />
+      {turns.map((turn) => {
+        const startPct = toPct(turn.startMin);
+        let endMinutes: number;
+        let openTail = false;
+        if (turn.saida && turn.endMin !== null && !turn.crossesMidnight) {
+          endMinutes = turn.endMin;
+        } else if (turn.saida && turn.crossesMidnight) {
+          endMinutes = scale.endMin;
+        } else if (isToday) {
+          endMinutes = Math.min(scale.endMin, Math.max(turn.startMin, nowMin));
+          openTail = true;
+        } else {
+          return null;
+        }
+        const endPct = toPct(endMinutes);
+        const width = Math.max(0.8, endPct - startPct);
+        return (
+          <Tooltip key={turn.index}>
+            <TooltipTrigger asChild>
+              <span
+                className="absolute top-1/2 h-2 -translate-y-1/2 rounded-sm overflow-hidden cursor-default"
+                style={{ left: `${startPct}%`, width: `${width}%` }}
+              >
+                <span
+                  className={cn(
+                    'block h-full bg-primary',
+                    openTail && 'opacity-70'
+                  )}
+                />
+                {openTail ? (
+                  <span className="absolute inset-y-0 right-0 w-1/3 bg-primary/40" />
+                ) : null}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{turnTooltip(turn, isToday, nowMin)}</TooltipContent>
+          </Tooltip>
+        );
+      })}
+      {nowPct !== null ? (
+        <span
+          className="absolute top-0 bottom-0 w-px bg-primary/60"
+          style={{ left: `${nowPct}%` }}
+          aria-hidden
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function TimelineHeader({
+  scale,
+  isToday,
+  nowMin,
+}: {
+  scale: DayScale | null;
+  isToday: boolean;
+  nowMin: number;
+}) {
+  if (!scale) {
+    return <span className="sr-only">Linha do tempo</span>;
+  }
+  const span = Math.max(1, scale.endMin - scale.startMin);
+  const nowPct =
+    isToday && nowMin >= scale.startMin && nowMin <= scale.endMin
+      ? ((nowMin - scale.startMin) / span) * 100
+      : null;
+
+  return (
+    <div className="relative h-4 w-full min-w-[140px]">
+      <span className="sr-only">Linha do tempo</span>
+      {scale.marks.map((mark) => {
+        const pct = ((mark - scale.startMin) / span) * 100;
+        return (
+          <span
+            key={mark}
+            className="absolute top-0 -translate-x-1/2 text-[10px] leading-none tabular-nums text-muted-foreground"
+            style={{ left: `${pct}%` }}
+          >
+            {formatHourMark(mark)}
+          </span>
+        );
+      })}
+      {nowPct !== null ? (
+        <span
+          className="absolute top-0 -translate-x-1/2 text-[10px] leading-none text-primary"
+          style={{ left: `${nowPct}%` }}
+        >
+          agora
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -240,45 +475,56 @@ function groupRegistros(registros: RegistroPonto[]) {
   return [...map.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 }
 
-function registroColumns(showLoja: boolean): ColumnDef<RegistroPonto, unknown>[] {
-  const punches: ColumnDef<RegistroPonto, unknown>[] = PUNCH_COLUMNS.map((col) => ({
-    id: col.key,
-    accessorFn: (row) => row[col.key] ?? '',
-    header: () => <PunchHeader short={col.short} full={col.full} />,
-    cell: ({ row }) => <Horario value={row.original[col.key]} />,
-    meta: { headerClassName: 'whitespace-nowrap', cellClassName: 'whitespace-nowrap' },
-  }));
-
+function registroColumns(opts: {
+  scale: DayScale | null;
+  isToday: boolean;
+  nowMin: number;
+}): ColumnDef<RegistroPonto, unknown>[] {
+  const cellPad = 'py-2.5';
   return [
     {
       id: 'funcionario',
       accessorFn: (row) => row.funcionario.nome,
       header: 'Funcionário',
       cell: ({ row }) => (
-        <span className="font-medium text-foreground">{row.original.funcionario.nome}</span>
+        <span className="text-sm font-medium text-foreground">
+          {formatProperName(row.original.funcionario.nome)}
+        </span>
       ),
+      meta: { cellClassName: cellPad },
     },
-    ...(showLoja
-      ? [
-          {
-            id: 'loja',
-            accessorFn: (row: RegistroPonto) => row.funcionario.loja?.nome ?? '',
-            header: 'Loja',
-            cell: ({ row }: { row: { original: RegistroPonto } }) =>
-              row.original.funcionario.loja?.nome ? (
-                <span className="text-foreground">{row.original.funcionario.loja.nome}</span>
-              ) : (
-                <span className="text-muted-foreground">–</span>
-              ),
-          } satisfies ColumnDef<RegistroPonto, unknown>,
-        ]
-      : []),
-    ...punches,
+    {
+      id: 'turnos',
+      header: 'Turnos',
+      enableSorting: false,
+      cell: ({ row }) => <TurnsLabel turns={extractTurns(row.original)} />,
+      meta: { cellClassName: cn(cellPad, 'whitespace-normal') },
+    },
+    {
+      id: 'timeline',
+      header: () => (
+        <TimelineHeader scale={opts.scale} isToday={opts.isToday} nowMin={opts.nowMin} />
+      ),
+      enableSorting: false,
+      cell: ({ row }) => (
+        <DayTimeline
+          turns={extractTurns(row.original)}
+          scale={opts.scale}
+          isToday={opts.isToday}
+          nowMin={opts.nowMin}
+        />
+      ),
+      meta: {
+        headerClassName: 'min-w-[180px] w-[32%]',
+        cellClassName: cn(cellPad, 'min-w-[180px] w-[32%]'),
+      },
+    },
     {
       id: 'status',
       header: 'Status',
       enableSorting: false,
       cell: ({ row }) => <StatusRegistro registro={row.original} />,
+      meta: { cellClassName: cellPad },
     },
   ];
 }
@@ -448,14 +694,31 @@ function TabelaPendencias({
 
 function TabelaRegistros({
   registros,
-  showLoja,
   loading,
+  isToday,
 }: {
   registros: RegistroPonto[];
-  showLoja: boolean;
   loading: boolean;
+  isToday: boolean;
 }) {
-  const columns = useMemo(() => registroColumns(showLoja), [showLoja]);
+  const [nowTick, setNowTick] = useState(0);
+  useEffect(() => {
+    if (!isToday) return;
+    const id = setInterval(() => setNowTick((n) => n + 1), 60_000);
+    return () => clearInterval(id);
+  }, [isToday]);
+
+  const nowMin = useMemo(() => {
+    void nowTick;
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  }, [nowTick]);
+
+  const scale = useMemo(() => computeDayScale(registros), [registros]);
+  const columns = useMemo(
+    () => registroColumns({ scale, isToday, nowMin }),
+    [scale, isToday, nowMin]
+  );
   const ordered = useMemo(() => {
     const groups = groupRegistros(registros);
     return groups.flatMap((g) => g.rows);
@@ -495,7 +758,28 @@ function TabelaRegistros({
       columns={columns}
       data={ordered}
       pageSize={200}
+      initialSorting={[{ id: 'funcionario', desc: false }]}
       groupBy={groupBy}
+      renderMobileRow={(row) => {
+        const turns = extractTurns(row);
+        return (
+          <div className="space-y-2 pr-2">
+            <div className="flex items-start justify-between gap-2">
+              <span className="text-sm font-medium text-foreground">
+                {formatProperName(row.funcionario.nome)}
+              </span>
+              <StatusRegistro registro={row} />
+            </div>
+            <TurnsLabel turns={turns} />
+            <DayTimeline
+              turns={turns}
+              scale={scale}
+              isToday={isToday}
+              nowMin={nowMin}
+            />
+          </div>
+        );
+      }}
       emptyState={
         <div>
           <p className="text-sm text-foreground">Nenhum registro de ponto</p>
@@ -1073,84 +1357,86 @@ export default function PontosPage() {
         }
       />
 
-      <div className="flex flex-col border-b border-border lg:flex-row lg:items-end lg:justify-between">
-        {aba !== 'relatorio' && (
-          <div className="flex flex-wrap items-center gap-2 pb-3">
-            <RhLojaCombobox
-              lojas={lojas}
-              lojaSelecionada={lojaFiltro}
-              onSelect={(loja) => setLojaId(loja?.id ?? '')}
-            />
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label="Dia anterior"
-                onClick={() => setData((current) => shiftIsoDate(current, -1))}
-              >
-                <ChevronLeft />
-              </Button>
-              <Input
-                type="date"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-                className="h-8 w-[148px] text-sm"
-                aria-label="Data"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon-sm"
-                aria-label="Próximo dia"
-                onClick={() => setData((current) => shiftIsoDate(current, 1))}
-              >
-                <ChevronRight />
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setData(hoje)}
-                disabled={data === hoje}
-              >
-                Hoje
-              </Button>
-            </div>
-          </div>
-        )}
+      <ModuleTabs>
+        {abas.map((t) => {
+          const active = aba === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setAba(t.id)}
+              className={moduleTabClass(active)}
+            >
+              {t.label}
+              {t.count !== null && (
+                <span
+                  className={cn(
+                    'ml-1.5 inline-flex min-w-5 items-center justify-center rounded-md px-1.5 text-xs tabular-nums',
+                    t.count > 0 ? 'bg-warning/15 text-warning' : 'text-muted-foreground'
+                  )}
+                >
+                  {t.count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </ModuleTabs>
 
-        <ModuleTabs borderless className="lg:ml-auto">
-          {abas.map((t) => {
-            const active = aba === t.id;
-            return (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setAba(t.id)}
-                className={moduleTabClass(active)}
-              >
-                {t.label}
-                {t.count !== null && (
-                  <span
-                    className={cn(
-                      'ml-1.5 inline-flex min-w-5 items-center justify-center rounded-md px-1.5 text-xs tabular-nums',
-                      t.count > 0 ? 'bg-warning/15 text-warning' : 'text-muted-foreground'
-                    )}
-                  >
-                    {t.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </ModuleTabs>
-      </div>
+      {aba !== 'relatorio' && (
+        <div className="flex flex-wrap items-center gap-2">
+          <RhLojaCombobox
+            lojas={lojas}
+            lojaSelecionada={lojaFiltro}
+            onSelect={(loja) => setLojaId(loja?.id ?? '')}
+          />
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Dia anterior"
+              onClick={() => setData((current) => shiftIsoDate(current, -1))}
+            >
+              <ChevronLeft />
+            </Button>
+            <Input
+              type="date"
+              value={data}
+              onChange={(e) => setData(e.target.value)}
+              className="h-8 w-[148px] text-sm"
+              aria-label="Data"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-sm"
+              aria-label="Próximo dia"
+              onClick={() => setData((current) => shiftIsoDate(current, 1))}
+            >
+              <ChevronRight />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setData(hoje)}
+              disabled={data === hoje}
+            >
+              Hoje
+            </Button>
+          </div>
+        </div>
+      )}
 
       {aba === 'relatorio' ? (
         <AbaRelatorio />
       ) : aba === 'registros' ? (
-        <TabelaRegistros registros={registros} showLoja={!lojaId} loading={loading} />
+        <TabelaRegistros
+          registros={registros}
+          loading={loading}
+          isToday={data === hoje}
+        />
       ) : (
         <TabelaPendencias pendencias={pendencias} loading={loading} />
       )}
