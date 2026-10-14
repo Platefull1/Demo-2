@@ -64,9 +64,16 @@ import {
 import { labelPeriodoFechamentoPonto } from '@/lib/ponto-periodo';
 import { cn } from '@/lib/utils';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
   AlertTriangle,
   RefreshCw,
-  Link2,
+  MoreHorizontal,
   FileSpreadsheet,
   Loader2,
   CheckCircle2,
@@ -105,6 +112,7 @@ interface PendenciaResumo {
   numeroFolhaOrigem: string;
   count: number;
   nomeSugerido: string | null;
+  datas?: string[];
 }
 
 interface FechamentoLinha {
@@ -312,6 +320,127 @@ function mesLabel(mes: number, ano: number) {
 }
 
 // ─── Tabela de Registros (Fase 6) ───────────────────────────────────────────
+
+function formatUtcDate(iso: string) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+}
+
+function pendenciaColumns(): ColumnDef<PendenciaResumo, unknown>[] {
+  return [
+    {
+      id: 'folha',
+      accessorFn: (row) => row.numeroFolhaOrigem,
+      header: 'Folha',
+      cell: ({ row }) => (
+        <span className="font-medium text-foreground tabular-nums">
+          {row.original.numeroFolhaOrigem}
+        </span>
+      ),
+    },
+    {
+      id: 'nome',
+      accessorFn: (row) => row.nomeSugerido ?? '',
+      header: 'Nome',
+      cell: ({ row }) =>
+        row.original.nomeSugerido ? (
+          <span className="text-foreground">{row.original.nomeSugerido}</span>
+        ) : (
+          <span className="text-muted-foreground">–</span>
+        ),
+    },
+    {
+      id: 'data',
+      header: 'Data',
+      enableSorting: false,
+      cell: ({ row }) => {
+        const datas = row.original.datas ?? [];
+        if (datas.length === 0) return <span className="text-muted-foreground">–</span>;
+        return (
+          <div className="flex max-w-[240px] flex-wrap gap-x-2 gap-y-0.5">
+            {datas.map((iso, index) => (
+              <span key={`${iso}-${index}`} className="tabular-nums text-foreground">
+                {formatUtcDate(iso)}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
+      id: 'registros',
+      accessorFn: (row) => row.count,
+      header: 'Registros',
+      meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
+      cell: ({ row }) => (
+        <span className="tabular-nums text-foreground">{row.original.count}</span>
+      ),
+    },
+    {
+      id: 'actions',
+      header: '',
+      enableSorting: false,
+      meta: { headerClassName: 'w-10', cellClassName: 'w-10' },
+      cell: () => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Mais opções"
+            >
+              <MoreHorizontal className="text-muted-foreground" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem asChild>
+              <Link href="/rh/mapeamento-ponto">Mapear</Link>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
+}
+
+function TabelaPendencias({
+  pendencias,
+  loading,
+}: {
+  pendencias: PendenciaResumo[];
+  loading: boolean;
+}) {
+  const columns = useMemo(() => pendenciaColumns(), []);
+
+  return (
+    <div className="space-y-4">
+      {pendencias.length > 0 && (
+        <Alert variant="warning" className="py-3 px-4">
+          <AlertDescription className="text-sm text-foreground">
+            As matrículas abaixo foram recebidas do Secullum mas não correspondem a nenhum
+            funcionário cadastrado. Acesse o mapeamento para vinculá-las.
+          </AlertDescription>
+        </Alert>
+      )}
+      <DataTable
+        columns={columns}
+        data={pendencias}
+        loading={loading && pendencias.length === 0}
+        pageSize={50}
+        emptyState={
+          <div>
+            <p className="text-sm text-foreground">Nenhuma pendência em aberto</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Todas as matrículas recebidas estão vinculadas a funcionários.
+            </p>
+          </div>
+        }
+      />
+    </div>
+  );
+}
 
 function TabelaRegistros({
   registros,
@@ -1029,58 +1158,8 @@ export default function PontosPage() {
       ) : aba === 'registros' ? (
         <TabelaRegistros registros={registros} showLoja={!lojaId} loading={loading} />
       ) : (
-          /* Aba Pendências */
-          <div className="space-y-3">
-            {pendencias.length === 0 ? (
-              <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl flex flex-col items-center justify-center py-16 text-center px-4">
-                <AlertTriangle className="w-10 h-10 text-gray-700 mb-3" />
-                <p className="text-gray-400 font-medium">Sem pendências</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Todas as matrículas recebidas estão vinculadas a funcionários.
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 flex items-start gap-3">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-                  <p className="text-xs text-amber-400">
-                    As matrículas abaixo foram recebidas do Secullum mas não correspondem a nenhum
-                    funcionário cadastrado. Acesse o mapeamento para vinculá-las.
-                  </p>
-                </div>
-                {pendencias.map((p) => (
-                  <div
-                    key={p.numeroFolhaOrigem}
-                    className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-4 flex items-center gap-4"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Link2 className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span className="text-sm font-semibold text-white">
-                          Folha #{p.numeroFolhaOrigem}
-                        </span>
-                        <span className="text-xs text-gray-500 bg-[#2a2a2e] px-2 py-0.5 rounded-full">
-                          {p.count} registro{p.count !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      {p.nomeSugerido && (
-                        <p className="text-xs text-gray-400 mt-1 ml-6">
-                          Nome: <span className="text-amber-400">{p.nomeSugerido}</span>
-                        </p>
-                      )}
-                    </div>
-                    <Link
-                      href="/rh/mapeamento-ponto"
-                      className="px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors whitespace-nowrap"
-                    >
-                      Mapear →
-                    </Link>
-                  </div>
-                ))}
-              </>
-            )}
-          </div>
-        )}
+        <TabelaPendencias pendencias={pendencias} loading={loading} />
+      )}
     </div>
   );
 }

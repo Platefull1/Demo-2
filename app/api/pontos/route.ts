@@ -75,6 +75,10 @@ export async function GET(req: NextRequest) {
         numeroFolhaOrigem: nf,
         count,
         nomeSugerido: pendencias.find((p) => p.numeroFolhaOrigem === nf)?.nomeSugerido ?? null,
+        datas: pendencias
+          .filter((p) => p.numeroFolhaOrigem === nf)
+          .map((p) => p.data.toISOString())
+          .sort(),
       })),
       dataSelecionada: dataSelecionada.toISOString(),
       ultimaSincronizacao: ultimaSync._max.updatedAt?.toISOString() ?? null,
