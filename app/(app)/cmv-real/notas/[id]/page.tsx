@@ -181,11 +181,14 @@ function CmvRealNotaDetalhePageInner() {
           if (opt?.fator != null) fatorNum = opt.fator;
         }
 
-        // Peso por interna: campo mostra peso da peça (fator salvo ÷ N)
+        // Peso por interna: campo = peso da peça (fator kg/CX ÷ N).
+        // Só pré-preenche se o resultado for plausível (≥ 0,3 kg) —
+        // evita mostrar 0,101 quando o mapeamento antigo tinha 1,01 kg/CX.
         let fatorStr = formatFatorBr(fatorNum);
         if (interp.pesoPorInterna && interp.opcoes.length === 0) {
           if (it.fatorConversao != null && interp.nPack && interp.nPack > 1) {
-            fatorStr = formatFatorBr(it.fatorConversao / interp.nPack);
+            const porPeca = it.fatorConversao / interp.nPack;
+            fatorStr = porPeca >= 0.3 ? formatFatorBr(porPeca) : '';
           } else if (it.fatorConversao == null) {
             fatorStr = '';
           }

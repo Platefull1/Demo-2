@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { MapeamentosBlock } from './MapeamentosBlock';
 
 type Item = {
   id: string;
@@ -338,6 +339,8 @@ export default function CmvRealProdutosPage() {
           </div>
         }
       />
+
+      <MapeamentosBlock />
     </div>
   );
 }
