@@ -6,6 +6,12 @@ Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 
 - Contagem: valores digitados e ainda não salvos ficam só em memória; se o app for fechado sem rede, são perdidos. Sugestão: rascunho local (IndexedDB/localStorage) por contagem/sessão, reenviado ao reabrir, com aviso de "valores pendentes de envio". (Uso real hoje: sinal ruim com o app aberto — fila de PATCH + keepalive; não há service worker.)
 
+## Estoque / CMV Real — segurança e evolução (out/2026)
+
+- **SEGURANÇA:** membros com `lojas=[]` e perfil diferente de `gerente_loja` ganham acesso a todas as lojas (fail-open em `storeScope`). Proposta: acesso total só com perfil explícito (`escritorio` / admin).
+- **SEGURANÇA:** PATCH/DELETE de insumos e config do estoque são permitidos a qualquer membro do tenant, afetando todas as lojas. Proposta: restringir escrita a admin/escritório ou a uma permissão `estoque.config`.
+- **Evolução:** `EstoqueContagem` usa `lojaNome` em texto livre; avaliar coluna `storeSlug` (migração não destrutiva) no futuro.
+
 ## Relatórios / Revisão de reclamações (out/2026)
 
 - Hub `/relatorios` ainda usa tabelas HTML (não `DataTable`); ações em botões por linha em vez de menu “…”.
