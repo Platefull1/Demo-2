@@ -7,6 +7,7 @@ import { P } from '@/lib/rh-permissions';
 import {
   gerarLancamentosAprovacao,
   reabrirNotaSePermitido,
+  voltarMapeadosParaPendentes,
 } from '@/lib/nfe/approve';
 import { Prisma } from '@prisma/client';
 
@@ -139,6 +140,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *  - fornecedor_fora_cmv
  *  - aprovar_nota
  *  - reabrir_nota
+ *  - itens_para_revisao (MAPEADO → pendente, p/ corrigir fator)
  */
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
@@ -410,7 +412,45 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         { status: 400 },
       );
     }
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      ok: true,
+      itensPendentes: result.itensPendentes ?? 0,
+    });
+  }
+
+  /** Nota já em revisão com itens MAPEADO: volta para pendentes p/ corrigir e confirmar. */
+  if (body.action === 'itens_para_revisao') {
+    const { tenant, error } = await requireCmvRealAccess(
+      P.CMV_REAL_REVISAR_APROVAR,
+    );
+    if (error) return error;
+
+    const nota = await prisma.nfeNota.findFirst({
+      where: { id, userId: tenant.tenantUserId },
+      select: { id: true, status: true, storeSlug: true },
+    });
+    if (!nota) {
+      return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
+    }
+    if (nota.status === 'APROVADA') {
+      return NextResponse.json(
+        { error: 'Nota aprovada — use Reabrir nota' },
+        { status: 400 },
+      );
+    }
+    if (
+      !tenant.isAdmin &&
+      tenant.allowedStoreSlugs &&
+      !tenant.allowedStoreSlugs.includes(nota.storeSlug)
+    ) {
+      return NextResponse.json({ error: 'Sem acesso a esta loja' }, { status: 403 });
+    }
+
+    const n = await voltarMapeadosParaPendentes({
+      userId: tenant.tenantUserId,
+      notaId: nota.id,
+    });
+    return NextResponse.json({ ok: true, itensPendentes: n });
   }
 
   return NextResponse.json({ error: 'action inválida' }, { status: 400 });

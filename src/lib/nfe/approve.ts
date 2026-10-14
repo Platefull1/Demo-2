@@ -93,16 +93,35 @@ function inferirLojaPorNome(nome: string | null | undefined): string | null {
 }
 
 /**
- * Reabre nota aprovada: apaga lançamentos e volta status para EM_REVISAO.
+ * MAPEADO → SUGERIDO (mantém produto/fator) para voltarem à fila de pendentes.
+ * Assim o Confirmar desce o item para Resolvidos de novo.
+ */
+export async function voltarMapeadosParaPendentes(params: {
+  userId: string;
+  notaId: string;
+}): Promise<number> {
+  const result = await prisma.nfeItem.updateMany({
+    where: {
+      notaId: params.notaId,
+      status: 'MAPEADO',
+      nota: { userId: params.userId },
+    },
+    data: { status: 'SUGERIDO' },
+  });
+  return result.count;
+}
+
+/**
+ * Reabre nota aprovada: apaga lançamentos, volta EM_REVISAO e
+ * recoloca itens mapeados em pendentes (SUGERIDO).
  * Só se o fechamento do mês estiver ABERTO (ou inexistente).
- * Itens MAPEADO/IGNORADO permanecem — dá para corrigir o fator e aprovar de novo.
  */
 export async function reabrirNotaSePermitido(params: {
   userId: string;
   notaId: string;
   storeSlug: string;
   competencia: string;
-}): Promise<{ ok: boolean; motivo?: string }> {
+}): Promise<{ ok: boolean; motivo?: string; itensPendentes?: number }> {
   const fechamento = await prisma.cmvFechamento.findUnique({
     where: {
       userId_storeSlug_competencia: {
@@ -128,7 +147,7 @@ export async function reabrirNotaSePermitido(params: {
     return { ok: false, motivo: 'Só é possível reabrir nota aprovada.' };
   }
 
-  await prisma.$transaction([
+  const [, , itens] = await prisma.$transaction([
     prisma.cmvLancamento.deleteMany({
       where: {
         userId: params.userId,
@@ -143,7 +162,11 @@ export async function reabrirNotaSePermitido(params: {
         aprovadaPorId: null,
       },
     }),
+    prisma.nfeItem.updateMany({
+      where: { notaId: params.notaId, status: 'MAPEADO' },
+      data: { status: 'SUGERIDO' },
+    }),
   ]);
 
-  return { ok: true };
+  return { ok: true, itensPendentes: itens.count };
 }

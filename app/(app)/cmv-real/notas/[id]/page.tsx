@@ -342,7 +342,7 @@ function CmvRealNotaDetalhePageInner() {
   const reabrir = async () => {
     if (
       !confirm(
-        'Reabrir esta nota? Os lançamentos do CMV serão removidos até você aprovar de novo. Só funciona se o mês estiver aberto no Fechamento.',
+        'Reabrir esta nota? Os lançamentos do CMV serão removidos e os itens voltam para pendentes. Só funciona se o mês estiver aberto no Fechamento.',
       )
     ) {
       return;
@@ -351,6 +351,20 @@ function CmvRealNotaDetalhePageInner() {
     setMsg(null);
     try {
       await post({ action: 'reabrir_nota' });
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  /** Nota já em revisão: coloca MAPEADO de volta em pendentes (Confirmar desce de novo). */
+  const itensParaRevisao = async () => {
+    setSaving('itens_revisao');
+    setMsg(null);
+    try {
+      await post({ action: 'itens_para_revisao' });
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -883,20 +897,28 @@ function CmvRealNotaDetalhePageInner() {
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Resolvidos ({resolvidos.length})
-            {nota.status === 'EM_REVISAO' && canRevisar
-              ? ' — corrija o fator se precisar'
-              : ''}
           </h3>
-          {resolvidos.map((it) =>
-            renderItem(
-              it,
-              canRevisar &&
-                nota.status === 'EM_REVISAO' &&
-                it.status === 'MAPEADO',
-            ),
-          )}
+          {resolvidos.map((it) => renderItem(it, false))}
         </section>
       )}
+
+      {canRevisar &&
+        nota.status === 'EM_REVISAO' &&
+        resolvidos.some((i) => i.status === 'MAPEADO') &&
+        pendentes.length === 0 && (
+          <button
+            type="button"
+            disabled={saving === 'itens_revisao'}
+            onClick={() => void itensParaRevisao()}
+            className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card text-foreground font-medium text-sm py-2.5"
+          >
+            {saving === 'itens_revisao' ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              'Corrigir fatores (voltar itens para pendentes)'
+            )}
+          </button>
+        )}
 
       {canRevisar && nota.status === 'APROVADA' && (
         <button
