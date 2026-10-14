@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, type RefObject } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef, type RefObject } from 'react';
 
 // ─── Hook: arrastar para rolar horizontalmente (sem scrollbar visível) ────────
 function useDragScroll(): {
@@ -47,14 +47,24 @@ function useDragScroll(): {
     },
   };
 }
+import type { ColumnDef } from '@tanstack/react-table';
 import Link from 'next/link';
 import { useLoja } from '@/contexts/LojaContext';
-import { labelPeriodoFechamentoPonto } from '@/lib/ponto-periodo';
+import { DataTable } from '@/components/layout/DataTable';
+import { PageHeader } from '@/components/layout/PageHeader';
+import { RhLojaCombobox } from '@/components/rh/RhLojaCombobox';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
-  Clock,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { labelPeriodoFechamentoPonto } from '@/lib/ponto-periodo';
+import { cn } from '@/lib/utils';
+import {
   AlertTriangle,
-  MapPin,
-  Calendar,
   RefreshCw,
   Link2,
   FileSpreadsheet,
@@ -62,7 +72,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Download,
   X,
 } from 'lucide-react';
@@ -94,12 +105,6 @@ interface PendenciaResumo {
   numeroFolhaOrigem: string;
   count: number;
   nomeSugerido: string | null;
-}
-
-interface Loja {
-  id: string;
-  nome: string;
-  ativo: boolean;
 }
 
 interface FechamentoLinha {
@@ -140,26 +145,166 @@ const inputCls =
 const cellCls = 'px-3 py-2.5 text-sm text-gray-200 whitespace-nowrap';
 const headCls = 'px-3 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide text-left whitespace-nowrap';
 
-function Badge({ label, color }: { label: string; color: 'amber' | 'blue' | 'green' }) {
-  const cls = {
-    amber: 'bg-amber-500/10 text-amber-400 border-amber-500/30',
-    blue: 'bg-blue-500/10 text-blue-400 border-blue-500/30',
-    green: 'bg-green-500/10 text-green-400 border-green-500/30',
-  }[color];
+const STALE_SYNC_MS = 60 * 60 * 1000;
+
+const PUNCH_COLUMNS = [
+  { key: 'entrada1', short: 'E1', full: 'Entrada 1' },
+  { key: 'saida1', short: 'S1', full: 'Saída 1' },
+  { key: 'entrada2', short: 'E2', full: 'Entrada 2' },
+  { key: 'saida2', short: 'S2', full: 'Saída 2' },
+  { key: 'entrada3', short: 'E3', full: 'Entrada 3' },
+  { key: 'saida3', short: 'S3', full: 'Saída 3' },
+] as const;
+
+function shiftIsoDate(iso: string, days: number) {
+  const [y, m, d] = iso.split('-').map(Number);
+  if (!y || !m || !d) return iso;
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + days);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
+function Horario({ value }: { value: string | null }) {
+  if (!value) return <span className="text-muted-foreground">–</span>;
+  return <span className="tabular-nums text-foreground">{value}</span>;
+}
+
+function PunchHeader({ short, full }: { short: string; full: string }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cls}`}>
-      {label}
+    <>
+      <span className="hidden lg:inline">{full}</span>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="lg:hidden cursor-default">{short}</span>
+        </TooltipTrigger>
+        <TooltipContent>{full}</TooltipContent>
+      </Tooltip>
+    </>
+  );
+}
+
+function StatusRegistro({ registro }: { registro: RegistroPonto }) {
+  const flags = [
+    registro.folga ? 'Folga' : null,
+    registro.compensado ? 'Compensado' : null,
+    registro.neutro ? 'Neutro' : null,
+  ].filter((label): label is string => Boolean(label));
+
+  if (flags.length === 0) return <span className="text-muted-foreground">–</span>;
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {flags.map((label) => (
+        <Badge key={label} variant="outline" className="font-normal text-muted-foreground">
+          {label}
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
+function SyncStatus({
+  ultimaSincronizacao,
+  dataSelecionada,
+  hoje,
+}: {
+  ultimaSincronizacao: string | null;
+  dataSelecionada: string;
+  hoje: string;
+}) {
+  if (!ultimaSincronizacao) {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-warning">
+        <span className="size-2 shrink-0 rounded-full bg-warning" />
+        Nenhuma batida recebida hoje
+      </span>
+    );
+  }
+
+  const at = new Date(ultimaSincronizacao);
+  const hhmm = at.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const stale = dataSelecionada === hoje && Date.now() - at.getTime() > STALE_SYNC_MS;
+
+  if (stale) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1.5 text-xs text-warning cursor-default">
+            <span className="size-2 shrink-0 rounded-full bg-warning" />
+            Batidas podem estar atrasadas
+          </span>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          O Secullum envia as batidas quando o computador do escritório está ligado.
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+      <span className="size-2 shrink-0 rounded-full bg-primary" />
+      Secullum · última batida recebida às {hhmm}
     </span>
   );
 }
 
-function Horario({ value }: { value: string | null }) {
-  if (!value) return <span className="text-gray-600 text-xs">—</span>;
-  return (
-    <span className="font-mono text-xs font-semibold text-white bg-[#2a2a2e] px-2 py-0.5 rounded-lg">
-      {value}
-    </span>
-  );
+function groupRegistros(registros: RegistroPonto[]) {
+  const map = new Map<string, { id: string; nome: string; rows: RegistroPonto[] }>();
+  for (const registro of registros) {
+    const id = registro.funcionario.loja?.id ?? 'sem-loja';
+    const nome = registro.funcionario.loja?.nome ?? 'Sem loja';
+    const group = map.get(id);
+    if (group) group.rows.push(registro);
+    else map.set(id, { id, nome, rows: [registro] });
+  }
+  return [...map.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+function registroColumns(showLoja: boolean): ColumnDef<RegistroPonto, unknown>[] {
+  const punches: ColumnDef<RegistroPonto, unknown>[] = PUNCH_COLUMNS.map((col) => ({
+    id: col.key,
+    accessorFn: (row) => row[col.key] ?? '',
+    header: () => <PunchHeader short={col.short} full={col.full} />,
+    cell: ({ row }) => <Horario value={row.original[col.key]} />,
+    meta: { headerClassName: 'whitespace-nowrap', cellClassName: 'whitespace-nowrap' },
+  }));
+
+  return [
+    {
+      id: 'funcionario',
+      accessorFn: (row) => row.funcionario.nome,
+      header: 'Funcionário',
+      cell: ({ row }) => (
+        <span className="font-medium text-foreground">{row.original.funcionario.nome}</span>
+      ),
+    },
+    ...(showLoja
+      ? [
+          {
+            id: 'loja',
+            accessorFn: (row: RegistroPonto) => row.funcionario.loja?.nome ?? '',
+            header: 'Loja',
+            cell: ({ row }: { row: { original: RegistroPonto } }) =>
+              row.original.funcionario.loja?.nome ? (
+                <span className="text-foreground">{row.original.funcionario.loja.nome}</span>
+              ) : (
+                <span className="text-muted-foreground">–</span>
+              ),
+          } satisfies ColumnDef<RegistroPonto, unknown>,
+        ]
+      : []),
+    ...punches,
+    {
+      id: 'status',
+      header: 'Status',
+      enableSorting: false,
+      cell: ({ row }) => <StatusRegistro registro={row.original} />,
+    },
+  ];
 }
 
 function mesLabel(mes: number, ano: number) {
@@ -168,15 +313,27 @@ function mesLabel(mes: number, ano: number) {
 
 // ─── Tabela de Registros (Fase 6) ───────────────────────────────────────────
 
-function TabelaRegistros({ registros }: { registros: RegistroPonto[] }) {
-  const drag = useDragScroll();
+function TabelaRegistros({
+  registros,
+  showLoja,
+  loading,
+}: {
+  registros: RegistroPonto[];
+  showLoja: boolean;
+  loading: boolean;
+}) {
+  const columns = useMemo(() => registroColumns(showLoja), [showLoja]);
+  const groups = groupRegistros(registros);
+
+  if (loading) {
+    return <DataTable columns={columns} data={[]} loading />;
+  }
 
   if (registros.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-        <Clock className="w-10 h-10 text-gray-700 mb-3" />
-        <p className="text-gray-400 font-medium">Nenhum registro de ponto</p>
-        <p className="text-sm text-gray-600 mt-1">
+      <div className="py-12">
+        <p className="text-sm text-foreground">Nenhum registro de ponto</p>
+        <p className="text-xs text-muted-foreground mt-1">
           Nenhum dado recebido do Secullum para esta seleção.
         </p>
       </div>
@@ -184,58 +341,13 @@ function TabelaRegistros({ registros }: { registros: RegistroPonto[] }) {
   }
 
   return (
-    <div
-      ref={drag.ref}
-      {...drag.handlers}
-      className="overflow-x-auto [&::-webkit-scrollbar]:hidden"
-      style={{ scrollbarWidth: 'none', cursor: 'grab' }}
-    >
-      <table className="w-full text-sm">
-        <thead className="border-b border-[#2a2a2e] bg-[#111113]">
-          <tr>
-            <th className={headCls}>Funcionário</th>
-            <th className={headCls}>Loja</th>
-            <th className={headCls}>E1</th>
-            <th className={headCls}>S1</th>
-            <th className={headCls}>E2</th>
-            <th className={headCls}>S2</th>
-            <th className={headCls}>E3</th>
-            <th className={headCls}>S3</th>
-            <th className={headCls}>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {registros.map((r, i) => (
-            <tr
-              key={r.id}
-              className={`border-b border-[#2a2a2e] last:border-0 ${
-                i % 2 === 0 ? '' : 'bg-[#111113]/60'
-              }`}
-            >
-              <td className={`${cellCls} font-medium text-white`}>{r.funcionario.nome}</td>
-              <td className={`${cellCls} text-gray-400`}>
-                {r.funcionario.loja?.nome ?? <span className="text-gray-600 text-xs">—</span>}
-              </td>
-              <td className={cellCls}><Horario value={r.entrada1} /></td>
-              <td className={cellCls}><Horario value={r.saida1} /></td>
-              <td className={cellCls}><Horario value={r.entrada2} /></td>
-              <td className={cellCls}><Horario value={r.saida2} /></td>
-              <td className={cellCls}><Horario value={r.entrada3} /></td>
-              <td className={cellCls}><Horario value={r.saida3} /></td>
-              <td className={`${cellCls}`}>
-                <div className="flex flex-wrap gap-1">
-                  {r.folga && <Badge label="Folga" color="green" />}
-                  {r.compensado && <Badge label="Compensado" color="blue" />}
-                  {r.neutro && <Badge label="Neutro" color="amber" />}
-                  {!r.folga && !r.compensado && !r.neutro && (
-                    <span className="text-gray-600 text-xs">—</span>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="space-y-6">
+      {groups.map((group) => (
+        <div key={group.id} className="space-y-2">
+          <h2 className="text-sm font-semibold text-foreground">{group.nome}</h2>
+          <DataTable columns={columns} data={group.rows} pageSize={200} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -751,6 +863,7 @@ export default function PontosPage() {
   const [pendencias, setPendencias] = useState<PendenciaResumo[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [ultimaSincronizacao, setUltimaSincronizacao] = useState<string | null>(null);
 
   const fetchPontos = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -762,6 +875,9 @@ export default function PontosPage() {
         const d = await res.json();
         setRegistros(d.registros ?? []);
         setPendencias(d.pendencias ?? []);
+        setUltimaSincronizacao(
+          typeof d.ultimaSincronizacao === 'string' ? d.ultimaSincronizacao : null
+        );
         setLastUpdated(new Date());
       }
     } catch {
@@ -793,139 +909,126 @@ export default function PontosPage() {
     day: 'numeric',
     month: 'long',
   });
+  const lojaFiltro = lojas.find((l) => l.id === lojaId) ?? null;
+  const abas: { id: Aba; label: string; count: number | null }[] = [
+    { id: 'registros', label: 'Registros', count: null },
+    { id: 'pendencias', label: 'Pendências', count: pendencias.length },
+    { id: 'relatorio', label: 'Relatório', count: null },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-              <Clock className="w-6 h-6 text-amber-500" />
-              Pontos
-            </h1>
-            {aba !== 'relatorio' && (
-              <p className="text-sm text-gray-400 capitalize mt-0.5">{dataFormatada}</p>
+    <div className="w-full px-6 py-6 md:px-8 space-y-6">
+      <PageHeader
+        title="Pontos"
+        description={aba !== 'relatorio' ? dataFormatada : undefined}
+        actions={
+          <>
+            {lastUpdated && (
+              <SyncStatus
+                ultimaSincronizacao={ultimaSincronizacao}
+                dataSelecionada={data}
+                hoje={hoje}
+              />
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            {lastUpdated && aba !== 'relatorio' && (
-              <span className="text-xs text-gray-600">
-                Atualizado {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-              </span>
-            )}
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
               onClick={() => fetchPontos()}
               disabled={loading || aba === 'relatorio'}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1c1c1e] border border-[#2a2a2e] text-sm text-gray-300 hover:bg-[#2a2a2e] disabled:opacity-50 transition-colors"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={cn('text-muted-foreground', loading && 'animate-spin')} />
               Atualizar
-            </button>
-          </div>
-        </div>
+            </Button>
+          </>
+        }
+      />
 
-        {/* Filtros (só nas abas de registros/pendências) */}
+      <div className="flex flex-col border-b border-border lg:flex-row lg:items-end lg:justify-between">
         {aba !== 'relatorio' && (
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-4 mb-6">
-            <div className="flex flex-wrap gap-3">
-              <div className="flex-1 min-w-[160px]">
-                <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                  <MapPin className="w-3 h-3 inline mr-1" />
-                  Loja
-                </label>
-                <select
-                  value={lojaId}
-                  onChange={(e) => setLojaId(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Todas as lojas</option>
-                  {(lojas as Loja[]).map((l) => (
-                    <option key={l.id} value={l.id}>{l.nome}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex-1 min-w-[160px]">
-                <label className="block text-xs font-medium text-gray-400 mb-1.5">
-                  <Calendar className="w-3 h-3 inline mr-1" />
-                  Data
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="date"
-                    value={data}
-                    onChange={(e) => setData(e.target.value)}
-                    className={`${inputCls} flex-1`}
-                  />
-                  {data !== hoje && (
-                    <button
-                      onClick={() => setData(hoje)}
-                      className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors whitespace-nowrap"
-                    >
-                      Hoje
-                    </button>
-                  )}
-                </div>
-              </div>
+          <div className="flex flex-wrap items-center gap-2 pb-3">
+            <RhLojaCombobox
+              lojas={lojas}
+              lojaSelecionada={lojaFiltro}
+              onSelect={(loja) => setLojaId(loja?.id ?? '')}
+            />
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Dia anterior"
+                onClick={() => setData((current) => shiftIsoDate(current, -1))}
+              >
+                <ChevronLeft />
+              </Button>
+              <Input
+                type="date"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                className="h-8 w-[148px] text-sm"
+                aria-label="Data"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Próximo dia"
+                onClick={() => setData((current) => shiftIsoDate(current, 1))}
+              >
+                <ChevronRight />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setData(hoje)}
+                disabled={data === hoje}
+              >
+                Hoje
+              </Button>
             </div>
           </div>
         )}
 
-        {/* Abas */}
-        <div className="flex gap-1 mb-4 bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl p-1">
-          {(['registros', 'pendencias', 'relatorio'] as Aba[]).map((a) => {
-            const active = aba === a;
-            const label = a === 'registros' ? 'Registros' : a === 'pendencias' ? 'Pendências' : 'Relatório';
-            const Icon = a === 'registros' ? Clock : a === 'pendencias' ? AlertTriangle : FileSpreadsheet;
-            const count = a === 'registros' ? registros.length : a === 'pendencias' ? pendencias.length : null;
+        <nav className="flex gap-1 overflow-x-auto">
+          {abas.map((t) => {
+            const active = aba === t.id;
             return (
               <button
-                key={a}
-                onClick={() => setAba(a)}
-                className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  active ? 'bg-amber-500 text-black' : 'text-gray-400 hover:text-white'
-                }`}
+                key={t.id}
+                type="button"
+                onClick={() => setAba(t.id)}
+                className={cn(
+                  'shrink-0 inline-flex items-center text-sm font-medium px-3 py-2 -mb-px border-b-2 transition-colors',
+                  'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm',
+                  active
+                    ? 'border-primary text-foreground'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
+                )}
               >
-                <Icon className="w-4 h-4 inline mr-1.5" />
-                {label}
-                {count !== null && count > 0 && (
+                {t.label}
+                {t.count !== null && (
                   <span
-                    className={`ml-1.5 text-xs px-1.5 py-0.5 rounded-full font-semibold ${
-                      active
-                        ? 'bg-black/20 text-black'
-                        : a === 'pendencias'
-                          ? 'bg-red-500/20 text-red-400'
-                          : 'bg-[#2a2a2e] text-gray-400'
-                    }`}
+                    className={cn(
+                      'ml-1.5 inline-flex min-w-5 items-center justify-center rounded-md px-1.5 text-xs tabular-nums',
+                      t.count > 0 ? 'bg-warning/15 text-warning' : 'text-muted-foreground'
+                    )}
                   >
-                    {count}
+                    {t.count}
                   </span>
                 )}
               </button>
             );
           })}
-        </div>
+        </nav>
+      </div>
 
-        {/* Conteúdo */}
-        {aba === 'relatorio' ? (
-          <AbaRelatorio />
-        ) : loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : aba === 'registros' ? (
-          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl overflow-hidden">
-            {registros.length > 0 && (
-              <div className="px-4 py-3 border-b border-[#2a2a2e]">
-                <span className="text-xs text-gray-500">
-                  {registros.length} funcionário{registros.length !== 1 ? 's' : ''}
-                  {' · '}poll automático a cada 60s
-                </span>
-              </div>
-            )}
-            <TabelaRegistros registros={registros} />
-          </div>
-        ) : (
+      {aba === 'relatorio' ? (
+        <AbaRelatorio />
+      ) : aba === 'registros' ? (
+        <TabelaRegistros registros={registros} showLoja={!lojaId} loading={loading} />
+      ) : (
           /* Aba Pendências */
           <div className="space-y-3">
             {pendencias.length === 0 ? (
@@ -978,7 +1081,6 @@ export default function PontosPage() {
             )}
           </div>
         )}
-      </div>
     </div>
   );
 }
