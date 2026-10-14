@@ -11,7 +11,7 @@ alwaysApply: true
 Platefull é back-office interno, **desktop-first** (gerentes/administração).
 Mobile é secundário, **exceto**:
 - `/rider/**` — app motoboy (fora do AppShell)
-- `/estoque/**` — contagem semanal mobile-first (fora do AppShell por enquanto)
+- `/estoque/contagem/**` — contagem semanal mobile-first (fora do AppShell); telas admin de Estoque no AppShell
 
 Shell autenticado: route group `app/(app)/` com `AppShell`.
 
@@ -103,6 +103,6 @@ Padrão da dashboard iFood (`IfoodKPICards`):
 # O que não entra no AppShell
 - `/`, `/auth/**`, `/handler/**` — público/OAuth
 - `/rider/**` — motoboy
-- `/estoque/**` — contagem (candidato futuro: Histórico / Produtos / Alertas se virarem rotas desktop)
+- `/estoque/contagem/**` — fluxo de contagem (tela cheia, fora do AppShell); admin em `/estoque`, `/estoque/historico`, `/estoque/produtos`, `/estoque/alertas` entra no AppShell
 - `/calenza-adm/**` — admin próprio
 - `/api/**`, rotas de debug

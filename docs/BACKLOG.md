@@ -2,6 +2,10 @@
 
 Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 
+## Estoque (out/2026) — PRIORIDADE ALTA
+
+- Contagem: valores digitados e ainda não salvos ficam só em memória; se o app for fechado sem rede, são perdidos. Sugestão: rascunho local (IndexedDB/localStorage) por contagem/sessão, reenviado ao reabrir, com aviso de "valores pendentes de envio". (Uso real hoje: sinal ruim com o app aberto — fila de PATCH + keepalive; não há service worker.)
+
 ## Relatórios / Revisão de reclamações (out/2026)
 
 - Hub `/relatorios` ainda usa tabelas HTML (não `DataTable`); ações em botões por linha em vez de menu “…”.

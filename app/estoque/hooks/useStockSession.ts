@@ -216,42 +216,54 @@ export function useStockSession() {
     [],
   );
 
-  // ── Flush garantido ao sair/minimizar ──────────────────────────────────────
-  // Usa fetch com keepalive:true — o browser garante o envio mesmo durante unload
-  useEffect(() => {
-    const flushAll = () => {
-      for (const [id, patch] of pendingSave.current.entries()) {
-        fetch(`/api/estoque/contagens/${id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(patch),
-          keepalive: true,
-        }).catch(() => {});
-      }
-      pendingSave.current.clear();
-    };
+  // Flush keepalive (unload / visibility / unmount) — browser tenta enviar mesmo ao sair
+  const flushPendingSaves = useCallback(() => {
+    for (const [id, patch] of pendingSave.current.entries()) {
+      fetch(`/api/estoque/contagens/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+        keepalive: true,
+      }).catch(() => {});
+    }
+    pendingSave.current.clear();
+  }, []);
 
+  // Flush aguardável antes de navegar (Continuar / Salvar e sair / trocar de rota)
+  const flushPendingSavesAsync = useCallback(async () => {
+    const entries = Array.from(pendingSave.current.entries());
+    pendingSave.current.clear();
+    for (const [id, patch] of entries) {
+      try {
+        await apiPatch(id, patch, true);
+      } catch (err) {
+        console.error('[Estoque] Falha ao flush da fila de salvamento:', err);
+      }
+    }
+  }, []);
+
+  // ── Flush garantido ao sair/minimizar / desmontar ──────────────────────────
+  useEffect(() => {
     const onVisibility = () => {
-      if (document.visibilityState === 'hidden') flushAll();
+      if (document.visibilityState === 'hidden') flushPendingSaves();
     };
 
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('beforeunload', flushAll);
+    window.addEventListener('beforeunload', flushPendingSaves);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('beforeunload', flushAll);
+      window.removeEventListener('beforeunload', flushPendingSaves);
+      flushPendingSaves();
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
     };
-  }, []);
+  }, [flushPendingSaves]);
 
-  // Carrega sessões do banco ao montar
+  // Carrega sessões do banco ao montar (activeSessionId fica a cargo da rota de contagem)
   useEffect(() => {
     apiGet()
       .then(data => {
         setSessions(data);
-        const emAndamento = data.find(s => s.status === 'em_andamento');
-        if (emAndamento) setActiveSessionId(emAndamento.id);
       })
       .catch(err => console.error('[Estoque] Falha ao carregar contagens:', err))
       .finally(() => setHydrated(true));
@@ -458,5 +470,7 @@ export function useStockSession() {
     excluirContagem,
     calcularProgresso,
     calcularAlertasReposicao,
+    flushPendingSaves,
+    flushPendingSavesAsync,
   };
 }
