@@ -22,15 +22,17 @@ export async function GET(req: NextRequest) {
     })();
     const dataFim = new Date(dataSelecionada.getTime() + 24 * 60 * 60 * 1000);
 
-    const registros = await prisma.pontoRegistro.findMany({
-      where: {
-        data: { gte: dataSelecionada, lt: dataFim },
-        funcionario: {
-          userId: ctx.userId,
-          ativo: true,
-          ...(lojaParam ? { lojaId: lojaParam } : {}),
-        },
+    const whereRegistro = {
+      data: { gte: dataSelecionada, lt: dataFim },
+      funcionario: {
+        userId: ctx.userId,
+        ativo: true,
+        ...(lojaParam ? { lojaId: lojaParam } : {}),
       },
+    };
+
+    const registros = await prisma.pontoRegistro.findMany({
+      where: whereRegistro,
       include: {
         funcionario: {
           select: {
@@ -42,6 +44,11 @@ export async function GET(req: NextRequest) {
         },
       },
       orderBy: [{ funcionario: { nome: 'asc' } }],
+    });
+
+    const ultimaSync = await prisma.pontoRegistro.aggregate({
+      where: whereRegistro,
+      _max: { updatedAt: true },
     });
 
     const pendencias = await prisma.pontoPendencia.findMany({
@@ -70,6 +77,7 @@ export async function GET(req: NextRequest) {
         nomeSugerido: pendencias.find((p) => p.numeroFolhaOrigem === nf)?.nomeSugerido ?? null,
       })),
       dataSelecionada: dataSelecionada.toISOString(),
+      ultimaSincronizacao: ultimaSync._max.updatedAt?.toISOString() ?? null,
     });
   } catch (err) {
     console.error('[GET /api/pontos]', err);
