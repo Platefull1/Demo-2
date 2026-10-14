@@ -9,6 +9,7 @@ import {
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type Row,
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
@@ -30,6 +31,16 @@ type ColumnMeta = {
   cellClassName?: string;
 };
 
+export type DataTableGroupConfig<TData> = {
+  /** Chave estável do grupo (ex.: id da loja). */
+  getGroupKey: (row: TData) => string;
+  /** Conteúdo da linha de cabeçalho do grupo. */
+  renderGroupHeader: (args: {
+    groupKey: string;
+    rows: TData[];
+  }) => React.ReactNode;
+};
+
 export type DataTableProps<TData> = {
   columns: ColumnDef<TData, unknown>[];
   data: TData[];
@@ -42,6 +53,13 @@ export type DataTableProps<TData> = {
   initialSorting?: SortingState;
   /** Lista compacta abaixo de md. */
   renderMobileRow?: (row: TData) => React.ReactNode;
+  /** Cabeçalho de grupo no mobile (acima do bloco de linhas). */
+  renderMobileGroupHeader?: (args: {
+    groupKey: string;
+    rows: TData[];
+  }) => React.ReactNode;
+  /** Agrupa linhas com cabeçalho de seção (colSpan). */
+  groupBy?: DataTableGroupConfig<TData>;
   className?: string;
 };
 
@@ -55,6 +73,34 @@ function metaOf(def: { meta?: unknown }): ColumnMeta {
   return (def.meta as ColumnMeta) ?? {};
 }
 
+function groupRows<TData>(
+  rows: Row<TData>[],
+  data: TData[],
+  getGroupKey: (row: TData) => string
+): { key: string; rows: Row<TData>[] }[] {
+  const groupOrder: string[] = [];
+  const seen = new Set<string>();
+  for (const item of data) {
+    const key = getGroupKey(item);
+    if (!seen.has(key)) {
+      seen.add(key);
+      groupOrder.push(key);
+    }
+  }
+
+  const byKey = new Map<string, Row<TData>[]>();
+  for (const row of rows) {
+    const key = getGroupKey(row.original);
+    const list = byKey.get(key);
+    if (list) list.push(row);
+    else byKey.set(key, [row]);
+  }
+
+  return groupOrder
+    .map((key) => ({ key, rows: byKey.get(key) ?? [] }))
+    .filter((g) => g.rows.length > 0);
+}
+
 export function DataTable<TData>({
   columns,
   data,
@@ -65,6 +111,8 @@ export function DataTable<TData>({
   pageSize = 50,
   initialSorting = [],
   renderMobileRow,
+  renderMobileGroupHeader,
+  groupBy,
   className,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = React.useState<SortingState>(initialSorting);
@@ -92,6 +140,12 @@ export function DataTable<TData>({
   const pageIndex = table.getState().pagination.pageIndex;
   const rows = table.getRowModel().rows;
   const total = data.length;
+  const colCount = columns.length;
+
+  const grouped = React.useMemo(() => {
+    if (!groupBy) return null;
+    return groupRows(rows, data, groupBy.getGroupKey);
+  }, [groupBy, rows, data]);
 
   if (loading) {
     return (
@@ -180,6 +234,51 @@ export function DataTable<TData>({
       </div>
     ) : null;
 
+  const renderDataRow = (row: Row<TData>) => {
+    const href = getRowHref?.(row.original);
+    return (
+      <TableRow key={row.id} className={cn(href && "group/row")}>
+        {row.getVisibleCells().map((cell, cellIndex) => {
+          const interactive = interactiveColumnIds.includes(cell.column.id);
+          const meta = metaOf(cell.column.columnDef);
+          return (
+            <TableCell
+              key={cell.id}
+              className={cn(
+                "relative",
+                interactive && "z-10",
+                meta.cellClassName
+              )}
+            >
+              {!interactive && href ? (
+                <Link
+                  href={href}
+                  className="absolute inset-0 z-0"
+                  aria-label={
+                    cellIndex === 0 ? "Abrir registro" : undefined
+                  }
+                  tabIndex={cellIndex === 0 ? undefined : -1}
+                  aria-hidden={cellIndex === 0 ? undefined : true}
+                />
+              ) : null}
+              <div
+                className={cn(
+                  "relative",
+                  !interactive && href && "z-[1] pointer-events-none"
+                )}
+              >
+                {flexRender(
+                  cell.column.columnDef.cell,
+                  cell.getContext()
+                )}
+              </div>
+            </TableCell>
+          );
+        })}
+      </TableRow>
+    );
+  };
+
   return (
     <div className={cn("space-y-0", className)}>
       <div
@@ -222,89 +321,109 @@ export function DataTable<TData>({
             ))}
           </TableHeader>
           <TableBody>
-            {rows.map((row) => {
-              const href = getRowHref?.(row.original);
-              return (
-                <TableRow key={row.id} className={cn(href && "group/row")}>
-                  {row.getVisibleCells().map((cell, cellIndex) => {
-                    const interactive = interactiveColumnIds.includes(
-                      cell.column.id
-                    );
-                    const meta = metaOf(cell.column.columnDef);
-                    return (
+            {grouped
+              ? grouped.map((group) => (
+                  <React.Fragment key={group.key}>
+                    <TableRow className="hover:bg-muted bg-muted border-b border-border">
                       <TableCell
-                        key={cell.id}
-                        className={cn(
-                          "relative",
-                          interactive && "z-10",
-                          meta.cellClassName
-                        )}
+                        colSpan={colCount}
+                        className="py-2.5 text-sm font-semibold text-foreground"
                       >
-                        {!interactive && href ? (
-                          <Link
-                            href={href}
-                            className="absolute inset-0 z-0"
-                            aria-label={
-                              cellIndex === 0 ? "Abrir registro" : undefined
-                            }
-                            tabIndex={cellIndex === 0 ? undefined : -1}
-                            aria-hidden={cellIndex === 0 ? undefined : true}
-                          />
-                        ) : null}
-                        <div
-                          className={cn(
-                            "relative",
-                            !interactive && href && "z-[1] pointer-events-none"
-                          )}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </div>
+                        {groupBy!.renderGroupHeader({
+                          groupKey: group.key,
+                          rows: group.rows.map((r) => r.original),
+                        })}
                       </TableCell>
-                    );
-                  })}
-                </TableRow>
-              );
-            })}
+                    </TableRow>
+                    {group.rows.map(renderDataRow)}
+                  </React.Fragment>
+                ))
+              : rows.map(renderDataRow)}
           </TableBody>
         </Table>
       </div>
 
       {renderMobileRow ? (
         <ul className="md:hidden divide-y divide-border rounded-md border border-border overflow-hidden">
-          {rows.map((row) => {
-            const href = getRowHref?.(row.original);
-            const content = renderMobileRow(row.original);
-            return (
-              <li key={row.id} className="relative bg-card">
-                {href ? (
-                  <Link
-                    href={href}
-                    className="block px-3 py-3 hover:bg-muted/50 transition-colors pr-12"
-                  >
-                    {content}
-                  </Link>
-                ) : (
-                  <div className="px-3 py-3 pr-12">{content}</div>
-                )}
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10">
-                  {row
-                    .getVisibleCells()
-                    .filter((c) => interactiveColumnIds.includes(c.column.id))
-                    .map((cell) => (
-                      <React.Fragment key={cell.id}>
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
+          {grouped
+            ? grouped.map((group) => (
+                <React.Fragment key={group.key}>
+                  {(renderMobileGroupHeader ?? groupBy?.renderGroupHeader) && (
+                    <li className="bg-muted px-3 py-2.5 text-sm font-semibold text-foreground">
+                      {(renderMobileGroupHeader ?? groupBy!.renderGroupHeader)({
+                        groupKey: group.key,
+                        rows: group.rows.map((r) => r.original),
+                      })}
+                    </li>
+                  )}
+                  {group.rows.map((row) => {
+                    const href = getRowHref?.(row.original);
+                    const content = renderMobileRow(row.original);
+                    return (
+                      <li key={row.id} className="relative bg-card">
+                        {href ? (
+                          <Link
+                            href={href}
+                            className="block px-3 py-3 hover:bg-muted/50 transition-colors pr-12"
+                          >
+                            {content}
+                          </Link>
+                        ) : (
+                          <div className="px-3 py-3">{content}</div>
                         )}
-                      </React.Fragment>
-                    ))}
-                </div>
-              </li>
-            );
-          })}
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10">
+                          {row
+                            .getVisibleCells()
+                            .filter((c) =>
+                              interactiveColumnIds.includes(c.column.id)
+                            )
+                            .map((cell) => (
+                              <React.Fragment key={cell.id}>
+                                {flexRender(
+                                  cell.column.columnDef.cell,
+                                  cell.getContext()
+                                )}
+                              </React.Fragment>
+                            ))}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </React.Fragment>
+              ))
+            : rows.map((row) => {
+                const href = getRowHref?.(row.original);
+                const content = renderMobileRow(row.original);
+                return (
+                  <li key={row.id} className="relative bg-card">
+                    {href ? (
+                      <Link
+                        href={href}
+                        className="block px-3 py-3 hover:bg-muted/50 transition-colors pr-12"
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <div className="px-3 py-3 pr-12">{content}</div>
+                    )}
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10">
+                      {row
+                        .getVisibleCells()
+                        .filter((c) =>
+                          interactiveColumnIds.includes(c.column.id)
+                        )
+                        .map((cell) => (
+                          <React.Fragment key={cell.id}>
+                            {flexRender(
+                              cell.column.columnDef.cell,
+                              cell.getContext()
+                            )}
+                          </React.Fragment>
+                        ))}
+                    </div>
+                  </li>
+                );
+              })}
         </ul>
       ) : null}
 

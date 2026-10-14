@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
+import { ModuleTabs, moduleTabClass } from '@/components/layout/ModuleTabs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useCmvRealAccess } from '@/hooks/useCmvRealAccess';
 import { notasListHref, parseNotasListFilters } from '@/lib/nfe/notas-list-query';
-import { cn } from '@/lib/utils';
 
 const TABS = [
   { href: '/cmv-real/notas', label: 'Revisão', match: '/cmv-real/notas', preserveFilters: true },
@@ -61,28 +61,18 @@ function CmvRealLayoutInner({ children }: { children: React.ReactNode }) {
           title="CMV Real"
           description="Custo real das mercadorias a partir das notas de compra"
         />
-        <nav className="flex gap-1 overflow-x-auto border-b border-border -mx-1 px-1 scrollbar-none">
+        <ModuleTabs>
           {TABS.map((t) => {
             const active = pathname?.startsWith(t.match);
             const href =
               'preserveFilters' in t && t.preserveFilters ? revisaoHref : t.href;
             return (
-              <Link
-                key={t.href}
-                href={href}
-                className={cn(
-                  'shrink-0 text-sm font-medium px-3 py-2 -mb-px border-b-2 transition-colors',
-                  'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm',
-                  active
-                    ? 'border-primary text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                )}
-              >
+              <Link key={t.href} href={href} className={moduleTabClass(Boolean(active))}>
                 {t.label}
               </Link>
             );
           })}
-        </nav>
+        </ModuleTabs>
       </div>
       <div>{children}</div>
     </div>

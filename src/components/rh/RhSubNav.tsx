@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ModuleTabs, moduleTabClass } from '@/components/layout/ModuleTabs';
 import { cn } from '@/lib/utils';
 
 const MAIN_TABS = [
@@ -70,36 +71,18 @@ export function RhSubNav() {
   const moreActive = MORE_ITEMS.some((item) => item.match(pathname));
 
   return (
-    <nav className="flex items-center gap-1 overflow-x-auto border-b border-border -mx-1 px-1 scrollbar-none">
+    <ModuleTabs>
       {MAIN_TABS.map((t) => {
         const active = t.match(pathname);
         return (
-          <Link
-            key={t.href}
-            href={t.href}
-            className={cn(
-              'shrink-0 text-sm font-medium px-3 py-2 -mb-px border-b-2 transition-colors',
-              'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm',
-              active
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            )}
-          >
+          <Link key={t.href} href={t.href} className={moduleTabClass(active)}>
             {t.label}
           </Link>
         );
       })}
 
       <DropdownMenu>
-        <DropdownMenuTrigger
-          className={cn(
-            'shrink-0 inline-flex items-center gap-1 text-sm font-medium px-3 py-2 -mb-px border-b-2 transition-colors',
-            'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm',
-            moreActive
-              ? 'border-primary text-foreground'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          )}
-        >
+        <DropdownMenuTrigger className={moduleTabClass(moreActive)}>
           Mais
           <ChevronDown className="size-3.5 text-muted-foreground" />
         </DropdownMenuTrigger>
@@ -116,6 +99,6 @@ export function RhSubNav() {
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-    </nav>
+    </ModuleTabs>
   );
 }

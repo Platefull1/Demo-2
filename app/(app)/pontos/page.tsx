@@ -5,6 +5,7 @@ import type { ColumnDef } from '@tanstack/react-table';
 import Link from 'next/link';
 import { useLoja } from '@/contexts/LojaContext';
 import { DataTable } from '@/components/layout/DataTable';
+import { ModuleTabs, moduleTabClass } from '@/components/layout/ModuleTabs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { RhLojaCombobox } from '@/components/rh/RhLojaCombobox';
 import { Badge } from '@/components/ui/badge';
@@ -455,32 +456,55 @@ function TabelaRegistros({
   loading: boolean;
 }) {
   const columns = useMemo(() => registroColumns(showLoja), [showLoja]);
-  const groups = groupRegistros(registros);
+  const ordered = useMemo(() => {
+    const groups = groupRegistros(registros);
+    return groups.flatMap((g) => g.rows);
+  }, [registros]);
+
+  const groupBy = useMemo(
+    () => ({
+      getGroupKey: (row: RegistroPonto) =>
+        row.funcionario.loja?.id ?? 'sem-loja',
+      renderGroupHeader: ({
+        rows,
+      }: {
+        groupKey: string;
+        rows: RegistroPonto[];
+      }) => {
+        const nome = rows[0]?.funcionario.loja?.nome ?? 'Sem loja';
+        const n = rows.length;
+        return (
+          <span>
+            {nome}
+            <span className="ml-2 font-normal text-muted-foreground tabular-nums">
+              {n} funcionário{n !== 1 ? 's' : ''}
+            </span>
+          </span>
+        );
+      },
+    }),
+    []
+  );
 
   if (loading) {
     return <DataTable columns={columns} data={[]} loading />;
   }
 
-  if (registros.length === 0) {
-    return (
-      <div className="py-12">
-        <p className="text-sm text-foreground">Nenhum registro de ponto</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Nenhum dado recebido do Secullum para esta seleção.
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {groups.map((group) => (
-        <div key={group.id} className="space-y-2">
-          <h2 className="text-sm font-semibold text-foreground">{group.nome}</h2>
-          <DataTable columns={columns} data={group.rows} pageSize={200} />
+    <DataTable
+      columns={columns}
+      data={ordered}
+      pageSize={200}
+      groupBy={groupBy}
+      emptyState={
+        <div>
+          <p className="text-sm text-foreground">Nenhum registro de ponto</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Nenhum dado recebido do Secullum para esta seleção.
+          </p>
         </div>
-      ))}
-    </div>
+      }
+    />
   );
 }
 
@@ -1096,7 +1120,7 @@ export default function PontosPage() {
           </div>
         )}
 
-        <nav className="flex gap-1 overflow-x-auto lg:ml-auto">
+        <ModuleTabs borderless className="lg:ml-auto">
           {abas.map((t) => {
             const active = aba === t.id;
             return (
@@ -1104,13 +1128,7 @@ export default function PontosPage() {
                 key={t.id}
                 type="button"
                 onClick={() => setAba(t.id)}
-                className={cn(
-                  'shrink-0 inline-flex items-center text-sm font-medium px-3 py-2 -mb-px border-b-2 transition-colors',
-                  'outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm',
-                  active
-                    ? 'border-primary text-foreground'
-                    : 'border-transparent text-muted-foreground hover:text-foreground'
-                )}
+                className={moduleTabClass(active)}
               >
                 {t.label}
                 {t.count !== null && (
@@ -1126,7 +1144,7 @@ export default function PontosPage() {
               </button>
             );
           })}
-        </nav>
+        </ModuleTabs>
       </div>
 
       {aba === 'relatorio' ? (
