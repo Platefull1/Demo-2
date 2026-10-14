@@ -209,21 +209,21 @@ function SortIcon({ sorted }) {
         className: "size-3.5"
     }, void 0, false, {
         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-        lineNumber: 49,
+        lineNumber: 67,
         columnNumber: 32
     }, this);
     if (sorted === "desc") return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowDown$3e$__["ArrowDown"], {
         className: "size-3.5"
     }, void 0, false, {
         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-        lineNumber: 50,
+        lineNumber: 68,
         columnNumber: 33
     }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$arrow$2d$up$2d$down$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ArrowUpDown$3e$__["ArrowUpDown"], {
         className: "size-3.5 opacity-50"
     }, void 0, false, {
         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-        lineNumber: 51,
+        lineNumber: 69,
         columnNumber: 10
     }, this);
 }
@@ -231,9 +231,29 @@ _c = SortIcon;
 function metaOf(def) {
     return def.meta ?? {};
 }
+function groupRows(rows, getGroupKey) {
+    const groups = [];
+    const indexByKey = new Map();
+    for (const row of rows){
+        const key = getGroupKey(row.original);
+        const existing = indexByKey.get(key);
+        if (existing === undefined) {
+            indexByKey.set(key, groups.length);
+            groups.push({
+                key,
+                rows: [
+                    row
+                ]
+            });
+        } else {
+            groups[existing].rows.push(row);
+        }
+    }
+    return groups;
+}
 function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
     "actions"
-], emptyState, loading = false, pageSize = 50, initialSorting = [], renderMobileRow, className }) {
+], emptyState, loading = false, pageSize = 50, initialSorting = [], renderMobileRow, renderMobileGroupHeader, groupBy, className }) {
     _s();
     const [sorting, setSorting] = __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useState"](initialSorting);
     const table = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["useReactTable"])({
@@ -265,6 +285,16 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
     const pageIndex = table.getState().pagination.pageIndex;
     const rows = table.getRowModel().rows;
     const total = data.length;
+    const colCount = columns.length;
+    const grouped = __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"]({
+        "DataTable.useMemo[grouped]": ()=>{
+            if (!groupBy) return null;
+            return groupRows(rows, groupBy.getGroupKey);
+        }
+    }["DataTable.useMemo[grouped]"], [
+        groupBy,
+        rows
+    ]);
     if (loading) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("space-y-3", className),
@@ -280,12 +310,12 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                     className: "h-3 w-16"
                                 }, i, false, {
                                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                    lineNumber: 102,
+                                    lineNumber: 149,
                                     columnNumber: 15
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                            lineNumber: 100,
+                            lineNumber: 147,
                             columnNumber: 11
                         }, this),
                         Array.from({
@@ -297,54 +327,54 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                         className: "h-4 w-14"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 110,
+                                        lineNumber: 157,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-5 w-20 rounded-md"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 111,
+                                        lineNumber: 158,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-4 flex-1 max-w-[200px]"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 112,
+                                        lineNumber: 159,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-4 w-20"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 113,
+                                        lineNumber: 160,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-4 w-24 ml-auto"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 114,
+                                        lineNumber: 161,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                         className: "h-4 w-10"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 115,
+                                        lineNumber: 162,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, i, true, {
                                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                lineNumber: 106,
+                                lineNumber: 153,
                                 columnNumber: 13
                             }, this))
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                    lineNumber: 99,
+                    lineNumber: 146,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -361,51 +391,51 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                             className: "h-4 w-16"
                                         }, void 0, false, {
                                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                            lineNumber: 126,
+                                            lineNumber: 173,
                                             columnNumber: 17
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                             className: "h-5 w-16 rounded-md"
                                         }, void 0, false, {
                                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                            lineNumber: 127,
+                                            lineNumber: 174,
                                             columnNumber: 17
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                    lineNumber: 125,
+                                    lineNumber: 172,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                     className: "h-3 w-40"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                    lineNumber: 129,
+                                    lineNumber: 176,
                                     columnNumber: 15
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                                     className: "h-3 w-48"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                    lineNumber: 130,
+                                    lineNumber: 177,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, i, true, {
                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                            lineNumber: 121,
+                            lineNumber: 168,
                             columnNumber: 13
                         }, this))
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                    lineNumber: 119,
+                    lineNumber: 166,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-            lineNumber: 98,
+            lineNumber: 145,
             columnNumber: 7
         }, this);
     }
@@ -417,12 +447,12 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                 children: "Nenhum registro."
             }, void 0, false, {
                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                lineNumber: 142,
+                lineNumber: 189,
                 columnNumber: 11
             }, this)
         }, void 0, false, {
             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-            lineNumber: 140,
+            lineNumber: 187,
             columnNumber: 7
         }, this);
     }
@@ -440,7 +470,7 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                lineNumber: 151,
+                lineNumber: 198,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -457,12 +487,12 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                             className: "size-4"
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                            lineNumber: 164,
+                            lineNumber: 211,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                        lineNumber: 156,
+                        lineNumber: 203,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -474,7 +504,7 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                        lineNumber: 166,
+                        lineNumber: 213,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -488,26 +518,68 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                             className: "size-4"
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                            lineNumber: 177,
+                            lineNumber: 224,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                        lineNumber: 169,
+                        lineNumber: 216,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                lineNumber: 155,
+                lineNumber: 202,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-        lineNumber: 150,
+        lineNumber: 197,
         columnNumber: 7
     }, this) : null;
+    const renderDataRow = (row)=>{
+        const href = getRowHref?.(row.original);
+        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableRow"], {
+            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])(href && "group/row"),
+            children: row.getVisibleCells().map((cell, cellIndex)=>{
+                const interactive = interactiveColumnIds.includes(cell.column.id);
+                const meta = metaOf(cell.column.columnDef);
+                return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
+                    className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("relative", interactive && "z-10", meta.cellClassName),
+                    children: [
+                        !interactive && href ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                            href: href,
+                            className: "absolute inset-0 z-0",
+                            "aria-label": cellIndex === 0 ? "Abrir registro" : undefined,
+                            tabIndex: cellIndex === 0 ? undefined : -1,
+                            "aria-hidden": cellIndex === 0 ? undefined : true
+                        }, void 0, false, {
+                            fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                            lineNumber: 247,
+                            columnNumber: 17
+                        }, this) : null,
+                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("relative", !interactive && href && "z-[1] pointer-events-none"),
+                            children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(cell.column.columnDef.cell, cell.getContext())
+                        }, void 0, false, {
+                            fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                            lineNumber: 257,
+                            columnNumber: 15
+                        }, this)
+                    ]
+                }, cell.id, true, {
+                    fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                    lineNumber: 238,
+                    columnNumber: 13
+                }, this);
+            })
+        }, row.id, false, {
+            fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+            lineNumber: 233,
+            columnNumber: 7
+        }, this);
+    };
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("space-y-0", className),
         children: [
@@ -533,93 +605,140 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                                         sorted: header.column.getIsSorted()
                                                     }, void 0, false, {
                                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                                        lineNumber: 210,
+                                                        lineNumber: 302,
                                                         columnNumber: 27
                                                     }, this)
                                                 ]
                                             }, void 0, true, {
                                                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                                lineNumber: 201,
+                                                lineNumber: 293,
                                                 columnNumber: 25
                                             }, this) : (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(header.column.columnDef.header, header.getContext())
                                         }, header.id, false, {
                                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                            lineNumber: 199,
+                                            lineNumber: 291,
                                             columnNumber: 21
                                         }, this);
                                     })
                                 }, hg.id, false, {
                                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                    lineNumber: 194,
+                                    lineNumber: 286,
                                     columnNumber: 15
                                 }, this))
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                            lineNumber: 192,
+                            lineNumber: 284,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableBody"], {
-                            children: rows.map((row)=>{
-                                const href = getRowHref?.(row.original);
-                                return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableRow"], {
-                                    className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])(href && "group/row"),
-                                    children: row.getVisibleCells().map((cell, cellIndex)=>{
-                                        const interactive = interactiveColumnIds.includes(cell.column.id);
-                                        const meta = metaOf(cell.column.columnDef);
-                                        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
-                                            className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("relative", interactive && "z-10", meta.cellClassName),
-                                            children: [
-                                                !interactive && href ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
-                                                    href: href,
-                                                    className: "absolute inset-0 z-0",
-                                                    "aria-label": cellIndex === 0 ? "Abrir registro" : undefined,
-                                                    tabIndex: cellIndex === 0 ? undefined : -1,
-                                                    "aria-hidden": cellIndex === 0 ? undefined : true
-                                                }, void 0, false, {
-                                                    fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                                    lineNumber: 244,
-                                                    columnNumber: 27
-                                                }, this) : null,
-                                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                                                    className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])("relative", !interactive && href && "z-[1] pointer-events-none"),
-                                                    children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(cell.column.columnDef.cell, cell.getContext())
-                                                }, void 0, false, {
-                                                    fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                                    lineNumber: 254,
-                                                    columnNumber: 25
-                                                }, this)
-                                            ]
-                                        }, cell.id, true, {
+                            children: grouped ? grouped.map((group)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+                                    children: [
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableRow"], {
+                                            className: "hover:bg-muted bg-muted border-b border-border",
+                                            children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
+                                                colSpan: colCount,
+                                                className: "py-2.5 text-sm font-semibold text-foreground",
+                                                children: groupBy.renderGroupHeader({
+                                                    groupKey: group.key,
+                                                    rows: group.rows.map((r)=>r.original)
+                                                })
+                                            }, void 0, false, {
+                                                fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                                lineNumber: 321,
+                                                columnNumber: 23
+                                            }, this)
+                                        }, void 0, false, {
                                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                            lineNumber: 235,
-                                            columnNumber: 23
-                                        }, this);
-                                    })
-                                }, row.id, false, {
+                                            lineNumber: 320,
+                                            columnNumber: 21
+                                        }, this),
+                                        group.rows.map(renderDataRow)
+                                    ]
+                                }, group.key, true, {
                                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                    lineNumber: 228,
-                                    columnNumber: 17
-                                }, this);
-                            })
+                                    lineNumber: 319,
+                                    columnNumber: 19
+                                }, this)) : rows.map(renderDataRow)
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                            lineNumber: 224,
+                            lineNumber: 316,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                    lineNumber: 191,
+                    lineNumber: 283,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                lineNumber: 185,
+                lineNumber: 277,
                 columnNumber: 7
             }, this),
             renderMobileRow ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("ul", {
                 className: "md:hidden divide-y divide-border rounded-md border border-border overflow-hidden",
-                children: rows.map((row)=>{
+                children: grouped ? grouped.map((group)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+                        children: [
+                            (renderMobileGroupHeader ?? groupBy?.renderGroupHeader) && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                className: "bg-muted px-3 py-2.5 text-sm font-semibold text-foreground",
+                                children: (renderMobileGroupHeader ?? groupBy.renderGroupHeader)({
+                                    groupKey: group.key,
+                                    rows: group.rows.map((r)=>r.original)
+                                })
+                            }, void 0, false, {
+                                fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                lineNumber: 345,
+                                columnNumber: 21
+                            }, this),
+                            group.rows.map((row)=>{
+                                const href = getRowHref?.(row.original);
+                                const content = renderMobileRow(row.original);
+                                return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
+                                    className: "relative bg-card",
+                                    children: [
+                                        href ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["default"], {
+                                            href: href,
+                                            className: "block px-3 py-3 hover:bg-muted/50 transition-colors pr-12",
+                                            children: content
+                                        }, void 0, false, {
+                                            fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                            lineNumber: 358,
+                                            columnNumber: 27
+                                        }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "px-3 py-3",
+                                            children: content
+                                        }, void 0, false, {
+                                            fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                            lineNumber: 365,
+                                            columnNumber: 27
+                                        }, this),
+                                        /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
+                                            className: "absolute right-1 top-1/2 -translate-y-1/2 z-10",
+                                            children: row.getVisibleCells().filter((c)=>interactiveColumnIds.includes(c.column.id)).map((cell)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
+                                                    children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(cell.column.columnDef.cell, cell.getContext())
+                                                }, cell.id, false, {
+                                                    fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                                    lineNumber: 374,
+                                                    columnNumber: 31
+                                                }, this))
+                                        }, void 0, false, {
+                                            fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                            lineNumber: 367,
+                                            columnNumber: 25
+                                        }, this)
+                                    ]
+                                }, row.id, true, {
+                                    fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                                    lineNumber: 356,
+                                    columnNumber: 23
+                                }, this);
+                            })
+                        ]
+                    }, group.key, true, {
+                        fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
+                        lineNumber: 343,
+                        columnNumber: 17
+                    }, this)) : rows.map((row)=>{
                     const href = getRowHref?.(row.original);
                     const content = renderMobileRow(row.original);
                     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("li", {
@@ -631,15 +750,15 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                 children: content
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                lineNumber: 283,
-                                columnNumber: 19
+                                lineNumber: 393,
+                                columnNumber: 23
                             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "px-3 py-3 pr-12",
                                 children: content
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                lineNumber: 290,
-                                columnNumber: 19
+                                lineNumber: 400,
+                                columnNumber: 23
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                                 className: "absolute right-1 top-1/2 -translate-y-1/2 z-10",
@@ -647,35 +766,35 @@ function DataTable({ columns, data, getRowHref, interactiveColumnIds = [
                                         children: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["flexRender"])(cell.column.columnDef.cell, cell.getContext())
                                     }, cell.id, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                        lineNumber: 297,
-                                        columnNumber: 23
+                                        lineNumber: 409,
+                                        columnNumber: 27
                                     }, this))
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                                lineNumber: 292,
-                                columnNumber: 17
+                                lineNumber: 402,
+                                columnNumber: 21
                             }, this)
                         ]
                     }, row.id, true, {
                         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                        lineNumber: 281,
-                        columnNumber: 15
+                        lineNumber: 391,
+                        columnNumber: 19
                     }, this);
                 })
             }, void 0, false, {
                 fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-                lineNumber: 276,
+                lineNumber: 340,
                 columnNumber: 9
             }, this) : null,
             pagination
         ]
     }, void 0, true, {
         fileName: "[project]/Demo-2/src/components/layout/DataTable.tsx",
-        lineNumber: 184,
+        lineNumber: 276,
         columnNumber: 5
     }, this);
 }
-_s(DataTable, "6m4hQdiT2g0nC5E9x5meqZ8h65Y=", false, function() {
+_s(DataTable, "fO3XPAcfI2rqbQB2mw46B3aQPgc=", false, function() {
     return [
         __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f40$tanstack$2f$react$2d$table$2f$build$2f$lib$2f$index$2e$mjs__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$locals$3e$__["useReactTable"]
     ];
@@ -2025,7 +2144,7 @@ function Horario({ value }) {
         children: "–"
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 146,
+        lineNumber: 147,
         columnNumber: 22
     }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2033,7 +2152,7 @@ function Horario({ value }) {
         children: value
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 147,
+        lineNumber: 148,
         columnNumber: 10
     }, this);
 }
@@ -2046,7 +2165,7 @@ function PunchHeader({ short, full }) {
                 children: full
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 153,
+                lineNumber: 154,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Tooltip"], {
@@ -2058,25 +2177,25 @@ function PunchHeader({ short, full }) {
                             children: short
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 156,
+                            lineNumber: 157,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 155,
+                        lineNumber: 156,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
                         children: full
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 158,
+                        lineNumber: 159,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 154,
+                lineNumber: 155,
                 columnNumber: 7
             }, this)
         ]
@@ -2094,7 +2213,7 @@ function StatusRegistro({ registro }) {
         children: "–"
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 171,
+        lineNumber: 172,
         columnNumber: 34
     }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2105,12 +2224,12 @@ function StatusRegistro({ registro }) {
                 children: label
             }, label, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 176,
+                lineNumber: 177,
                 columnNumber: 9
             }, this))
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 174,
+        lineNumber: 175,
         columnNumber: 5
     }, this);
 }
@@ -2124,14 +2243,14 @@ function SyncStatus({ ultimaSincronizacao, dataSelecionada, hoje }) {
                     className: "size-2 shrink-0 rounded-full bg-warning"
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 196,
+                    lineNumber: 197,
                     columnNumber: 9
                 }, this),
                 "Nenhuma batida recebida hoje"
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-            lineNumber: 195,
+            lineNumber: 196,
             columnNumber: 7
         }, this);
     }
@@ -2153,19 +2272,19 @@ function SyncStatus({ ultimaSincronizacao, dataSelecionada, hoje }) {
                                 className: "size-2 shrink-0 rounded-full bg-warning"
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 211,
+                                lineNumber: 212,
                                 columnNumber: 13
                             }, this),
                             "Batidas podem estar atrasadas"
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 210,
+                        lineNumber: 211,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 209,
+                    lineNumber: 210,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$tooltip$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TooltipContent"], {
@@ -2173,13 +2292,13 @@ function SyncStatus({ ultimaSincronizacao, dataSelecionada, hoje }) {
                     children: "O Secullum envia as batidas quando o computador do escritório está ligado."
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 215,
+                    lineNumber: 216,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-            lineNumber: 208,
+            lineNumber: 209,
             columnNumber: 7
         }, this);
     }
@@ -2190,7 +2309,7 @@ function SyncStatus({ ultimaSincronizacao, dataSelecionada, hoje }) {
                 className: "size-2 shrink-0 rounded-full bg-primary"
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 224,
+                lineNumber: 225,
                 columnNumber: 7
             }, this),
             "Secullum · última batida recebida às ",
@@ -2198,7 +2317,7 @@ function SyncStatus({ ultimaSincronizacao, dataSelecionada, hoje }) {
         ]
     }, void 0, true, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 223,
+        lineNumber: 224,
         columnNumber: 5
     }, this);
 }
@@ -2231,14 +2350,14 @@ function registroColumns(showLoja) {
                     full: col.full
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 246,
+                    lineNumber: 247,
                     columnNumber: 19
                 }, this),
             cell: ({ row })=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(Horario, {
                     value: row.original[col.key]
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 247,
+                    lineNumber: 248,
                     columnNumber: 24
                 }, this),
             meta: {
@@ -2256,7 +2375,7 @@ function registroColumns(showLoja) {
                     children: row.original.funcionario.nome
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 257,
+                    lineNumber: 258,
                     columnNumber: 9
                 }, this)
         },
@@ -2270,14 +2389,14 @@ function registroColumns(showLoja) {
                         children: row.original.funcionario.loja.nome
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 268,
+                        lineNumber: 269,
                         columnNumber: 17
                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                         className: "text-muted-foreground",
                         children: "–"
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 270,
+                        lineNumber: 271,
                         columnNumber: 17
                     }, this)
             }
@@ -2291,7 +2410,7 @@ function registroColumns(showLoja) {
                     registro: row.original
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 280,
+                    lineNumber: 281,
                     columnNumber: 26
                 }, this)
         }
@@ -2398,7 +2517,7 @@ function pendenciaColumns() {
                     children: row.original.numeroFolhaOrigem
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 340,
+                    lineNumber: 341,
                     columnNumber: 9
                 }, this)
         },
@@ -2411,14 +2530,14 @@ function pendenciaColumns() {
                     children: row.original.nomeSugerido
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 351,
+                    lineNumber: 352,
                     columnNumber: 11
                 }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
                     className: "text-muted-foreground",
                     children: "–"
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 353,
+                    lineNumber: 354,
                     columnNumber: 11
                 }, this)
         },
@@ -2433,7 +2552,7 @@ function pendenciaColumns() {
                     children: "–"
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 362,
+                    lineNumber: 363,
                     columnNumber: 40
                 }, this);
                 return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -2443,12 +2562,12 @@ function pendenciaColumns() {
                             children: formatUtcDate(iso)
                         }, `${iso}-${index}`, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 366,
+                            lineNumber: 367,
                             columnNumber: 15
                         }, this))
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 364,
+                    lineNumber: 365,
                     columnNumber: 11
                 }, this);
             }
@@ -2466,7 +2585,7 @@ function pendenciaColumns() {
                     children: row.original.count
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 380,
+                    lineNumber: 381,
                     columnNumber: 9
                 }, this)
         },
@@ -2491,17 +2610,17 @@ function pendenciaColumns() {
                                     className: "text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 397,
+                                    lineNumber: 398,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 391,
+                                lineNumber: 392,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 390,
+                            lineNumber: 391,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -2513,23 +2632,23 @@ function pendenciaColumns() {
                                     children: "Mapear"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 402,
+                                    lineNumber: 403,
                                     columnNumber: 15
                                 }, this)
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 401,
+                                lineNumber: 402,
                                 columnNumber: 13
                             }, this)
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 400,
+                            lineNumber: 401,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 389,
+                    lineNumber: 390,
                     columnNumber: 9
                 }, this)
         }
@@ -2551,12 +2670,12 @@ function TabelaPendencias({ pendencias, loading }) {
                     children: "As matrículas abaixo foram recebidas do Secullum mas não correspondem a nenhum funcionário cadastrado. Acesse o mapeamento para vinculá-las."
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 424,
+                    lineNumber: 425,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 423,
+                lineNumber: 424,
                 columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$layout$2f$DataTable$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DataTable"], {
@@ -2571,7 +2690,7 @@ function TabelaPendencias({ pendencias, loading }) {
                             children: "Nenhuma pendência em aberto"
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 437,
+                            lineNumber: 438,
                             columnNumber: 13
                         }, void 0),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2579,24 +2698,24 @@ function TabelaPendencias({ pendencias, loading }) {
                             children: "Todas as matrículas recebidas estão vinculadas a funcionários."
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 438,
+                            lineNumber: 439,
                             columnNumber: 13
                         }, void 0)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 436,
+                    lineNumber: 437,
                     columnNumber: 11
                 }, void 0)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 430,
+                lineNumber: 431,
                 columnNumber: 7
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 421,
+        lineNumber: 422,
         columnNumber: 5
     }, this);
 }
@@ -2609,7 +2728,50 @@ function TabelaRegistros({ registros, showLoja, loading }) {
     }["TabelaRegistros.useMemo[columns]"], [
         showLoja
     ]);
-    const groups = groupRegistros(registros);
+    const ordered = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
+        "TabelaRegistros.useMemo[ordered]": ()=>{
+            const groups = groupRegistros(registros);
+            return groups.flatMap({
+                "TabelaRegistros.useMemo[ordered]": (g)=>g.rows
+            }["TabelaRegistros.useMemo[ordered]"]);
+        }
+    }["TabelaRegistros.useMemo[ordered]"], [
+        registros
+    ]);
+    const groupBy = (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$index$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["useMemo"])({
+        "TabelaRegistros.useMemo[groupBy]": ()=>({
+                getGroupKey: ({
+                    "TabelaRegistros.useMemo[groupBy]": (row)=>row.funcionario.loja?.id ?? 'sem-loja'
+                })["TabelaRegistros.useMemo[groupBy]"],
+                renderGroupHeader: ({
+                    "TabelaRegistros.useMemo[groupBy]": ({ rows })=>{
+                        const nome = rows[0]?.funcionario.loja?.nome ?? 'Sem loja';
+                        const n = rows.length;
+                        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                            children: [
+                                nome,
+                                /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
+                                    className: "ml-2 font-normal text-muted-foreground tabular-nums",
+                                    children: [
+                                        n,
+                                        " funcionário",
+                                        n !== 1 ? 's' : ''
+                                    ]
+                                }, void 0, true, {
+                                    fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
+                                    lineNumber: 479,
+                                    columnNumber: 13
+                                }, this)
+                            ]
+                        }, void 0, true, {
+                            fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
+                            lineNumber: 477,
+                            columnNumber: 11
+                        }, this);
+                    }
+                })["TabelaRegistros.useMemo[groupBy]"]
+            })
+    }["TabelaRegistros.useMemo[groupBy]"], []);
     if (loading) {
         return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$layout$2f$DataTable$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DataTable"], {
             columns: columns,
@@ -2617,72 +2779,46 @@ function TabelaRegistros({ registros, showLoja, loading }) {
             loading: true
         }, void 0, false, {
             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-            lineNumber: 461,
+            lineNumber: 490,
             columnNumber: 12
         }, this);
     }
-    if (registros.length === 0) {
-        return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-            className: "py-12",
+    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$layout$2f$DataTable$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DataTable"], {
+        columns: columns,
+        data: ordered,
+        pageSize: 200,
+        groupBy: groupBy,
+        emptyState: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
             children: [
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                     className: "text-sm text-foreground",
                     children: "Nenhum registro de ponto"
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 467,
-                    columnNumber: 9
-                }, this),
+                    lineNumber: 501,
+                    columnNumber: 11
+                }, void 0),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
                     className: "text-xs text-muted-foreground mt-1",
                     children: "Nenhum dado recebido do Secullum para esta seleção."
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 468,
-                    columnNumber: 9
-                }, this)
+                    lineNumber: 502,
+                    columnNumber: 11
+                }, void 0)
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-            lineNumber: 466,
-            columnNumber: 7
-        }, this);
-    }
-    return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-        className: "space-y-6",
-        children: groups.map((group)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "space-y-2",
-                children: [
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("h2", {
-                        className: "text-sm font-semibold text-foreground",
-                        children: group.nome
-                    }, void 0, false, {
-                        fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 479,
-                        columnNumber: 11
-                    }, this),
-                    /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$layout$2f$DataTable$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DataTable"], {
-                        columns: columns,
-                        data: group.rows,
-                        pageSize: 200
-                    }, void 0, false, {
-                        fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 480,
-                        columnNumber: 11
-                    }, this)
-                ]
-            }, group.id, true, {
-                fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 478,
-                columnNumber: 9
-            }, this))
+            lineNumber: 500,
+            columnNumber: 9
+        }, void 0)
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 476,
+        lineNumber: 494,
         columnNumber: 5
     }, this);
 }
-_s1(TabelaRegistros, "erkfbBpUuAY09jdvhSOqc0XsEHQ=");
+_s1(TabelaRegistros, "I7QhbmZpFN+I2gkOeT2sZf+UmT0=");
 _c5 = TabelaRegistros;
 function initEdits(linha) {
     return {
@@ -2757,7 +2893,7 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
             onChange: (e)=>setField(field, e.target.value)
         }, void 0, false, {
             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-            lineNumber: 571,
+            lineNumber: 595,
             columnNumber: 5
         }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Fragment"], {
@@ -2774,7 +2910,7 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                     children: linha.funcionario.nome
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 584,
+                                    lineNumber: 608,
                                     columnNumber: 13
                                 }, this),
                                 linha.funcionario.loja && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2782,7 +2918,7 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                     children: linha.funcionario.loja.nome
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 586,
+                                    lineNumber: 610,
                                     columnNumber: 15
                                 }, this),
                                 linha.origemErro && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -2791,25 +2927,25 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                     children: linha.origemErro
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 589,
+                                    lineNumber: 613,
                                     columnNumber: 15
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 583,
+                            lineNumber: 607,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 582,
+                        lineNumber: 606,
                         columnNumber: 9
                     }, this),
                     FECHAMENTO_FIELDS.map((field)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
                             children: fieldInput(field.key, field.placeholder)
                         }, field.key, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 596,
+                            lineNumber: 620,
                             columnNumber: 11
                         }, this)),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
@@ -2823,20 +2959,20 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                         children: STATUS_LINHA[linha.status] ?? linha.status
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 600,
+                                        lineNumber: 624,
                                         columnNumber: 13
                                     }, this),
                                     saving && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$loader$2d$circle$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Loader2$3e$__["Loader2"], {
                                         className: "size-3.5 animate-spin text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 603,
+                                        lineNumber: 627,
                                         columnNumber: 24
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 599,
+                                lineNumber: 623,
                                 columnNumber: 11
                             }, this),
                             linha.observacao && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -2845,13 +2981,13 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                 children: linha.observacao
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 606,
+                                lineNumber: 630,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 598,
+                        lineNumber: 622,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableCell"], {
@@ -2869,17 +3005,17 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                             className: "text-muted-foreground"
                                         }, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 621,
+                                            lineNumber: 645,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 614,
+                                        lineNumber: 638,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 613,
+                                    lineNumber: 637,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -2891,7 +3027,7 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                             children: "Aprovar"
                                         }, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 625,
+                                            lineNumber: 649,
                                             columnNumber: 15
                                         }, this),
                                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2904,30 +3040,30 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                             children: "Rejeitar"
                                         }, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 631,
+                                            lineNumber: 655,
                                             columnNumber: 15
                                         }, this)
                                     ]
                                 }, void 0, true, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 624,
+                                    lineNumber: 648,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 612,
+                            lineNumber: 636,
                             columnNumber: 11
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 611,
+                        lineNumber: 635,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 581,
+                lineNumber: 605,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Dialog"], {
@@ -2941,20 +3077,20 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                     children: "Rejeitar lançamento"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 648,
+                                    lineNumber: 672,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogDescription"], {
                                     children: "Motivo da rejeição (obrigatório)."
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 649,
+                                    lineNumber: 673,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 647,
+                            lineNumber: 671,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -2964,7 +3100,7 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                             autoFocus: true
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 651,
+                            lineNumber: 675,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dialog$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["DialogFooter"], {
@@ -2976,7 +3112,7 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                     children: "Cancelar"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 658,
+                                    lineNumber: 682,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -2987,24 +3123,24 @@ function FechamentoLinhaRow({ linha, fechamentoId, onUpdated }) {
                                     children: "Confirmar"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 661,
+                                    lineNumber: 685,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 657,
+                            lineNumber: 681,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 646,
+                    lineNumber: 670,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 645,
+                lineNumber: 669,
                 columnNumber: 7
             }, this)
         ]
@@ -3026,7 +3162,7 @@ function TabelaRelatorioScroll({ linhas, fechamentoId, onLinhaUpdated }) {
                                 children: "Funcionário"
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 692,
+                                lineNumber: 716,
                                 columnNumber: 13
                             }, this),
                             FECHAMENTO_FIELDS.map((field)=>/*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableHead"], {
@@ -3034,32 +3170,32 @@ function TabelaRelatorioScroll({ linhas, fechamentoId, onLinhaUpdated }) {
                                     children: field.header
                                 }, field.key, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 694,
+                                    lineNumber: 718,
                                     columnNumber: 15
                                 }, this)),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableHead"], {
                                 children: "Status"
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 698,
+                                lineNumber: 722,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableHead"], {
                                 className: "w-10"
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 699,
+                                lineNumber: 723,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 691,
+                        lineNumber: 715,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 690,
+                    lineNumber: 714,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$table$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["TableBody"], {
@@ -3069,23 +3205,23 @@ function TabelaRelatorioScroll({ linhas, fechamentoId, onLinhaUpdated }) {
                             onUpdated: onLinhaUpdated
                         }, linha.id, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 704,
+                            lineNumber: 728,
                             columnNumber: 13
                         }, this))
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 702,
+                    lineNumber: 726,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-            lineNumber: 689,
+            lineNumber: 713,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 688,
+        lineNumber: 712,
         columnNumber: 5
     }, this);
 }
@@ -3229,12 +3365,12 @@ function AbaRelatorio() {
                                         "aria-label": "Mês",
                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectValue"], {}, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 830,
+                                            lineNumber: 854,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 829,
+                                        lineNumber: 853,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -3243,18 +3379,18 @@ function AbaRelatorio() {
                                                 children: nome
                                             }, nome, false, {
                                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                                lineNumber: 834,
+                                                lineNumber: 858,
                                                 columnNumber: 17
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 832,
+                                        lineNumber: 856,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 828,
+                                lineNumber: 852,
                                 columnNumber: 11
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Select"], {
@@ -3266,12 +3402,12 @@ function AbaRelatorio() {
                                         "aria-label": "Ano",
                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectValue"], {}, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 842,
+                                            lineNumber: 866,
                                             columnNumber: 15
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 841,
+                                        lineNumber: 865,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$select$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["SelectContent"], {
@@ -3280,18 +3416,18 @@ function AbaRelatorio() {
                                                 children: valor
                                             }, valor, false, {
                                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                                lineNumber: 846,
+                                                lineNumber: 870,
                                                 columnNumber: 17
                                             }, this))
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 844,
+                                        lineNumber: 868,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 840,
+                                lineNumber: 864,
                                 columnNumber: 11
                             }, this),
                             fechamento && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$badge$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Badge"], {
@@ -3300,13 +3436,13 @@ function AbaRelatorio() {
                                 children: STATUS_FECHAMENTO[fechamento.status] ?? fechamento.status
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 853,
+                                lineNumber: 877,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 827,
+                        lineNumber: 851,
                         columnNumber: 9
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3323,20 +3459,20 @@ function AbaRelatorio() {
                                         className: "animate-spin text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 871,
+                                        lineNumber: 895,
                                         columnNumber: 17
                                     }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$download$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__Download$3e$__["Download"], {
                                         className: "text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 873,
+                                        lineNumber: 897,
                                         columnNumber: 17
                                     }, this),
                                     "Baixar planilha"
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 863,
+                                lineNumber: 887,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3349,26 +3485,26 @@ function AbaRelatorio() {
                                         className: "animate-spin"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 884,
+                                        lineNumber: 908,
                                         columnNumber: 25
                                     }, this),
                                     fechamento ? 'Regerar fechamento' : 'Gerar fechamento'
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 878,
+                                lineNumber: 902,
                                 columnNumber: 11
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 861,
+                        lineNumber: 885,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 826,
+                lineNumber: 850,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3379,7 +3515,7 @@ function AbaRelatorio() {
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 889,
+                lineNumber: 913,
                 columnNumber: 7
             }, this),
             erroGerar && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Alert"], {
@@ -3390,12 +3526,12 @@ function AbaRelatorio() {
                     children: erroGerar
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 895,
+                    lineNumber: 919,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 894,
+                lineNumber: 918,
                 columnNumber: 9
             }, this),
             semPis.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Alert"], {
@@ -3410,7 +3546,7 @@ function AbaRelatorio() {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 901,
+                        lineNumber: 925,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$alert$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["AlertDescription"], {
@@ -3421,13 +3557,13 @@ function AbaRelatorio() {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 904,
+                        lineNumber: 928,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 900,
+                lineNumber: 924,
                 columnNumber: 9
             }, this),
             loadingFechamento && !fechamento && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3437,27 +3573,27 @@ function AbaRelatorio() {
                         className: "h-8 w-full"
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 913,
+                        lineNumber: 937,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                         className: "h-8 w-full"
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 914,
+                        lineNumber: 938,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$skeleton$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Skeleton"], {
                         className: "h-8 w-full"
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 915,
+                        lineNumber: 939,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 912,
+                lineNumber: 936,
                 columnNumber: 9
             }, this),
             !loadingFechamento && !fechamento && !gerando && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3471,7 +3607,7 @@ function AbaRelatorio() {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 921,
+                        lineNumber: 945,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("p", {
@@ -3483,13 +3619,13 @@ function AbaRelatorio() {
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 922,
+                        lineNumber: 946,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 920,
+                lineNumber: 944,
                 columnNumber: 9
             }, this),
             fechamento && fechamento.linhas.length === 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3499,12 +3635,12 @@ function AbaRelatorio() {
                     children: "Nenhum funcionário neste fechamento"
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                    lineNumber: 931,
+                    lineNumber: 955,
                     columnNumber: 11
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 930,
+                lineNumber: 954,
                 columnNumber: 9
             }, this),
             fechamento && fechamento.linhas.length > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3518,7 +3654,7 @@ function AbaRelatorio() {
                                 children: mesLabel(mes, ano)
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 938,
+                                lineNumber: 962,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3529,7 +3665,7 @@ function AbaRelatorio() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 939,
+                                lineNumber: 963,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3540,7 +3676,7 @@ function AbaRelatorio() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 942,
+                                lineNumber: 966,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3551,7 +3687,7 @@ function AbaRelatorio() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 943,
+                                lineNumber: 967,
                                 columnNumber: 13
                             }, this),
                             rejeitados > 0 && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -3562,13 +3698,13 @@ function AbaRelatorio() {
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 945,
+                                lineNumber: 969,
                                 columnNumber: 15
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 937,
+                        lineNumber: 961,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TabelaRelatorioScroll, {
@@ -3577,19 +3713,19 @@ function AbaRelatorio() {
                         onLinhaUpdated: onLinhaUpdated
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 948,
+                        lineNumber: 972,
                         columnNumber: 11
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 936,
+                lineNumber: 960,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 825,
+        lineNumber: 849,
         columnNumber: 5
     }, this);
 }
@@ -3702,7 +3838,7 @@ function PontosPage() {
                             hoje: hoje
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 1032,
+                            lineNumber: 1056,
                             columnNumber: 15
                         }, void 0),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3716,21 +3852,21 @@ function PontosPage() {
                                     className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$client$5d$__$28$ecmascript$29$__["cn"])('text-muted-foreground', loading && 'animate-spin')
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                    lineNumber: 1045,
+                                    lineNumber: 1069,
                                     columnNumber: 15
                                 }, void 0),
                                 "Atualizar"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                            lineNumber: 1038,
+                            lineNumber: 1062,
                             columnNumber: 13
                         }, void 0)
                     ]
                 }, void 0, true)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 1026,
+                lineNumber: 1050,
                 columnNumber: 7
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3745,7 +3881,7 @@ function PontosPage() {
                                 onSelect: (loja)=>setLojaId(loja?.id ?? '')
                             }, void 0, false, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 1055,
+                                lineNumber: 1079,
                                 columnNumber: 13
                             }, this),
                             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -3759,12 +3895,12 @@ function PontosPage() {
                                         onClick: ()=>setData((current)=>shiftIsoDate(current, -1)),
                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$left$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronLeft$3e$__["ChevronLeft"], {}, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 1068,
+                                            lineNumber: 1092,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 1061,
+                                        lineNumber: 1085,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$input$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Input"], {
@@ -3775,7 +3911,7 @@ function PontosPage() {
                                         "aria-label": "Data"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 1070,
+                                        lineNumber: 1094,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3786,12 +3922,12 @@ function PontosPage() {
                                         onClick: ()=>setData((current)=>shiftIsoDate(current, 1)),
                                         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {}, void 0, false, {
                                             fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                            lineNumber: 1084,
+                                            lineNumber: 1108,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 1077,
+                                        lineNumber: 1101,
                                         columnNumber: 15
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$client$5d$__$28$ecmascript$29$__["Button"], {
@@ -3803,19 +3939,19 @@ function PontosPage() {
                                         children: "Hoje"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 1086,
+                                        lineNumber: 1110,
                                         columnNumber: 15
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 1060,
+                                lineNumber: 1084,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 1054,
+                        lineNumber: 1078,
                         columnNumber: 11
                     }, this),
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("nav", {
@@ -3833,30 +3969,30 @@ function PontosPage() {
                                         children: t.count
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                        lineNumber: 1117,
+                                        lineNumber: 1141,
                                         columnNumber: 19
                                     }, this)
                                 ]
                             }, t.id, true, {
                                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                                lineNumber: 1103,
+                                lineNumber: 1127,
                                 columnNumber: 15
                             }, this);
                         })
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                        lineNumber: 1099,
+                        lineNumber: 1123,
                         columnNumber: 9
                     }, this)
                 ]
             }, void 0, true, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 1052,
+                lineNumber: 1076,
                 columnNumber: 7
             }, this),
             aba === 'relatorio' ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(AbaRelatorio, {}, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 1133,
+                lineNumber: 1157,
                 columnNumber: 9
             }, this) : aba === 'registros' ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TabelaRegistros, {
                 registros: registros,
@@ -3864,20 +4000,20 @@ function PontosPage() {
                 loading: loading
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 1135,
+                lineNumber: 1159,
                 columnNumber: 9
             }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])(TabelaPendencias, {
                 pendencias: pendencias,
                 loading: loading
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-                lineNumber: 1137,
+                lineNumber: 1161,
                 columnNumber: 9
             }, this)
         ]
     }, void 0, true, {
         fileName: "[project]/Demo-2/app/(app)/pontos/page.tsx",
-        lineNumber: 1025,
+        lineNumber: 1049,
         columnNumber: 5
     }, this);
 }

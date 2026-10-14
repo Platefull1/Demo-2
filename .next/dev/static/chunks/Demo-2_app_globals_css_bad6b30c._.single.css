@@ -1311,6 +1311,10 @@ body {
   min-height: 100vh;
 }
 
+.min-h-5 {
+  min-height: 1.25rem;
+}
+
 .w-1\.5 {
   width: .375rem;
 }
@@ -1509,6 +1513,10 @@ body {
 
 .w-\[96px\] {
   width: 96px;
+}
+
+.w-\[32\%\] {
+  width: 32%;
 }
 
 .min-w-0 {
@@ -2213,10 +2221,18 @@ body {
   overflow-x: hidden;
 }
 
+.overflow-y-hidden {
+  overflow-y: hidden;
+}
+
 .truncate {
   text-overflow: ellipsis;
   white-space: nowrap;
   overflow: hidden;
+}
+
+.whitespace-normal {
+  white-space: normal;
 }
 
 .whitespace-nowrap {
