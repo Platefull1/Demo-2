@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Loader2, Check, Ban } from 'lucide-react';
+import { ArrowLeft, Loader2, Check, Ban, Unlock } from 'lucide-react';
 import {
   notasListHref,
   parseNotasListFilters,
@@ -181,13 +181,15 @@ function CmvRealNotaDetalhePageInner() {
           if (opt?.fator != null) fatorNum = opt.fator;
         }
 
-        // Peso por interna: campo começa vazio (usuário informa a bisnaga/peça)
-        const fatorStr =
-          interp.pesoPorInterna &&
-          it.fatorConversao == null &&
-          interp.opcoes.length === 0
-            ? ''
-            : formatFatorBr(fatorNum);
+        // Peso por interna: campo mostra peso da peça (fator salvo ÷ N)
+        let fatorStr = formatFatorBr(fatorNum);
+        if (interp.pesoPorInterna && interp.opcoes.length === 0) {
+          if (it.fatorConversao != null && interp.nPack && interp.nPack > 1) {
+            fatorStr = formatFatorBr(it.fatorConversao / interp.nPack);
+          } else if (it.fatorConversao == null) {
+            fatorStr = '';
+          }
+        }
 
         next[it.id] = {
           produtoId: first,
@@ -333,6 +335,26 @@ function CmvRealNotaDetalhePageInner() {
       router.push(backHref);
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
+      setSaving(null);
+    }
+  };
+
+  const reabrir = async () => {
+    if (
+      !confirm(
+        'Reabrir esta nota? Os lançamentos do CMV serão removidos até você aprovar de novo. Só funciona se o mês estiver aberto no Fechamento.',
+      )
+    ) {
+      return;
+    }
+    setSaving('reabrir');
+    setMsg(null);
+    try {
+      await post({ action: 'reabrir_nota' });
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    } finally {
       setSaving(null);
     }
   };
@@ -861,9 +883,37 @@ function CmvRealNotaDetalhePageInner() {
         <section className="space-y-2">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Resolvidos ({resolvidos.length})
+            {nota.status === 'EM_REVISAO' && canRevisar
+              ? ' — corrija o fator se precisar'
+              : ''}
           </h3>
-          {resolvidos.map((it) => renderItem(it, false))}
+          {resolvidos.map((it) =>
+            renderItem(
+              it,
+              canRevisar &&
+                nota.status === 'EM_REVISAO' &&
+                it.status === 'MAPEADO',
+            ),
+          )}
         </section>
+      )}
+
+      {canRevisar && nota.status === 'APROVADA' && (
+        <button
+          type="button"
+          disabled={saving === 'reabrir'}
+          onClick={() => void reabrir()}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card text-foreground font-semibold text-sm py-3 sticky bottom-4 shadow-lg"
+        >
+          {saving === 'reabrir' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <>
+              <Unlock className="w-4 h-4 text-muted-foreground" />
+              Reabrir nota
+            </>
+          )}
+        </button>
       )}
 
       {canRevisar && pendentes.length === 0 && nota.status === 'EM_REVISAO' && (

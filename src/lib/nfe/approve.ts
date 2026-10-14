@@ -92,7 +92,11 @@ function inferirLojaPorNome(nome: string | null | undefined): string | null {
   return null;
 }
 
-/** Reabre nota: apaga lançamentos. Só se fechamento do mês estiver ABERTO (ou inexistente). */
+/**
+ * Reabre nota aprovada: apaga lançamentos e volta status para EM_REVISAO.
+ * Só se o fechamento do mês estiver ABERTO (ou inexistente).
+ * Itens MAPEADO/IGNORADO permanecem — dá para corrigir o fator e aprovar de novo.
+ */
 export async function reabrirNotaSePermitido(params: {
   userId: string;
   notaId: string;
@@ -113,12 +117,33 @@ export async function reabrirNotaSePermitido(params: {
     return { ok: false, motivo: 'Competência fechada — não é possível reabrir a nota.' };
   }
 
-  await prisma.cmvLancamento.deleteMany({
-    where: {
-      userId: params.userId,
-      nfeItem: { notaId: params.notaId },
-    },
+  const nota = await prisma.nfeNota.findFirst({
+    where: { id: params.notaId, userId: params.userId },
+    select: { id: true, status: true },
   });
+  if (!nota) {
+    return { ok: false, motivo: 'Nota não encontrada.' };
+  }
+  if (nota.status !== 'APROVADA') {
+    return { ok: false, motivo: 'Só é possível reabrir nota aprovada.' };
+  }
+
+  await prisma.$transaction([
+    prisma.cmvLancamento.deleteMany({
+      where: {
+        userId: params.userId,
+        nfeItem: { notaId: params.notaId },
+      },
+    }),
+    prisma.nfeNota.update({
+      where: { id: params.notaId },
+      data: {
+        status: 'EM_REVISAO',
+        aprovadaEm: null,
+        aprovadaPorId: null,
+      },
+    }),
+  ]);
 
   return { ok: true };
 }

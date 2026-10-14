@@ -4,7 +4,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
-import { gerarLancamentosAprovacao } from '@/lib/nfe/approve';
+import {
+  gerarLancamentosAprovacao,
+  reabrirNotaSePermitido,
+} from '@/lib/nfe/approve';
 import { Prisma } from '@prisma/client';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -135,6 +138,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *  - ignorar_item { itemId }
  *  - fornecedor_fora_cmv
  *  - aprovar_nota
+ *  - reabrir_nota
  */
 export async function POST(req: NextRequest, { params }: Ctx) {
   const { id } = await params;
@@ -177,6 +181,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!body.itemId) {
       return NextResponse.json({ error: 'itemId obrigatório' }, { status: 400 });
     }
+    const notaStatus = await prisma.nfeNota.findFirst({
+      where: { id, userId: tenant.tenantUserId },
+      select: { status: true },
+    });
+    if (!notaStatus) {
+      return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
+    }
+    if (notaStatus.status === 'APROVADA') {
+      return NextResponse.json(
+        { error: 'Nota aprovada — reabra antes de alterar itens' },
+        { status: 400 },
+      );
+    }
     await prisma.nfeItem.updateMany({
       where: { id: body.itemId, nota: { userId: tenant.tenantUserId, id } },
       data: { status: 'IGNORADO', estoqueInsumoId: null, fatorConversao: null },
@@ -201,6 +218,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       include: { nota: true },
     });
     if (!item) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 });
+    if (item.nota.status === 'APROVADA') {
+      return NextResponse.json(
+        { error: 'Nota aprovada — reabra antes de alterar itens' },
+        { status: 400 },
+      );
+    }
 
     const insumo = await prisma.estoqueInsumo.findFirst({
       where: {
@@ -315,6 +338,10 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     });
     if (!nota) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
 
+    if (nota.status === 'APROVADA') {
+      return NextResponse.json({ error: 'Nota já aprovada' }, { status: 400 });
+    }
+
     const pendentes = nota.itens.filter(
       (i) => i.status === 'SUGERIDO' || i.status === 'SEM_MAPEAMENTO',
     );
@@ -343,6 +370,47 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     });
 
     return NextResponse.json({ ok: true, lancamentos: n });
+  }
+
+  if (body.action === 'reabrir_nota') {
+    const { tenant, error } = await requireCmvRealAccess(
+      P.CMV_REAL_REVISAR_APROVAR,
+    );
+    if (error) return error;
+
+    const nota = await prisma.nfeNota.findFirst({
+      where: { id, userId: tenant.tenantUserId },
+      select: {
+        id: true,
+        status: true,
+        storeSlug: true,
+        competencia: true,
+      },
+    });
+    if (!nota) {
+      return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
+    }
+    if (
+      !tenant.isAdmin &&
+      tenant.allowedStoreSlugs &&
+      !tenant.allowedStoreSlugs.includes(nota.storeSlug)
+    ) {
+      return NextResponse.json({ error: 'Sem acesso a esta loja' }, { status: 403 });
+    }
+
+    const result = await reabrirNotaSePermitido({
+      userId: tenant.tenantUserId,
+      notaId: nota.id,
+      storeSlug: nota.storeSlug,
+      competencia: nota.competencia,
+    });
+    if (!result.ok) {
+      return NextResponse.json(
+        { error: result.motivo || 'Não foi possível reabrir' },
+        { status: 400 },
+      );
+    }
+    return NextResponse.json({ ok: true });
   }
 
   return NextResponse.json({ error: 'action inválida' }, { status: 400 });
