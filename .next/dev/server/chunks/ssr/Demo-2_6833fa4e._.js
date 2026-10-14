@@ -1406,33 +1406,39 @@ function SidebarChrome({ logo, logoCollapsed, navSections, navLoading, footer, c
         className: "flex h-full flex-col bg-card border-r border-border",
         children: [
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("flex h-14 shrink-0 items-center border-b border-border px-3", collapsed ? "justify-center" : "justify-between gap-2"),
+                className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("shrink-0 border-b border-border px-3", collapsed ? "flex flex-col items-center gap-1 py-2" : "flex h-14 items-center justify-between gap-2"),
                 children: [
                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                         className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("min-w-0", collapsed && "flex justify-center"),
                         children: collapsed ? logoCollapsed ?? logo : logo
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                        lineNumber: 286,
+                        lineNumber: 288,
                         columnNumber: 9
                     }, this),
-                    showCollapseToggle && onToggleCollapsed && !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
+                    showCollapseToggle && onToggleCollapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
                         type: "button",
                         variant: "ghost",
                         size: "icon-sm",
                         onClick: onToggleCollapsed,
                         className: "text-muted-foreground",
-                        "aria-label": "Recolher menu",
-                        children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$left$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronLeft$3e$__["ChevronLeft"], {
+                        "aria-label": collapsed ? "Expandir menu" : "Recolher menu",
+                        children: collapsed ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {
                             className: "h-4 w-4"
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                            lineNumber: 298,
-                            columnNumber: 13
+                            lineNumber: 301,
+                            columnNumber: 15
+                        }, this) : /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$left$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronLeft$3e$__["ChevronLeft"], {
+                            className: "h-4 w-4"
+                        }, void 0, false, {
+                            fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
+                            lineNumber: 303,
+                            columnNumber: 15
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                        lineNumber: 290,
+                        lineNumber: 292,
                         columnNumber: 11
                     }, this)
                 ]
@@ -1450,46 +1456,20 @@ function SidebarChrome({ logo, logoCollapsed, navSections, navLoading, footer, c
                     onNavigate: onNavigate
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                    lineNumber: 304,
+                    lineNumber: 310,
                     columnNumber: 9
                 }, this)
             }, void 0, false, {
                 fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                lineNumber: 303,
+                lineNumber: 309,
                 columnNumber: 7
-            }, this),
-            showCollapseToggle && onToggleCollapsed && collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
-                className: "px-2 pb-2",
-                children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$button$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Button"], {
-                    type: "button",
-                    variant: "ghost",
-                    size: "icon-sm",
-                    onClick: onToggleCollapsed,
-                    className: "w-full text-muted-foreground",
-                    "aria-label": "Expandir menu",
-                    children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$chevron$2d$right$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__ChevronRight$3e$__["ChevronRight"], {
-                        className: "h-4 w-4"
-                    }, void 0, false, {
-                        fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                        lineNumber: 322,
-                        columnNumber: 13
-                    }, this)
-                }, void 0, false, {
-                    fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                    lineNumber: 314,
-                    columnNumber: 11
-                }, this)
-            }, void 0, false, {
-                fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                lineNumber: 313,
-                columnNumber: 9
             }, this),
             /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                 className: (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$utils$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["cn"])("shrink-0 border-t border-border p-3", collapsed && "flex justify-center"),
                 children: footerNode
             }, void 0, false, {
                 fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                lineNumber: 327,
+                lineNumber: 318,
                 columnNumber: 7
             }, this)
         ]
@@ -1534,17 +1514,17 @@ function AppShell({ children, logo, logoCollapsed, navSections, footer, navLoadi
                             showCollapseToggle: true
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                            lineNumber: 374,
+                            lineNumber: 365,
                             columnNumber: 13
                         }, this)
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                        lineNumber: 373,
+                        lineNumber: 364,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                    lineNumber: 367,
+                    lineNumber: 358,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1565,17 +1545,17 @@ function AppShell({ children, logo, logoCollapsed, navSections, footer, navLoadi
                                             className: "h-5 w-5"
                                         }, void 0, false, {
                                             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                                            lineNumber: 396,
+                                            lineNumber: 387,
                                             columnNumber: 17
                                         }, this)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                                        lineNumber: 390,
+                                        lineNumber: 381,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                                    lineNumber: 389,
+                                    lineNumber: 380,
                                     columnNumber: 13
                                 }, this),
                                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$sheet$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SheetContent"], {
@@ -1590,18 +1570,18 @@ function AppShell({ children, logo, logoCollapsed, navSections, footer, navLoadi
                                         onNavigate: ()=>setMobileOpen(false)
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                                        lineNumber: 403,
+                                        lineNumber: 394,
                                         columnNumber: 15
                                     }, this)
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                                    lineNumber: 399,
+                                    lineNumber: 390,
                                     columnNumber: 13
                                 }, this)
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                            lineNumber: 388,
+                            lineNumber: 379,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1609,20 +1589,20 @@ function AppShell({ children, logo, logoCollapsed, navSections, footer, navLoadi
                             children: logo
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                            lineNumber: 413,
+                            lineNumber: 404,
                             columnNumber: 11
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
                             className: "w-8"
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                            lineNumber: 414,
+                            lineNumber: 405,
                             columnNumber: 11
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                    lineNumber: 387,
+                    lineNumber: 378,
                     columnNumber: 9
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
@@ -1632,23 +1612,23 @@ function AppShell({ children, logo, logoCollapsed, navSections, footer, navLoadi
                         children: children
                     }, void 0, false, {
                         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                        lineNumber: 423,
+                        lineNumber: 414,
                         columnNumber: 11
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-                    lineNumber: 417,
+                    lineNumber: 408,
                     columnNumber: 9
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-            lineNumber: 366,
+            lineNumber: 357,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Demo-2/src/components/layout/AppShell.tsx",
-        lineNumber: 365,
+        lineNumber: 356,
         columnNumber: 5
     }, this);
 }
