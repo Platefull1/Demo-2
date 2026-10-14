@@ -1,52 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useMemo, useRef, type RefObject } from 'react';
-
-// ─── Hook: arrastar para rolar horizontalmente (sem scrollbar visível) ────────
-function useDragScroll(): {
-  ref: RefObject<HTMLDivElement | null>;
-  handlers: React.HTMLAttributes<HTMLDivElement>;
-} {
-  const ref = useRef<HTMLDivElement>(null);
-  const dragging = useRef(false);
-  const startX = useRef(0);
-  const startScrollLeft = useRef(0);
-
-  const onMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = ref.current;
-    if (!el) return;
-    dragging.current = true;
-    startX.current = e.clientX;
-    startScrollLeft.current = el.scrollLeft;
-    el.style.cursor = 'grabbing';
-    el.style.userSelect = 'none';
-  };
-
-  const onMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!dragging.current || !ref.current) return;
-    e.preventDefault();
-    const dx = e.clientX - startX.current;
-    ref.current.scrollLeft = startScrollLeft.current - dx;
-  };
-
-  const stopDrag = () => {
-    dragging.current = false;
-    if (ref.current) {
-      ref.current.style.cursor = 'grab';
-      ref.current.style.userSelect = '';
-    }
-  };
-
-  return {
-    ref,
-    handlers: {
-      onMouseDown,
-      onMouseMove,
-      onMouseUp: stopDrag,
-      onMouseLeave: stopDrag,
-    },
-  };
-}
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
 import Link from 'next/link';
 import { useLoja } from '@/contexts/LojaContext';
@@ -69,20 +23,38 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
-  AlertTriangle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
   RefreshCw,
   MoreHorizontal,
-  FileSpreadsheet,
   Loader2,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
   ChevronLeft,
   ChevronRight,
   Download,
-  X,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -141,17 +113,12 @@ interface FechamentoMensal {
   ano: number;
   status: string;
   linhas: FechamentoLinha[];
+  funcionariosSemPis?: Array<{ id: string; nome: string }>;
 }
 
 type Aba = 'registros' | 'pendencias' | 'relatorio';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
-
-const inputCls =
-  'bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors';
-
-const cellCls = 'px-3 py-2.5 text-sm text-gray-200 whitespace-nowrap';
-const headCls = 'px-3 py-2 text-[11px] font-semibold text-gray-500 uppercase tracking-wide text-left whitespace-nowrap';
 
 const STALE_SYNC_MS = 60 * 60 * 1000;
 
@@ -318,6 +285,42 @@ function registroColumns(showLoja: boolean): ColumnDef<RegistroPonto, unknown>[]
 function mesLabel(mes: number, ano: number) {
   return new Date(ano, mes - 1, 1).toLocaleString('pt-BR', { month: 'long', year: 'numeric' });
 }
+
+const STATUS_LINHA: Record<string, string> = {
+  pendente: 'Pendente',
+  aprovado: 'Aprovado',
+  rejeitado: 'Rejeitado',
+};
+
+const STATUS_FECHAMENTO: Record<string, string> = {
+  rascunho: 'Rascunho',
+  em_revisao: 'Em revisão',
+  concluido: 'Concluído',
+};
+
+function statusBadgeClass(status: string) {
+  if (status === 'aprovado' || status === 'concluido') {
+    return 'border-transparent bg-success/15 text-success';
+  }
+  if (status === 'rejeitado') {
+    return 'border-transparent bg-destructive/15 text-destructive';
+  }
+  return 'border-transparent bg-warning/15 text-warning';
+}
+
+const FECHAMENTO_FIELDS: { key: keyof LinhaEditada; header: string; placeholder: string }[] = [
+  { key: 'ex60', header: 'Ex 60%', placeholder: '00:00' },
+  { key: 'ex100', header: 'Ex 100%', placeholder: '00:00' },
+  { key: 'en60', header: 'EN 60%', placeholder: '00:00' },
+  { key: 'en100', header: 'EN 100%', placeholder: '00:00' },
+  { key: 'atraso', header: 'Atraso', placeholder: '00:00' },
+  { key: 'faltas', header: 'Faltas', placeholder: '00:00' },
+  { key: 'faltaDsr', header: 'Falta DSR', placeholder: '00:00' },
+  { key: 'valeTransporte', header: 'VT (R$)', placeholder: '0,00' },
+  { key: 'descDiversos', header: 'Desc. diversos', placeholder: '0,00' },
+  { key: 'descRefeicao', header: 'Desc. refeição', placeholder: '0,00' },
+  { key: 'descCompras', header: 'Desc. compras', placeholder: '0,00' },
+];
 
 // ─── Tabela de Registros (Fase 6) ───────────────────────────────────────────
 
@@ -565,116 +568,107 @@ function FechamentoLinhaRow({
   };
 
   const fieldInput = (field: keyof LinhaEditada, placeholder = '') => (
-    <input
-      className="w-[72px] bg-[#0a0a0a] border border-[#2a2a2e] rounded-lg px-2 py-1 text-xs text-white placeholder-gray-700 focus:outline-none focus:border-amber-500/50"
+    <Input
+      className="h-8 w-[4.75rem] px-2 text-xs tabular-nums"
       value={edits[field]}
       placeholder={placeholder}
       onChange={(e) => setField(field, e.target.value)}
     />
   );
 
-  const statusIcon = () => {
-    if (linha.status === 'aprovado') return <CheckCircle2 className="w-4 h-4 text-green-400" />;
-    if (linha.status === 'rejeitado') return <XCircle className="w-4 h-4 text-red-400" />;
-    return <AlertCircle className="w-4 h-4 text-amber-400" />;
-  };
-
   return (
     <>
-      <tr
-        className={`border-b border-[#2a2a2e] last:border-0 ${
-          linha.origemErro ? 'bg-red-500/5' : ''
-        }`}
-        title={linha.origemErro ?? undefined}
-      >
-        <td className={`${cellCls} font-medium text-white sticky left-0 bg-[#111113]`}>
-          <div className="flex flex-col">
-            <span>{linha.funcionario.nome}</span>
+      <TableRow className={linha.origemErro ? 'bg-destructive/5' : undefined}>
+        <TableCell>
+          <div className="flex flex-col gap-0.5">
+            <span className="font-medium text-foreground">{linha.funcionario.nome}</span>
             {linha.funcionario.loja && (
-              <span className="text-[10px] text-gray-500">{linha.funcionario.loja.nome}</span>
+              <span className="text-xs text-muted-foreground">{linha.funcionario.loja.nome}</span>
             )}
             {linha.origemErro && (
-              <span className="text-[10px] text-red-400 mt-0.5 truncate max-w-[140px]" title={linha.origemErro}>
-                ⚠ {linha.origemErro}
+              <span className="text-xs text-destructive truncate max-w-[180px]" title={linha.origemErro}>
+                {linha.origemErro}
               </span>
             )}
           </div>
-        </td>
-        <td className={cellCls}>{fieldInput('ex60', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('ex100', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('en60', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('en100', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('atraso', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('faltas', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('faltaDsr', '00:00')}</td>
-        <td className={cellCls}>{fieldInput('valeTransporte', '0,00')}</td>
-        <td className={cellCls}>{fieldInput('descDiversos', '0,00')}</td>
-        <td className={cellCls}>{fieldInput('descRefeicao', '0,00')}</td>
-        <td className={cellCls}>{fieldInput('descCompras', '0,00')}</td>
-        <td className={cellCls}>
-          <div className="flex items-center gap-1">
-            {statusIcon()}
-            <span className="text-xs capitalize text-gray-400">{linha.status}</span>
-            {saving && <Loader2 className="w-3 h-3 text-gray-600 animate-spin" />}
+        </TableCell>
+        {FECHAMENTO_FIELDS.map((field) => (
+          <TableCell key={field.key}>{fieldInput(field.key, field.placeholder)}</TableCell>
+        ))}
+        <TableCell>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary" className={cn('font-normal', statusBadgeClass(linha.status))}>
+              {STATUS_LINHA[linha.status] ?? linha.status}
+            </Badge>
+            {saving && <Loader2 className="size-3.5 animate-spin text-muted-foreground" />}
           </div>
           {linha.observacao && (
-            <p className="text-[10px] text-gray-500 mt-0.5 max-w-[120px] truncate" title={linha.observacao}>
+            <p className="text-xs text-muted-foreground mt-1 max-w-[140px] truncate" title={linha.observacao}>
               {linha.observacao}
             </p>
           )}
-        </td>
-        <td className={cellCls}>
-          <div className="flex gap-1">
-            <button
-              type="button"
-              onClick={handleAprovar}
-              disabled={linha.status === 'aprovado' || saving}
-              className="px-2 py-1 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 text-xs font-medium hover:bg-green-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Aprovar
-            </button>
-            <button
-              type="button"
-              onClick={() => setRejeitandoObs(true)}
-              disabled={linha.status === 'rejeitado' || saving}
-              className="px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-medium hover:bg-red-500/20 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              Rejeitar
-            </button>
-          </div>
-        </td>
-      </tr>
-      {rejeitandoObs && (
-        <tr className="bg-[#1a1a1e]">
-          <td colSpan={14} className="px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-400">Motivo da rejeição (obrigatório):</span>
-              <input
-                className="flex-1 bg-[#0a0a0a] border border-red-500/40 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-red-500"
-                placeholder="Ex.: PIS inválido, erro no cálculo..."
-                value={obsText}
-                onChange={(e) => setObsText(e.target.value)}
-                autoFocus
-              />
-              <button
+        </TableCell>
+        <TableCell>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
                 type="button"
-                onClick={handleRejeitar}
-                disabled={!obsText.trim()}
-                className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-semibold disabled:opacity-40"
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Mais opções"
+                disabled={saving}
               >
-                Confirmar
-              </button>
-              <button
-                type="button"
-                onClick={() => setRejeitandoObs(false)}
-                className="p-1.5 rounded-lg text-gray-500 hover:text-white"
+                <MoreHorizontal className="text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={linha.status === 'aprovado' || saving}
+                onSelect={handleAprovar}
               >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </td>
-        </tr>
-      )}
+                Aprovar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={linha.status === 'rejeitado' || saving}
+                className="text-destructive focus:text-destructive"
+                onSelect={(event) => {
+                  event.preventDefault();
+                  setRejeitandoObs(true);
+                }}
+              >
+                Rejeitar
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </TableCell>
+      </TableRow>
+      <Dialog open={rejeitandoObs} onOpenChange={setRejeitandoObs}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rejeitar lançamento</DialogTitle>
+            <DialogDescription>Motivo da rejeição (obrigatório).</DialogDescription>
+          </DialogHeader>
+          <Input
+            value={obsText}
+            onChange={(e) => setObsText(e.target.value)}
+            placeholder="Ex.: PIS inválido, erro no cálculo..."
+            autoFocus
+          />
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setRejeitandoObs(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleRejeitar}
+              disabled={!obsText.trim()}
+            >
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
@@ -690,35 +684,22 @@ function TabelaRelatorioScroll({
   fechamentoId: string;
   onLinhaUpdated: (updated: FechamentoLinha) => void;
 }) {
-  const drag = useDragScroll();
-
   return (
-    <div
-      ref={drag.ref}
-      {...drag.handlers}
-      className="overflow-x-auto [&::-webkit-scrollbar]:hidden"
-      style={{ scrollbarWidth: 'none', cursor: 'grab' }}
-    >
-      <table className="w-full text-sm">
-        <thead className="border-b border-[#2a2a2e] bg-[#111113]">
-          <tr>
-            <th className={`${headCls} sticky left-0 bg-[#111113]`}>Funcionário</th>
-            <th className={headCls}>Ex 60%</th>
-            <th className={headCls}>Ex 100%</th>
-            <th className={headCls}>EN 60%</th>
-            <th className={headCls}>EN 100%</th>
-            <th className={headCls}>Atraso</th>
-            <th className={headCls}>Faltas</th>
-            <th className={headCls}>Falta DSR</th>
-            <th className={headCls}>VT (R$)</th>
-            <th className={headCls}>Desc. Div.</th>
-            <th className={headCls}>Desc. Ref.</th>
-            <th className={headCls}>Desc. Comp.</th>
-            <th className={headCls}>Status</th>
-            <th className={headCls}>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
+    <div className="rounded-md border border-border overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead>Funcionário</TableHead>
+            {FECHAMENTO_FIELDS.map((field) => (
+              <TableHead key={field.key} className="whitespace-nowrap">
+                {field.header}
+              </TableHead>
+            ))}
+            <TableHead>Status</TableHead>
+            <TableHead className="w-10" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {linhas.map((linha) => (
             <FechamentoLinhaRow
               key={linha.id}
@@ -727,8 +708,8 @@ function TabelaRelatorioScroll({
               onUpdated={onLinhaUpdated}
             />
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -828,9 +809,7 @@ function AbaRelatorio() {
     );
   };
 
-  const semPis = fechamento
-    ? (fechamento as any).funcionariosSemPis as Array<{ id: string; nome: string }> ?? []
-    : [];
+  const semPis = fechamento?.funcionariosSemPis ?? [];
 
   const meses = [
     'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -838,137 +817,134 @@ function AbaRelatorio() {
   ];
   const anos = Array.from({ length: 4 }, (_, i) => anoAtual - 1 + i);
 
+  const aprovados = fechamento?.linhas.filter((l) => l.status === 'aprovado').length ?? 0;
+  const pendentesLinha = fechamento?.linhas.filter((l) => l.status === 'pendente').length ?? 0;
+  const rejeitados = fechamento?.linhas.filter((l) => l.status === 'rejeitado').length ?? 0;
+
   return (
-    <div className="space-y-5">
-      {/* Seletor mês/ano + botão gerar */}
-      <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-4 flex flex-wrap items-end gap-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1.5">Mês</label>
-          <select
-            value={mes}
-            onChange={(e) => setMes(Number(e.target.value))}
-            className={inputCls}
-          >
-            {meses.map((m, i) => (
-              <option key={i + 1} value={i + 1}>{m}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-400 mb-1.5">Ano</label>
-          <select
-            value={ano}
-            onChange={(e) => setAno(Number(e.target.value))}
-            className={inputCls}
-          >
-            {anos.map((a) => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="button"
-          onClick={handleGerar}
-          disabled={gerando || loadingFechamento}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-500 text-black text-sm font-semibold hover:bg-amber-400 disabled:opacity-50 transition-colors"
-        >
-          {gerando ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileSpreadsheet className="w-4 h-4" />}
-          {fechamento ? 'Regerar Fechamento' : 'Gerar Fechamento'}
-        </button>
-        {fechamento && (
-          <button
-            type="button"
-            onClick={handleExportar}
-            disabled={exportando}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-green-500/20 border border-green-500/30 text-green-400 text-sm font-semibold hover:bg-green-500/30 disabled:opacity-50 transition-colors"
-          >
-            {exportando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-            Gerar Planilha (.xlsx)
-          </button>
-        )}
-        {fechamento && (
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-xs px-2 py-1 rounded-lg border font-medium ${
-                fechamento.status === 'concluido'
-                  ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-              }`}
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={String(mes)} onValueChange={(value) => setMes(Number(value))}>
+            <SelectTrigger className="h-8 w-[140px] text-sm" aria-label="Mês">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {meses.map((nome, index) => (
+                <SelectItem key={nome} value={String(index + 1)}>
+                  {nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={String(ano)} onValueChange={(value) => setAno(Number(value))}>
+            <SelectTrigger className="h-8 w-[96px] text-sm" aria-label="Ano">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {anos.map((valor) => (
+                <SelectItem key={valor} value={String(valor)}>
+                  {valor}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {fechamento && (
+            <Badge
+              variant="secondary"
+              className={cn('font-normal', statusBadgeClass(fechamento.status))}
             >
-              {fechamento.status}
-            </span>
-          </div>
-        )}
-        <p className="w-full text-xs text-gray-500">
-          Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}
-        </p>
+              {STATUS_FECHAMENTO[fechamento.status] ?? fechamento.status}
+            </Badge>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {fechamento && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleExportar}
+              disabled={exportando}
+            >
+              {exportando ? (
+                <Loader2 className="animate-spin text-muted-foreground" />
+              ) : (
+                <Download className="text-muted-foreground" />
+              )}
+              Baixar planilha
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            onClick={handleGerar}
+            disabled={gerando || loadingFechamento}
+          >
+            {gerando && <Loader2 className="animate-spin" />}
+            {fechamento ? 'Regerar fechamento' : 'Gerar fechamento'}
+          </Button>
+        </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}
+      </p>
 
       {erroGerar && (
-        <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-sm text-red-400">
-          {erroGerar}
-        </div>
+        <Alert variant="destructive" className="py-3 px-4">
+          <AlertDescription className="text-sm">{erroGerar}</AlertDescription>
+        </Alert>
       )}
 
-      {/* Aviso funcionários sem PIS */}
       {semPis.length > 0 && (
-        <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl px-4 py-3 flex items-start gap-3">
-          <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5 shrink-0" />
-          <div>
-            <p className="text-xs text-amber-400 font-medium">
-              {semPis.length} funcionário(s) sem PIS do Secullum — não aparecem neste fechamento:
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              {semPis.map((f) => f.nome).join(', ')}
-            </p>
-            <p className="text-xs text-gray-600 mt-1">
-              Eles aparecerão automaticamente após registrarem o primeiro ponto.
-            </p>
-          </div>
-        </div>
+        <Alert variant="warning" className="py-3 px-4">
+          <AlertTitle className="text-sm">
+            {semPis.length} funcionário(s) sem PIS do Secullum
+          </AlertTitle>
+          <AlertDescription className="text-xs text-muted-foreground">
+            {semPis.map((f) => f.nome).join(', ')}. Eles aparecerão automaticamente após
+            registrarem o primeiro ponto.
+          </AlertDescription>
+        </Alert>
       )}
 
       {loadingFechamento && !fechamento && (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
         </div>
       )}
 
       {!loadingFechamento && !fechamento && !gerando && (
-        <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl flex flex-col items-center justify-center py-16 text-center px-4">
-          <FileSpreadsheet className="w-10 h-10 text-gray-700 mb-3" />
-          <p className="text-gray-400 font-medium">Nenhum fechamento para {mesLabel(mes, ano)}</p>
-          <p className="text-sm text-gray-600 mt-1">
-            Período: {labelPeriodoFechamentoPonto(mes, ano)}. Clique em &quot;Gerar Fechamento&quot; para consultar o Secullum.
+        <div className="py-12">
+          <p className="text-sm text-foreground">Nenhum fechamento para {mesLabel(mes, ano)}</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Período: {labelPeriodoFechamentoPonto(mes, ano)}. Gere o fechamento para consultar o
+            Secullum.
           </p>
         </div>
       )}
 
+      {fechamento && fechamento.linhas.length === 0 && (
+        <div className="py-12">
+          <p className="text-sm text-foreground">Nenhum funcionário neste fechamento</p>
+        </div>
+      )}
+
       {fechamento && fechamento.linhas.length > 0 && (
-        <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl overflow-hidden">
-          {/* Sumário */}
-          <div className="px-4 py-3 border-b border-[#2a2a2e] flex flex-wrap items-center gap-3">
-            <span className="text-sm font-semibold text-white">{mesLabel(mes, ano)}</span>
-            <span className="text-xs text-gray-500">
-              {labelPeriodoFechamentoPonto(mes, ano)}
-            </span>
-            <span className="text-xs text-gray-500">
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <span className="text-sm font-semibold text-foreground">{mesLabel(mes, ano)}</span>
+            <span className="text-xs text-muted-foreground tabular-nums">
               {fechamento.linhas.length} funcionário(s)
             </span>
-            <span className="text-xs text-green-400">
-              {fechamento.linhas.filter((l) => l.status === 'aprovado').length} aprovados
-            </span>
-            <span className="text-xs text-amber-400">
-              {fechamento.linhas.filter((l) => l.status === 'pendente').length} pendentes
-            </span>
-            {fechamento.linhas.filter((l) => l.status === 'rejeitado').length > 0 && (
-              <span className="text-xs text-red-400">
-                {fechamento.linhas.filter((l) => l.status === 'rejeitado').length} rejeitados
-              </span>
+            <span className="text-xs text-success tabular-nums">{aprovados} aprovados</span>
+            <span className="text-xs text-warning tabular-nums">{pendentesLinha} pendentes</span>
+            {rejeitados > 0 && (
+              <span className="text-xs text-destructive tabular-nums">{rejeitados} rejeitados</span>
             )}
           </div>
-
-          {/* Tabela */}
           <TabelaRelatorioScroll
             linhas={fechamento.linhas}
             fechamentoId={fechamento.id}
@@ -1120,7 +1096,7 @@ export default function PontosPage() {
           </div>
         )}
 
-        <nav className="flex gap-1 overflow-x-auto">
+        <nav className="flex gap-1 overflow-x-auto lg:ml-auto">
           {abas.map((t) => {
             const active = aba === t.id;
             return (

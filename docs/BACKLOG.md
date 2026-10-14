@@ -25,6 +25,11 @@ Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 - Regras `refeicaoRegras` / `vendaMesConfig` no `NfeConfig` usam defaults em código; tela de edição das regras ainda não existe.
 - Export XLSX do fechamento ainda não inclui bloco de refeições / CMV líquido.
 
+## Pontos (out/2026)
+
+- `GET /api/pontos` agora devolve `ultimaSincronizacao` (max `updatedAt` do dia e da loja). Não há status de presença (trabalhando, intervalo, ausente, atrasado) nem coluna de horas no registro diário; a faixa de KPIs fica para quando esses status existirem.
+- Pendências continuam globais (não filtradas pela data selecionada). A coluna Data lista as datas já gravadas em cada matrícula.
+
 ## Design system
 
 - Dívida residual de hex/amber em outras telas legadas fora do AppShell redesign.
