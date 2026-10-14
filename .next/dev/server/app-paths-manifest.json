@@ -1,14 +1,13 @@
 {
-  "/(app)/cmv-real/notas/page": "app/(app)/cmv-real/notas/page.js",
-  "/(app)/pontos/page": "app/(app)/pontos/page.js",
+  "/(app)/estoque/page": "app/(app)/estoque/page.js",
   "/(app)/rh/page": "app/(app)/rh/page.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/api/auth/check-tool-permission/route": "app/api/auth/check-tool-permission/route.js",
   "/api/auth/stack-sync/route": "app/api/auth/stack-sync/route.js",
   "/api/cmv-real/access/route": "app/api/cmv-real/access/route.js",
-  "/api/cmv-real/notas/route": "app/api/cmv-real/notas/route.js",
-  "/api/pontos/fechamento/route": "app/api/pontos/fechamento/route.js",
-  "/api/pontos/route": "app/api/pontos/route.js",
+  "/api/estoque/config/route": "app/api/estoque/config/route.js",
+  "/api/estoque/contagens/route": "app/api/estoque/contagens/route.js",
+  "/api/estoque/insumos/route": "app/api/estoque/insumos/route.js",
   "/api/rh/alertas/route": "app/api/rh/alertas/route.js",
   "/api/rh/aniversarios/route": "app/api/rh/aniversarios/route.js",
   "/api/rh/custos/consolidado/route": "app/api/rh/custos/consolidado/route.js",
@@ -16,5 +15,6 @@
   "/api/rh/lojas/route": "app/api/rh/lojas/route.js",
   "/api/rh/ocorrencias/resumo/route": "app/api/rh/ocorrencias/resumo/route.js",
   "/api/user-apis/route": "app/api/user-apis/route.js",
+  "/estoque/contagem/[id]/page": "app/estoque/contagem/[id]/page.js",
   "/page": "app/page.js"
 }
