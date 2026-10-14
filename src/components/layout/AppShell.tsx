@@ -279,23 +279,29 @@ function SidebarChrome({
     <div className="flex h-full flex-col bg-card border-r border-border">
       <div
         className={cn(
-          "flex h-14 shrink-0 items-center border-b border-border px-3",
-          collapsed ? "justify-center" : "justify-between gap-2"
+          "shrink-0 border-b border-border px-3",
+          collapsed
+            ? "flex flex-col items-center gap-1 py-2"
+            : "flex h-14 items-center justify-between gap-2"
         )}
       >
         <div className={cn("min-w-0", collapsed && "flex justify-center")}>
           {collapsed ? logoCollapsed ?? logo : logo}
         </div>
-        {showCollapseToggle && onToggleCollapsed && !collapsed && (
+        {showCollapseToggle && onToggleCollapsed && (
           <Button
             type="button"
             variant="ghost"
             size="icon-sm"
             onClick={onToggleCollapsed}
             className="text-muted-foreground"
-            aria-label="Recolher menu"
+            aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
           >
-            <ChevronLeft className="h-4 w-4" />
+            {collapsed ? (
+              <ChevronRight className="h-4 w-4" />
+            ) : (
+              <ChevronLeft className="h-4 w-4" />
+            )}
           </Button>
         )}
       </div>
@@ -308,21 +314,6 @@ function SidebarChrome({
           onNavigate={onNavigate}
         />
       </div>
-
-      {showCollapseToggle && onToggleCollapsed && collapsed && (
-        <div className="px-2 pb-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            onClick={onToggleCollapsed}
-            className="w-full text-muted-foreground"
-            aria-label="Expandir menu"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
 
       <div
         className={cn(
