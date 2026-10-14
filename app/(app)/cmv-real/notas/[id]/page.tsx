@@ -11,6 +11,7 @@ import {
 import { formatNumBr, notaStatusLabel, storeLabel } from '@/lib/nfe/ui-labels';
 import { catalogoPareceGenericoDemais } from '@/lib/nfe/similarity';
 import {
+  fatorEfetivoDaEntrada,
   formatFatorBr,
   interpretarRevisaoItem,
   opcaoEProvavel,
@@ -180,9 +181,17 @@ function CmvRealNotaDetalhePageInner() {
           if (opt?.fator != null) fatorNum = opt.fator;
         }
 
+        // Peso por interna: campo começa vazio (usuário informa a bisnaga/peça)
+        const fatorStr =
+          interp.pesoPorInterna &&
+          it.fatorConversao == null &&
+          interp.opcoes.length === 0
+            ? ''
+            : formatFatorBr(fatorNum);
+
         next[it.id] = {
           produtoId: first,
-          fator: formatFatorBr(fatorNum),
+          fator: fatorStr,
           criarMap: true,
           outro: false,
           opcaoPeso,
@@ -248,11 +257,26 @@ function CmvRealNotaDetalhePageInner() {
       setMsg('Selecione um produto');
       return;
     }
-    const fator = parseFator(d.fator);
-    if (fator == null) {
+    const pesoOuFator = parseFator(d.fator);
+    if (pesoOuFator == null) {
       setMsg('Valor de conversão inválido');
       return;
     }
+    const it = nota?.itens.find((x) => x.id === itemId);
+    const prod = produtoById.get(d.produtoId);
+    const interp = it
+      ? interpretarRevisaoItem({
+          descricao: it.descricao,
+          quantidade: it.quantidade,
+          unidadeComercial: it.unidadeComercial,
+          unidadeCmv: prod?.unidade || 'KG',
+          valorItem: it.valorLiquido ?? it.valorBruto,
+          secao: prod?.secao,
+        })
+      : null;
+    const fator = interp
+      ? fatorEfetivoDaEntrada(pesoOuFator, interp)
+      : pesoOuFator;
     setSaving(itemId);
     setMsg(null);
     try {
@@ -671,10 +695,31 @@ function CmvRealNotaDetalhePageInner() {
                     </span>
                   </div>
                   {(() => {
-                    const fator = parseFator(d.fator);
-                    if (fator == null) return null;
+                    const pesoOuFator = parseFator(d.fator);
+                    if (pesoOuFator == null) return null;
+                    const fator = fatorEfetivoDaEntrada(pesoOuFator, interp);
                     const qtdConv = it.quantidade * fator;
                     const custo = qtdConv > 0 ? valor / qtdConv : 0;
+                    if (
+                      interp.pesoPorInterna &&
+                      interp.nPack != null &&
+                      interp.nPack > 1
+                    ) {
+                      return (
+                        <p className="text-xs text-muted-foreground tabular-nums">
+                          {formatNumBr(
+                            it.quantidade,
+                            it.quantidade % 1 === 0 ? 0 : 2,
+                          )}{' '}
+                          CX × {interp.nPack}{' '}
+                          {interp.labelInterna || 'un.'} ×{' '}
+                          {formatFatorBr(pesoOuFator)} kg ={' '}
+                          {formatNumBr(qtdConv)} kg
+                          {' · '}
+                          R$ {formatNumBr(custo)}/kg
+                        </p>
+                      );
+                    }
                     return (
                       <p className="text-xs text-muted-foreground tabular-nums">
                         {formatNumBr(

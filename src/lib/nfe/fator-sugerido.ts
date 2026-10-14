@@ -192,6 +192,7 @@ export function extrairPadraoNxP(texto: string): PadraoNxP | null {
 export function descricaoTemPack(descricao: string): boolean {
   const text = String(descricao || '');
   if (extrairPadraoNxP(text)) return true;
+  if (extrairCaixaComInternas(text)) return true;
   if (/\b\d+\s*cxs?\b/i.test(text)) return true;
   if (/\b\d+\s*[xX×]\s*\d+/i.test(text)) return true;
   if (/\(\s*\d+\s*\)/.test(text)) return true;
@@ -242,8 +243,40 @@ export function extrairMultipackDaDescricao(descricao: string): number | null {
   return null;
 }
 
-/** N solto: C/N no corpo, ou (N) já coberto no multipack. */
+/**
+ * "CAIXA 10 BISNAGAS", "CAIXA C/10", "CX COM 10", "CX 10 UN".
+ * N = unidades internas por caixa (sem peso).
+ */
+export function extrairCaixaComInternas(corpo: string): {
+  n: number;
+  label: string | null;
+  raw: string;
+} | null {
+  const re =
+    /\b(?:CAIXA|CXS?)\s+(?:C\s*\/\s*|COM\s+)?(\d+)\s*(BISNAGAS?|BIS|UNIDADES?|UNIDS?|UNDS?|UN|PCT|PE[CÇ]AS?|SACH[EÊ]S?|LATAS?|POTES?)?\b/i;
+  const m = String(corpo || '').match(re);
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 1 || n > 100) return null;
+
+  let label: string | null = null;
+  const rawLabel = (m[2] || '').toLowerCase();
+  if (rawLabel.startsWith('bisnaga') || rawLabel === 'bis') label = 'bisnaga';
+  else if (rawLabel.startsWith('un')) label = 'unidade';
+  else if (rawLabel === 'pct') label = 'pacote';
+  else if (rawLabel.startsWith('pe')) label = 'peça';
+  else if (rawLabel.startsWith('sach')) label = 'sachê';
+  else if (rawLabel.startsWith('lata')) label = 'lata';
+  else if (rawLabel.startsWith('pote')) label = 'pote';
+
+  return { n, label, raw: m[0].trim() };
+}
+
+/** N solto: CAIXA N…, C/N no corpo, ou (N). */
 function extrairNAlternativo(corpo: string): number | null {
+  const caixa = extrairCaixaComInternas(corpo);
+  if (caixa) return caixa.n;
+
   const cBarra = corpo.match(/\bc\s*\/\s*(\d+)\b/i);
   if (cBarra) {
     const n = Number(cBarra[1]);
@@ -305,10 +338,16 @@ export function extrairPackNP(
   }
 
   if (n == null) {
-    const alt = extrairNAlternativo(corpo);
-    if (alt != null) {
-      n = alt;
-      detalheN = `N=${n} (C/N ou parênteses)`;
+    const caixa = extrairCaixaComInternas(corpo);
+    if (caixa) {
+      n = caixa.n;
+      detalheN = `N=${n} (${caixa.raw})`;
+    } else {
+      const alt = extrairNAlternativo(corpo);
+      if (alt != null) {
+        n = alt;
+        detalheN = `N=${n} (C/N ou parênteses)`;
+      }
     }
   }
 

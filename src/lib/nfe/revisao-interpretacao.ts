@@ -6,6 +6,7 @@
 import {
   CUSTO_KG_MAX,
   CUSTO_KG_MIN,
+  extrairCaixaComInternas,
   extrairPackNP,
   extrairQtdDeclaradaNaDescricao,
   internasEsperadas,
@@ -23,6 +24,18 @@ const UNIDADES_PESO_NAO_CONFIAVEIS = new Set([
   'G',
   'GR',
   'GRAMAS',
+]);
+
+/** Unidade da nota = embalagem (caixa etc.), não a peça interna. */
+const UNIDADES_EMBALAGEM = new Set([
+  'CX',
+  'CXS',
+  'FD',
+  'DP',
+  'PCT',
+  'PC',
+  'CJ',
+  'KIT',
 ]);
 
 export type ContagemNota = 'internas' | 'caixas' | 'desconhecida';
@@ -51,10 +64,32 @@ export interface InterpretacaoRevisao {
   sufixo: 'kg' | 'un';
   nPack: number | null;
   pPack: number | null;
+  /**
+   * Descrição tem N por caixa (ex.: CAIXA 10 BISNAGAS) sem peso:
+   * o campo pede peso da unidade interna; fator efetivo = N × peso.
+   */
+  pesoPorInterna: boolean;
+  /** Rótulo singular da unidade interna (bisnaga, unidade…). */
+  labelInterna: string | null;
   /** Cards de opção; vazio → campo livre legado */
   opcoes: OpcaoPeso[];
   /** Pré-seleção sugerida */
   opcaoPadrao: OpcaoPesoId | null;
+}
+
+/** Fator gravado na nota: kg (ou un) por unidade comercial da NF. */
+export function fatorEfetivoDaEntrada(
+  pesoOuFatorDigitado: number,
+  interp: Pick<InterpretacaoRevisao, 'pesoPorInterna' | 'nPack'>,
+): number {
+  if (
+    interp.pesoPorInterna &&
+    interp.nPack != null &&
+    interp.nPack > 1
+  ) {
+    return round4(pesoOuFatorDigitado * interp.nPack);
+  }
+  return pesoOuFatorDigitado;
 }
 
 function almostEq(a: number, b: number, tol = 0.01): boolean {
@@ -305,6 +340,7 @@ export function interpretarRevisaoItem(params: {
   const { corpo: corpoSemQtd } = extrairQtdDeclaradaNaDescricao(corpo);
   const pack = extrairPackNP(corpoSemQtd);
   const suf = sufixoRaw ? parseSufixoCx(sufixoRaw) : null;
+  const caixaInfo = extrairCaixaComInternas(corpoSemQtd);
   const n = resolverN(pack.n, suf);
   const p = pack.p;
 
@@ -313,6 +349,7 @@ export function interpretarRevisaoItem(params: {
       p != null ||
       n != null ||
       suf ||
+      caixaInfo ||
       /\d+\s*[xX×]\s*\d+/.test(params.descricao),
   );
   const pesoNaoConfiavel = UNIDADES_PESO_NAO_CONFIAVEIS.has(und);
@@ -331,6 +368,7 @@ export function interpretarRevisaoItem(params: {
   else if (matchInternas) contagem = 'internas';
   else if (matchCaixas) contagem = 'caixas';
   else if (suf?.comInternas != null) contagem = 'internas';
+  else if (UNIDADES_EMBALAGEM.has(und) && n != null) contagem = 'caixas';
 
   const base = perguntaFator(params.unidadeComercial, params.unidadeCmv);
 
@@ -375,6 +413,24 @@ export function interpretarRevisaoItem(params: {
     });
   }
 
+  // CAIXA 10 BISNAGAS + qtd em CX: pedir peso da bisnaga (fator = N × peso)
+  const pesoPorInterna =
+    opcoes.length === 0 &&
+    params.unidadeCmv !== 'UN' &&
+    n != null &&
+    n > 1 &&
+    p == null &&
+    (UNIDADES_EMBALAGEM.has(und) || contagem === 'caixas');
+
+  const labelInterna = pesoPorInterna
+    ? caixaInfo?.label || 'unidade'
+    : null;
+
+  if (pesoPorInterna && labelInterna) {
+    pergunta = `Quanto pesa 1 ${labelInterna}?`;
+    sufixo = 'kg';
+  }
+
   return {
     unidadeNaoConfiavel,
     empateCaixaInternas,
@@ -385,6 +441,8 @@ export function interpretarRevisaoItem(params: {
     sufixo,
     nPack: n,
     pPack: p,
+    pesoPorInterna,
+    labelInterna,
     opcoes,
     opcaoPadrao,
   };

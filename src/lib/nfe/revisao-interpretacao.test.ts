@@ -5,12 +5,14 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  fatorEfetivoDaEntrada,
   formatFatorBr,
   interpretarRevisaoItem,
   nomeProdutoParaInterpretacao,
   opcaoEProvavel,
   parseFatorBr,
 } from './revisao-interpretacao';
+import { extrairCaixaComInternas, extrairPackNP } from './fator-sugerido';
 import {
   catalogoPareceGenericoDemais,
   scoreCatalogMatch,
@@ -77,6 +79,41 @@ describe('interpretarRevisaoItem — cards', () => {
     });
     // qtd=1, COM 8 → caixas (não empate) → padrao caixa; histórico ~3 perto de 2,98
     assert.equal(comHist.opcaoPadrao, 'caixa');
+  });
+});
+
+describe('CAIXA N BISNAGAS', () => {
+  it('extrai N=10 de CAIXA 10 BISNAGAS', () => {
+    const c = extrairCaixaComInternas(
+      'COBERTURA FORNEAVEL SABOR CHOC. BRANCO CAIXA 10 BISNAGAS',
+    );
+    assert.ok(c);
+    assert.equal(c!.n, 10);
+    assert.equal(c!.label, 'bisnaga');
+    const pack = extrairPackNP(
+      'COBERTURA FORNEAVEL SABOR CHOC. BRANCO CAIXA 10 BISNAGAS',
+    );
+    assert.equal(pack.n, 10);
+    assert.equal(pack.p, null);
+  });
+
+  it('pede peso da bisnaga e fator = N × peso', () => {
+    const r = interpretarRevisaoItem({
+      descricao:
+        'COBERTURA FORNEAVEL SABOR CHOC. BRANCO CAIXA 10 BISNAGAS',
+      quantidade: 2,
+      unidadeComercial: 'CX',
+      unidadeCmv: 'KG',
+      valorItem: 397.93,
+      secao: 'MATERIA_PRIMA',
+    });
+    assert.equal(r.pesoPorInterna, true);
+    assert.equal(r.nPack, 10);
+    assert.equal(r.labelInterna, 'bisnaga');
+    assert.match(r.pergunta, /bisnaga/i);
+    assert.equal(fatorEfetivoDaEntrada(1.1, r), 11);
+    // 2 CX × 11 kg/CX = 22 kg
+    assert.equal(2 * fatorEfetivoDaEntrada(1.1, r), 22);
   });
 });
 
