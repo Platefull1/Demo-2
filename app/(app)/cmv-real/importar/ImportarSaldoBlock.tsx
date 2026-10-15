@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,21 +16,72 @@ import {
   formatCustoMedioBr,
   formatQuantidadeBr,
 } from '@/lib/nfe/ui-labels';
+import { cn } from '@/lib/utils';
 import { FileDropzone } from './FileDropzone';
+
+type CustoOrigem =
+  | 'PLANILHA'
+  | 'ULTIMA_COMPRA'
+  | 'MES_ANTERIOR'
+  | 'MANUAL'
+  | 'PENDENTE'
+  | null;
 
 type SaldoPreview = {
   linha: number;
   nome: string;
+  secao: 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
   qtdFinal: number;
   custoMedio: number | null;
-  status: string;
+  custoPlanilha: number | null;
+  custoOrigem: CustoOrigem;
+  status: 'casado' | 'sugerido' | 'nao_encontrado';
+  statusExibicao: 'casado' | 'sugerido' | 'nao_encontrado' | 'custo_pendente';
   estoqueInsumoId?: string;
   estoqueNome?: string;
 };
 
+type FiltroSecao = 'TODAS' | SaldoPreview['secao'];
+type FiltroStatus =
+  | 'TODOS'
+  | 'casado'
+  | 'sugerido'
+  | 'nao_encontrado'
+  | 'custo_pendente';
+
+const SECAO_LABEL: Record<SaldoPreview['secao'], string> = {
+  MATERIA_PRIMA: 'Matéria-prima',
+  EMBALAGEM: 'Embalagens',
+  BEBIDA: 'Bebidas',
+};
+
+const STATUS_LABEL: Record<FiltroStatus, string> = {
+  TODOS: 'Todos',
+  casado: 'Encontrado',
+  sugerido: 'Sugerido',
+  nao_encontrado: 'Sem correspondência',
+  custo_pendente: 'Custo pendente',
+};
+
+const CUSTO_ORIGEM_LABEL: Record<string, string> = {
+  PLANILHA: 'Planilha',
+  ULTIMA_COMPRA: 'Última compra',
+  MES_ANTERIOR: 'Mês anterior',
+  MANUAL: 'Manual',
+  PENDENTE: 'Custo pendente',
+};
+
+type ContadoresSecao = {
+  total: number;
+  casados: number;
+  sugeridos: number;
+  naoEncontrados: number;
+  custoPendente: number;
+};
+
 /**
  * Bloco SALDO da planilha (AE=qtd, AG=custo) — uma planilha por loja.
- * Não lê o resumo a partir da linha 187.
+ * Lê as 3 seções por âncoras; não descarta qtd quando AG é inválido.
  */
 export function ImportarSaldoBlock() {
   const now = new Date();
@@ -47,7 +98,12 @@ export function ImportarSaldoBlock() {
     casados: number;
     sugeridos: number;
     naoEncontrados: number;
+    custoPendente: number;
+    qtdSemCorrespondencia: number;
+    porSecao: Record<SaldoPreview['secao'], ContadoresSecao>;
   } | null>(null);
+  const [filtroSecao, setFiltroSecao] = useState<FiltroSecao>('TODAS');
+  const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('TODOS');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -55,6 +111,7 @@ export function ImportarSaldoBlock() {
     setLoading(true);
     setMsg(null);
     setItens(null);
+    setResumo(null);
     try {
       const fd = new FormData();
       fd.set('action', 'listar-abas');
@@ -79,6 +136,7 @@ export function ImportarSaldoBlock() {
       setFile(f);
       setAbas([]);
       setItens(null);
+      setResumo(null);
       if (f) void listarAbas(f);
     },
     [listarAbas]
@@ -107,13 +165,45 @@ export function ImportarSaldoBlock() {
         casados: data.casados,
         sugeridos: data.sugeridos,
         naoEncontrados: data.naoEncontrados,
+        custoPendente: data.custoPendente ?? 0,
+        qtdSemCorrespondencia: data.qtdSemCorrespondencia ?? 0,
+        porSecao: data.porSecao,
       });
+      setFiltroSecao('TODAS');
+      setFiltroStatus('TODOS');
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {
       setLoading(false);
     }
   }, [file, aba, storeSlug, competencia]);
+
+  const setCustoManual = useCallback((linha: number, raw: string) => {
+    setItens((prev) => {
+      if (!prev) return prev;
+      return prev.map((i) => {
+        if (i.linha !== linha) return i;
+        const trimmed = raw.trim();
+        if (!trimmed) {
+          return {
+            ...i,
+            custoMedio: null,
+            custoOrigem: 'PENDENTE' as const,
+            statusExibicao:
+              i.status === 'nao_encontrado' ? i.status : 'custo_pendente',
+          };
+        }
+        const n = Number(trimmed.replace(/\./g, '').replace(',', '.'));
+        if (!Number.isFinite(n) || n <= 0) return i;
+        return {
+          ...i,
+          custoMedio: n,
+          custoOrigem: 'MANUAL' as const,
+          statusExibicao: i.status === 'nao_encontrado' ? i.status : i.status,
+        };
+      });
+    });
+  }, []);
 
   const confirmar = useCallback(async () => {
     if (!itens) return;
@@ -123,6 +213,7 @@ export function ImportarSaldoBlock() {
         estoqueInsumoId: i.estoqueInsumoId!,
         qtdFinal: i.qtdFinal,
         custoMedio: i.custoMedio,
+        custoOrigem: i.custoOrigem ?? (i.custoMedio != null ? 'MANUAL' : 'PENDENTE'),
       }));
     if (payload.length === 0) {
       setMsg('Nenhum item casado para gravar');
@@ -153,6 +244,18 @@ export function ImportarSaldoBlock() {
     }
   }, [itens, storeSlug, competencia]);
 
+  const filtrados = useMemo(() => {
+    if (!itens) return [];
+    return itens.filter((i) => {
+      if (filtroSecao !== 'TODAS' && i.secao !== filtroSecao) return false;
+      if (filtroStatus === 'TODOS') return true;
+      if (filtroStatus === 'custo_pendente') {
+        return i.statusExibicao === 'custo_pendente' || i.custoOrigem === 'PENDENTE';
+      }
+      return i.status === filtroStatus;
+    });
+  }, [itens, filtroSecao, filtroStatus]);
+
   return (
     <section className="rounded-md border border-border bg-card p-4 space-y-4">
       <div className="flex gap-3">
@@ -174,7 +277,9 @@ export function ImportarSaldoBlock() {
             </summary>
             <p className="mt-1.5 pl-0.5">
               Uma planilha por loja. Colunas AE (quantidade) e AG (custo médio).
-              O bloco de resumo a partir da linha 187 não é importado.
+              Lê Matéria-prima, Embalagens e Bebidas por âncoras na coluna B. Se
+              AG for inválido (#DIV/0!), usa última compra ou mês anterior;
+              senão fica como custo pendente.
             </p>
           </details>
         </div>
@@ -251,10 +356,32 @@ export function ImportarSaldoBlock() {
       </div>
 
       {resumo && (
-        <p className="text-xs text-muted-foreground">
-          {resumo.total} linhas · {resumo.casados} encontrados ·{' '}
-          {resumo.sugeridos} sugeridos · {resumo.naoEncontrados} sem correspondência
-        </p>
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {resumo.total} linhas · {resumo.casados} encontrados ·{' '}
+            {resumo.sugeridos} sugeridos · {resumo.naoEncontrados} sem
+            correspondência · {resumo.custoPendente} custo pendente
+            {resumo.qtdSemCorrespondencia > 0
+              ? ` · ${resumo.qtdSemCorrespondencia} com qtd sem correspondência`
+              : ''}
+          </p>
+          {resumo.porSecao && (
+            <p className="text-xs text-muted-foreground">
+              {(
+                ['MATERIA_PRIMA', 'EMBALAGEM', 'BEBIDA'] as const
+              ).map((s, idx) => {
+                const c = resumo.porSecao[s];
+                if (!c) return null;
+                return (
+                  <span key={s}>
+                    {idx > 0 ? ' · ' : ''}
+                    {SECAO_LABEL[s]}: {c.total}
+                  </span>
+                );
+              })}
+            </p>
+          )}
+        </div>
       )}
       {msg && (
         <p className="text-sm text-warning" role="alert">
@@ -263,44 +390,153 @@ export function ImportarSaldoBlock() {
       )}
 
       {itens && itens.length > 0 && (
-        <div className="overflow-x-auto max-h-64 overflow-y-auto rounded-md border border-border">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="text-muted-foreground text-left bg-muted/50">
-                <th className="py-2 px-2">Linha</th>
-                <th className="py-2 px-2">Produto</th>
-                <th className="py-2 px-2 text-right">Qtd</th>
-                <th className="py-2 px-2 text-right">Custo médio</th>
-                <th className="py-2 px-2">Correspondência</th>
-              </tr>
-            </thead>
-            <tbody>
-              {itens.slice(0, 80).map((i) => (
-                <tr key={i.linha} className="border-t border-border">
-                  <td className="py-1.5 px-2 text-muted-foreground">{i.linha}</td>
-                  <td className="py-1.5 px-2 text-foreground truncate max-w-[180px]">
-                    {i.nome}
-                  </td>
-                  <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
-                    {formatQuantidadeBr(i.qtdFinal)}
-                  </td>
-                  <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
-                    {i.custoMedio != null ? formatCustoMedioBr(i.custoMedio) : '–'}
-                  </td>
-                  <td className="py-1.5 px-2 text-muted-foreground">
-                    {i.status === 'casado'
-                      ? 'Encontrado'
-                      : i.status === 'sugerido'
-                        ? 'Sugerido'
-                        : i.status === 'nao_encontrado'
-                          ? 'Não encontrado'
-                          : i.status}
-                    {i.estoqueNome ? ` → ${i.estoqueNome}` : ''}
-                  </td>
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            <Select
+              value={filtroSecao}
+              onValueChange={(v) => setFiltroSecao(v as FiltroSecao)}
+            >
+              <SelectTrigger className="h-8 w-[160px] text-xs">
+                <SelectValue placeholder="Seção" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="TODAS">Todas as seções</SelectItem>
+                {(
+                  ['MATERIA_PRIMA', 'EMBALAGEM', 'BEBIDA'] as const
+                ).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {SECAO_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filtroStatus}
+              onValueChange={(v) => setFiltroStatus(v as FiltroStatus)}
+            >
+              <SelectTrigger className="h-8 w-[180px] text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {(
+                  [
+                    'TODOS',
+                    'casado',
+                    'sugerido',
+                    'nao_encontrado',
+                    'custo_pendente',
+                  ] as const
+                ).map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {STATUS_LABEL[s]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-muted-foreground self-center">
+              Exibindo {filtrados.length} de {itens.length}
+            </span>
+          </div>
+
+          <div className="overflow-x-auto max-h-[28rem] overflow-y-auto rounded-md border border-border">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="text-muted-foreground text-left bg-muted/50 sticky top-0 z-10">
+                  <th className="py-2 px-2">Linha</th>
+                  <th className="py-2 px-2">Seção</th>
+                  <th className="py-2 px-2">Produto</th>
+                  <th className="py-2 px-2 text-right">Qtd</th>
+                  <th className="py-2 px-2 text-right">Custo médio</th>
+                  <th className="py-2 px-2">Origem</th>
+                  <th className="py-2 px-2">Correspondência</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {filtrados.map((i) => {
+                  const perdido =
+                    i.status === 'nao_encontrado' && i.qtdFinal > 0;
+                  const pendente =
+                    i.custoOrigem === 'PENDENTE' ||
+                    i.statusExibicao === 'custo_pendente';
+                  return (
+                    <tr
+                      key={`${i.linha}-${i.nome}`}
+                      className={cn(
+                        'border-t border-border',
+                        perdido && 'bg-destructive/10 text-destructive'
+                      )}
+                    >
+                      <td className="py-1.5 px-2 text-muted-foreground">
+                        {i.linha}
+                      </td>
+                      <td className="py-1.5 px-2 text-muted-foreground">
+                        {SECAO_LABEL[i.secao] || i.secao}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-1.5 px-2 truncate max-w-[180px]',
+                          perdido ? 'text-destructive' : 'text-foreground'
+                        )}
+                      >
+                        {i.nome}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-1.5 px-2 text-right tabular-nums',
+                          perdido ? 'text-destructive' : 'text-foreground'
+                        )}
+                      >
+                        {formatQuantidadeBr(i.qtdFinal)}
+                      </td>
+                      <td className="py-1.5 px-2 text-right">
+                        {pendente && i.status !== 'nao_encontrado' ? (
+                          <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder="Digitar"
+                            className="h-7 w-24 text-xs text-right ml-auto"
+                            defaultValue=""
+                            onBlur={(e) =>
+                              setCustoManual(i.linha, e.target.value)
+                            }
+                          />
+                        ) : i.custoMedio != null ? (
+                          <span className="tabular-nums text-foreground">
+                            {formatCustoMedioBr(i.custoMedio)}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">–</span>
+                        )}
+                      </td>
+                      <td className="py-1.5 px-2 text-muted-foreground">
+                        {i.custoOrigem
+                          ? CUSTO_ORIGEM_LABEL[i.custoOrigem] || i.custoOrigem
+                          : '–'}
+                      </td>
+                      <td
+                        className={cn(
+                          'py-1.5 px-2',
+                          perdido
+                            ? 'text-destructive font-medium'
+                            : 'text-muted-foreground'
+                        )}
+                      >
+                        {i.status === 'casado'
+                          ? 'Encontrado'
+                          : i.status === 'sugerido'
+                            ? 'Sugerido'
+                            : 'Sem correspondência'}
+                        {pendente && i.status !== 'nao_encontrado'
+                          ? ' · Custo pendente'
+                          : ''}
+                        {i.estoqueNome ? ` → ${i.estoqueNome}` : ''}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </section>

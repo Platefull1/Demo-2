@@ -38,6 +38,8 @@ type Linha = {
   secao: string;
   unidade: string;
   estoqueInicial: number;
+  custoMedioInicial: number | null;
+  custoOrigemInicial: string | null;
   comprasQtd: number;
   comprasValor: number;
   transfEnviadaQtd: number;
@@ -46,6 +48,8 @@ type Linha = {
   transfRecebidaValor: number;
   desperdicioQtd: number;
   estoqueFinal: number;
+  custoMedioFinal: number | null;
+  custoOrigemFinal: string | null;
   consumoQtd: number;
   consumoValor: number;
   comprasPorSemana: Record<string, { qtd: number; valor: number }>;
@@ -938,16 +942,60 @@ export default function CmvRealFechamentoPage() {
                         {SECAO_LABEL[secao] || secao}
                       </td>
                     </tr>
-                    {items.map((l) => (
+                    {items.map((l) => {
+                      const iniPendente =
+                        l.estoqueInicial > 0 &&
+                        l.custoOrigemInicial === 'PENDENTE';
+                      const fimPendente =
+                        l.estoqueFinal > 0 && l.custoOrigemFinal === 'PENDENTE';
+                      return (
                       <tr
                         key={l.estoqueInsumoId}
                         className="border-t border-border hover:bg-muted/50"
                       >
                         <td className="sticky left-0 z-10 bg-background px-2 py-1.5 text-foreground border-r border-border max-w-[180px] truncate">
                           {l.nome}
+                          {(iniPendente || fimPendente) && (
+                            <span className="ml-1 text-xs text-warning">
+                              Custo pendente
+                            </span>
+                          )}
                         </td>
                         <td className="px-2 py-1.5 text-right">
-                          {cellNum(l.estoqueInicial)}
+                          <div className="flex flex-col items-end gap-1">
+                            {cellNum(l.estoqueInicial)}
+                            {iniPendente && status === 'ABERTO' && (
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="Custo"
+                                className="h-7 w-20 text-xs text-right"
+                                onBlur={async (e) => {
+                                  const raw = e.target.value.trim();
+                                  if (!raw) return;
+                                  const n = Number(
+                                    raw.replace(/\./g, '').replace(',', '.')
+                                  );
+                                  if (!Number.isFinite(n) || n <= 0) return;
+                                  try {
+                                    await patch({
+                                      action: 'set_custo_saldo',
+                                      alvoCusto: 'inicial',
+                                      estoqueInsumoId: l.estoqueInsumoId,
+                                      custoMedio: n,
+                                    });
+                                    await load();
+                                  } catch (err) {
+                                    setMsg(
+                                      err instanceof Error
+                                        ? err.message
+                                        : 'Erro ao salvar custo'
+                                    );
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-1.5 text-right">
                           {cellNum(l.comprasQtd)}
@@ -969,7 +1017,40 @@ export default function CmvRealFechamentoPage() {
                           {cellNum(l.desperdicioQtd)}
                         </td>
                         <td className="px-2 py-1.5 text-right">
-                          {cellNum(l.estoqueFinal)}
+                          <div className="flex flex-col items-end gap-1">
+                            {cellNum(l.estoqueFinal)}
+                            {fimPendente && status === 'ABERTO' && (
+                              <Input
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="Custo"
+                                className="h-7 w-20 text-xs text-right"
+                                onBlur={async (e) => {
+                                  const raw = e.target.value.trim();
+                                  if (!raw) return;
+                                  const n = Number(
+                                    raw.replace(/\./g, '').replace(',', '.')
+                                  );
+                                  if (!Number.isFinite(n) || n <= 0) return;
+                                  try {
+                                    await patch({
+                                      action: 'set_custo_saldo',
+                                      alvoCusto: 'final',
+                                      estoqueInsumoId: l.estoqueInsumoId,
+                                      custoMedio: n,
+                                    });
+                                    await load();
+                                  } catch (err) {
+                                    setMsg(
+                                      err instanceof Error
+                                        ? err.message
+                                        : 'Erro ao salvar custo'
+                                    );
+                                  }
+                                }}
+                              />
+                            )}
+                          </div>
                         </td>
                         <td className="px-2 py-1.5 text-right">
                           {cellNum(l.consumoQtd)}
@@ -978,7 +1059,8 @@ export default function CmvRealFechamentoPage() {
                           {cellNum(l.consumoValor, { decimals: 2 })}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </Fragment>
                 ))}
               </tbody>

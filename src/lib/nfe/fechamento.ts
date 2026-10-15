@@ -34,6 +34,7 @@ export type LinhaFechamento = {
   ordem: number;
   estoqueInicial: number;
   custoMedioInicial: number | null;
+  custoOrigemInicial: string | null;
   comprasQtd: number;
   comprasValor: number;
   /** por semana 1–5 */
@@ -46,6 +47,7 @@ export type LinhaFechamento = {
   desperdicioValor: number;
   estoqueFinal: number;
   custoMedioFinal: number | null;
+  custoOrigemFinal: string | null;
   consumoQtd: number;
   consumoValor: number;
 };
@@ -209,6 +211,8 @@ export async function montarFechamento(params: {
     const estoqueFinal = n(fim?.qtdFinal);
     const custoMedioInicial = ini?.custoMedio != null ? n(ini.custoMedio) : null;
     const custoMedioFinal = fim?.custoMedio != null ? n(fim.custoMedio) : null;
+    const custoOrigemInicial = ini?.custoOrigem ?? null;
+    const custoOrigemFinal = fim?.custoOrigem ?? null;
 
     // consumo: inicial + compras + recebida − enviada − desperdício − final
     const consumoQtd =
@@ -237,6 +241,7 @@ export async function montarFechamento(params: {
       ordem: cfg.ordem,
       estoqueInicial,
       custoMedioInicial,
+      custoOrigemInicial,
       comprasQtd,
       comprasValor,
       comprasPorSemana,
@@ -248,6 +253,7 @@ export async function montarFechamento(params: {
       desperdicioValor,
       estoqueFinal,
       custoMedioFinal,
+      custoOrigemFinal,
       consumoQtd,
       consumoValor,
     };
@@ -272,6 +278,16 @@ export async function montarFechamento(params: {
   }
   if (!fimMap.size) {
     pendencias.push('Estoque final ainda não informado (contagem ou importação)');
+  }
+  const custosPendentes = linhas.filter(
+    (l) =>
+      (l.estoqueInicial > 0 && l.custoOrigemInicial === 'PENDENTE') ||
+      (l.estoqueFinal > 0 && l.custoOrigemFinal === 'PENDENTE'),
+  );
+  if (custosPendentes.length > 0) {
+    pendencias.push(
+      `${custosPendentes.length} produto(s) com custo pendente (inicial ou final)`,
+    );
   }
 
   const ajustes = parseAjustes(fechamento.ajustes);

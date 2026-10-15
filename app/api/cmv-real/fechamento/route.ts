@@ -12,7 +12,7 @@ import {
   type AjusteFechamento,
   type RefeicaoFuncionario,
 } from '@/lib/nfe/fechamento';
-import { CMV_STORE_SLUGS, storeLabel } from '@/lib/nfe/lojas';
+import { CMV_STORE_SLUGS, competenciaAnterior, storeLabel } from '@/lib/nfe/lojas';
 import { exportarFechamentoXlsx } from '@/lib/nfe/exportar-fechamento';
 import { randomUUID } from 'crypto';
 
@@ -125,6 +125,10 @@ export async function PATCH(req: NextRequest) {
     valor?: number;
     ajusteId?: string;
     refeicoes?: RefeicaoFuncionario[];
+    estoqueInsumoId?: string;
+    custoMedio?: number;
+    /** 'inicial' = saldo do mês anterior; 'final' = saldo da competência atual */
+    alvoCusto?: 'inicial' | 'final';
   };
 
   if (!body.action || !body.storeSlug || !body.competencia) {
@@ -309,6 +313,59 @@ export async function PATCH(req: NextRequest) {
       },
     });
     return NextResponse.json({ ok: true, status: fechamento.status });
+  }
+
+  if (body.action === 'set_custo_saldo') {
+    if (fechamento.status === 'FECHADO') {
+      return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
+    }
+    if (!body.estoqueInsumoId || body.custoMedio == null || !Number.isFinite(Number(body.custoMedio))) {
+      return NextResponse.json(
+        { error: 'estoqueInsumoId e custoMedio obrigatórios' },
+        { status: 400 },
+      );
+    }
+    const custo = Number(body.custoMedio);
+    if (custo <= 0) {
+      return NextResponse.json({ error: 'custoMedio deve ser > 0' }, { status: 400 });
+    }
+    const alvo = body.alvoCusto === 'final' ? 'final' : 'inicial';
+    const competenciaSaldo =
+      alvo === 'final'
+        ? body.competencia
+        : competenciaAnterior(body.competencia);
+
+    const existing = await prisma.cmvSaldoEstoque.findUnique({
+      where: {
+        userId_storeSlug_competencia_estoqueInsumoId: {
+          userId: tenant.tenantUserId,
+          storeSlug: body.storeSlug,
+          competencia: competenciaSaldo,
+          estoqueInsumoId: body.estoqueInsumoId,
+        },
+      },
+    });
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Saldo não encontrado para atualizar o custo' },
+        { status: 404 },
+      );
+    }
+    const updated = await prisma.cmvSaldoEstoque.update({
+      where: { id: existing.id },
+      data: {
+        custoMedio: decimal(custo),
+        custoOrigem: 'MANUAL',
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      alvo,
+      competenciaSaldo,
+      estoqueInsumoId: updated.estoqueInsumoId,
+      custoMedio: Number(updated.custoMedio),
+      custoOrigem: updated.custoOrigem,
+    });
   }
 
   return NextResponse.json({ error: 'action inválida' }, { status: 400 });

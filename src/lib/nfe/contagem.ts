@@ -218,6 +218,7 @@ export async function aplicarContagemComoSaldo(params: {
         estoqueInsumoId,
         qtdFinal: it.qtdKg,
         custoMedio: null,
+        custoOrigem: 'PENDENTE',
         origem: 'CONTAGEM',
       },
       update: {

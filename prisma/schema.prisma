@@ -2071,6 +2071,15 @@ enum CmvSaldoOrigem {
   IMPORTACAO
 }
 
+/// Origem do custo médio gravado no saldo (planilha, fallback ou pendente).
+enum CmvCustoOrigem {
+  PLANILHA
+  ULTIMA_COMPRA
+  MES_ANTERIOR
+  MANUAL
+  PENDENTE
+}
+
 enum CmvFechamentoStatus {
   ABERTO
   FECHADO
@@ -2252,17 +2261,19 @@ model CmvLancamento {
 }
 
 model CmvSaldoEstoque {
-  id              String         @id @default(cuid())
-  userId          String         @map("user_id")
-  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  storeSlug       String         @map("store_slug")
+  id              String          @id @default(cuid())
+  userId          String          @map("user_id")
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug       String          @map("store_slug")
   competencia     String
-  estoqueInsumoId String         @map("estoque_insumo_id")
-  qtdFinal        Decimal        @map("qtd_final") @db.Decimal(14, 4)
-  custoMedio      Decimal?       @map("custo_medio") @db.Decimal(14, 4)
+  estoqueInsumoId String          @map("estoque_insumo_id")
+  qtdFinal        Decimal         @map("qtd_final") @db.Decimal(14, 4)
+  custoMedio      Decimal?        @map("custo_medio") @db.Decimal(14, 4)
+  /// Como o custoMedio foi obtido (planilha, última compra, mês anterior, manual ou pendente).
+  custoOrigem     CmvCustoOrigem? @map("custo_origem")
   origem          CmvSaldoOrigem
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
 
   @@unique([userId, storeSlug, competencia, estoqueInsumoId])
   @@index([userId, storeSlug, competencia])

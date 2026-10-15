@@ -4,9 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { loadCatalogoEstoqueForUserId } from '@/lib/estoque/catalogo';
 import {
   confirmarSaldo,
+  contadoresPreviewSaldo,
   lerSaldoDoBuffer,
   listarAbas,
   previewSaldoComCatalogo,
+  resolverCustosSaldo,
   type ConfirmSaldoItem,
 } from '@/lib/nfe/importar-saldo';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
@@ -73,16 +75,20 @@ export async function POST(req: NextRequest) {
       }
 
       const linhas = lerSaldoDoBuffer(buffer, aba);
-      const preview = previewSaldoComCatalogo(linhas, catalogo.itens);
+      const matched = previewSaldoComCatalogo(linhas, catalogo.itens);
+      const preview = await resolverCustosSaldo({
+        tenantUserId: tenant.tenantUserId,
+        storeSlug,
+        competencia,
+        itens: matched,
+      });
+      const contadores = contadoresPreviewSaldo(preview);
       return NextResponse.json({
         ok: true,
         storeSlug,
         storeLabel: storeLabel(storeSlug),
         competencia,
-        total: preview.length,
-        casados: preview.filter((p) => p.status === 'casado').length,
-        sugeridos: preview.filter((p) => p.status === 'sugerido').length,
-        naoEncontrados: preview.filter((p) => p.status === 'nao_encontrado').length,
+        ...contadores,
         itens: preview,
       });
     }
