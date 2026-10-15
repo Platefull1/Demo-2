@@ -498,5 +498,3 @@ export function parseRefeicoes(raw: unknown): RefeicaoFuncionario[] {
     };
   });
 }
-
-export { storeLabel };
