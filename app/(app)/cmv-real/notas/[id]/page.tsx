@@ -290,7 +290,7 @@ function CmvRealNotaDetalhePageInner() {
     setSaving(itemId);
     setMsg(null);
     try {
-      await post({
+      const data = await post({
         action: 'confirmar_item',
         itemId,
         estoqueInsumoId: d.produtoId,
@@ -298,6 +298,11 @@ function CmvRealNotaDetalhePageInner() {
         criarMapeamento: d.criarMap && canMapeamentoCriar,
       });
       await load();
+      if (data.configCriada) {
+        setMsg(
+          'Produto incluído no catálogo CMV Real (estava fora do catálogo).',
+        );
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {

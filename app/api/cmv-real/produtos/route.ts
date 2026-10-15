@@ -4,6 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { dedupeInsumosByNome } from '@/lib/estoque-nome';
 import { dedupeInsumosBySlug } from '@/lib/estoque-tenant';
+import {
+  incluirOrfaosNoCatalogoCmv,
+  listarOrfaosCmvCatalogo,
+  secaoFromCategoriaId,
+  unidadeFromEstoque,
+} from '@/lib/nfe/cmv-catalogo';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 
@@ -11,14 +17,7 @@ type CmvSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
 type CmvUnidade = 'KG' | 'UN';
 
 function secaoFromCategoria(categoriaId: string): CmvSecao {
-  const id = categoriaId.toLowerCase();
-  if (id.includes('embalag')) return 'EMBALAGEM';
-  if (id.includes('bebid')) return 'BEBIDA';
-  return 'MATERIA_PRIMA';
-}
-
-function unidadeFromEstoque(unidade: string): CmvUnidade {
-  return unidade.toLowerCase() === 'un' ? 'UN' : 'KG';
+  return secaoFromCategoriaId(categoriaId);
 }
 
 /**
@@ -33,6 +32,25 @@ export async function GET(req: NextRequest) {
   const fonte = req.nextUrl.searchParams.get('fonte');
   const canConfig =
     tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_CONFIG) ?? false);
+
+  if (fonte === 'orfaos') {
+    const competenciaSaldo =
+      req.nextUrl.searchParams.get('competenciaSaldo') || undefined;
+    const comprasRaw = req.nextUrl.searchParams.get('competenciasCompras');
+    const competenciasCompras = comprasRaw
+      ? comprasRaw.split(',').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+    const orfaos = await listarOrfaosCmvCatalogo({
+      tenantUserId: tenant.tenantUserId,
+      competenciaSaldo,
+      competenciasCompras,
+    });
+    return NextResponse.json({
+      ok: true,
+      canConfig,
+      orfaos,
+    });
+  }
 
   if (fonte === 'estoque') {
     const [insumos, cmvConfigs] = await Promise.all([
@@ -110,6 +128,41 @@ export async function GET(req: NextRequest) {
       ativo: c.ativo,
     })),
   });
+}
+
+/**
+ * POST /api/cmv-real/produtos
+ * body.action: incluir_orfaos { itens: [{ estoqueInsumoId, secao, unidade? }] }
+ */
+export async function POST(req: NextRequest) {
+  const { tenant, error } = await requireCmvRealAccess(P.CMV_REAL_CONFIG);
+  if (error) return error;
+
+  const body = (await req.json()) as {
+    action?: string;
+    itens?: Array<{
+      estoqueInsumoId: string;
+      secao: CmvSecao;
+      unidade?: CmvUnidade;
+    }>;
+  };
+
+  if (body.action === 'incluir_orfaos') {
+    if (!body.itens?.length) {
+      return NextResponse.json({ error: 'itens obrigatório' }, { status: 400 });
+    }
+    const result = await incluirOrfaosNoCatalogoCmv({
+      tenantUserId: tenant.tenantUserId,
+      itens: body.itens.map((it) => ({
+        estoqueInsumoId: it.estoqueInsumoId,
+        secao: it.secao,
+        unidade: it.unidade,
+      })),
+    });
+    return NextResponse.json({ ok: true, ...result });
+  }
+
+  return NextResponse.json({ error: 'action inválida' }, { status: 400 });
 }
 
 /** PATCH /api/cmv-real/produtos — atualiza um config { id, secao?, unidade?, ordem?, ativo? } */

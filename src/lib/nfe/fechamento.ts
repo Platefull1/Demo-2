@@ -112,6 +112,7 @@ export async function montarFechamento(params: {
   linhas: LinhaFechamento[];
   alertasTransferencia: AlertaTransferencia[];
   pendencias: string[];
+  orfaosCatalogoCount: number;
   totais: {
     consumoValor: number;
     consumoMp: number;
@@ -356,6 +357,24 @@ export async function montarFechamento(params: {
     );
   }
 
+  const { listarOrfaosCmvCatalogo } = await import('./cmv-catalogo');
+  const orfaosCatalogo = (
+    await listarOrfaosCmvCatalogo({
+      tenantUserId: params.tenantUserId,
+      competenciaSaldo: competenciaAnterior(params.competencia),
+      competenciasCompras: [params.competencia],
+    })
+  ).filter((o) => {
+    const saldoLoja = o.qtdSaldoPorLoja[params.storeSlug] ?? 0;
+    const comprasLoja = o.comprasValorPorLoja[params.storeSlug] ?? 0;
+    return saldoLoja > 0 || comprasLoja > 0;
+  });
+  if (orfaosCatalogo.length > 0) {
+    pendencias.push(
+      `${orfaosCatalogo.length} produto(s) com saldo ou compras fora do catálogo`,
+    );
+  }
+
   const ajustes = parseAjustes(fechamento.ajustes);
   const ajustesValor = ajustes.reduce((a, x) => a + x.valor, 0);
 
@@ -440,6 +459,7 @@ export async function montarFechamento(params: {
     linhas,
     alertasTransferencia,
     pendencias,
+    orfaosCatalogoCount: orfaosCatalogo.length,
     refeicoes: refeicaoRows.map((r) => ({
       id: r.id,
       data: r.data.toISOString().slice(0, 10),

@@ -42,7 +42,13 @@ type SaldoPreview = {
   custoOrigemDetalhe: string | null;
   custoAntigo?: boolean;
   status: 'casado' | 'sugerido' | 'nao_encontrado';
-  statusExibicao: 'casado' | 'sugerido' | 'nao_encontrado' | 'custo_pendente';
+  statusExibicao:
+    | 'casado'
+    | 'sugerido'
+    | 'nao_encontrado'
+    | 'custo_pendente'
+    | 'fora_do_catalogo';
+  foraDoCatalogoCmv?: boolean;
   estoqueInsumoId?: string;
   estoqueNome?: string;
 };
@@ -53,7 +59,8 @@ type FiltroStatus =
   | 'casado'
   | 'sugerido'
   | 'nao_encontrado'
-  | 'custo_pendente';
+  | 'custo_pendente'
+  | 'fora_do_catalogo';
 
 const SECAO_LABEL: Record<SaldoPreview['secao'], string> = {
   MATERIA_PRIMA: 'Matéria-prima',
@@ -67,6 +74,7 @@ const STATUS_LABEL: Record<FiltroStatus, string> = {
   sugerido: 'Sugerido',
   nao_encontrado: 'Sem correspondência',
   custo_pendente: 'Custo pendente',
+  fora_do_catalogo: 'Fora do catálogo',
 };
 
 const CUSTO_ORIGEM_LABEL: Record<string, string> = {
@@ -87,6 +95,7 @@ type ContadoresSecao = {
   sugeridos: number;
   naoEncontrados: number;
   custoPendente: number;
+  foraDoCatalogo?: number;
 };
 
 /**
@@ -109,6 +118,7 @@ export function ImportarSaldoBlock() {
     sugeridos: number;
     naoEncontrados: number;
     custoPendente: number;
+    foraDoCatalogo?: number;
     qtdSemCorrespondencia: number;
     porSecao: Record<SaldoPreview['secao'], ContadoresSecao>;
   } | null>(null);
@@ -201,7 +211,9 @@ export function ImportarSaldoBlock() {
             custoOrigem: 'PENDENTE' as const,
             custoOrigemDetalhe: null,
             statusExibicao:
-              i.status === 'nao_encontrado' ? i.status : 'custo_pendente',
+              i.status === 'nao_encontrado'
+                ? i.status
+                : 'custo_pendente',
           };
         }
         const n = Number(trimmed.replace(/\./g, '').replace(',', '.'));
@@ -211,7 +223,12 @@ export function ImportarSaldoBlock() {
           custoMedio: n,
           custoOrigem: 'MANUAL' as const,
           custoOrigemDetalhe: 'Informado na prévia',
-          statusExibicao: i.status === 'nao_encontrado' ? i.status : i.status,
+          statusExibicao:
+            i.status === 'nao_encontrado'
+              ? i.status
+              : i.foraDoCatalogoCmv
+                ? 'fora_do_catalogo'
+                : i.status,
         };
       });
     });
@@ -228,6 +245,7 @@ export function ImportarSaldoBlock() {
         custoOrigem:
           i.custoOrigem ?? (i.custoMedio != null ? 'MANUAL' : 'PENDENTE'),
         custoOrigemDetalhe: i.custoOrigemDetalhe ?? null,
+        secao: i.secao,
       }));
     if (payload.length === 0) {
       setMsg('Nenhum item casado para gravar');
@@ -248,8 +266,12 @@ export function ImportarSaldoBlock() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha');
+      const configs =
+        typeof data.configsCriadas === 'number' && data.configsCriadas > 0
+          ? ` ${data.configsCriadas} produto(s) incluído(s) no catálogo CMV Real.`
+          : '';
       setMsg(
-        `Saldo gravado (${CMV_STORE_LABELS[storeSlug] || storeSlug} / ${competencia}): ${data.upserted} itens. Vira estoque inicial do mês seguinte.`
+        `Saldo gravado (${CMV_STORE_LABELS[storeSlug] || storeSlug} / ${competencia}): ${data.upserted} itens. Vira estoque inicial do mês seguinte.${configs}`
       );
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -265,6 +287,9 @@ export function ImportarSaldoBlock() {
       if (filtroStatus === 'TODOS') return true;
       if (filtroStatus === 'custo_pendente') {
         return i.statusExibicao === 'custo_pendente' || i.custoOrigem === 'PENDENTE';
+      }
+      if (filtroStatus === 'fora_do_catalogo') {
+        return Boolean(i.foraDoCatalogoCmv);
       }
       return i.status === filtroStatus;
     });
@@ -375,6 +400,9 @@ export function ImportarSaldoBlock() {
             {resumo.total} linhas · {resumo.casados} encontrados ·{' '}
             {resumo.sugeridos} sugeridos · {resumo.naoEncontrados} sem
             correspondência · {resumo.custoPendente} custo pendente
+            {(resumo.foraDoCatalogo ?? 0) > 0
+              ? ` · ${resumo.foraDoCatalogo} fora do catálogo`
+              : ''}
             {resumo.qtdSemCorrespondencia > 0
               ? ` · ${resumo.qtdSemCorrespondencia} com qtd sem correspondência`
               : ''}
@@ -439,6 +467,7 @@ export function ImportarSaldoBlock() {
                     'sugerido',
                     'nao_encontrado',
                     'custo_pendente',
+                    'fora_do_catalogo',
                   ] as const
                 ).map((s) => (
                   <SelectItem key={s} value={s}>
@@ -472,12 +501,14 @@ export function ImportarSaldoBlock() {
                   const pendente =
                     i.custoOrigem === 'PENDENTE' ||
                     i.statusExibicao === 'custo_pendente';
+                  const foraCatalogo = Boolean(i.foraDoCatalogoCmv);
                   return (
                     <tr
                       key={`${i.linha}-${i.nome}`}
                       className={cn(
                         'border-t border-border',
-                        perdido && 'bg-destructive/10 text-destructive'
+                        perdido && 'bg-destructive/10 text-destructive',
+                        foraCatalogo && !perdido && 'bg-warning/10'
                       )}
                     >
                       <td className="py-1.5 px-2 text-muted-foreground">
@@ -544,7 +575,9 @@ export function ImportarSaldoBlock() {
                           'py-1.5 px-2',
                           perdido
                             ? 'text-destructive font-medium'
-                            : 'text-muted-foreground'
+                            : foraCatalogo
+                              ? 'text-warning font-medium'
+                              : 'text-muted-foreground'
                         )}
                       >
                         {i.status === 'casado'
@@ -552,6 +585,7 @@ export function ImportarSaldoBlock() {
                           : i.status === 'sugerido'
                             ? 'Sugerido'
                             : 'Sem correspondência'}
+                        {foraCatalogo ? ' · Fora do catálogo' : ''}
                         {pendente && i.status !== 'nao_encontrado'
                           ? ' · Custo pendente'
                           : ''}

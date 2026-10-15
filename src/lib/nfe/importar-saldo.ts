@@ -41,7 +41,12 @@ export type MatchStatusSaldo = 'casado' | 'sugerido' | 'nao_encontrado';
 
 export type PreviewSaldoItem = LinhaSaldoPlanilha & {
   status: MatchStatusSaldo;
-  statusExibicao: MatchStatusSaldo | 'custo_pendente';
+  statusExibicao:
+    | MatchStatusSaldo
+    | 'custo_pendente'
+    | 'fora_do_catalogo';
+  /** Casado no Estoque, mas sem CmvRealInsumoConfig ativo */
+  foraDoCatalogoCmv?: boolean;
   estoqueInsumoId?: string;
   estoqueNome?: string;
   score?: number;
@@ -71,11 +76,34 @@ export function previewSaldoComCatalogo(
   });
 }
 
+/** Marca itens casados no Estoque que ainda não estão no catálogo CMV Real. */
+export async function marcarForaDoCatalogoCmv(
+  tenantUserId: string,
+  itens: PreviewSaldoItem[],
+): Promise<PreviewSaldoItem[]> {
+  const { idsNoCatalogoCmv } = await import('./cmv-catalogo');
+  const inCfg = await idsNoCatalogoCmv(tenantUserId);
+  return itens.map((i) => {
+    if (!i.estoqueInsumoId || i.status === 'nao_encontrado') return i;
+    const fora = !inCfg.has(i.estoqueInsumoId);
+    if (!fora) return { ...i, foraDoCatalogoCmv: false };
+    return {
+      ...i,
+      foraDoCatalogoCmv: true,
+      statusExibicao:
+        i.statusExibicao === 'custo_pendente'
+          ? 'custo_pendente'
+          : 'fora_do_catalogo',
+    };
+  });
+}
+
 function statusExibicaoDe(item: PreviewSaldoItem): PreviewSaldoItem['statusExibicao'] {
   if (item.status === 'nao_encontrado') return 'nao_encontrado';
   if (item.custoOrigem === 'PENDENTE' || (item.qtdFinal > 0 && item.custoMedio == null)) {
     return 'custo_pendente';
   }
+  if (item.foraDoCatalogoCmv) return 'fora_do_catalogo';
   return item.status;
 }
 
@@ -438,15 +466,37 @@ export async function preencherCustosPendentesFechamento(params: {
 
 export function contadoresPreviewSaldo(itens: PreviewSaldoItem[]) {
   const porSecao = {
-    MATERIA_PRIMA: { total: 0, casados: 0, sugeridos: 0, naoEncontrados: 0, custoPendente: 0 },
-    EMBALAGEM: { total: 0, casados: 0, sugeridos: 0, naoEncontrados: 0, custoPendente: 0 },
-    BEBIDA: { total: 0, casados: 0, sugeridos: 0, naoEncontrados: 0, custoPendente: 0 },
+    MATERIA_PRIMA: {
+      total: 0,
+      casados: 0,
+      sugeridos: 0,
+      naoEncontrados: 0,
+      custoPendente: 0,
+      foraDoCatalogo: 0,
+    },
+    EMBALAGEM: {
+      total: 0,
+      casados: 0,
+      sugeridos: 0,
+      naoEncontrados: 0,
+      custoPendente: 0,
+      foraDoCatalogo: 0,
+    },
+    BEBIDA: {
+      total: 0,
+      casados: 0,
+      sugeridos: 0,
+      naoEncontrados: 0,
+      custoPendente: 0,
+      foraDoCatalogo: 0,
+    },
   };
 
   let casados = 0;
   let sugeridos = 0;
   let naoEncontrados = 0;
   let custoPendente = 0;
+  let foraDoCatalogo = 0;
   let qtdSemCorrespondencia = 0;
 
   for (const i of itens) {
@@ -467,6 +517,10 @@ export function contadoresPreviewSaldo(itens: PreviewSaldoItem[]) {
       custoPendente += 1;
       bucket.custoPendente += 1;
     }
+    if (i.foraDoCatalogoCmv) {
+      foraDoCatalogo += 1;
+      bucket.foraDoCatalogo += 1;
+    }
   }
 
   return {
@@ -475,6 +529,7 @@ export function contadoresPreviewSaldo(itens: PreviewSaldoItem[]) {
     sugeridos,
     naoEncontrados,
     custoPendente,
+    foraDoCatalogo,
     qtdSemCorrespondencia,
     porSecao,
   };
@@ -486,6 +541,9 @@ export type ConfirmSaldoItem = {
   custoMedio: number | null;
   custoOrigem?: CustoOrigemSaldo | null;
   custoOrigemDetalhe?: string | null;
+  /** Seção da planilha — usada para criar config CMV se faltar */
+  secao?: 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
+  unidade?: 'KG' | 'UN';
 };
 
 export async function confirmarSaldo(params: {
@@ -493,10 +551,40 @@ export async function confirmarSaldo(params: {
   storeSlug: string;
   competencia: string;
   itens: ConfirmSaldoItem[];
-}): Promise<{ upserted: number }> {
+}): Promise<{ upserted: number; configsCriadas: number }> {
+  const {
+    ensureCmvRealInsumoConfig,
+    secaoFromCategoriaId,
+    secaoFromNomeProduto,
+    unidadeFromEstoque,
+  } = await import('./cmv-catalogo');
   let upserted = 0;
+  let configsCriadas = 0;
   for (const it of params.itens) {
     if (!it.estoqueInsumoId) continue;
+
+    {
+      const insumo = await prisma.estoqueInsumo.findUnique({
+        where: { id: it.estoqueInsumoId },
+        select: { unidade: true, nome: true, categoriaId: true },
+      });
+      const secao =
+        it.secao ??
+        (() => {
+          const byNome = secaoFromNomeProduto(insumo?.nome || '');
+          return byNome !== 'MATERIA_PRIMA'
+            ? byNome
+            : secaoFromCategoriaId(insumo?.categoriaId);
+        })();
+      const { created } = await ensureCmvRealInsumoConfig({
+        tenantUserId: params.tenantUserId,
+        estoqueInsumoId: it.estoqueInsumoId,
+        secao,
+        unidade: it.unidade ?? unidadeFromEstoque(insumo?.unidade),
+      });
+      if (created) configsCriadas += 1;
+    }
+
     const custoOrigem: CmvCustoOrigem =
       (it.custoOrigem as CmvCustoOrigem | null | undefined) ??
       (isCustoPlanilhaValido(it.custoMedio) ? 'PLANILHA' : 'PENDENTE');
@@ -530,7 +618,7 @@ export async function confirmarSaldo(params: {
     });
     upserted++;
   }
-  return { upserted };
+  return { upserted, configsCriadas };
 }
 
 export { listarAbas, normalizarDescricao };

@@ -7,6 +7,7 @@ import {
   contadoresPreviewSaldo,
   lerSaldoDoBuffer,
   listarAbas,
+  marcarForaDoCatalogoCmv,
   previewSaldoComCatalogo,
   resolverCustosSaldo,
   type ConfirmSaldoItem,
@@ -76,13 +77,17 @@ export async function POST(req: NextRequest) {
 
       const linhas = lerSaldoDoBuffer(buffer, aba);
       const matched = previewSaldoComCatalogo(linhas, catalogo.itens);
-      const preview = await resolverCustosSaldo({
+      const comCusto = await resolverCustosSaldo({
         tenantUserId: tenant.tenantUserId,
         storeSlug,
         competencia,
         itens: matched,
         planilhaBuffer: buffer,
       });
+      const preview = await marcarForaDoCatalogoCmv(
+        tenant.tenantUserId,
+        comCusto,
+      );
       const contadores = contadoresPreviewSaldo(preview);
       return NextResponse.json({
         ok: true,

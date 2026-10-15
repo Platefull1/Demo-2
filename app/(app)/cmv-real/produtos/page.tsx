@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Loader2, Lock, Save, Search } from 'lucide-react';
 import { DataTable } from '@/components/layout/DataTable';
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { MapeamentosBlock } from './MapeamentosBlock';
+import { OrfaosCatalogoBlock } from './OrfaosCatalogoBlock';
 
 type Item = {
   id: string;
@@ -288,6 +289,10 @@ export default function CmvRealProdutosPage() {
           Somente visualização. Peça acesso de configuração para editar.
         </p>
       )}
+
+      <Suspense fallback={null}>
+        <OrfaosCatalogoBlock canConfig={canConfig} onIncluidos={() => void load()} />
+      </Suspense>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1 sm:max-w-xs">

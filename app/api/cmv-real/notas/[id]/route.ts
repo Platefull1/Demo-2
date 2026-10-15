@@ -241,15 +241,19 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       );
     }
 
-    const cfg = await prisma.cmvRealInsumoConfig.findFirst({
-      where: {
-        userId: tenant.tenantUserId,
-        estoqueInsumoId: body.estoqueInsumoId,
-      },
+    const {
+      ensureCmvRealInsumoConfig,
+      secaoFromCategoriaId,
+      unidadeFromEstoque,
+    } = await import('@/lib/nfe/cmv-catalogo');
+    const secao = secaoFromCategoriaId(insumo.categoriaId);
+    const unidade = unidadeFromEstoque(insumo.unidade);
+    const { created: configCriada } = await ensureCmvRealInsumoConfig({
+      tenantUserId: tenant.tenantUserId,
+      estoqueInsumoId: body.estoqueInsumoId,
+      secao,
+      unidade,
     });
-    const unidade =
-      cfg?.unidade ??
-      (insumo.unidade.toLowerCase() === 'un' ? 'UN' : 'KG');
     const fator = Number(body.fatorConversao);
     const qtdConv = Number(item.quantidade) * fator;
 
@@ -325,7 +329,11 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       },
     });
 
-    return NextResponse.json({ ok: true, itensPropagados });
+    return NextResponse.json({
+      ok: true,
+      itensPropagados,
+      configCriada,
+    });
   }
 
   if (body.action === 'aprovar_nota') {

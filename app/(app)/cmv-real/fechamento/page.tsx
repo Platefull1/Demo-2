@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { ChevronDown, ChevronRight, Download, Lock, RefreshCw, Unlock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AnimatedNumber } from '@/components/ui/animated-number';
@@ -167,6 +168,7 @@ export default function CmvRealFechamentoPage() {
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [ajustes, setAjustes] = useState<Ajuste[]>([]);
   const [pendencias, setPendencias] = useState<string[]>([]);
+  const [orfaosCatalogoCount, setOrfaosCatalogoCount] = useState(0);
   const [status, setStatus] = useState('ABERTO');
   const [vendaMes, setVendaMes] = useState('');
   const [vendaMesOrigem, setVendaMesOrigem] = useState<string | null>(null);
@@ -241,6 +243,11 @@ export default function CmvRealFechamentoPage() {
       setLinhas(data.linhas || []);
       setAjustes(data.fechamento?.ajustes || []);
       setPendencias(data.pendencias || []);
+      setOrfaosCatalogoCount(
+        typeof data.orfaosCatalogoCount === 'number'
+          ? data.orfaosCatalogoCount
+          : 0,
+      );
       setStatus(data.fechamento?.status || 'ABERTO');
       setVendaMes(
         data.fechamento?.vendaMes != null ? String(data.fechamento.vendaMes) : ''
@@ -509,9 +516,29 @@ export default function CmvRealFechamentoPage() {
               Pendências (não bloqueiam)
             </AlertTitle>
             <AlertDescription className="text-xs space-y-0.5 mt-1">
-              {pendencias.map((p, i) => (
-                <p key={i}>• {p}</p>
-              ))}
+              {pendencias.map((p, i) => {
+                const isOrfao =
+                  orfaosCatalogoCount > 0 &&
+                  p.includes('fora do catálogo');
+                return (
+                  <p key={i}>
+                    •{' '}
+                    {isOrfao ? (
+                      <>
+                        {p}{' '}
+                        <Link
+                          href="/cmv-real/produtos?orfaos=1"
+                          className="underline underline-offset-2 text-foreground hover:text-primary"
+                        >
+                          Incluir no catálogo
+                        </Link>
+                      </>
+                    ) : (
+                      p
+                    )}
+                  </p>
+                );
+              })}
             </AlertDescription>
           </Alert>
         )}

@@ -102,6 +102,7 @@ export async function GET(req: NextRequest) {
     linhas: data.linhas,
     alertasTransferencia: data.alertasTransferencia,
     pendencias: data.pendencias,
+    orfaosCatalogoCount: data.orfaosCatalogoCount,
     totais: data.totais,
   });
 }
