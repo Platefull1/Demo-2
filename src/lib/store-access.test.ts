@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   canAccessLojaNome,
+  filterByLojaAccess,
   getLojasDoUsuario,
   singleStoreSlug,
   storeSlugFromLojaNome,
@@ -66,5 +67,22 @@ describe('getLojasDoUsuario / canAccessLojaNome', () => {
     });
     assert.deepEqual(getLojasDoUsuario(t), []);
     assert.equal(canAccessLojaNome(t, 'CALENZANO AHÚ'), false);
+  });
+
+  it('filterByLojaAccess remove lojas fora do escopo', () => {
+    const t = tenant({
+      allowedStoreSlugs: ['pilarzinho'],
+      perfil: 'gerente_loja',
+      memberId: 'm',
+    });
+    const rows = [
+      { id: '1', lojaNome: 'CALENZANO PILARZINHO' },
+      { id: '2', lojaNome: 'CALENZANO PORTÃO' },
+      { id: '3', lojaNome: null },
+    ];
+    assert.deepEqual(
+      filterByLojaAccess(rows, t).map((r) => r.id),
+      ['1'],
+    );
   });
 });

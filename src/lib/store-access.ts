@@ -57,3 +57,11 @@ export function singleStoreSlug(tenant: CmvRealTenant): string | null {
   if (!allowed || allowed.length !== 1) return null;
   return allowed[0];
 }
+
+/** Filtra registros com `lojaNome` pelo escopo do tenant. */
+export function filterByLojaAccess<T extends { lojaNome?: string | null }>(
+  rows: T[],
+  tenant: CmvRealTenant,
+): T[] {
+  return rows.filter((r) => canAccessLojaNome(tenant, r.lojaNome));
+}

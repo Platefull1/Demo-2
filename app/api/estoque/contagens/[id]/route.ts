@@ -1,9 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getEstoqueTenantContext } from '@/lib/estoque-tenant';
+import { canAccessLojaNome } from '@/lib/store-access';
 import type { StockSession } from '../../../../estoque/types';
 
 export const dynamic = 'force-dynamic';
+
+function notFound() {
+  return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
+}
+
+async function loadAccessibleContagem(id: string) {
+  const ctx = await getEstoqueTenantContext();
+  if (!ctx) return { ctx: null as null, existing: null, error: NextResponse.json({ error: 'Não autorizado' }, { status: 401 }) };
+  if (ctx.store.lojaNaoConfigurada) {
+    return { ctx, existing: null, error: notFound() };
+  }
+
+  const existing = await prisma.estoqueContagem.findUnique({ where: { id } });
+  if (!existing || !ctx.userIds.includes(existing.userId)) {
+    return { ctx, existing: null, error: notFound() };
+  }
+  if (!canAccessLojaNome(ctx.store, existing.lojaNome)) {
+    return { ctx, existing: null, error: notFound() };
+  }
+  return { ctx, existing, error: null };
+}
 
 // ── PATCH: atualizar sessões e/ou status ──────────────────────────────────────
 export async function PATCH(
@@ -11,17 +33,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const ctx = await getEstoqueTenantContext();
-    if (!ctx) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-
-    const { userIds } = ctx;
     const { id } = await params;
-    const body = await request.json();
+    const { existing, error } = await loadAccessibleContagem(id);
+    if (error) return error;
+    if (!existing) return notFound();
 
-    const existing = await prisma.estoqueContagem.findUnique({ where: { id } });
-    if (!existing || !userIds.includes(existing.userId)) {
-      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-    }
+    const body = await request.json();
 
     const updated = await prisma.estoqueContagem.update({
       where: { id },
@@ -53,16 +70,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const ctx = await getEstoqueTenantContext();
-    if (!ctx) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
-
-    const { userIds } = ctx;
     const { id } = await params;
-
-    const existing = await prisma.estoqueContagem.findUnique({ where: { id } });
-    if (!existing || !userIds.includes(existing.userId)) {
-      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
-    }
+    const { existing, error } = await loadAccessibleContagem(id);
+    if (error) return error;
+    if (!existing) return notFound();
 
     await prisma.estoqueContagem.delete({ where: { id } });
 

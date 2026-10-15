@@ -1,4 +1,8 @@
 import { getEffectiveDbUser, getEffectiveUserIds } from '@/lib/effective-user';
+import {
+  getCmvRealTenantFromSession,
+  type CmvRealTenant,
+} from '@/lib/nfe/tenant';
 
 export {
   dedupeInsumosByNome,
@@ -9,14 +13,18 @@ export {
 export interface EstoqueTenantContext {
   tenantUserId: string;
   userIds: string[];
+  /** Escopo de loja (mesma regra do CMV Real). */
+  store: CmvRealTenant;
 }
 
-/** Tenant + IDs históricos dos membros da equipe RH. */
+/** Tenant + IDs históricos dos membros da equipe RH + escopo de loja. */
 export async function getEstoqueTenantContext(): Promise<EstoqueTenantContext | null> {
   const dbUser = await getEffectiveDbUser();
   if (!dbUser) return null;
+  const store = await getCmvRealTenantFromSession();
+  if (!store) return null;
   const userIds = await getEffectiveUserIds(dbUser.id);
-  return { tenantUserId: dbUser.id, userIds };
+  return { tenantUserId: dbUser.id, userIds, store };
 }
 
 /** Deduplica por insumoId; configuração do tenant prevalece. */
