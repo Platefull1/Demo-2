@@ -1,16 +1,20 @@
 /**
  * Ajustes de DADOS — Estoque / CMV Real (Ahú).
  *
- * NÃO destrutivo: só UPDATE de 6 contagens sem loja + UPDATE de membro
- * estoquecalenzano + INSERT de permissões CMV (skipDuplicates) +
- * alinhamento de UserToolPermission ao Ahú.
+ * NÃO destrutivo:
+ * - UPDATE de 6 contagens sem loja → lojaNome Ahú
+ * - UPDATE estoquecalenzano: lojas=['ahu'], perfil='gerente_loja'
+ * - INSERT das 4 permissões cmv_real.* (skipDuplicates)
+ *
+ * NÃO altera UserToolPermission (menor privilégio).
  *
  * Uso (branch Neon primeiro):
- *   set DATABASE_URL=<url-da-branch>
+ *   $env:DATABASE_URL = "<url-da-branch>"
+ *   npx tsx scripts/estoque-lojas-data-fix.ts --dry-run
  *   npx tsx scripts/estoque-lojas-data-fix.ts
  *
- * Dry-run (não grava):
- *   npx tsx scripts/estoque-lojas-data-fix.ts --dry-run
+ * Produção (só depois da branch conferida):
+ *   npx tsx scripts/estoque-lojas-data-fix.ts --confirm-prod
  *
  * Lê DATABASE_URL do ambiente (obrigatório).
  */
@@ -25,6 +29,37 @@ if (!DATABASE_URL) {
 }
 
 const DRY = process.argv.includes('--dry-run');
+const CONFIRM_PROD = process.argv.includes('--confirm-prod');
+
+/** Hosts do banco principal (produção / pooler). Branches Neon usam outro ep-*. */
+const PRODUCTION_DATABASE_HOSTS = [
+  'ep-odd-sunset-ac2loti5-pooler.sa-east-1.aws.neon.tech',
+  'ep-odd-sunset-ac2loti5.sa-east-1.aws.neon.tech',
+  process.env.PRODUCTION_DATABASE_HOST,
+].filter(Boolean) as string[];
+
+function databaseHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    throw new Error('DATABASE_URL inválida (não é URL).');
+  }
+}
+
+const HOST = databaseHost(DATABASE_URL);
+console.log(`DATABASE_URL host: ${HOST}`);
+
+if (PRODUCTION_DATABASE_HOSTS.includes(HOST) && !CONFIRM_PROD) {
+  console.error(
+    '\nABORTADO: este host é o banco de PRODUÇÃO.\n' +
+      'Use a URL da branch Neon, ou passe --confirm-prod somente após validar a branch.\n' +
+      `(hosts de produção conhecidos: ${PRODUCTION_DATABASE_HOSTS.join(', ')})`,
+  );
+  process.exit(1);
+}
+if (PRODUCTION_DATABASE_HOSTS.includes(HOST) && CONFIRM_PROD) {
+  console.warn('AVISO: --confirm-prod ativo — escrevendo no banco de PRODUÇÃO.');
+}
 
 const prisma = new PrismaClient({
   datasources: { db: { url: DATABASE_URL } },
@@ -43,7 +78,6 @@ const CONTAGEM_IDS_SEM_LOJA = [
 const LOJA_NOME_AHU = 'CALENZANO AHÚ';
 
 const ESTOQUE_EMAIL = 'estoquecalenzano@gmail.com';
-const AHU_EMAIL = 'calenzano.ahu@gmail.com';
 
 const CMV_PERMS_AHU = [
   'cmv_real.visualizar',
@@ -52,8 +86,14 @@ const CMV_PERMS_AHU = [
   'cmv_real.mapeamento_criar',
 ] as const;
 
+function cmvPermsOf(member: { permissions: { permission: string }[] }) {
+  return member.permissions
+    .map((p) => p.permission)
+    .filter((p) => p.startsWith('cmv_real'))
+    .sort();
+}
+
 async function main() {
-  // ── Sanity: lojaNome canônico ─────────────────────────────────────────────
   const slugCheck = storeSlugFromLojaNome(LOJA_NOME_AHU);
   if (slugCheck !== 'ahu') {
     throw new Error(
@@ -72,20 +112,18 @@ async function main() {
     );
   }
 
-  // ── 1) Contagens sem loja → Ahú ───────────────────────────────────────────
+  // ── Contagens ─────────────────────────────────────────────────────────────
   const antesContagens = await prisma.estoqueContagem.findMany({
     where: { id: { in: [...CONTAGEM_IDS_SEM_LOJA] } },
     select: { id: true, lojaNome: true, userId: true, status: true },
+    orderBy: { dataCriacao: 'desc' },
   });
-
-  console.log('\n=== Contagens alvo ===');
-  console.table(antesContagens);
 
   const foraDoEscopo = antesContagens.filter((c) => c.lojaNome != null);
   if (foraDoEscopo.length > 0) {
     throw new Error(
       `Abortado: algum id já tem lojaNome preenchido: ${foraDoEscopo
-        .map((c) => c.id)
+        .map((c) => `${c.id}=${c.lojaNome}`)
         .join(', ')}`,
     );
   }
@@ -95,51 +133,40 @@ async function main() {
     throw new Error(`Abortado: ids não encontrados: ${missing.join(', ')}`);
   }
 
-  // ── 2) Membro estoquecalenzano ────────────────────────────────────────────
+  // ── Membro estoquecalenzano ───────────────────────────────────────────────
   const est = await prisma.rhTeamMember.findFirst({
     where: { email: { equals: ESTOQUE_EMAIL, mode: 'insensitive' } },
     include: { permissions: true },
   });
   if (!est) throw new Error(`${ESTOQUE_EMAIL} não encontrado em rh_team_members`);
 
-  const ahu = await prisma.rhTeamMember.findFirst({
-    where: { email: { equals: AHU_EMAIL, mode: 'insensitive' } },
-    include: { permissions: true },
-  });
-  if (!ahu?.stackUserId) {
-    throw new Error(`${AHU_EMAIL} sem stackUserId — não dá para espelhar tools`);
-  }
+  const permsAntes = cmvPermsOf(est);
+  const permsDepois = [...new Set([...permsAntes, ...CMV_PERMS_AHU])].sort();
+  const permsAInserir = CMV_PERMS_AHU.filter((p) => !permsAntes.includes(p));
 
-  const ahuTools = await prisma.userToolPermission.findMany({
-    where: { stackUserId: ahu.stackUserId },
-  });
-  const estTools = est.stackUserId
-    ? await prisma.userToolPermission.findMany({
-        where: { stackUserId: est.stackUserId },
-      })
-    : [];
+  // ── Relatório antes/depois (sempre; dry-run para aqui) ────────────────────
+  console.log('\n=== Contagens (6 ids) — lojaNome ===');
+  console.table(
+    antesContagens.map((c) => ({
+      id: c.id,
+      lojaNome_antes: c.lojaNome,
+      lojaNome_depois: LOJA_NOME_AHU,
+      status: c.status,
+    })),
+  );
 
-  console.log('\n=== estoquecalenzano (antes) ===');
+  console.log('\n=== estoquecalenzano — antes / depois ===');
   console.log({
-    id: est.id,
-    lojas: est.lojas,
-    perfil: est.perfil,
-    cmvPerms: est.permissions
-      .map((p) => p.permission)
-      .filter((p) => p.startsWith('cmv_real'))
-      .sort(),
-    toolsOn: estTools.filter((t) => t.isEnabled).map((t) => t.tool),
-  });
-  console.log('\n=== calenzano.ahu (referência) ===');
-  console.log({
-    id: ahu.id,
-    lojas: ahu.lojas,
-    perfil: ahu.perfil,
-    cmvPerms: ahu.permissions
-      .map((p) => p.permission)
-      .filter((p) => p.startsWith('cmv_real'))
-      .sort(),
-    toolsOn: ahuTools.filter((t) => t.isEnabled).map((t) => t.tool),
+    email: ESTOQUE_EMAIL,
+    memberId: est.id,
+    lojas: { antes: est.lojas, depois: ['ahu'] },
+    perfil: { antes: est.perfil, depois: 'gerente_loja' },
+    cmv_real_permissions: {
+      antes: permsAntes,
+      depois: permsDepois,
+      a_inserir: permsAInserir,
+    },
+    userToolPermission: 'NÃO ALTERADO (menor privilégio)',
   });
 
   if (DRY) {
@@ -148,7 +175,6 @@ async function main() {
   }
 
   await prisma.$transaction(async (tx) => {
-    // 1) Só os 6 ids, só onde lojaNome IS NULL
     const updContagens = await tx.estoqueContagem.updateMany({
       where: {
         id: { in: [...CONTAGEM_IDS_SEM_LOJA] },
@@ -162,7 +188,6 @@ async function main() {
       );
     }
 
-    // 2) Membro → Ahú (perfil + lojas)
     await tx.rhTeamMember.update({
       where: { id: est.id },
       data: {
@@ -171,7 +196,6 @@ async function main() {
       },
     });
 
-    // 3) Permissões CMV iguais ao Ahú (ids via @default(cuid()) do Prisma)
     await tx.rhPermission.createMany({
       data: CMV_PERMS_AHU.map((permission) => ({
         memberId: est.id,
@@ -180,30 +204,8 @@ async function main() {
       })),
       skipDuplicates: true,
     });
-
-    // 4) UserToolPermission: espelhar tools habilitadas do Ahú
-    if (!est.stackUserId) {
-      throw new Error(`${ESTOQUE_EMAIL} sem stackUserId — não dá para alinhar tools`);
-    }
-    for (const t of ahuTools) {
-      await tx.userToolPermission.upsert({
-        where: {
-          stackUserId_tool: {
-            stackUserId: est.stackUserId,
-            tool: t.tool,
-          },
-        },
-        create: {
-          stackUserId: est.stackUserId,
-          tool: t.tool,
-          isEnabled: t.isEnabled,
-        },
-        update: { isEnabled: t.isEnabled },
-      });
-    }
   });
 
-  // ── Verificação ───────────────────────────────────────────────────────────
   const depoisContagens = await prisma.estoqueContagem.findMany({
     where: { id: { in: [...CONTAGEM_IDS_SEM_LOJA] } },
     select: { id: true, lojaNome: true },
@@ -212,21 +214,14 @@ async function main() {
     where: { id: est.id },
     include: { permissions: true },
   });
-  const toolsDepois = await prisma.userToolPermission.findMany({
-    where: { stackUserId: est.stackUserId! },
-  });
 
-  console.log('\n=== Contagens depois ===');
+  console.log('\n=== Contagens depois (confirmado) ===');
   console.table(depoisContagens);
-  console.log('\n=== estoquecalenzano depois ===');
+  console.log('\n=== estoquecalenzano depois (confirmado) ===');
   console.log({
     lojas: estDepois?.lojas,
     perfil: estDepois?.perfil,
-    cmvPerms: estDepois?.permissions
-      .map((p) => p.permission)
-      .filter((p) => p.startsWith('cmv_real'))
-      .sort(),
-    toolsOn: toolsDepois.filter((t) => t.isEnabled).map((t) => t.tool).sort(),
+    cmvPerms: estDepois ? cmvPermsOf(estDepois) : [],
   });
   console.log('\nOK — dados aplicados.');
 }
