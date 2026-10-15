@@ -77,13 +77,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payload inválido' }, { status: 400 });
     }
 
+    // Toda contagem nova exige loja (qualquer perfil). Contagens antigas sem
+    // loja continuam listáveis só para escopo total via canAccessLojaNome.
+    if (!lojaNomeNorm) {
+      return NextResponse.json(
+        {
+          error: 'Selecione uma loja para iniciar a contagem',
+          code: 'LOJA_OBRIGATORIA',
+        },
+        { status: 403 },
+      );
+    }
+
     if (!canAccessLojaNome(ctx.store, lojaNomeNorm)) {
       return NextResponse.json(
         {
-          error: lojaNomeNorm
-            ? `Sem acesso à loja "${lojaNomeNorm}"`
-            : 'Selecione uma loja para iniciar a contagem',
-          code: lojaNomeNorm ? 'LOJA_FORBIDDEN' : 'LOJA_OBRIGATORIA',
+          error: `Sem acesso à loja "${lojaNomeNorm}"`,
+          code: 'LOJA_FORBIDDEN',
         },
         { status: 403 },
       );

@@ -180,8 +180,6 @@ export default function EstoqueVisaoGeralPage() {
     );
   }
 
-  const podeContinuarSemLoja = access?.allowedStoreSlugs === null;
-
   return (
     <div className="relative">
       {(accessError || startError) && (
@@ -224,28 +222,15 @@ export default function EstoqueVisaoGeralPage() {
                 </p>
               )}
             </div>
-            {podeContinuarSemLoja && (
-              <div className="px-3 pb-3 pt-1 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => handleIniciarComLoja(undefined)}
-                  className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  Continuar sem selecionar loja
-                </button>
-              </div>
-            )}
-            {!podeContinuarSemLoja && (
-              <div className="px-3 pb-3 pt-1 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setShowLojaModal(false)}
-                  className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            )}
+            <div className="px-3 pb-3 pt-1 border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowLojaModal(false)}
+                className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
