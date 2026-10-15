@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
         storeSlug,
         competencia,
         itens: matched,
+        planilhaBuffer: buffer,
       });
       const contadores = contadoresPreviewSaldo(preview);
       return NextResponse.json({

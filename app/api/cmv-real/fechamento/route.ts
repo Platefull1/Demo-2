@@ -55,6 +55,10 @@ export async function GET(req: NextRequest) {
       linhas: data.linhas,
       vendaMes: data.totais.vendaMes,
       ajustes: parseAjustes(data.fechamento.ajustes),
+      cmvMp: data.totais.cmvMp,
+      cmvEmbalagens: data.totais.cmvEmbalagens,
+      cmvBebidas: data.totais.cmvBebidas,
+      cmvTotal: data.totais.cmvTotal,
     });
     const filename = `cmv-${storeSlug}-${competencia}.xlsx`;
     return new NextResponse(new Uint8Array(buf), {
@@ -292,6 +296,10 @@ export async function PATCH(req: NextRequest) {
           linhasCount: snap.linhas.length,
           pctCmvMpBruto: snap.totais.pctCmvMpBruto,
           custoRefeicoes: snap.totais.custoRefeicoes,
+          cmvMp: snap.totais.cmvMp,
+          cmvEmbalagens: snap.totais.cmvEmbalagens,
+          cmvBebidas: snap.totais.cmvBebidas,
+          cmvTotal: snap.totais.cmvTotal,
         },
       },
     });
@@ -356,6 +364,7 @@ export async function PATCH(req: NextRequest) {
       data: {
         custoMedio: decimal(custo),
         custoOrigem: 'MANUAL',
+        custoOrigemDetalhe: 'Informado manualmente no fechamento',
       },
     });
     return NextResponse.json({
@@ -365,6 +374,7 @@ export async function PATCH(req: NextRequest) {
       estoqueInsumoId: updated.estoqueInsumoId,
       custoMedio: Number(updated.custoMedio),
       custoOrigem: updated.custoOrigem,
+      custoOrigemDetalhe: updated.custoOrigemDetalhe,
     });
   }
 

@@ -6,10 +6,11 @@
  */
 
 import { prisma } from '@/lib/prisma';
-import { semanaFromDataEntrada } from './dates';
-import { competenciaAnterior, storeLabel } from './lojas';
-import { conciliarTransferencias, type AlertaTransferencia } from './transferencias';
 import { calcularCustoRefeicoes } from '@/lib/cmv-real/refeicoes';
+import { semanaFromDataEntrada } from './dates';
+import { preencherCustosPendentesFechamento } from './importar-saldo';
+import { competenciaAnterior } from './lojas';
+import { conciliarTransferencias, type AlertaTransferencia } from './transferencias';
 
 export type AjusteFechamento = {
   id: string;
@@ -35,6 +36,7 @@ export type LinhaFechamento = {
   estoqueInicial: number;
   custoMedioInicial: number | null;
   custoOrigemInicial: string | null;
+  custoOrigemDetalheInicial: string | null;
   comprasQtd: number;
   comprasValor: number;
   /** por semana 1–5 */
@@ -48,8 +50,14 @@ export type LinhaFechamento = {
   estoqueFinal: number;
   custoMedioFinal: number | null;
   custoOrigemFinal: string | null;
+  custoOrigemDetalheFinal: string | null;
   consumoQtd: number;
   consumoValor: number;
+};
+
+export type ResumoCmvSecao = {
+  valor: number;
+  pct: number | null;
 };
 
 function n(d: unknown): number {
@@ -115,6 +123,11 @@ export async function montarFechamento(params: {
     pctCmvMpBruto: number | null;
     custoRefeicoes: number;
     consumoMpLiquido: number | null;
+    /** CMV matéria-prima líquido (consumo MP − refeições) */
+    cmvMp: ResumoCmvSecao;
+    cmvEmbalagens: ResumoCmvSecao;
+    cmvBebidas: ResumoCmvSecao;
+    cmvTotal: ResumoCmvSecao;
     refeicoesPorCategoria: Array<{
       categoria: string;
       quantidade: number;
@@ -136,14 +149,18 @@ export async function montarFechamento(params: {
   const fechamento = await garantirFechamentoAberto(params);
   const ant = competenciaAnterior(params.competencia);
 
-  const [configs, saldosIni, saldosFim, lancs] = await Promise.all([
-    prisma.cmvRealInsumoConfig.findMany({
-      where: { userId: params.tenantUserId, ativo: true },
-      include: {
-        estoqueInsumo: { select: { id: true, nome: true, insumoId: true } },
-      },
-      orderBy: [{ secao: 'asc' }, { ordem: 'asc' }],
-    }),
+  const configs = await prisma.cmvRealInsumoConfig.findMany({
+    where: { userId: params.tenantUserId, ativo: true },
+    include: {
+      estoqueInsumo: { select: { id: true, nome: true, insumoId: true } },
+    },
+    orderBy: [{ secao: 'asc' }, { ordem: 'asc' }],
+  });
+  const nomeById = new Map(
+    configs.map((c) => [c.estoqueInsumoId, c.estoqueInsumo.nome] as const),
+  );
+
+  let [saldosIni, saldosFim, lancs] = await Promise.all([
     prisma.cmvSaldoEstoque.findMany({
       where: {
         userId: params.tenantUserId,
@@ -159,6 +176,51 @@ export async function montarFechamento(params: {
       },
     }),
     prisma.cmvLancamento.findMany({
+      where: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+      },
+    }),
+  ]);
+
+  // Auto-preenche custo quando há quantidade e custo vazio/inválido
+  await Promise.all([
+    preencherCustosPendentesFechamento({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competenciaSaldo: ant,
+      itens: saldosIni.map((s) => ({
+        estoqueInsumoId: s.estoqueInsumoId,
+        nome: nomeById.get(s.estoqueInsumoId) || s.estoqueInsumoId,
+        qtd: n(s.qtdFinal),
+        custoMedio: s.custoMedio != null ? n(s.custoMedio) : null,
+        custoOrigem: s.custoOrigem,
+      })),
+    }),
+    preencherCustosPendentesFechamento({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competenciaSaldo: params.competencia,
+      itens: saldosFim.map((s) => ({
+        estoqueInsumoId: s.estoqueInsumoId,
+        nome: nomeById.get(s.estoqueInsumoId) || s.estoqueInsumoId,
+        qtd: n(s.qtdFinal),
+        custoMedio: s.custoMedio != null ? n(s.custoMedio) : null,
+        custoOrigem: s.custoOrigem,
+      })),
+    }),
+  ]);
+
+  [saldosIni, saldosFim] = await Promise.all([
+    prisma.cmvSaldoEstoque.findMany({
+      where: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: ant,
+      },
+    }),
+    prisma.cmvSaldoEstoque.findMany({
       where: {
         userId: params.tenantUserId,
         storeSlug: params.storeSlug,
@@ -213,6 +275,8 @@ export async function montarFechamento(params: {
     const custoMedioFinal = fim?.custoMedio != null ? n(fim.custoMedio) : null;
     const custoOrigemInicial = ini?.custoOrigem ?? null;
     const custoOrigemFinal = fim?.custoOrigem ?? null;
+    const custoOrigemDetalheInicial = ini?.custoOrigemDetalhe ?? null;
+    const custoOrigemDetalheFinal = fim?.custoOrigemDetalhe ?? null;
 
     // consumo: inicial + compras + recebida − enviada − desperdício − final
     const consumoQtd =
@@ -242,6 +306,7 @@ export async function montarFechamento(params: {
       estoqueInicial,
       custoMedioInicial,
       custoOrigemInicial,
+      custoOrigemDetalheInicial,
       comprasQtd,
       comprasValor,
       comprasPorSemana,
@@ -254,6 +319,7 @@ export async function montarFechamento(params: {
       estoqueFinal,
       custoMedioFinal,
       custoOrigemFinal,
+      custoOrigemDetalheFinal,
       consumoQtd,
       consumoValor,
     };
@@ -325,6 +391,12 @@ export async function montarFechamento(params: {
   const consumoMp = linhas
     .filter((l) => l.secao === 'MATERIA_PRIMA')
     .reduce((a, l) => a + l.consumoValor, 0);
+  const consumoEmb = linhas
+    .filter((l) => l.secao === 'EMBALAGEM')
+    .reduce((a, l) => a + l.consumoValor, 0);
+  const consumoBeb = linhas
+    .filter((l) => l.secao === 'BEBIDA')
+    .reduce((a, l) => a + l.consumoValor, 0);
   const vendaMes = fechamento.vendaMes != null ? n(fechamento.vendaMes) : null;
 
   const calcRef =
@@ -349,6 +421,19 @@ export async function montarFechamento(params: {
           custoTotal: 0,
           consumoMpLiquido: consumoMp,
         };
+
+  const pctOf = (valor: number): number | null =>
+    vendaMes != null && vendaMes > 0
+      ? Math.round((valor / vendaMes) * 10000) / 10000
+      : null;
+
+  // CMV MP = consumo MP − custo refeições (jantas/sócio); espelha a planilha
+  const cmvMpValor =
+    vendaMes != null && vendaMes > 0 ? calcRef.consumoMpLiquido : consumoMp;
+  const cmvEmbalagensValor = Math.round(consumoEmb * 100) / 100;
+  const cmvBebidasValor = Math.round(consumoBeb * 100) / 100;
+  const cmvTotalValor =
+    Math.round((cmvMpValor + cmvEmbalagensValor + cmvBebidasValor) * 100) / 100;
 
   return {
     fechamento,
@@ -378,6 +463,10 @@ export async function montarFechamento(params: {
       custoRefeicoes: calcRef.custoTotal,
       consumoMpLiquido:
         vendaMes != null && vendaMes > 0 ? calcRef.consumoMpLiquido : null,
+      cmvMp: { valor: cmvMpValor, pct: pctOf(cmvMpValor) },
+      cmvEmbalagens: { valor: cmvEmbalagensValor, pct: pctOf(cmvEmbalagensValor) },
+      cmvBebidas: { valor: cmvBebidasValor, pct: pctOf(cmvBebidasValor) },
+      cmvTotal: { valor: cmvTotalValor, pct: pctOf(cmvTotalValor) },
       refeicoesPorCategoria: calcRef.porCategoria,
     },
   };

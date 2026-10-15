@@ -76,6 +76,10 @@ describe('parseSaldoDaAba — seções e #DIV/0!', () => {
     assert.equal(coca!.qtdFinal, 58);
     assert.equal(coca!.custoPlanilha, null);
     assert.equal(coca!.custoMedio, null);
+    assert.equal(coca!.custoOrigemDetalhe, null);
+
+    const emb = linhas.filter((l) => l.secao === 'EMBALAGEM');
+    assert.ok(emb.length >= 1, 'EMBALAGENS deve entrar no parse');
 
     const sprite = linhas.find((l) => l.nome === 'SPRITE LATA');
     assert.ok(sprite);

@@ -40,9 +40,12 @@ type RowState = PreviewItem & {
 
 type CatalogOption = { id: string; nome: string };
 
-function defaultAction(status: PreviewStatus): RowAction {
+function defaultAction(status: PreviewStatus, secao?: string): RowAction {
   if (status === 'casado') return 'vincular';
-  if (status === 'nao_encontrado') return 'ignorar';
+  // Embalagens costumam não existir no Estoque — criar no CMV Real
+  if (status === 'nao_encontrado') {
+    return secao === 'EMBALAGEM' ? 'criar' : 'ignorar';
+  }
   return null; // sugerido: exige escolha
 }
 
@@ -161,7 +164,7 @@ export default function CmvRealImportarPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha no preview');
       const itens = (data.itens as PreviewItem[]).map((p) => {
-        const action = defaultAction(p.status);
+        const action = defaultAction(p.status, p.secao);
         return {
           ...p,
           action,

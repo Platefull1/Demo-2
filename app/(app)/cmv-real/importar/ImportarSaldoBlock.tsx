@@ -21,8 +21,11 @@ import { FileDropzone } from './FileDropzone';
 
 type CustoOrigem =
   | 'PLANILHA'
-  | 'ULTIMA_COMPRA'
-  | 'MES_ANTERIOR'
+  | 'ULTIMA_COMPRA_LOJA'
+  | 'ULTIMA_COMPRA_GRUPO'
+  | 'OUTRA_LOJA'
+  | 'PLANILHA_MES_ANTERIOR'
+  | 'CMV_TEORICO'
   | 'MANUAL'
   | 'PENDENTE'
   | null;
@@ -35,6 +38,7 @@ type SaldoPreview = {
   custoMedio: number | null;
   custoPlanilha: number | null;
   custoOrigem: CustoOrigem;
+  custoOrigemDetalhe: string | null;
   status: 'casado' | 'sugerido' | 'nao_encontrado';
   statusExibicao: 'casado' | 'sugerido' | 'nao_encontrado' | 'custo_pendente';
   estoqueInsumoId?: string;
@@ -65,8 +69,11 @@ const STATUS_LABEL: Record<FiltroStatus, string> = {
 
 const CUSTO_ORIGEM_LABEL: Record<string, string> = {
   PLANILHA: 'Planilha',
-  ULTIMA_COMPRA: 'Última compra',
-  MES_ANTERIOR: 'Mês anterior',
+  ULTIMA_COMPRA_LOJA: 'Última compra (loja)',
+  ULTIMA_COMPRA_GRUPO: 'Última compra (grupo)',
+  OUTRA_LOJA: 'Outra loja',
+  PLANILHA_MES_ANTERIOR: 'Planilha mês anterior',
+  CMV_TEORICO: 'CMV teórico',
   MANUAL: 'Manual',
   PENDENTE: 'Custo pendente',
 };
@@ -189,6 +196,7 @@ export function ImportarSaldoBlock() {
             ...i,
             custoMedio: null,
             custoOrigem: 'PENDENTE' as const,
+            custoOrigemDetalhe: null,
             statusExibicao:
               i.status === 'nao_encontrado' ? i.status : 'custo_pendente',
           };
@@ -199,6 +207,7 @@ export function ImportarSaldoBlock() {
           ...i,
           custoMedio: n,
           custoOrigem: 'MANUAL' as const,
+          custoOrigemDetalhe: 'Informado na prévia',
           statusExibicao: i.status === 'nao_encontrado' ? i.status : i.status,
         };
       });
@@ -213,7 +222,9 @@ export function ImportarSaldoBlock() {
         estoqueInsumoId: i.estoqueInsumoId!,
         qtdFinal: i.qtdFinal,
         custoMedio: i.custoMedio,
-        custoOrigem: i.custoOrigem ?? (i.custoMedio != null ? 'MANUAL' : 'PENDENTE'),
+        custoOrigem:
+          i.custoOrigem ?? (i.custoMedio != null ? 'MANUAL' : 'PENDENTE'),
+        custoOrigemDetalhe: i.custoOrigemDetalhe ?? null,
       }));
     if (payload.length === 0) {
       setMsg('Nenhum item casado para gravar');
@@ -508,10 +519,17 @@ export function ImportarSaldoBlock() {
                           <span className="text-muted-foreground">–</span>
                         )}
                       </td>
-                      <td className="py-1.5 px-2 text-muted-foreground">
-                        {i.custoOrigem
-                          ? CUSTO_ORIGEM_LABEL[i.custoOrigem] || i.custoOrigem
-                          : '–'}
+                      <td className="py-1.5 px-2 text-muted-foreground max-w-[160px]">
+                        <div>
+                          {i.custoOrigem
+                            ? CUSTO_ORIGEM_LABEL[i.custoOrigem] || i.custoOrigem
+                            : '–'}
+                        </div>
+                        {i.custoOrigemDetalhe ? (
+                          <div className="truncate text-[11px] opacity-80">
+                            {i.custoOrigemDetalhe}
+                          </div>
+                        ) : null}
                       </td>
                       <td
                         className={cn(

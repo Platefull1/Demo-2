@@ -40,6 +40,7 @@ type Linha = {
   estoqueInicial: number;
   custoMedioInicial: number | null;
   custoOrigemInicial: string | null;
+  custoOrigemDetalheInicial: string | null;
   comprasQtd: number;
   comprasValor: number;
   transfEnviadaQtd: number;
@@ -50,10 +51,13 @@ type Linha = {
   estoqueFinal: number;
   custoMedioFinal: number | null;
   custoOrigemFinal: string | null;
+  custoOrigemDetalheFinal: string | null;
   consumoQtd: number;
   consumoValor: number;
   comprasPorSemana: Record<string, { qtd: number; valor: number }>;
 };
+
+type ResumoSecao = { valor: number; pct: number | null };
 
 type Ajuste = {
   id: string;
@@ -187,6 +191,10 @@ export default function CmvRealFechamentoPage() {
     pctCmvMpBruto?: number | null;
     custoRefeicoes?: number;
     consumoMpLiquido?: number | null;
+    cmvMp?: ResumoSecao;
+    cmvEmbalagens?: ResumoSecao;
+    cmvBebidas?: ResumoSecao;
+    cmvTotal?: ResumoSecao;
     refeicoesPorCategoria?: Array<{
       categoria: string;
       quantidade: number;
@@ -507,50 +515,39 @@ export default function CmvRealFechamentoPage() {
           </p>
         ) : null}
 
-        {/* KPIs — só valores já presentes */}
+        {/* Resumo CMV por seção (espelha a planilha) */}
         {totais && (
           <Card className="overflow-hidden">
             <CardContent className="p-0">
               <div className="grid grid-cols-2 xl:grid-cols-4">
-                {[
-                  {
-                    label: 'Venda',
-                    value:
-                      kpiVenda != null && !Number.isNaN(kpiVenda)
-                        ? fmtMoney(kpiVenda)
-                        : '–',
-                  },
-                  {
-                    label: 'Consumo MP',
-                    value: fmtMoney(totais.consumoMp ?? totais.consumoValor),
-                  },
-                  {
-                    label: '% CMV MP bruto',
-                    value:
-                      totais.pctCmvMpBruto != null
-                        ? `${(totais.pctCmvMpBruto * 100).toFixed(1)}%`
-                        : '–',
-                  },
-                  {
-                    label: 'Consumo MP líquido',
-                    value:
-                      totais.consumoMpLiquido != null
-                        ? fmtMoney(totais.consumoMpLiquido)
-                        : '–',
-                  },
-                ].map((k, i) => (
+                {(
+                  [
+                    { label: 'CMV Matéria-prima', r: totais.cmvMp },
+                    { label: 'CMV Embalagens', r: totais.cmvEmbalagens },
+                    { label: 'CMV Bebidas', r: totais.cmvBebidas },
+                    { label: 'CMV Total', r: totais.cmvTotal },
+                  ] as const
+                ).map((k, i) => (
                   <div
                     key={k.label}
                     className={cn(
                       'px-4 py-4',
                       (i === 0 || i === 2) && 'border-r border-border',
-                      (i === 0 || i === 1) && 'border-b border-border xl:border-b-0',
+                      (i === 0 || i === 1) &&
+                        'border-b border-border xl:border-b-0',
                       i < 3 && 'xl:border-r'
                     )}
                   >
                     <p className="text-sm text-muted-foreground">{k.label}</p>
                     <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
-                      {k.value}
+                      {k.r != null ? fmtMoney(k.r.valor) : '–'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                      {k.r?.pct != null
+                        ? `${(k.r.pct * 100).toFixed(1)}% da venda`
+                        : kpiVenda != null
+                          ? '–'
+                          : 'Informe a venda'}
                     </p>
                   </div>
                 ))}
@@ -948,18 +945,27 @@ export default function CmvRealFechamentoPage() {
                         l.custoOrigemInicial === 'PENDENTE';
                       const fimPendente =
                         l.estoqueFinal > 0 && l.custoOrigemFinal === 'PENDENTE';
+                      const origemHint =
+                        l.custoOrigemDetalheInicial ||
+                        l.custoOrigemDetalheFinal ||
+                        l.custoOrigemInicial ||
+                        l.custoOrigemFinal;
                       return (
                       <tr
                         key={l.estoqueInsumoId}
                         className="border-t border-border hover:bg-muted/50"
                       >
-                        <td className="sticky left-0 z-10 bg-background px-2 py-1.5 text-foreground border-r border-border max-w-[180px] truncate">
-                          {l.nome}
-                          {(iniPendente || fimPendente) && (
-                            <span className="ml-1 text-xs text-warning">
+                        <td className="sticky left-0 z-10 bg-background px-2 py-1.5 text-foreground border-r border-border max-w-[200px]">
+                          <div className="truncate">{l.nome}</div>
+                          {iniPendente || fimPendente ? (
+                            <div className="text-xs text-warning">
                               Custo pendente
-                            </span>
-                          )}
+                            </div>
+                          ) : origemHint ? (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {origemHint}
+                            </div>
+                          ) : null}
                         </td>
                         <td className="px-2 py-1.5 text-right">
                           <div className="flex flex-col items-end gap-1">
@@ -1061,6 +1067,17 @@ export default function CmvRealFechamentoPage() {
                       </tr>
                       );
                     })}
+                    <tr className="border-t border-border bg-muted/40">
+                      <td className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5 text-xs font-semibold text-foreground border-r border-border">
+                        Subtotal {SECAO_LABEL[secao] || secao}
+                      </td>
+                      <td colSpan={12} className="px-2 py-1.5" />
+                      <td className="px-2 py-1.5 text-right tabular-nums text-foreground font-semibold">
+                        {fmtMoney(
+                          items.reduce((a, l) => a + l.consumoValor, 0)
+                        )}
+                      </td>
+                    </tr>
                   </Fragment>
                 ))}
               </tbody>

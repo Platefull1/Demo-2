@@ -10,9 +10,10 @@ import {
   type EstoqueCatalogoItem,
 } from '@/lib/estoque/catalogo';
 import { listarAbas } from './importar-catalogo';
-import { competenciaAnterior } from './lojas';
+import { storeLabel } from './lojas';
 import { normalizarDescricao } from './normalize';
 import {
+  buscarCustoAgAbasAnteriores,
   fimCompetenciaUtc,
   isCustoPlanilhaValido,
   lerSaldoDoBuffer,
@@ -27,17 +28,23 @@ export {
   isCustoPlanilhaValido,
   lerSaldoDoBuffer,
   parseSaldoDaAba,
+  buscarCustoAgAbasAnteriores,
 };
 
 export type MatchStatusSaldo = 'casado' | 'sugerido' | 'nao_encontrado';
 
 export type PreviewSaldoItem = LinhaSaldoPlanilha & {
   status: MatchStatusSaldo;
-  /** Status de exibição/filtro (inclui custo_pendente). */
   statusExibicao: MatchStatusSaldo | 'custo_pendente';
   estoqueInsumoId?: string;
   estoqueNome?: string;
   score?: number;
+};
+
+export type CustoResolvido = {
+  custoMedio: number | null;
+  custoOrigem: CustoOrigemSaldo | null;
+  custoOrigemDetalhe: string | null;
 };
 
 export function previewSaldoComCatalogo(
@@ -72,152 +79,483 @@ function statusExibicaoDe(item: PreviewSaldoItem): PreviewSaldoItem['statusExibi
   return item.status;
 }
 
-function custoUnitarioLancamento(quantidade: unknown, valorTotal: unknown): number | null {
-  const q = Number(quantidade);
-  const v = Number(valorTotal);
-  if (!Number.isFinite(q) || q <= 0 || !Number.isFinite(v)) return null;
-  const u = v / q;
-  return u > 0 && Number.isFinite(u) ? u : null;
+function fmtDataBr(d: Date): string {
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+type CompraHit = {
+  custo: number;
+  storeSlug: string;
+  numero: string;
+  dataEntrada: Date;
+};
+
+async function buscarUltimasComprasAprovadas(params: {
+  tenantUserId: string;
+  storeSlug: string;
+  estoqueInsumoIds: string[];
+  fim: Date;
+}): Promise<{
+  mesmaLoja: Map<string, CompraHit>;
+  qualquerLoja: Map<string, CompraHit>;
+}> {
+  const mesmaLoja = new Map<string, CompraHit>();
+  const qualquerLoja = new Map<string, CompraHit>();
+  if (params.estoqueInsumoIds.length === 0) return { mesmaLoja, qualquerLoja };
+
+  const itens = await prisma.nfeItem.findMany({
+    where: {
+      estoqueInsumoId: { in: params.estoqueInsumoIds },
+      status: 'MAPEADO',
+      quantidadeConvertida: { gt: 0 },
+      valorLiquido: { gt: 0 },
+      nota: {
+        userId: params.tenantUserId,
+        status: 'APROVADA',
+        dataEntrada: { lt: params.fim },
+      },
+    },
+    select: {
+      estoqueInsumoId: true,
+      valorLiquido: true,
+      quantidadeConvertida: true,
+      nota: {
+        select: {
+          numero: true,
+          storeSlug: true,
+          dataEntrada: true,
+        },
+      },
+    },
+    orderBy: { nota: { dataEntrada: 'desc' } },
+  });
+
+  for (const it of itens) {
+    if (!it.estoqueInsumoId) continue;
+    const q = Number(it.quantidadeConvertida);
+    const v = Number(it.valorLiquido);
+    if (!(q > 0) || !(v > 0)) continue;
+    const custo = v / q;
+    if (!(custo > 0) || !Number.isFinite(custo)) continue;
+    const hit: CompraHit = {
+      custo,
+      storeSlug: it.nota.storeSlug,
+      numero: it.nota.numero,
+      dataEntrada: it.nota.dataEntrada,
+    };
+    if (!qualquerLoja.has(it.estoqueInsumoId)) {
+      qualquerLoja.set(it.estoqueInsumoId, hit);
+    }
+    if (
+      it.nota.storeSlug === params.storeSlug &&
+      !mesmaLoja.has(it.estoqueInsumoId)
+    ) {
+      mesmaLoja.set(it.estoqueInsumoId, hit);
+    }
+  }
+
+  return { mesmaLoja, qualquerLoja };
+}
+
+function detalheCompra(hit: CompraHit): string {
+  return `NF ${hit.numero} ${storeLabel(hit.storeSlug)} ${fmtDataBr(hit.dataEntrada)}`;
+}
+
+async function buscarCustoOutraLoja(params: {
+  tenantUserId: string;
+  storeSlug: string;
+  competencia: string;
+  estoqueInsumoIds: string[];
+}): Promise<Map<string, { custo: number; storeSlug: string }>> {
+  const out = new Map<string, { custo: number; storeSlug: string }>();
+  if (!params.estoqueInsumoIds.length) return out;
+  const rows = await prisma.cmvSaldoEstoque.findMany({
+    where: {
+      userId: params.tenantUserId,
+      competencia: params.competencia,
+      estoqueInsumoId: { in: params.estoqueInsumoIds },
+      storeSlug: { not: params.storeSlug },
+      custoMedio: { gt: 0 },
+    },
+    select: {
+      estoqueInsumoId: true,
+      storeSlug: true,
+      custoMedio: true,
+      updatedAt: true,
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+  for (const r of rows) {
+    if (out.has(r.estoqueInsumoId)) continue;
+    const c = Number(r.custoMedio);
+    if (c > 0) out.set(r.estoqueInsumoId, { custo: c, storeSlug: r.storeSlug });
+  }
+  return out;
+}
+
+type IngTeorico = { id: string; nome: string; precoPorKg: number; unidade?: string };
+
+function extrairIngredientesTeoricos(data: unknown): IngTeorico[] {
+  if (!data || typeof data !== 'object') return [];
+  const o = data as Record<string, unknown>;
+  const list = Array.isArray(o.ingredientes) ? o.ingredientes : [];
+  const out: IngTeorico[] = [];
+  for (const raw of list) {
+    if (!raw || typeof raw !== 'object') continue;
+    const i = raw as Record<string, unknown>;
+    const nome = String(i.nome || '').trim();
+    const preco = Number(i.precoPorKg);
+    if (!nome || !(preco > 0)) continue;
+    out.push({
+      id: String(i.id || nome),
+      nome,
+      precoPorKg: preco,
+      unidade: i.unidade != null ? String(i.unidade) : undefined,
+    });
+  }
+  return out;
+}
+
+async function buscarCustoCmvTeorico(params: {
+  tenantUserId: string;
+  storeSlug: string;
+  nomesPorInsumoId: Map<string, string>;
+}): Promise<Map<string, { custo: number; nomeIng: string }>> {
+  const out = new Map<string, { custo: number; nomeIng: string }>();
+  const record = await prisma.cmvStoreData.findFirst({
+    where: {
+      OR: [
+        { userId: params.tenantUserId, storeSlug: params.storeSlug },
+        { storeSlug: params.storeSlug },
+      ],
+    },
+    orderBy: { updatedAt: 'desc' },
+    select: { data: true },
+  });
+  if (!record) return out;
+  const ings = extrairIngredientesTeoricos(record.data);
+  if (!ings.length) return out;
+
+  for (const [insumoId, nome] of params.nomesPorInsumoId) {
+    const alvo = normalizarDescricao(nome);
+    let best: { score: number; ing: IngTeorico } | null = null;
+    for (const ing of ings) {
+      const n = normalizarDescricao(ing.nome);
+      if (n === alvo) {
+        best = { score: 1, ing };
+        break;
+      }
+      if (n.includes(alvo) || alvo.includes(n)) {
+        const score = Math.min(n.length, alvo.length) / Math.max(n.length, alvo.length);
+        if (!best || score > best.score) best = { score, ing };
+      }
+    }
+    if (best && best.score >= 0.7) {
+      out.set(insumoId, { custo: best.ing.precoPorKg, nomeIng: best.ing.nome });
+    }
+  }
+  return out;
 }
 
 /**
- * Resolve custo quando a planilha não traz AG válido e qtd > 0:
- * 1) última compra (mesma loja, senão qualquer) até fim da competência
- * 2) custo médio do mês anterior
- * 3) PENDENTE (grava qtd sem custo)
+ * Resolve um custo na ordem:
+ * a) última compra aprovada mesma loja
+ * b) última compra aprovada qualquer loja
+ * c) custo médio outra loja mesma competência
+ * d) AG válido abas anteriores da planilha
+ * e) CMV teórico (CmvStoreData)
+ * → PENDENTE
+ */
+export async function resolverUmCusto(params: {
+  tenantUserId: string;
+  storeSlug: string;
+  competencia: string;
+  estoqueInsumoId: string;
+  nomeProduto: string;
+  /** mapa nome→AG de abas anteriores (opcional) */
+  agAnterior?: Map<string, { custo: number; aba: string; competencia: string }>;
+  comprasLoja?: Map<string, CompraHit>;
+  comprasGrupo?: Map<string, CompraHit>;
+  outraLoja?: Map<string, { custo: number; storeSlug: string }>;
+  cmvTeorico?: Map<string, { custo: number; nomeIng: string }>;
+}): Promise<CustoResolvido> {
+  const id = params.estoqueInsumoId;
+
+  const loja = params.comprasLoja?.get(id);
+  if (loja) {
+    return {
+      custoMedio: loja.custo,
+      custoOrigem: 'ULTIMA_COMPRA_LOJA',
+      custoOrigemDetalhe: detalheCompra(loja),
+    };
+  }
+
+  const grupo = params.comprasGrupo?.get(id);
+  if (grupo) {
+    return {
+      custoMedio: grupo.custo,
+      custoOrigem: 'ULTIMA_COMPRA_GRUPO',
+      custoOrigemDetalhe: detalheCompra(grupo),
+    };
+  }
+
+  const outra = params.outraLoja?.get(id);
+  if (outra) {
+    return {
+      custoMedio: outra.custo,
+      custoOrigem: 'OUTRA_LOJA',
+      custoOrigemDetalhe: `Saldo ${storeLabel(outra.storeSlug)} ${params.competencia}`,
+    };
+  }
+
+  const ag = params.agAnterior?.get(params.nomeProduto);
+  if (ag) {
+    return {
+      custoMedio: ag.custo,
+      custoOrigem: 'PLANILHA_MES_ANTERIOR',
+      custoOrigemDetalhe: `${ag.aba} AG`,
+    };
+  }
+
+  const teo = params.cmvTeorico?.get(id);
+  if (teo) {
+    return {
+      custoMedio: teo.custo,
+      custoOrigem: 'CMV_TEORICO',
+      custoOrigemDetalhe: `CMV teórico: ${teo.nomeIng}`,
+    };
+  }
+
+  return {
+    custoMedio: null,
+    custoOrigem: 'PENDENTE',
+    custoOrigemDetalhe: null,
+  };
+}
+
+/**
+ * Resolve custo quando a planilha não traz AG válido e qtd > 0.
  */
 export async function resolverCustosSaldo(params: {
   tenantUserId: string;
   storeSlug: string;
   competencia: string;
   itens: PreviewSaldoItem[];
+  /** Buffer da planilha para buscar AG em abas anteriores */
+  planilhaBuffer?: ArrayBuffer | null;
 }): Promise<PreviewSaldoItem[]> {
   const precisa = params.itens.filter(
-    (i) =>
-      i.qtdFinal > 0 &&
-      !isCustoPlanilhaValido(i.custoPlanilha) &&
-      i.estoqueInsumoId,
+    (i) => i.qtdFinal > 0 && !isCustoPlanilhaValido(i.custoPlanilha),
   );
-  if (precisa.length === 0) {
-    return params.itens.map((i) => {
-      const next = { ...i };
-      if (i.custoPlanilha != null) {
-        next.custoMedio = i.custoPlanilha;
-        next.custoOrigem = 'PLANILHA';
-      } else if (i.qtdFinal > 0) {
-        next.custoMedio = null;
-        next.custoOrigem = 'PENDENTE';
-      }
+
+  // Itens com planilha válida
+  const base = params.itens.map((i) => {
+    if (isCustoPlanilhaValido(i.custoPlanilha)) {
+      const next: PreviewSaldoItem = {
+        ...i,
+        custoMedio: i.custoPlanilha,
+        custoOrigem: 'PLANILHA',
+        custoOrigemDetalhe: null,
+      };
       next.statusExibicao = statusExibicaoDe(next);
       return next;
-    });
-  }
+    }
+    if (!(i.qtdFinal > 0)) {
+      const next: PreviewSaldoItem = {
+        ...i,
+        custoMedio: null,
+        custoOrigem: null,
+        custoOrigemDetalhe: null,
+      };
+      next.statusExibicao = statusExibicaoDe(next);
+      return next;
+    }
+    return { ...i };
+  });
 
-  const ids = [...new Set(precisa.map((i) => i.estoqueInsumoId!))];
+  const comId = precisa.filter((i) => i.estoqueInsumoId);
+  const ids = [...new Set(comId.map((i) => i.estoqueInsumoId!))];
   const fim = fimCompetenciaUtc(params.competencia);
-  const ant = competenciaAnterior(params.competencia);
 
-  const [lancamentos, saldosAnt] = await Promise.all([
-    prisma.cmvLancamento.findMany({
-      where: {
-        userId: params.tenantUserId,
-        estoqueInsumoId: { in: ids },
-        tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL'] },
-        data: { lt: fim },
-        quantidade: { gt: 0 },
-      },
-      select: {
-        storeSlug: true,
-        estoqueInsumoId: true,
-        data: true,
-        quantidade: true,
-        valorTotal: true,
-      },
-      orderBy: { data: 'desc' },
+  const nomesSemCusto = precisa.map((i) => i.nome);
+  const agAnterior = params.planilhaBuffer
+    ? buscarCustoAgAbasAnteriores(
+        params.planilhaBuffer,
+        params.competencia,
+        nomesSemCusto,
+      )
+    : new Map<string, { custo: number; aba: string; competencia: string }>();
+
+  const [compras, outraLoja, cmvTeorico] = await Promise.all([
+    buscarUltimasComprasAprovadas({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      estoqueInsumoIds: ids,
+      fim,
     }),
-    prisma.cmvSaldoEstoque.findMany({
-      where: {
-        userId: params.tenantUserId,
-        storeSlug: params.storeSlug,
-        competencia: ant,
-        estoqueInsumoId: { in: ids },
-      },
-      select: {
-        estoqueInsumoId: true,
-        custoMedio: true,
-      },
+    buscarCustoOutraLoja({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competencia,
+      estoqueInsumoIds: ids,
+    }),
+    buscarCustoCmvTeorico({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      nomesPorInsumoId: new Map(
+        comId.map((i) => [i.estoqueInsumoId!, i.estoqueNome || i.nome]),
+      ),
     }),
   ]);
 
-  const ultimaMesmaLoja = new Map<string, number>();
-  const ultimaQualquer = new Map<string, number>();
-  for (const l of lancamentos) {
-    const u = custoUnitarioLancamento(l.quantidade, l.valorTotal);
-    if (u == null) continue;
-    if (!ultimaQualquer.has(l.estoqueInsumoId)) {
-      ultimaQualquer.set(l.estoqueInsumoId, u);
+  return Promise.all(
+    base.map(async (i) => {
+      if (isCustoPlanilhaValido(i.custoPlanilha) || !(i.qtdFinal > 0)) {
+        return i;
+      }
+
+      if (!i.estoqueInsumoId) {
+        // ainda pode achar AG em aba anterior pelo nome
+        const ag = agAnterior.get(i.nome);
+        if (ag) {
+          const next: PreviewSaldoItem = {
+            ...i,
+            custoMedio: ag.custo,
+            custoOrigem: 'PLANILHA_MES_ANTERIOR',
+            custoOrigemDetalhe: `${ag.aba} AG`,
+          };
+          next.statusExibicao = statusExibicaoDe(next);
+          return next;
+        }
+        const next: PreviewSaldoItem = {
+          ...i,
+          custoMedio: null,
+          custoOrigem: 'PENDENTE',
+          custoOrigemDetalhe: null,
+        };
+        next.statusExibicao = statusExibicaoDe(next);
+        return next;
+      }
+
+      const resolved = await resolverUmCusto({
+        tenantUserId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+        estoqueInsumoId: i.estoqueInsumoId,
+        nomeProduto: i.nome,
+        agAnterior,
+        comprasLoja: compras.mesmaLoja,
+        comprasGrupo: compras.qualquerLoja,
+        outraLoja,
+        cmvTeorico,
+      });
+
+      const next: PreviewSaldoItem = {
+        ...i,
+        ...resolved,
+      };
+      next.statusExibicao = statusExibicaoDe(next);
+      return next;
+    }),
+  );
+}
+
+/**
+ * Preenche custo faltante no fechamento (produto com qtd e sem custo).
+ * Persiste no CmvSaldoEstoque correspondente.
+ */
+export async function preencherCustosPendentesFechamento(params: {
+  tenantUserId: string;
+  storeSlug: string;
+  competenciaSaldo: string;
+  itens: Array<{
+    estoqueInsumoId: string;
+    nome: string;
+    qtd: number;
+    custoMedio: number | null;
+    custoOrigem: string | null;
+  }>;
+}): Promise<number> {
+  const precisa = params.itens.filter(
+    (i) =>
+      i.qtd > 0 &&
+      (i.custoOrigem === 'PENDENTE' ||
+        i.custoMedio == null ||
+        !(Number(i.custoMedio) > 0)),
+  );
+  if (!precisa.length) return 0;
+
+  const ids = precisa.map((i) => i.estoqueInsumoId);
+  const fim = fimCompetenciaUtc(params.competenciaSaldo);
+
+  const [compras, outraLoja, cmvTeorico] = await Promise.all([
+    buscarUltimasComprasAprovadas({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      estoqueInsumoIds: ids,
+      fim,
+    }),
+    buscarCustoOutraLoja({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competenciaSaldo,
+      estoqueInsumoIds: ids,
+    }),
+    buscarCustoCmvTeorico({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      nomesPorInsumoId: new Map(precisa.map((i) => [i.estoqueInsumoId, i.nome])),
+    }),
+  ]);
+
+  let updated = 0;
+  for (const it of precisa) {
+    const resolved = await resolverUmCusto({
+      tenantUserId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competenciaSaldo,
+      estoqueInsumoId: it.estoqueInsumoId,
+      nomeProduto: it.nome,
+      comprasLoja: compras.mesmaLoja,
+      comprasGrupo: compras.qualquerLoja,
+      outraLoja,
+      cmvTeorico,
+    });
+    if (resolved.custoMedio == null || resolved.custoOrigem === 'PENDENTE') {
+      // marca pendente se ainda sem custo
+      await prisma.cmvSaldoEstoque.updateMany({
+        where: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: params.competenciaSaldo,
+          estoqueInsumoId: it.estoqueInsumoId,
+        },
+        data: {
+          custoOrigem: 'PENDENTE',
+          custoOrigemDetalhe: null,
+        },
+      });
+      continue;
     }
-    if (
-      l.storeSlug === params.storeSlug &&
-      !ultimaMesmaLoja.has(l.estoqueInsumoId)
-    ) {
-      ultimaMesmaLoja.set(l.estoqueInsumoId, u);
-    }
+    const r = await prisma.cmvSaldoEstoque.updateMany({
+      where: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competenciaSaldo,
+        estoqueInsumoId: it.estoqueInsumoId,
+      },
+      data: {
+        custoMedio: resolved.custoMedio,
+        custoOrigem: resolved.custoOrigem as CmvCustoOrigem,
+        custoOrigemDetalhe: resolved.custoOrigemDetalhe,
+      },
+    });
+    updated += r.count;
   }
-
-  const mesAnterior = new Map<string, number>();
-  for (const s of saldosAnt) {
-    const c = s.custoMedio != null ? Number(s.custoMedio) : NaN;
-    if (Number.isFinite(c) && c > 0) mesAnterior.set(s.estoqueInsumoId, c);
-  }
-
-  return params.itens.map((i) => {
-    const next: PreviewSaldoItem = { ...i };
-
-    if (isCustoPlanilhaValido(i.custoPlanilha)) {
-      next.custoMedio = i.custoPlanilha;
-      next.custoOrigem = 'PLANILHA';
-      next.statusExibicao = statusExibicaoDe(next);
-      return next;
-    }
-
-    if (!(i.qtdFinal > 0)) {
-      next.custoMedio = null;
-      next.custoOrigem = null;
-      next.statusExibicao = statusExibicaoDe(next);
-      return next;
-    }
-
-    if (!i.estoqueInsumoId) {
-      next.custoMedio = null;
-      next.custoOrigem = 'PENDENTE';
-      next.statusExibicao = statusExibicaoDe(next);
-      return next;
-    }
-
-    const compra =
-      ultimaMesmaLoja.get(i.estoqueInsumoId) ??
-      ultimaQualquer.get(i.estoqueInsumoId);
-    if (compra != null) {
-      next.custoMedio = compra;
-      next.custoOrigem = 'ULTIMA_COMPRA';
-      next.statusExibicao = statusExibicaoDe(next);
-      return next;
-    }
-
-    const antCusto = mesAnterior.get(i.estoqueInsumoId);
-    if (antCusto != null) {
-      next.custoMedio = antCusto;
-      next.custoOrigem = 'MES_ANTERIOR';
-      next.statusExibicao = statusExibicaoDe(next);
-      return next;
-    }
-
-    next.custoMedio = null;
-    next.custoOrigem = 'PENDENTE';
-    next.statusExibicao = statusExibicaoDe(next);
-    return next;
-  });
+  return updated;
 }
 
 export function contadoresPreviewSaldo(itens: PreviewSaldoItem[]) {
@@ -269,12 +607,9 @@ export type ConfirmSaldoItem = {
   qtdFinal: number;
   custoMedio: number | null;
   custoOrigem?: CustoOrigemSaldo | null;
+  custoOrigemDetalhe?: string | null;
 };
 
-/**
- * Grava CmvSaldoEstoque com origem IMPORTACAO (upsert por loja+competência+produto).
- * Esse saldo vira estoque inicial do mês seguinte.
- */
 export async function confirmarSaldo(params: {
   tenantUserId: string;
   storeSlug: string;
@@ -304,12 +639,14 @@ export async function confirmarSaldo(params: {
         qtdFinal: it.qtdFinal,
         custoMedio: it.custoMedio,
         custoOrigem,
+        custoOrigemDetalhe: it.custoOrigemDetalhe ?? null,
         origem: 'IMPORTACAO',
       },
       update: {
         qtdFinal: it.qtdFinal,
         custoMedio: it.custoMedio,
         custoOrigem,
+        custoOrigemDetalhe: it.custoOrigemDetalhe ?? null,
         origem: 'IMPORTACAO',
       },
     });
