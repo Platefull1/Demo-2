@@ -29,7 +29,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { CMV_STORE_LABELS } from '@/lib/nfe/ui-labels';
+import { CMV_STORE_LABELS, formatQuantidadeBr } from '@/lib/nfe/ui-labels';
 import { cn } from '@/lib/utils';
 
 type Linha = {
@@ -109,7 +109,6 @@ function cellNum(
   n: number,
   opts?: { decimals?: number; tone?: 'destructive' | 'success' | 'foreground' }
 ) {
-  const d = opts?.decimals ?? 1;
   const zero = n === 0 || Object.is(n, -0);
   if (zero) {
     return (
@@ -117,6 +116,8 @@ function cellNum(
     );
   }
   const tone = opts?.tone ?? 'foreground';
+  const text =
+    opts?.decimals != null ? fmt(n, opts.decimals) : formatQuantidadeBr(n);
   return (
     <span
       className={cn(
@@ -126,7 +127,7 @@ function cellNum(
         tone === 'foreground' && 'text-foreground'
       )}
     >
-      {fmt(n, d)}
+      {text}
     </span>
   );
 }
@@ -764,7 +765,7 @@ export default function CmvRealFechamentoPage() {
                             {REFEICAO_CAT_LABEL[cat.categoria] || cat.categoria}
                           </TableCell>
                           <TableCell className="py-1.5 text-sm text-right tabular-nums text-foreground">
-                            {cat.quantidade}
+                            {formatQuantidadeBr(cat.quantidade)}
                           </TableCell>
                           <TableCell className="py-1.5 text-sm text-right tabular-nums text-foreground">
                             {fmtMoney(cat.valorItens)}

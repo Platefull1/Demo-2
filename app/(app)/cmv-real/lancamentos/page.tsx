@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CMV_STORE_LABELS } from '@/lib/nfe/ui-labels';
+import { CMV_STORE_LABELS, formatQuantidadeBr } from '@/lib/nfe/ui-labels';
 
 type Produto = { estoqueInsumoId: string; nome: string; unidade: string };
 type Lanc = {
@@ -194,7 +194,7 @@ export default function CmvRealLancamentosPage() {
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
         cell: ({ row }) => (
           <span className="tabular-nums text-foreground">
-            {row.original.quantidade}
+            {formatQuantidadeBr(row.original.quantidade)}
           </span>
         ),
       },
@@ -402,7 +402,7 @@ export default function CmvRealLancamentosPage() {
               {produtoNome(l.estoqueInsumoId)}
             </p>
             <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-              {l.quantidade} · {formatValor(l.valorTotal)}
+              {formatQuantidadeBr(l.quantidade)} · {formatValor(l.valorTotal)}
               {l.lojaDestino &&
                 ` → ${CMV_STORE_LABELS[l.lojaDestino] || l.lojaDestino}`}
               {l.lojaOrigem &&

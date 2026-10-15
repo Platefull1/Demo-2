@@ -8,7 +8,12 @@ import {
   notasListHref,
   parseNotasListFilters,
 } from '@/lib/nfe/notas-list-query';
-import { formatNumBr, notaStatusLabel, storeLabel } from '@/lib/nfe/ui-labels';
+import {
+  formatCustoMedioBr,
+  formatQuantidadeBr,
+  notaStatusLabel,
+  storeLabel,
+} from '@/lib/nfe/ui-labels';
 import { catalogoPareceGenericoDemais } from '@/lib/nfe/similarity';
 import {
   fatorEfetivoDaEntrada,
@@ -470,7 +475,7 @@ function CmvRealNotaDetalhePageInner() {
                 </>
               ) : (
                 <>
-                  {it.quantidade} {it.unidadeComercial}
+                  {formatQuantidadeBr(it.quantidade)} {it.unidadeComercial}
                 </>
               )}
             </div>
@@ -679,10 +684,10 @@ function CmvRealNotaDetalhePageInner() {
                                 opt.custoPorKg != null && (
                                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                                     <span className="text-xl font-semibold tabular-nums text-foreground">
-                                      {formatNumBr(opt.totalKg)} kg
+                                      {formatQuantidadeBr(opt.totalKg)} kg
                                     </span>
                                     <span className="text-base font-semibold tabular-nums text-foreground">
-                                      R$ {formatNumBr(opt.custoPorKg)}/kg
+                                      {formatCustoMedioBr(opt.custoPorKg)}/kg
                                     </span>
                                   </div>
                                 )}
@@ -746,29 +751,22 @@ function CmvRealNotaDetalhePageInner() {
                     ) {
                       return (
                         <p className="text-xs text-muted-foreground tabular-nums">
-                          {formatNumBr(
-                            it.quantidade,
-                            it.quantidade % 1 === 0 ? 0 : 2,
-                          )}{' '}
-                          CX × {interp.nPack}{' '}
+                          {formatQuantidadeBr(it.quantidade)} CX × {interp.nPack}{' '}
                           {interp.labelInterna || 'un.'} ×{' '}
                           {formatFatorBr(pesoOuFator)} kg ={' '}
-                          {formatNumBr(qtdConv)} kg
+                          {formatQuantidadeBr(qtdConv)} kg
                           {' · '}
-                          R$ {formatNumBr(custo)}/kg
+                          {formatCustoMedioBr(custo)}/kg
                         </p>
                       );
                     }
                     return (
                       <p className="text-xs text-muted-foreground tabular-nums">
-                        {formatNumBr(
-                          it.quantidade,
-                          it.quantidade % 1 === 0 ? 0 : 2,
-                        )}{' '}
-                        × {formatFatorBr(fator)} {sufixo} ={' '}
-                        {formatNumBr(qtdConv)} {sufixo}
+                        {formatQuantidadeBr(it.quantidade)} ×{' '}
+                        {formatFatorBr(fator)} {sufixo} ={' '}
+                        {formatQuantidadeBr(qtdConv)} {sufixo}
                         {' · '}
-                        R$ {formatNumBr(custo)}/{sufixo}
+                        {formatCustoMedioBr(custo)}/{sufixo}
                       </p>
                     );
                   })()}

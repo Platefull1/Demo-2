@@ -74,3 +74,21 @@ export function formatNumBr(n: number, decimals = 2): string {
     maximumFractionDigits: decimals,
   });
 }
+
+/** Quantidade na UI: até 3 casas, vírgula decimal (ex.: 22,55). Só exibição. */
+export function formatQuantidadeBr(n: number): string {
+  return n.toLocaleString('pt-BR', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 3,
+  });
+}
+
+/** Custo médio na UI: moeda BRL com 2 casas (ex.: R$ 33,27). Só exibição. */
+export function formatCustoMedioBr(n: number): string {
+  return n.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}

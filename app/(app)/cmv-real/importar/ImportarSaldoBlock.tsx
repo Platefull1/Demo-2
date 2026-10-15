@@ -11,7 +11,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { CMV_STORE_LABELS } from '@/lib/nfe/ui-labels';
+import {
+  CMV_STORE_LABELS,
+  formatCustoMedioBr,
+  formatQuantidadeBr,
+} from '@/lib/nfe/ui-labels';
 import { FileDropzone } from './FileDropzone';
 
 type SaldoPreview = {
@@ -278,10 +282,10 @@ export function ImportarSaldoBlock() {
                     {i.nome}
                   </td>
                   <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
-                    {i.qtdFinal}
+                    {formatQuantidadeBr(i.qtdFinal)}
                   </td>
                   <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
-                    {i.custoMedio ?? '–'}
+                    {i.custoMedio != null ? formatCustoMedioBr(i.custoMedio) : '–'}
                   </td>
                   <td className="py-1.5 px-2 text-muted-foreground">
                     {i.status === 'casado'

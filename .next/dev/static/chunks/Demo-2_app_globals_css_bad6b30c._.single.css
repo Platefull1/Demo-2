@@ -6401,6 +6401,11 @@ body {
     right: 1.5rem;
   }
 
+  .md\:mx-8 {
+    margin-left: 2rem;
+    margin-right: 2rem;
+  }
+
   .md\:-ml-4 {
     margin-left: -1rem;
   }

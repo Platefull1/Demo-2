@@ -14,7 +14,12 @@ import {
   separarSufixoFornecedor,
   type SufixoCx,
 } from './fator-sugerido';
-import { formatNumBr, perguntaFator, unidadeNotaNome } from './ui-labels';
+import {
+  formatNumBr,
+  formatQuantidadeBr,
+  perguntaFator,
+  unidadeNotaNome,
+} from './ui-labels';
 
 /** Unidades comerciais que frequentemente mentem (peso na unidade, qtd em peças). */
 const UNIDADES_PESO_NAO_CONFIAVEIS = new Set([
@@ -101,7 +106,7 @@ function round4(n: number): number {
 }
 
 function formatQtd(n: number): string {
-  return formatNumBr(n, n % 1 === 0 ? 0 : 2);
+  return formatQuantidadeBr(n);
 }
 
 function formatPesoKg(n: number): string {

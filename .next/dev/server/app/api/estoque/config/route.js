@@ -4,7 +4,7 @@ R.c("server/chunks/6e6c4_@opentelemetry_api_build_esm_87922719._.js")
 R.c("server/chunks/6e6c4_@stackframe_stack-shared_dist_esm_7af97463._.js")
 R.c("server/chunks/6e6c4_@stackframe_stack_dist_esm_6ea35336._.js")
 R.c("server/chunks/6e6c4_63d285c9._.js")
-R.c("server/chunks/[root-of-the-server]__22104310._.js")
+R.c("server/chunks/[root-of-the-server]__9c7affea._.js")
 R.c("server/chunks/Demo-2__next-internal_server_app_api_estoque_config_route_actions_f2bc7857.js")
 R.m("[project]/Demo-2/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/Demo-2/app/api/estoque/config/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
 module.exports=R.m("[project]/Demo-2/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/Demo-2/app/api/estoque/config/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports
