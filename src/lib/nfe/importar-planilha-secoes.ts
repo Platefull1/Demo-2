@@ -4,7 +4,7 @@
  *
  * Âncora: coluna B exatamente "MATERIA PRIMA" | "EMBALAGENS" | "BEBIDAS"
  * (normalizado) E coluna D = "ESTOQUE INICIAL" na mesma linha.
- * Produto: B preenchido + E (unidade) preenchido, dentro da seção.
+ * Produto: B preenchido; E (unidade) opcional — fallback AF.
  */
 
 import * as XLSX from 'xlsx';
@@ -14,6 +14,7 @@ export type CmvRealSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
 export const COL_PRODUTO = 1; // B
 export const COL_ESTOQUE_INICIAL_HDR = 3; // D
 export const COL_UNIDADE = 4; // E
+export const COL_UNIDADE_AF = 31; // AF (fallback de unidade)
 
 const ANCHOR_EXACT: Record<string, CmvRealSecao> = {
   'MATERIA PRIMA': 'MATERIA_PRIMA',
@@ -76,8 +77,8 @@ export function isLinhaTotal(nomeB: string): boolean {
 }
 
 /**
- * Linha de produto candidata: B + E preenchidos.
- * Não inclui âncoras exatas nem totais/CMV.
+ * Linha de produto candidata: B preenchido (unidade E opcional; fallback AF).
+ * Não descarta por falta de unidade — CAMARÃO etc. com E vazio entram.
  */
 export function lerLinhaProduto(
   ws: XLSX.WorkSheet,
@@ -89,8 +90,10 @@ export function lerLinhaProduto(
   // Nome exato de seção sem ser âncora completa → não é produto
   if (secaoFromNomeExato(nomeB)) return null;
 
-  const unidadeRaw = cellStr(ws, r, COL_UNIDADE);
-  if (!unidadeRaw.trim()) return null;
+  let unidadeRaw = cellStr(ws, r, COL_UNIDADE);
+  if (!unidadeRaw.trim()) {
+    unidadeRaw = cellStr(ws, r, COL_UNIDADE_AF);
+  }
 
-  return { nome: nomeB, unidadeRaw };
+  return { nome: nomeB, unidadeRaw: unidadeRaw.trim() };
 }

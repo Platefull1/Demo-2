@@ -10,7 +10,11 @@ import {
   type EstoqueCatalogoItem,
 } from '@/lib/estoque/catalogo';
 import { listarAbas } from './importar-catalogo';
-import { storeLabel } from './lojas';
+import {
+  resolverUmCusto,
+  type CompraHit,
+  type CustoResolvido,
+} from './importar-saldo-custo-resolve';
 import { normalizarDescricao } from './normalize';
 import {
   buscarCustoAgAbasAnteriores,
@@ -18,17 +22,19 @@ import {
   isCustoPlanilhaValido,
   lerSaldoDoBuffer,
   parseSaldoDaAba,
+  type AgAnteriorHit,
   type CustoOrigemSaldo,
   type LinhaSaldoPlanilha,
 } from './importar-saldo-parse';
 
-export type { CustoOrigemSaldo, LinhaSaldoPlanilha };
+export type { CustoOrigemSaldo, LinhaSaldoPlanilha, CustoResolvido };
 export {
   fimCompetenciaUtc,
   isCustoPlanilhaValido,
   lerSaldoDoBuffer,
   parseSaldoDaAba,
   buscarCustoAgAbasAnteriores,
+  resolverUmCusto,
 };
 
 export type MatchStatusSaldo = 'casado' | 'sugerido' | 'nao_encontrado';
@@ -39,12 +45,6 @@ export type PreviewSaldoItem = LinhaSaldoPlanilha & {
   estoqueInsumoId?: string;
   estoqueNome?: string;
   score?: number;
-};
-
-export type CustoResolvido = {
-  custoMedio: number | null;
-  custoOrigem: CustoOrigemSaldo | null;
-  custoOrigemDetalhe: string | null;
 };
 
 export function previewSaldoComCatalogo(
@@ -78,20 +78,6 @@ function statusExibicaoDe(item: PreviewSaldoItem): PreviewSaldoItem['statusExibi
   }
   return item.status;
 }
-
-function fmtDataBr(d: Date): string {
-  const dd = String(d.getUTCDate()).padStart(2, '0');
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const yyyy = d.getUTCFullYear();
-  return `${dd}/${mm}/${yyyy}`;
-}
-
-type CompraHit = {
-  custo: number;
-  storeSlug: string;
-  numero: string;
-  dataEntrada: Date;
-};
 
 async function buscarUltimasComprasAprovadas(params: {
   tenantUserId: string;
@@ -158,10 +144,6 @@ async function buscarUltimasComprasAprovadas(params: {
   }
 
   return { mesmaLoja, qualquerLoja };
-}
-
-function detalheCompra(hit: CompraHit): string {
-  return `NF ${hit.numero} ${storeLabel(hit.storeSlug)} ${fmtDataBr(hit.dataEntrada)}`;
 }
 
 async function buscarCustoOutraLoja(params: {
@@ -261,82 +243,6 @@ async function buscarCustoCmvTeorico(params: {
 }
 
 /**
- * Resolve um custo na ordem:
- * a) última compra aprovada mesma loja
- * b) última compra aprovada qualquer loja
- * c) custo médio outra loja mesma competência
- * d) AG válido abas anteriores da planilha
- * e) CMV teórico (CmvStoreData)
- * → PENDENTE
- */
-export async function resolverUmCusto(params: {
-  tenantUserId: string;
-  storeSlug: string;
-  competencia: string;
-  estoqueInsumoId: string;
-  nomeProduto: string;
-  /** mapa nome→AG de abas anteriores (opcional) */
-  agAnterior?: Map<string, { custo: number; aba: string; competencia: string }>;
-  comprasLoja?: Map<string, CompraHit>;
-  comprasGrupo?: Map<string, CompraHit>;
-  outraLoja?: Map<string, { custo: number; storeSlug: string }>;
-  cmvTeorico?: Map<string, { custo: number; nomeIng: string }>;
-}): Promise<CustoResolvido> {
-  const id = params.estoqueInsumoId;
-
-  const loja = params.comprasLoja?.get(id);
-  if (loja) {
-    return {
-      custoMedio: loja.custo,
-      custoOrigem: 'ULTIMA_COMPRA_LOJA',
-      custoOrigemDetalhe: detalheCompra(loja),
-    };
-  }
-
-  const grupo = params.comprasGrupo?.get(id);
-  if (grupo) {
-    return {
-      custoMedio: grupo.custo,
-      custoOrigem: 'ULTIMA_COMPRA_GRUPO',
-      custoOrigemDetalhe: detalheCompra(grupo),
-    };
-  }
-
-  const outra = params.outraLoja?.get(id);
-  if (outra) {
-    return {
-      custoMedio: outra.custo,
-      custoOrigem: 'OUTRA_LOJA',
-      custoOrigemDetalhe: `Saldo ${storeLabel(outra.storeSlug)} ${params.competencia}`,
-    };
-  }
-
-  const ag = params.agAnterior?.get(params.nomeProduto);
-  if (ag) {
-    return {
-      custoMedio: ag.custo,
-      custoOrigem: 'PLANILHA_MES_ANTERIOR',
-      custoOrigemDetalhe: `${ag.aba} AG`,
-    };
-  }
-
-  const teo = params.cmvTeorico?.get(id);
-  if (teo) {
-    return {
-      custoMedio: teo.custo,
-      custoOrigem: 'CMV_TEORICO',
-      custoOrigemDetalhe: `CMV teórico: ${teo.nomeIng}`,
-    };
-  }
-
-  return {
-    custoMedio: null,
-    custoOrigem: 'PENDENTE',
-    custoOrigemDetalhe: null,
-  };
-}
-
-/**
  * Resolve custo quando a planilha não traz AG válido e qtd > 0.
  */
 export async function resolverCustosSaldo(params: {
@@ -344,14 +250,12 @@ export async function resolverCustosSaldo(params: {
   storeSlug: string;
   competencia: string;
   itens: PreviewSaldoItem[];
-  /** Buffer da planilha para buscar AG em abas anteriores */
   planilhaBuffer?: ArrayBuffer | null;
 }): Promise<PreviewSaldoItem[]> {
   const precisa = params.itens.filter(
     (i) => i.qtdFinal > 0 && !isCustoPlanilhaValido(i.custoPlanilha),
   );
 
-  // Itens com planilha válida
   const base = params.itens.map((i) => {
     if (isCustoPlanilhaValido(i.custoPlanilha)) {
       const next: PreviewSaldoItem = {
@@ -359,6 +263,7 @@ export async function resolverCustosSaldo(params: {
         custoMedio: i.custoPlanilha,
         custoOrigem: 'PLANILHA',
         custoOrigemDetalhe: null,
+        custoAntigo: false,
       };
       next.statusExibicao = statusExibicaoDe(next);
       return next;
@@ -369,6 +274,7 @@ export async function resolverCustosSaldo(params: {
         custoMedio: null,
         custoOrigem: null,
         custoOrigemDetalhe: null,
+        custoAntigo: false,
       };
       next.statusExibicao = statusExibicaoDe(next);
       return next;
@@ -387,7 +293,7 @@ export async function resolverCustosSaldo(params: {
         params.competencia,
         nomesSemCusto,
       )
-    : new Map<string, { custo: number; aba: string; competencia: string }>();
+    : new Map<string, AgAnteriorHit>();
 
   const [compras, outraLoja, cmvTeorico] = await Promise.all([
     buscarUltimasComprasAprovadas({
@@ -411,56 +317,30 @@ export async function resolverCustosSaldo(params: {
     }),
   ]);
 
-  return Promise.all(
-    base.map(async (i) => {
-      if (isCustoPlanilhaValido(i.custoPlanilha) || !(i.qtdFinal > 0)) {
-        return i;
-      }
+  return base.map((i) => {
+    if (isCustoPlanilhaValido(i.custoPlanilha) || !(i.qtdFinal > 0)) {
+      return i;
+    }
 
-      if (!i.estoqueInsumoId) {
-        // ainda pode achar AG em aba anterior pelo nome
-        const ag = agAnterior.get(i.nome);
-        if (ag) {
-          const next: PreviewSaldoItem = {
-            ...i,
-            custoMedio: ag.custo,
-            custoOrigem: 'PLANILHA_MES_ANTERIOR',
-            custoOrigemDetalhe: `${ag.aba} AG`,
-          };
-          next.statusExibicao = statusExibicaoDe(next);
-          return next;
-        }
-        const next: PreviewSaldoItem = {
-          ...i,
-          custoMedio: null,
-          custoOrigem: 'PENDENTE',
-          custoOrigemDetalhe: null,
-        };
-        next.statusExibicao = statusExibicaoDe(next);
-        return next;
-      }
+    const resolved = resolverUmCusto({
+      nomeProduto: i.nome,
+      custoRecalculado: i.custoRecalculado,
+      estoqueInsumoId: i.estoqueInsumoId,
+      competencia: params.competencia,
+      agAnterior,
+      comprasLoja: compras.mesmaLoja,
+      comprasGrupo: compras.qualquerLoja,
+      outraLoja,
+      cmvTeorico,
+    });
 
-      const resolved = await resolverUmCusto({
-        tenantUserId: params.tenantUserId,
-        storeSlug: params.storeSlug,
-        competencia: params.competencia,
-        estoqueInsumoId: i.estoqueInsumoId,
-        nomeProduto: i.nome,
-        agAnterior,
-        comprasLoja: compras.mesmaLoja,
-        comprasGrupo: compras.qualquerLoja,
-        outraLoja,
-        cmvTeorico,
-      });
-
-      const next: PreviewSaldoItem = {
-        ...i,
-        ...resolved,
-      };
-      next.statusExibicao = statusExibicaoDe(next);
-      return next;
-    }),
-  );
+    const next: PreviewSaldoItem = {
+      ...i,
+      ...resolved,
+    };
+    next.statusExibicao = statusExibicaoDe(next);
+    return next;
+  });
 }
 
 /**
@@ -513,12 +393,10 @@ export async function preencherCustosPendentesFechamento(params: {
 
   let updated = 0;
   for (const it of precisa) {
-    const resolved = await resolverUmCusto({
-      tenantUserId: params.tenantUserId,
-      storeSlug: params.storeSlug,
-      competencia: params.competenciaSaldo,
-      estoqueInsumoId: it.estoqueInsumoId,
+    const resolved = resolverUmCusto({
       nomeProduto: it.nome,
+      estoqueInsumoId: it.estoqueInsumoId,
+      competencia: params.competenciaSaldo,
       comprasLoja: compras.mesmaLoja,
       comprasGrupo: compras.qualquerLoja,
       outraLoja,

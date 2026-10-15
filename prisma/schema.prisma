@@ -2074,6 +2074,7 @@ enum CmvSaldoOrigem {
 /// Origem do custo médio gravado no saldo (planilha, fallback ou pendente).
 enum CmvCustoOrigem {
   PLANILHA
+  PLANILHA_RECALCULADO
   ULTIMA_COMPRA_LOJA
   ULTIMA_COMPRA_GRUPO
   OUTRA_LOJA

@@ -41,8 +41,11 @@ import {
   getEstoqueTenantContext,
   mergeProdutoConfigs,
 } from '@/lib/estoque-tenant';
+import {
+  matchNomeProdutoLista,
+  scoreNomeProdutoStrict,
+} from '@/lib/nfe/match-nome-produto';
 import { normalizarDescricao } from '@/lib/nfe/normalize';
-import { volumesConflitam } from '@/lib/nfe/volume';
 
 export interface EstoqueCatalogoItem {
   /** cuid EstoqueInsumo (preferência do tenant após dedupe) */
@@ -175,19 +178,7 @@ async function loadCatalogoEstoqueForTenant(
 
 /** Score 0–1 entre dois nomes (já pode vir bruto; normaliza internamente). */
 export function scoreNomeProduto(a: string, b: string): number {
-  const na = normalizarDescricao(a);
-  const nb = normalizarDescricao(b);
-  if (!na || !nb) return 0;
-  if (na === nb) return 1;
-  if (na.includes(nb) || nb.includes(na)) {
-    return Math.min(na.length, nb.length) / Math.max(na.length, nb.length);
-  }
-  const ta = new Set(na.split(' ').filter((t) => t.length > 2));
-  const tb = new Set(nb.split(' ').filter((t) => t.length > 2));
-  if (ta.size === 0 || tb.size === 0) return 0;
-  let inter = 0;
-  for (const t of ta) if (tb.has(t)) inter++;
-  return inter / Math.max(ta.size, tb.size);
+  return scoreNomeProdutoStrict(a, b);
 }
 
 export function matchCatalogoPorNome(
@@ -199,25 +190,9 @@ export function matchCatalogoPorNome(
   item?: EstoqueCatalogoItem;
   score: number;
 } {
-  const minCasado = opts?.minCasado ?? 0.95;
-  const minSugerido = opts?.minSugerido ?? 0.55;
   const lista = opts?.soAtivos === false ? catalogo : catalogo.filter((c) => c.ativo);
-
-  let best: { item: EstoqueCatalogoItem; score: number } | null = null;
-  const alvo = normalizarDescricao(nomePlanilha);
-
-  for (const c of lista) {
-    if (volumesConflitam(nomePlanilha, c.nome)) continue;
-    // match exato normalizado primeiro
-    let score =
-      c.nomeNormalizado === alvo ? 1 : scoreNomeProduto(nomePlanilha, c.nome);
-    if (score < minSugerido) continue;
-    if (!best || score > best.score) best = { item: c, score };
-  }
-
-  if (!best) return { status: 'nao_encontrado', score: 0 };
-  if (best.score >= minCasado) {
-    return { status: 'casado', item: best.item, score: best.score };
-  }
-  return { status: 'sugerido', item: best.item, score: best.score };
+  return matchNomeProdutoLista(nomePlanilha, lista, {
+    minCasado: opts?.minCasado,
+    minSugerido: opts?.minSugerido,
+  });
 }

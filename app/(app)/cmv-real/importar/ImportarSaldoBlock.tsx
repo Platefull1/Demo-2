@@ -21,6 +21,7 @@ import { FileDropzone } from './FileDropzone';
 
 type CustoOrigem =
   | 'PLANILHA'
+  | 'PLANILHA_RECALCULADO'
   | 'ULTIMA_COMPRA_LOJA'
   | 'ULTIMA_COMPRA_GRUPO'
   | 'OUTRA_LOJA'
@@ -39,6 +40,7 @@ type SaldoPreview = {
   custoPlanilha: number | null;
   custoOrigem: CustoOrigem;
   custoOrigemDetalhe: string | null;
+  custoAntigo?: boolean;
   status: 'casado' | 'sugerido' | 'nao_encontrado';
   statusExibicao: 'casado' | 'sugerido' | 'nao_encontrado' | 'custo_pendente';
   estoqueInsumoId?: string;
@@ -69,6 +71,7 @@ const STATUS_LABEL: Record<FiltroStatus, string> = {
 
 const CUSTO_ORIGEM_LABEL: Record<string, string> = {
   PLANILHA: 'Planilha',
+  PLANILHA_RECALCULADO: 'Planilha (recalculado)',
   ULTIMA_COMPRA_LOJA: 'Última compra (loja)',
   ULTIMA_COMPRA_GRUPO: 'Última compra (grupo)',
   OUTRA_LOJA: 'Outra loja',
@@ -519,7 +522,7 @@ export function ImportarSaldoBlock() {
                           <span className="text-muted-foreground">–</span>
                         )}
                       </td>
-                      <td className="py-1.5 px-2 text-muted-foreground max-w-[160px]">
+                      <td className="py-1.5 px-2 text-muted-foreground max-w-[180px]">
                         <div>
                           {i.custoOrigem
                             ? CUSTO_ORIGEM_LABEL[i.custoOrigem] || i.custoOrigem
@@ -528,6 +531,11 @@ export function ImportarSaldoBlock() {
                         {i.custoOrigemDetalhe ? (
                           <div className="truncate text-[11px] opacity-80">
                             {i.custoOrigemDetalhe}
+                          </div>
+                        ) : null}
+                        {i.custoAntigo ? (
+                          <div className="text-[11px] text-warning">
+                            Custo antigo (&gt;3 meses)
                           </div>
                         ) : null}
                       </td>
