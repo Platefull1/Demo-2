@@ -1,22 +1,23 @@
 /**
  * Parser puro do saldo da planilha CMV (sem Prisma).
- * Colunas: B=produto, AE=qtd final, AG=custo médio.
+ * Colunas: B=produto, E=unidade, AE=qtd final, AG=custo médio.
+ * Seções: âncora compartilhada (B exato + D="ESTOQUE INICIAL").
  */
 
 import * as XLSX from 'xlsx';
+import {
+  cellStr,
+  detectarAncoraSecao,
+  isFimBlocoInventario,
+  lerLinhaProduto,
+  type CmvRealSecao,
+} from './importar-planilha-secoes';
 import { normalizarDescricao } from './normalize';
 
-export type CmvRealSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
+export type { CmvRealSecao };
 
-const COL_NOME = 1; // B
 const COL_QTD = 30; // AE
 const COL_CUSTO = 32; // AG
-
-const SECAO_ANCHORS: Array<{ re: RegExp; secao: CmvRealSecao }> = [
-  { re: /^MAT[EÉ]RIA[\s\-]*PRIMA/i, secao: 'MATERIA_PRIMA' },
-  { re: /^EMBALAG/i, secao: 'EMBALAGEM' },
-  { re: /^BEBID/i, secao: 'BEBIDA' },
-];
 
 export type CustoOrigemSaldo =
   | 'PLANILHA'
@@ -88,15 +89,6 @@ function cellNum(ws: XLSX.WorkSheet, r: number, c: number): number | null {
   return null;
 }
 
-function cellStr(ws: XLSX.WorkSheet, r: number, c: number): string {
-  const ref = XLSX.utils.encode_cell({ r, c });
-  const cell = ws[ref] as XLSX.CellObject | undefined;
-  if (!cell) return '';
-  if (cell.w != null && String(cell.w).trim()) return String(cell.w).trim();
-  if (cell.v != null) return String(cell.v).trim();
-  return '';
-}
-
 /** Custo válido na planilha: número finito e > 0. */
 export function isCustoPlanilhaValido(custo: number | null): custo is number {
   return custo != null && Number.isFinite(custo) && custo > 0;
@@ -138,7 +130,8 @@ export function competenciaFromAbaNome(nome: string): string | null {
 
 /**
  * Lê produtos das 3 seções até o fim de cada uma (próxima âncora ou fim do bloco).
- * Linhas em branco / total não cortam a seção; CMV/VENDA/RESUMO encerram o bloco.
+ * Âncora: B exato + D="ESTOQUE INICIAL". Produto: B + E + AE (qtd).
+ * Linhas "EMBALAGEM 20" etc. NÃO são âncoras.
  */
 export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
   const ref = ws['!ref'];
@@ -148,24 +141,22 @@ export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
   let secaoAtual: CmvRealSecao | null = null;
 
   for (let r = range.s.r; r <= range.e.r; r++) {
-    const nomeB = cellStr(ws, r, COL_NOME);
-    if (!nomeB) continue;
-
-    const anchor = SECAO_ANCHORS.find((a) => a.re.test(nomeB));
-    if (anchor) {
-      secaoAtual = anchor.secao;
+    const ancora = detectarAncoraSecao(ws, r);
+    if (ancora) {
+      secaoAtual = ancora;
       continue;
     }
 
-    if (/^(cmv\b|venda\b|resumo)/i.test(nomeB)) {
+    const nomeB = cellStr(ws, r, 1);
+    if (nomeB && isFimBlocoInventario(nomeB)) {
       secaoAtual = null;
       continue;
     }
 
     if (!secaoAtual) continue;
 
-    if (/^(total|soma)\b/i.test(nomeB)) continue;
-    if (nomeB.length < 2) continue;
+    const prod = lerLinhaProduto(ws, r);
+    if (!prod) continue;
 
     const qtd = cellNum(ws, r, COL_QTD);
     if (qtd == null) continue;
@@ -175,7 +166,7 @@ export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
 
     out.push({
       linha: r + 1,
-      nome: nomeB,
+      nome: prod.nome,
       secao: secaoAtual,
       qtdFinal: qtd,
       custoPlanilha,

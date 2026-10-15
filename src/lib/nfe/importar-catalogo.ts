@@ -1,31 +1,26 @@
 /**
  * Importador do catálogo CMV Real a partir da planilha "CMV DESPERDÍCIO".
- * Fase antecipada: só CmvRealInsumoConfig (seção, unidade, ordem).
- * CmvSaldoEstoque fica para a Fase 4.
- *
- * Layout: colunas B=produto, E=unidade; seções por âncoras na coluna B.
+ * Parser puro: importar-catalogo-parse.ts
  */
 
-import * as XLSX from 'xlsx';
 import { prisma } from '@/lib/prisma';
 import {
   loadCatalogoEstoqueFromSession,
   matchCatalogoPorNome,
   type EstoqueCatalogoItem,
 } from '@/lib/estoque/catalogo';
+import type { CmvRealSecao } from './importar-planilha-secoes';
+import {
+  lerCatalogoDoBuffer,
+  listarAbas,
+  parseCatalogoDaAba,
+  type CmvRealUnidade,
+  type LinhaCatalogoPlanilha,
+} from './importar-catalogo-parse';
 import { normalizarDescricao } from './normalize';
 
-export type CmvRealSecao = 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
-export type CmvRealUnidade = 'KG' | 'UN';
-
-export interface LinhaCatalogoPlanilha {
-  linha: number;
-  nome: string;
-  nomeNormalizado: string;
-  secao: CmvRealSecao;
-  unidade: CmvRealUnidade;
-  ordem: number;
-}
+export type { CmvRealSecao, CmvRealUnidade, LinhaCatalogoPlanilha };
+export { lerCatalogoDoBuffer, listarAbas, parseCatalogoDaAba };
 
 export interface PreviewCatalogoItem {
   linha: number;
@@ -38,86 +33,6 @@ export interface PreviewCatalogoItem {
   estoqueNome?: string;
   score?: number;
   kgPorUnidade?: number | null;
-}
-
-const SECAO_ANCHORS: Array<{ re: RegExp; secao: CmvRealSecao }> = [
-  { re: /^MAT[EÉ]RIA[\s\-]*PRIMA/i, secao: 'MATERIA_PRIMA' },
-  { re: /^EMBALAG/i, secao: 'EMBALAGEM' },
-  { re: /^BEBID/i, secao: 'BEBIDA' },
-];
-
-function cellStr(ws: XLSX.WorkSheet, r: number, c: number): string {
-  const ref = XLSX.utils.encode_cell({ r, c });
-  const cell = ws[ref] as XLSX.CellObject | undefined;
-  if (!cell) return '';
-  if (cell.w != null && String(cell.w).trim()) return String(cell.w).trim();
-  if (cell.v != null) return String(cell.v).trim();
-  return '';
-}
-
-function unidadeFromCol(raw: string, secao: CmvRealSecao): CmvRealUnidade {
-  const u = raw.toUpperCase().replace(/[^A-Z]/g, '');
-  if (u === 'KG' || u === 'KILO' || u === 'KILOS') return 'KG';
-  if (u === 'UN' || u === 'UND' || u === 'UNID' || u === 'PC') return 'UN';
-  return secao === 'MATERIA_PRIMA' ? 'KG' : 'UN';
-}
-
-/**
- * Lê linhas de produto da aba mensal (valores em cache).
- */
-export function parseCatalogoDaAba(ws: XLSX.WorkSheet): LinhaCatalogoPlanilha[] {
-  const ref = ws['!ref'];
-  if (!ref) return [];
-  const range = XLSX.utils.decode_range(ref);
-  const out: LinhaCatalogoPlanilha[] = [];
-  let secaoAtual: CmvRealSecao | null = null;
-  let ordem = 0;
-
-  for (let r = range.s.r; r <= range.e.r; r++) {
-    const nomeB = cellStr(ws, r, 1); // coluna B
-    if (!nomeB) continue;
-
-    const anchor = SECAO_ANCHORS.find((a) => a.re.test(nomeB));
-    if (anchor) {
-      secaoAtual = anchor.secao;
-      ordem = 0;
-      continue;
-    }
-
-    if (!secaoAtual) continue;
-
-    // Pular totais / linhas vazias de estrutura
-    if (/^(total|soma|cmv|venda)/i.test(nomeB)) continue;
-    if (nomeB.length < 2) continue;
-
-    const undE = cellStr(ws, r, 4); // coluna E
-    ordem += 1;
-    out.push({
-      linha: r + 1,
-      nome: nomeB,
-      nomeNormalizado: normalizarDescricao(nomeB),
-      secao: secaoAtual,
-      unidade: unidadeFromCol(undE, secaoAtual),
-      ordem,
-    });
-  }
-
-  return out;
-}
-
-export function listarAbas(buffer: ArrayBuffer): string[] {
-  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-  return wb.SheetNames;
-}
-
-export function lerCatalogoDoBuffer(
-  buffer: ArrayBuffer,
-  abaNome: string,
-): LinhaCatalogoPlanilha[] {
-  const wb = XLSX.read(buffer, { type: 'array', cellDates: true });
-  const ws = wb.Sheets[abaNome];
-  if (!ws) throw new Error(`Aba "${abaNome}" não encontrada`);
-  return parseCatalogoDaAba(ws);
 }
 
 export function previewCatalogoComCatalogo(
