@@ -1,8 +1,9 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, Lock, RefreshCw, Unlock } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { AnimatedNumber } from '@/components/ui/animated-number';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -415,6 +416,12 @@ export default function CmvRealFechamentoPage() {
         ? Number(String(vendaMes).replace(',', '.'))
         : null;
 
+  // Camada de exibição: manter último KPI válido durante reload (sem zerar)
+  const lastTotaisRef = useRef(totais);
+  if (totais) lastTotaisRef.current = totais;
+  const displayTotais = totais ?? lastTotaisRef.current;
+  const kpisStale = loading && lastTotaisRef.current != null;
+
   return (
     <TooltipProvider>
       <div className="space-y-6">
@@ -516,16 +523,44 @@ export default function CmvRealFechamentoPage() {
         ) : null}
 
         {/* Resumo CMV por seção (espelha a planilha) */}
-        {totais && (
+        {loading && !displayTotais ? (
           <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="grid grid-cols-2 xl:grid-cols-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      'px-4 py-4',
+                      (i === 0 || i === 2) && 'border-r border-border',
+                      (i === 0 || i === 1) &&
+                        'border-b border-border xl:border-b-0',
+                      i < 3 && 'xl:border-r'
+                    )}
+                  >
+                    <Skeleton className="h-4 w-28 mb-3" />
+                    <Skeleton className="h-9 w-36" />
+                    <Skeleton className="h-3 w-20 mt-2" />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ) : displayTotais ? (
+          <Card
+            className={cn(
+              'overflow-hidden transition-opacity duration-200',
+              kpisStale && 'opacity-60'
+            )}
+          >
             <CardContent className="p-0">
               <div className="grid grid-cols-2 xl:grid-cols-4">
                 {(
                   [
-                    { label: 'CMV Matéria-prima', r: totais.cmvMp },
-                    { label: 'CMV Embalagens', r: totais.cmvEmbalagens },
-                    { label: 'CMV Bebidas', r: totais.cmvBebidas },
-                    { label: 'CMV Total', r: totais.cmvTotal },
+                    { label: 'CMV Matéria-prima', r: displayTotais.cmvMp },
+                    { label: 'CMV Embalagens', r: displayTotais.cmvEmbalagens },
+                    { label: 'CMV Bebidas', r: displayTotais.cmvBebidas },
+                    { label: 'CMV Total', r: displayTotais.cmvTotal },
                   ] as const
                 ).map((k, i) => (
                   <div
@@ -540,21 +575,30 @@ export default function CmvRealFechamentoPage() {
                   >
                     <p className="text-sm text-muted-foreground">{k.label}</p>
                     <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
-                      {k.r != null ? fmtMoney(k.r.valor) : '–'}
+                      {k.r != null ? (
+                        <AnimatedNumber value={k.r.valor} format="currency" />
+                      ) : (
+                        '–'
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-                      {k.r?.pct != null
-                        ? `${(k.r.pct * 100).toFixed(1)}% da venda`
-                        : kpiVenda != null
-                          ? '–'
-                          : 'Informe a venda'}
+                      {k.r?.pct != null ? (
+                        <>
+                          <AnimatedNumber value={k.r.pct} format="percent" />
+                          {' da venda'}
+                        </>
+                      ) : kpiVenda != null ? (
+                        '–'
+                      ) : (
+                        'Informe a venda'
+                      )}
                     </p>
                   </div>
                 ))}
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
 
         {/* Forms */}
         <div className="grid gap-4 lg:grid-cols-2">

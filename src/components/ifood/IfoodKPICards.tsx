@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AnimatedNumber } from "@/components/ui/animated-number";
 import { XCircle } from "lucide-react";
 import { DashboardSummary } from "@/types/ifood-dashboard";
 import { cn } from "@/lib/utils";
@@ -45,42 +47,51 @@ function cellBorderClass(index: number) {
 }
 
 export function IfoodKPICards({ summary, isLoading }: Props) {
-  const cards = [
-    {
-      title: "Vendas",
-      tooltip: "Total de receita dos pedidos não cancelados no período",
-      value: summary
-        ? `R$ ${summary.totalSales.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-        : "R$ 0,00",
-      current: summary?.totalSales ?? 0,
-      prev: summary?.prevTotalSales ?? 0,
-    },
-    {
-      title: "Pedidos",
-      tooltip: "Total de pedidos aceitos (excluindo cancelados e de teste)",
-      value: summary ? summary.totalOrders.toString() : "0",
-      current: summary?.totalOrders ?? 0,
-      prev: summary?.prevTotalOrders ?? 0,
-    },
-    {
-      title: "Ticket médio",
-      tooltip: "Receita total dividida pelo número de pedidos no período",
-      value: summary
-        ? `R$ ${summary.averageTicket.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
-        : "R$ 0,00",
-      current: summary?.averageTicket ?? 0,
-      prev: summary?.prevAverageTicket ?? 0,
-    },
-    {
-      title: "Clientes únicos",
-      tooltip: "Número de telefones distintos que fizeram pedidos no período",
-      value: summary ? summary.uniqueCustomers.toString() : "0",
-      current: summary?.uniqueCustomers ?? 0,
-      prev: summary?.prevUniqueCustomers ?? 0,
-    },
-  ];
+  // Camada de exibição: último summary válido enquanto recarrega
+  const lastSummaryRef = useRef<DashboardSummary | null>(null);
+  if (summary) lastSummaryRef.current = summary;
+  const display = summary ?? lastSummaryRef.current;
+  const isStale = isLoading && lastSummaryRef.current != null;
+  const isFirstLoad = isLoading && !display;
 
-  if (isLoading) {
+  const cards = display
+    ? [
+        {
+          title: "Vendas",
+          tooltip: "Total de receita dos pedidos não cancelados no período",
+          value: display.totalSales,
+          format: "currency" as const,
+          current: display.totalSales,
+          prev: display.prevTotalSales ?? 0,
+        },
+        {
+          title: "Pedidos",
+          tooltip: "Total de pedidos aceitos (excluindo cancelados e de teste)",
+          value: display.totalOrders,
+          format: "integer" as const,
+          current: display.totalOrders,
+          prev: display.prevTotalOrders ?? 0,
+        },
+        {
+          title: "Ticket médio",
+          tooltip: "Receita total dividida pelo número de pedidos no período",
+          value: display.averageTicket,
+          format: "currency" as const,
+          current: display.averageTicket,
+          prev: display.prevAverageTicket ?? 0,
+        },
+        {
+          title: "Clientes únicos",
+          tooltip: "Número de telefones distintos que fizeram pedidos no período",
+          value: display.uniqueCustomers,
+          format: "integer" as const,
+          current: display.uniqueCustomers,
+          prev: display.prevUniqueCustomers ?? 0,
+        },
+      ]
+    : [];
+
+  if (isFirstLoad) {
     return (
       <Card className="bg-card border-border">
         <CardContent className="p-0">
@@ -98,9 +109,18 @@ export function IfoodKPICards({ summary, isLoading }: Props) {
     );
   }
 
+  if (!display) {
+    return null;
+  }
+
   return (
     <div className="space-y-3">
-      <Card className="bg-card border-border">
+      <Card
+        className={cn(
+          "bg-card border-border transition-opacity duration-200",
+          isStale && "opacity-60"
+        )}
+      >
         <CardContent className="p-0">
           <div className="grid grid-cols-2 xl:grid-cols-4">
             {cards.map((card, index) => (
@@ -111,7 +131,7 @@ export function IfoodKPICards({ summary, isLoading }: Props) {
               >
                 <p className="text-sm text-muted-foreground mb-1">{card.title}</p>
                 <p className="text-3xl font-semibold text-foreground tabular-nums">
-                  {card.value}
+                  <AnimatedNumber value={card.value} format={card.format} />
                 </p>
                 <div className="mt-1">
                   <VariationBadge current={card.current} prev={card.prev} />
@@ -122,11 +142,12 @@ export function IfoodKPICards({ summary, isLoading }: Props) {
         </CardContent>
       </Card>
 
-      {(summary?.cancelledOrders ?? 0) > 0 && (
+      {(display.cancelledOrders ?? 0) > 0 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <XCircle className="h-3.5 w-3.5 text-muted-foreground" />
           <span>
-            {summary!.cancelledOrders} pedido(s) cancelado(s) no período — não incluídos nos KPIs
+            {display.cancelledOrders} pedido(s) cancelado(s) no período — não
+            incluídos nos KPIs
           </span>
         </div>
       )}

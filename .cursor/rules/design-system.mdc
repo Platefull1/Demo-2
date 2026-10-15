@@ -77,6 +77,7 @@ Padrão da dashboard iFood (`IfoodKPICards`):
 - Sem ícones nos KPI cells.
 - Rótulo `text-sm text-muted-foreground`; valor `text-3xl font-semibold tabular-nums text-foreground`.
 - Variação vs período anterior em `text-xs` (`text-success` / `text-destructive`) **somente** se `prev*` já existir nos dados.
+- KPIs numéricos de destaque usam `AnimatedNumber` (`src/components/ui/animated-number.tsx`); tabelas não animam; manter valor anterior durante recarregamento (opacity reduzida; skeleton só no 1º load).
 
 # Gráficos
 - Card com título `text-base font-semibold`, descrição `text-sm text-muted-foreground`.
