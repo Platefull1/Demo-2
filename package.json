@@ -17,7 +17,8 @@
     "db:push:force": "prisma db push --accept-data-loss",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
-    "test:nfe": "tsx --test src/lib/nfe/pipeline.test.ts"
+    "test:nfe": "tsx --test src/lib/nfe/pipeline.test.ts",
+    "test:pontos": "tsx --test src/lib/pontos/classificarDia.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

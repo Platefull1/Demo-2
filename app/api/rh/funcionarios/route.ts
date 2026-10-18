@@ -153,38 +153,62 @@ export async function POST(req: Request) {
         ? body.horarioDigest
         : entrada;
 
-    const funcionario = await prisma.rhFuncionario.create({
-      data: {
-        userId: dbUser.id,
-        nome: nome.trim(),
-        cpf: cpf || null,
-        email: email || null,
-        telefone: telefone || null,
-        dataNascimento: dataNascimento ? new Date(dataNascimento) : null,
-        dataAdmissao: admissao,
-        cargoId: cargoId || null,
-        lojaId: lojaId || null,
-        ...composicao,
-        escala: escala ?? '6x1',
-        turno: turno ?? 'manhã',
-        horarioEntrada: entrada,
-        horarioSaida: horarioSaida ?? '17:00',
-        horarioDigest,
-        diasFolga: diasFolga ?? [],
-        domingoFolga: domingoFolga ?? null,
-        observacoes: observacoes || null,
-        numeroFolha: numeroFolha ?? null,
-        dataInicioExperiencia: admissao,
-        dataFimExperiencia1,
-        dataFimExperiencia2,
-        dataInicioFerias: admissao,
-        statusFerias: 'a_gozar',
-        diasFeriasGozados: 0,
-      },
-      include: {
-        cargo: { select: { id: true, nome: true, ratPct: true } },
-        loja: { select: { id: true, nome: true } },
-      },
+    const escalaFinal = escala ?? '6x1';
+    const saidaFinal = horarioSaida ?? '17:00';
+    const folgasFinal = diasFolga ?? [];
+    const domingoFinal = domingoFolga ?? null;
+
+    const funcionario = await prisma.$transaction(async (tx) => {
+      const created = await tx.rhFuncionario.create({
+        data: {
+          userId: dbUser.id,
+          nome: nome.trim(),
+          cpf: cpf || null,
+          email: email || null,
+          telefone: telefone || null,
+          dataNascimento: dataNascimento ? new Date(dataNascimento) : null,
+          dataAdmissao: admissao,
+          cargoId: cargoId || null,
+          lojaId: lojaId || null,
+          ...composicao,
+          escala: escalaFinal,
+          turno: turno ?? 'manhã',
+          horarioEntrada: entrada,
+          horarioSaida: saidaFinal,
+          horarioDigest,
+          diasFolga: folgasFinal,
+          domingoFolga: domingoFinal,
+          observacoes: observacoes || null,
+          numeroFolha: numeroFolha ?? null,
+          dataInicioExperiencia: admissao,
+          dataFimExperiencia1,
+          dataFimExperiencia2,
+          dataInicioFerias: admissao,
+          statusFerias: 'a_gozar',
+          diasFeriasGozados: 0,
+        },
+        include: {
+          cargo: { select: { id: true, nome: true, ratPct: true } },
+          loja: { select: { id: true, nome: true } },
+        },
+      });
+
+      const vigenciaInicio = new Date(admissao);
+      vigenciaInicio.setUTCHours(0, 0, 0, 0);
+      await tx.rhEscalaVigencia.create({
+        data: {
+          funcionarioId: created.id,
+          vigenciaInicio,
+          vigenciaFim: null,
+          escala: escalaFinal,
+          diasFolga: folgasFinal,
+          domingoFolga: domingoFinal,
+          horarioEntrada: entrada,
+          horarioSaida: saidaFinal,
+        },
+      });
+
+      return created;
     });
 
     return NextResponse.json(

@@ -56,6 +56,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  GitCompareArrows,
 } from 'lucide-react';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -73,12 +74,27 @@ interface RegistroPonto {
   neutro: boolean;
   folga: boolean;
   observacoes: string | null;
+  temRegistroSecullum?: boolean;
+  classificacao?: {
+    status: string;
+    motivo: string;
+    label: string;
+  };
+  secullumLabel?: string | null;
+  diverge?: boolean;
   funcionario: {
     id: string;
     nome: string;
     lojaId: string | null;
     loja: { id: string; nome: string } | null;
+    numeroFolha?: string | null;
   };
+}
+
+interface SemEscalaItem {
+  id: string;
+  nome: string;
+  numeroFolha: string | null;
 }
 
 interface PendenciaResumo {
@@ -99,6 +115,8 @@ interface FechamentoLinha {
   atraso: string | null;
   faltas: string | null;
   faltaDsr: string | null;
+  faltasSecullum?: string | null;
+  faltaDsrSecullum?: string | null;
   valeTransporte: string | null;
   descDiversos: string | null;
   descRefeicao: string | null;
@@ -273,28 +291,64 @@ function TurnsLabel({ turns }: { turns: Turno[] }) {
   );
 }
 
+function statusBadgeVariant(status: string) {
+  if (status === 'FALTA' || status === 'PENDENCIA' || status === 'TRABALHOU_NA_FOLGA') {
+    return 'border-transparent bg-destructive/15 text-destructive';
+  }
+  if (status === 'FOLGA' || status === 'FERIAS' || status === 'AFASTADO' || status === 'FALTA_JUSTIFICADA') {
+    return 'border-transparent bg-muted text-muted-foreground';
+  }
+  if (status === 'NORMAL') {
+    return 'border-transparent bg-success/15 text-success';
+  }
+  if (status === 'SEM_ESCALA' || status === 'AGUARDANDO') {
+    return 'border-transparent bg-warning/15 text-warning';
+  }
+  return 'font-normal text-muted-foreground';
+}
+
 function StatusRegistro({ registro }: { registro: RegistroPonto }) {
-  const label = registro.folga ? 'Folga' : registro.compensado ? 'Compensado' : null;
-  const badge = label ? (
-    <Badge variant="outline" className="font-normal text-muted-foreground">
+  const pf = registro.classificacao;
+  const label = pf?.label
+    ?? (registro.folga ? 'Folga' : registro.compensado ? 'Compensado' : null);
+
+  if (!label) return <span className="text-sm text-muted-foreground">–</span>;
+
+  const badge = (
+    <Badge
+      variant="outline"
+      className={cn('font-normal', pf ? statusBadgeVariant(pf.status) : 'text-muted-foreground')}
+    >
       {label}
     </Badge>
-  ) : null;
+  );
 
-  if (registro.neutro) {
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <span className="inline-flex min-h-5 items-center cursor-default">
-            {badge}
-          </span>
-        </TooltipTrigger>
-        <TooltipContent>Neutro</TooltipContent>
-      </Tooltip>
-    );
-  }
-
-  return badge;
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      {pf?.motivo ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex cursor-default">{badge}</span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs text-xs">{pf.motivo}</TooltipContent>
+        </Tooltip>
+      ) : (
+        badge
+      )}
+      {registro.diverge && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex cursor-default text-muted-foreground" aria-label="Divergência Secullum">
+              <GitCompareArrows className="size-3.5" />
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="text-xs">
+            Secullum: {registro.secullumLabel ?? '—'} / Platefull: {pf?.label ?? '—'}
+          </TooltipContent>
+        </Tooltip>
+      )}
+    </span>
+  );
 }
 
 function DayTimeline({
@@ -696,12 +750,15 @@ function TabelaRegistros({
   registros,
   loading,
   isToday,
+  semEscala,
 }: {
   registros: RegistroPonto[];
   loading: boolean;
   isToday: boolean;
+  semEscala: SemEscalaItem[];
 }) {
   const [nowTick, setNowTick] = useState(0);
+  const [soDivergencias, setSoDivergencias] = useState(false);
   useEffect(() => {
     if (!isToday) return;
     const id = setInterval(() => setNowTick((n) => n + 1), 60_000);
@@ -714,15 +771,24 @@ function TabelaRegistros({
     return now.getHours() * 60 + now.getMinutes();
   }, [nowTick]);
 
-  const scale = useMemo(() => computeDayScale(registros), [registros]);
+  const filtrados = useMemo(
+    () => (soDivergencias ? registros.filter((r) => r.diverge) : registros),
+    [registros, soDivergencias],
+  );
+
+  const scale = useMemo(() => computeDayScale(filtrados), [filtrados]);
   const columns = useMemo(
     () => registroColumns({ scale, isToday, nowMin }),
     [scale, isToday, nowMin]
   );
   const ordered = useMemo(() => {
-    const groups = groupRegistros(registros);
+    const groups = groupRegistros(filtrados);
     return groups.flatMap((g) => g.rows);
-  }, [registros]);
+  }, [filtrados]);
+  const divergenciasCount = useMemo(
+    () => registros.filter((r) => r.diverge).length,
+    [registros],
+  );
 
   const groupBy = useMemo(
     () => ({
@@ -754,41 +820,72 @@ function TabelaRegistros({
   }
 
   return (
-    <DataTable
-      columns={columns}
-      data={ordered}
-      pageSize={200}
-      initialSorting={[{ id: 'funcionario', desc: false }]}
-      groupBy={groupBy}
-      renderMobileRow={(row) => {
-        const turns = extractTurns(row);
-        return (
-          <div className="space-y-2 pr-2">
-            <div className="flex items-start justify-between gap-2">
-              <span className="text-sm font-medium text-foreground">
-                {formatProperName(row.funcionario.nome)}
-              </span>
-              <StatusRegistro registro={row} />
+    <div className="space-y-4">
+      {semEscala.length > 0 && (
+        <Alert variant="warning" className="py-3 px-4">
+          <AlertTitle className="text-sm">
+            {semEscala.length} funcionário(s) sem escala cadastrada
+          </AlertTitle>
+          <AlertDescription className="text-xs text-muted-foreground">
+            {semEscala.map((f) => f.nome).join(', ')}. Complete dias de folga na ficha de RH
+            para classificar o ponto.
+          </AlertDescription>
+        </Alert>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant={soDivergencias ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setSoDivergencias((v) => !v)}
+        >
+          <GitCompareArrows className="text-muted-foreground" />
+          Só divergências
+          {divergenciasCount > 0 && (
+            <span className="tabular-nums text-xs">({divergenciasCount})</span>
+          )}
+        </Button>
+      </div>
+      <DataTable
+        columns={columns}
+        data={ordered}
+        pageSize={200}
+        initialSorting={[{ id: 'funcionario', desc: false }]}
+        groupBy={groupBy}
+        renderMobileRow={(row) => {
+          const turns = extractTurns(row);
+          return (
+            <div className="space-y-2 pr-2">
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-sm font-medium text-foreground">
+                  {formatProperName(row.funcionario.nome)}
+                </span>
+                <StatusRegistro registro={row} />
+              </div>
+              <TurnsLabel turns={turns} />
+              <DayTimeline
+                turns={turns}
+                scale={scale}
+                isToday={isToday}
+                nowMin={nowMin}
+              />
             </div>
-            <TurnsLabel turns={turns} />
-            <DayTimeline
-              turns={turns}
-              scale={scale}
-              isToday={isToday}
-              nowMin={nowMin}
-            />
+          );
+        }}
+        emptyState={
+          <div>
+            <p className="text-sm text-foreground">
+              {soDivergencias ? 'Nenhuma divergência neste dia' : 'Nenhum funcionário nesta seleção'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {soDivergencias
+                ? 'Platefull e Secullum estão alinhados (ou não há registro Secullum).'
+                : 'Selecione outra loja/data ou verifique o mapeamento de folha.'}
+            </p>
           </div>
-        );
-      }}
-      emptyState={
-        <div>
-          <p className="text-sm text-foreground">Nenhum registro de ponto</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Nenhum dado recebido do Secullum para esta seleção.
-          </p>
-        </div>
-      }
-    />
+        }
+      />
+    </div>
   );
 }
 
@@ -822,6 +919,13 @@ function initEdits(linha: FechamentoLinha): LinhaEditada {
     descRefeicao: linha.descRefeicao ?? '',
     descCompras: linha.descCompras ?? '',
   };
+}
+
+function normalizeCmp(v: string | null | undefined) {
+  if (!v) return '';
+  const m = /^(\d{1,3}):(\d{2})$/.exec(v.trim());
+  if (!m) return v.trim();
+  return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
 }
 
 function FechamentoLinhaRow({
@@ -884,9 +988,22 @@ function FechamentoLinhaRow({
     />
   );
 
+  const faltasDiverge =
+    Boolean(linha.faltasSecullum) &&
+    normalizeCmp(linha.faltasSecullum) !== normalizeCmp(edits.faltas);
+  const dsrDiverge =
+    Boolean(linha.faltaDsrSecullum) &&
+    normalizeCmp(linha.faltaDsrSecullum) !== normalizeCmp(edits.faltaDsr);
+  const linhaDiverge = faltasDiverge || dsrDiverge;
+
   return (
     <>
-      <TableRow className={linha.origemErro ? 'bg-destructive/5' : undefined}>
+      <TableRow
+        className={cn(
+          linha.origemErro && 'bg-destructive/5',
+          linhaDiverge && !linha.origemErro && 'bg-warning/5',
+        )}
+      >
         <TableCell>
           <div className="flex flex-col gap-0.5">
             <span className="font-medium text-foreground">{linha.funcionario.nome}</span>
@@ -901,7 +1018,31 @@ function FechamentoLinhaRow({
           </div>
         </TableCell>
         {FECHAMENTO_FIELDS.map((field) => (
-          <TableCell key={field.key}>{fieldInput(field.key, field.placeholder)}</TableCell>
+          <TableCell key={field.key}>
+            {fieldInput(field.key, field.placeholder)}
+            {field.key === 'faltas' && linha.faltasSecullum && (
+              <p
+                className={cn(
+                  'text-[10px] mt-0.5 tabular-nums',
+                  faltasDiverge ? 'text-warning' : 'text-muted-foreground',
+                )}
+                title="Valor Secullum (somente leitura)"
+              >
+                Sec: {linha.faltasSecullum}
+              </p>
+            )}
+            {field.key === 'faltaDsr' && linha.faltaDsrSecullum && (
+              <p
+                className={cn(
+                  'text-[10px] mt-0.5 tabular-nums',
+                  dsrDiverge ? 'text-warning' : 'text-muted-foreground',
+                )}
+                title="Valor Secullum (somente leitura)"
+              >
+                Sec: {linha.faltaDsrSecullum}
+              </p>
+            )}
+          </TableCell>
         ))}
         <TableCell>
           <div className="flex items-center gap-2">
@@ -1195,7 +1336,9 @@ function AbaRelatorio() {
         </div>
       </div>
       <p className="text-xs text-muted-foreground">
-        Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}
+        Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}. Faltas e Falta DSR são
+        pré-preenchidas pelo Platefull (escala RH); atraso e horas extras vêm do Secullum e
+        podem refletir o horário do setor — confira na coluna Sec. quando houver divergência.
       </p>
 
       {erroGerar && (
@@ -1273,6 +1416,7 @@ export default function PontosPage() {
   const [lojaId, setLojaId] = useState<string>('');
   const [data, setData] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [registros, setRegistros] = useState<RegistroPonto[]>([]);
+  const [semEscala, setSemEscala] = useState<SemEscalaItem[]>([]);
   const [pendencias, setPendencias] = useState<PendenciaResumo[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -1287,6 +1431,7 @@ export default function PontosPage() {
       if (res.ok) {
         const d = await res.json();
         setRegistros(d.registros ?? []);
+        setSemEscala(d.semEscala ?? []);
         setPendencias(d.pendencias ?? []);
         setUltimaSincronizacao(
           typeof d.ultimaSincronizacao === 'string' ? d.ultimaSincronizacao : null
@@ -1436,6 +1581,7 @@ export default function PontosPage() {
           registros={registros}
           loading={loading}
           isToday={data === hoje}
+          semEscala={semEscala}
         />
       ) : (
         <TabelaPendencias pendencias={pendencias} loading={loading} />

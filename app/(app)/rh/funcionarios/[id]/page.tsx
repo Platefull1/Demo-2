@@ -158,6 +158,9 @@ export default function FuncionarioDetailPage() {
   const [horarioDigest, setHorarioDigest] = useState('');
   const [diasFolga, setDiasFolga] = useState<string[]>([]);
   const [domingoFolga, setDomingoFolga] = useState<string>('1');
+  const [escalaVigenciaInicio, setEscalaVigenciaInicio] = useState<string>(() =>
+    new Date().toISOString().slice(0, 10),
+  );
   const [observacoes, setObservacoes] = useState('');
   const [numeroFolha, setNumeroFolha] = useState('');
   const [folhaStatus, setFolhaStatus] = useState<'idle' | 'checking' | 'ok' | 'duplicate'>('idle');
@@ -288,6 +291,7 @@ export default function FuncionarioDetailPage() {
           escala, turno, horarioEntrada, horarioSaida, horarioDigest,
           diasFolga,
           domingoFolga,
+          escalaVigenciaInicio,
           observacoes: observacoes || null,
           numeroFolha: numeroFolha?.trim() || null,
         }),
@@ -296,6 +300,7 @@ export default function FuncionarioDetailPage() {
         const updated: Funcionario = await res.json();
         setFuncionario(updated);
         populateForm(updated);
+        setEscalaVigenciaInicio(new Date().toISOString().slice(0, 10));
         setEditMode(false);
         showToast('Dados salvos');
       } else {
@@ -672,6 +677,18 @@ export default function FuncionarioDetailPage() {
                           <button key={opt.value} type="button" onClick={() => setDomingoFolga(opt.value)} className={`px-3 py-1.5 rounded-xl text-sm font-medium border-2 transition-colors ${domingoFolga === opt.value ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-[#2a2a2e] text-gray-500'}`}>{opt.label}</button>
                         ))}
                       </div>
+                    </div>
+                    <div>
+                      <label className={labelCls}>Escala vale a partir de</label>
+                      <input
+                        type="date"
+                        value={escalaVigenciaInicio}
+                        onChange={(e) => setEscalaVigenciaInicio(e.target.value)}
+                        className={inputCls}
+                      />
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        Padrão: hoje. Use uma data passada só para correção retroativa (não altera meses já fechados se a vigência anterior cobrir essas datas).
+                      </p>
                     </div>
                   </div>
                 ) : (

@@ -14,6 +14,8 @@ import {
   inicioAquisitivoEfetivo,
   sameUtcDay,
 } from '@/lib/ferias-rh';
+import { aplicarNovaEscalaVigencia } from '@/lib/pontos/escala-vigencia';
+import { ymdBrasilia } from '@/lib/pontos/escala-dia';
 
 export const dynamic = 'force-dynamic';
 
@@ -164,6 +166,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       diasFeriasGozados,
       motivo,
       numeroFolha: numeroFolhaRaw,
+      escalaVigenciaInicio,
     } = body;
     const numeroFolhaNorm =
       numeroFolhaRaw !== undefined ? (numeroFolhaRaw?.trim() || null) : undefined;
@@ -320,6 +323,31 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       }
     }
 
+    const jsonEq = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+    const escalaMudou =
+      (escala !== undefined && escala !== existing.escala) ||
+      (diasFolga !== undefined && !jsonEq(diasFolga, existing.diasFolga)) ||
+      (domingoFolga !== undefined &&
+        (domingoFolga || null) !== (existing.domingoFolga || null)) ||
+      (horarioEntrada !== undefined && horarioEntrada !== existing.horarioEntrada) ||
+      (horarioSaida !== undefined && horarioSaida !== existing.horarioSaida);
+
+    const valeYmdBody =
+      typeof escalaVigenciaInicio === 'string' && /^\d{4}-\d{2}-\d{2}/.test(escalaVigenciaInicio)
+        ? escalaVigenciaInicio.slice(0, 10)
+        : null;
+    // Data ≠ hoje + campos de escala no body → permite reabrir vigência retroativa
+    const forcarVigenciaPorData =
+      valeYmdBody != null &&
+      valeYmdBody !== ymdBrasilia(new Date()) &&
+      (escala !== undefined ||
+        diasFolga !== undefined ||
+        domingoFolga !== undefined ||
+        horarioEntrada !== undefined ||
+        horarioSaida !== undefined);
+
+    const deveGravarVigencia = escalaMudou || forcarVigenciaPorData;
+
     const funcionario = await prisma.$transaction(async (tx) => {
       const updated = await tx.rhFuncionario.update({
         where: { id },
@@ -361,6 +389,22 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
         },
         include: INCLUDE,
       });
+
+      if (deveGravarVigencia) {
+        const valeYmd = valeYmdBody ?? ymdBrasilia(new Date());
+        await aplicarNovaEscalaVigencia(
+          tx,
+          id,
+          {
+            escala: updated.escala,
+            diasFolga: updated.diasFolga,
+            domingoFolga: updated.domingoFolga,
+            horarioEntrada: updated.horarioEntrada,
+            horarioSaida: updated.horarioSaida,
+          },
+          valeYmd,
+        );
+      }
 
       if (alteracoes.length > 0) {
         await tx.rhHistoricoFuncionario.createMany({

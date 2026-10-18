@@ -994,12 +994,32 @@ model RhFuncionario {
   tarefaSeries            TarefaSerie[]
   pontoRegistros          PontoRegistro[]
   fechamentoLinhas        FechamentoLinha[]
+  escalasVigencia         RhEscalaVigencia[]
 
   @@index([userId, cpf])
   @@index([userId])
   @@index([lojaId])
   @@index([cargoId])
   @@map("rh_funcionarios")
+}
+
+/// Snapshot de escala/folga com vigência — classificação de ponto usa a vigência NA DATA.
+model RhEscalaVigencia {
+  id             String        @id @default(cuid())
+  funcionarioId  String
+  vigenciaInicio DateTime
+  /// null = vigente até o presente
+  vigenciaFim    DateTime?
+  escala         String
+  diasFolga      Json          @default("[]")
+  domingoFolga   String?
+  horarioEntrada String        @default("08:00")
+  horarioSaida   String        @default("17:00")
+  createdAt      DateTime      @default(now())
+  funcionario    RhFuncionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+
+  @@index([funcionarioId, vigenciaInicio])
+  @@map("rh_escala_vigencias")
 }
 
 model PontoRegistro {
@@ -1060,7 +1080,7 @@ model FechamentoLinha {
   funcionarioId String
   funcionario  RhFuncionario    @relation(fields: [funcionarioId], references: [id])
 
-  /// Vindo do Secullum (editável em caso de correção manual) — formato "HH:mm"
+  /// HE/atraso: Secullum. faltas/faltaDsr: pré-preenchidos pelo Platefull (editáveis)
   ex60      String?
   ex100     String?
   en60      String?
@@ -1068,6 +1088,9 @@ model FechamentoLinha {
   atraso    String?
   faltas    String?
   faltaDsr  String?
+  /// Totais originais do Secullum (somente leitura na UI) para conferência
+  faltasSecullum   String?
+  faltaDsrSecullum String?
 
   /// Vindo do cadastro RH (valorVT), editável nesta tela
   valeTransporte Decimal? @db.Decimal(10, 2)

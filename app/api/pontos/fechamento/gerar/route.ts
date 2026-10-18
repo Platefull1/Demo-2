@@ -4,11 +4,11 @@ import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
 import { periodoFechamentoPonto } from '@/lib/ponto-periodo';
 import { Decimal } from '@prisma/client/runtime/library';
+import { calcularFaltasEDsrPeriodo } from '@/lib/pontos/fechamento-faltas';
+import { ymdToUtcDate, addDaysYmd } from '@/lib/pontos/escala-dia';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 300; // 5 min — muitas chamadas sequenciais
-
-// ─── Secullum Auth ───────────────────────────────────────────────────────────
+export const maxDuration = 300;
 
 async function obterTokenSecullum(): Promise<{ token: string; bancoid: string }> {
   const user = process.env.SECULLUM_API_USER ?? process.env.SECULLUM_USER ?? '';
@@ -17,7 +17,6 @@ async function obterTokenSecullum(): Promise<{ token: string; bancoid: string }>
 
   if (!user || !pass) throw new Error('SECULLUM_API_USER/SECULLUM_API_PASS não configuradas');
 
-  // client_id=3 é obrigatório pelo OAuth do Secullum (application/x-www-form-urlencoded)
   const body = new URLSearchParams({
     grant_type: 'password',
     username: user,
@@ -43,8 +42,6 @@ async function obterTokenSecullum(): Promise<{ token: string; bancoid: string }>
   return { token, bancoid };
 }
 
-// ─── Calcular por PIS ────────────────────────────────────────────────────────
-
 interface SecullumCalcResult {
   ex60: string;
   ex100: string;
@@ -55,14 +52,13 @@ interface SecullumCalcResult {
   faltaDsr: string;
 }
 
-/** Nomes parciais de coluna para cada campo (busca case-insensitive, primeiro match). */
 const COLUNA_MAP: Record<keyof SecullumCalcResult, string[]> = {
-  ex60:     ['ex 60', 'ex60', 'he 60% diurna', 'he60% diurna', 'he 60'],
-  ex100:    ['ex 100', 'ex100', 'he 100% diurna', 'he100% diurna', 'he 100'],
-  en60:     ['en 60', 'en60', 'he 60% noturna', 'he60% noturna', 'en60% noturna'],
-  en100:    ['en 100', 'en100', 'he 100% noturna', 'he100% noturna', 'en100% noturna'],
-  atraso:   ['atras', 'atraso'],
-  faltas:   ['faltas', 'horas faltas', 'falta hora'],
+  ex60: ['ex 60', 'ex60', 'he 60% diurna', 'he60% diurna', 'he 60'],
+  ex100: ['ex 100', 'ex100', 'he 100% diurna', 'he100% diurna', 'he 100'],
+  en60: ['en 60', 'en60', 'he 60% noturna', 'he60% noturna', 'en60% noturna'],
+  en100: ['en 100', 'en100', 'he 100% noturna', 'he100% noturna', 'en100% noturna'],
+  atraso: ['atras', 'atraso'],
+  faltas: ['faltas', 'horas faltas', 'falta hora'],
   faltaDsr: ['dsr', 'falta dsr', 'horas falta dsr'],
 };
 
@@ -126,10 +122,16 @@ async function calcularFuncionario(
   };
 }
 
-// ─── Handler ─────────────────────────────────────────────────────────────────
+const BATCH_SIZE = 90;
+const BATCH_DELAY_MS = 65_000;
 
-const BATCH_SIZE = 90; // respeita limite de 100/hora do Secullum
-const BATCH_DELAY_MS = 65_000; // 65 segundos entre lotes
+function normalizeHhMm(raw: string | null | undefined): string {
+  if (!raw) return '';
+  const t = raw.trim();
+  const m = /^(\d{1,3}):(\d{2})$/.exec(t);
+  if (!m) return t;
+  return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
+}
 
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW);
@@ -145,20 +147,22 @@ export async function POST(req: NextRequest) {
   const mes = Number(body.mes);
   const ano = Number(body.ano);
   if (!mes || mes < 1 || mes > 12 || !ano || ano < 2000) {
-    return NextResponse.json({ error: 'mes (1-12) e ano são obrigatórios e devem ser válidos' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'mes (1-12) e ano são obrigatórios e devem ser válidos' },
+      { status: 400 },
+    );
   }
 
-  // Ciclo RH: dia 28 do mês anterior → dia 27 do mês da competência
   const { dataInicial, dataFinal } = periodoFechamentoPonto(mes, ano);
+  const dataIni = ymdToUtcDate(dataInicial);
+  const dataFimExcl = ymdToUtcDate(addDaysYmd(dataFinal, 1));
 
-  // Cria ou reaproveita FechamentoMensal
   const fechamento = await prisma.fechamentoMensal.upsert({
     where: { mes_ano: { mes, ano } },
     create: { mes, ano, status: 'rascunho' },
     update: { updatedAt: new Date() },
   });
 
-  // Busca funcionários com numeroFolha E pisSecullum preenchidos do tenant correto
   const funcionarios = await prisma.rhFuncionario.findMany({
     where: {
       userId: ctx.userId,
@@ -171,33 +175,94 @@ export async function POST(req: NextRequest) {
       nome: true,
       pisSecullum: true,
       valorVT: true,
+      dataAdmissao: true,
+      dataGozoFerias: true,
+      diasFeriasGozados: true,
+      statusFerias: true,
     },
   });
 
-  // Funcionários sem PIS (para retornar no resumo)
   const semPis = await prisma.rhFuncionario.findMany({
     where: { userId: ctx.userId, ativo: true, numeroFolha: { not: null }, pisSecullum: null },
     select: { id: true, nome: true },
   });
 
+  const funcionarioIds = funcionarios.map((f) => f.id);
+
+  const [vigencias, ocorrencias, registros] = await Promise.all([
+    funcionarioIds.length === 0
+      ? Promise.resolve([])
+      : prisma.rhEscalaVigencia.findMany({
+          where: {
+            funcionarioId: { in: funcionarioIds },
+            vigenciaInicio: { lt: dataFimExcl },
+            OR: [{ vigenciaFim: null }, { vigenciaFim: { gte: dataIni } }],
+          },
+        }),
+    funcionarioIds.length === 0
+      ? Promise.resolve([])
+      : prisma.rhOcorrencia.findMany({
+          where: {
+            funcionarioId: { in: funcionarioIds },
+            ativo: true,
+            OR: [
+              { data: { gte: dataIni, lt: dataFimExcl } },
+              {
+                dataInicioAfastamento: { lt: dataFimExcl },
+                OR: [
+                  { dataFimAfastamento: null },
+                  { dataFimAfastamento: { gte: dataIni } },
+                ],
+              },
+            ],
+          },
+        }),
+    funcionarioIds.length === 0
+      ? Promise.resolve([])
+      : prisma.pontoRegistro.findMany({
+          where: {
+            funcionarioId: { in: funcionarioIds },
+            data: { gte: dataIni, lt: dataFimExcl },
+          },
+        }),
+  ]);
+
+  const vigPorFunc = new Map<string, typeof vigencias>();
+  for (const v of vigencias) {
+    const list = vigPorFunc.get(v.funcionarioId) ?? [];
+    list.push(v);
+    vigPorFunc.set(v.funcionarioId, list);
+  }
+  const ocPorFunc = new Map<string, typeof ocorrencias>();
+  for (const o of ocorrencias) {
+    const list = ocPorFunc.get(o.funcionarioId) ?? [];
+    list.push(o);
+    ocPorFunc.set(o.funcionarioId, list);
+  }
+  const regPorFunc = new Map<string, typeof registros>();
+  for (const r of registros) {
+    const list = regPorFunc.get(r.funcionarioId) ?? [];
+    list.push(r);
+    regPorFunc.set(r.funcionarioId, list);
+  }
+
   let processados = 0;
   let comErro = 0;
 
-  // Autentica no Secullum
   let token = '';
   let bancoid = '';
   try {
     const auth = await obterTokenSecullum();
     token = auth.token;
     bancoid = auth.bancoid;
-  } catch (authErr: any) {
+  } catch (authErr: unknown) {
+    const msg = authErr instanceof Error ? authErr.message : 'erro';
     return NextResponse.json(
-      { error: `Falha na autenticação Secullum: ${authErr.message}` },
+      { error: `Falha na autenticação Secullum: ${msg}` },
       { status: 502 },
     );
   }
 
-  // Processa em lotes para respeitar limite da API
   for (let i = 0; i < funcionarios.length; i += BATCH_SIZE) {
     if (i > 0) {
       await new Promise((r) => setTimeout(r, BATCH_DELAY_MS));
@@ -206,33 +271,76 @@ export async function POST(req: NextRequest) {
     const lote = funcionarios.slice(i, i + BATCH_SIZE);
 
     for (const func of lote) {
-      let campos: Partial<SecullumCalcResult> = {};
+      let camposSec: Partial<SecullumCalcResult> = {};
       let origemErro: string | null = null;
 
       try {
-        campos = await calcularFuncionario(token, bancoid, func.pisSecullum!, dataInicial, dataFinal);
+        camposSec = await calcularFuncionario(
+          token,
+          bancoid,
+          func.pisSecullum!,
+          dataInicial,
+          dataFinal,
+        );
         processados++;
-      } catch (calcErr: any) {
-        origemErro = calcErr.message ?? 'Erro desconhecido';
+      } catch (calcErr: unknown) {
+        origemErro = calcErr instanceof Error ? calcErr.message : 'Erro desconhecido';
         comErro++;
       }
 
+      const platefull = calcularFaltasEDsrPeriodo({
+        dataInicialYmd: dataInicial,
+        dataFinalYmd: dataFinal,
+        dataAdmissao: func.dataAdmissao,
+        dataGozoFerias: func.dataGozoFerias,
+        diasFeriasGozados: func.diasFeriasGozados,
+        statusFerias: func.statusFerias,
+        vigencias: vigPorFunc.get(func.id) ?? [],
+        ocorrencias: ocPorFunc.get(func.id) ?? [],
+        registros: regPorFunc.get(func.id) ?? [],
+      });
+
+      const obsPlatefull =
+        platefull.faltasDias > 0 || platefull.faltaDsrDias > 0
+          ? `Platefull: ${platefull.faltasDias} falta(s), ${platefull.faltaDsrDias} DSR`
+          : null;
+
       await prisma.fechamentoLinha.upsert({
-        where: { fechamentoId_funcionarioId: { fechamentoId: fechamento.id, funcionarioId: func.id } },
+        where: {
+          fechamentoId_funcionarioId: { fechamentoId: fechamento.id, funcionarioId: func.id },
+        },
         create: {
           fechamentoId: fechamento.id,
           funcionarioId: func.id,
-          ...campos,
+          ex60: camposSec.ex60 ?? null,
+          ex100: camposSec.ex100 ?? null,
+          en60: camposSec.en60 ?? null,
+          en100: camposSec.en100 ?? null,
+          atraso: camposSec.atraso ?? null,
+          // Platefull pré-preenche faltas / DSR
+          faltas: platefull.faltasHhMm,
+          faltaDsr: platefull.faltaDsrHhMm,
+          faltasSecullum: normalizeHhMm(camposSec.faltas) || null,
+          faltaDsrSecullum: normalizeHhMm(camposSec.faltaDsr) || null,
           valeTransporte: func.valorVT ? new Decimal(func.valorVT) : null,
           status: 'pendente',
           origemErro,
+          observacao: obsPlatefull,
         },
         update: {
-          ...campos,
+          ex60: camposSec.ex60 ?? null,
+          ex100: camposSec.ex100 ?? null,
+          en60: camposSec.en60 ?? null,
+          en100: camposSec.en100 ?? null,
+          atraso: camposSec.atraso ?? null,
+          faltas: platefull.faltasHhMm,
+          faltaDsr: platefull.faltaDsrHhMm,
+          faltasSecullum: normalizeHhMm(camposSec.faltas) || null,
+          faltaDsrSecullum: normalizeHhMm(camposSec.faltaDsr) || null,
           valeTransporte: func.valorVT ? new Decimal(func.valorVT) : null,
           status: 'pendente',
           origemErro,
-          observacao: null,
+          observacao: obsPlatefull,
         },
       });
     }
