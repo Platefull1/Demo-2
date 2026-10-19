@@ -101,7 +101,6 @@ interface PendenciaResumo {
   numeroFolhaOrigem: string;
   count: number;
   nomeSugerido: string | null;
-  datas?: string[];
 }
 
 interface FechamentoLinha {
@@ -625,12 +624,6 @@ const FECHAMENTO_FIELDS: { key: keyof LinhaEditada; header: string; placeholder:
 
 // ─── Tabela de Registros (Fase 6) ───────────────────────────────────────────
 
-function formatUtcDate(iso: string) {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
-}
-
 function pendenciaColumns(): ColumnDef<PendenciaResumo, unknown>[] {
   return [
     {
@@ -653,24 +646,6 @@ function pendenciaColumns(): ColumnDef<PendenciaResumo, unknown>[] {
         ) : (
           <span className="text-muted-foreground">–</span>
         ),
-    },
-    {
-      id: 'data',
-      header: 'Data',
-      enableSorting: false,
-      cell: ({ row }) => {
-        const datas = row.original.datas ?? [];
-        if (datas.length === 0) return <span className="text-muted-foreground">–</span>;
-        return (
-          <div className="flex max-w-[240px] flex-wrap gap-x-2 gap-y-0.5">
-            {datas.map((iso, index) => (
-              <span key={`${iso}-${index}`} className="tabular-nums text-foreground">
-                {formatUtcDate(iso)}
-              </span>
-            ))}
-          </div>
-        );
-      },
     },
     {
       id: 'registros',

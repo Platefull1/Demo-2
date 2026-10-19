@@ -38,7 +38,7 @@ Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 ## Pontos (out/2026)
 
 - `GET /api/pontos` agora devolve `ultimaSincronizacao` (max `updatedAt` do dia e da loja). Não há status de presença (trabalhando, intervalo, ausente, atrasado) nem coluna de horas no registro diário; a faixa de KPIs fica para quando esses status existirem.
-- Pendências continuam globais (não filtradas pela data selecionada). A coluna Data lista as datas já gravadas em cada matrícula.
+- Pendências continuam globais (não filtradas pela data selecionada).
 
 ## Design system
 
