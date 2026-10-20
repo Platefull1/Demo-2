@@ -20,6 +20,7 @@ export const NOTA_STATUS_LABELS: Record<string, string> = {
   EM_REVISAO: 'Para revisar',
   APROVADA: 'Aprovada',
   IGNORADA: 'Fora do CMV',
+  ANTERIOR_CMV_REAL: 'Anterior ao CMV Real',
 };
 
 export function notaStatusLabel(status: string): string {

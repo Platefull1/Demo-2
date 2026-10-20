@@ -176,12 +176,17 @@ async function loadContext(tenantUserId: string) {
     if (a.qtd > 0) custoMedioPorInsumo[id] = a.valor / a.qtd;
   }
 
+  const alertasQueBloqueiam = Array.isArray(nfeConfig?.alertasQueBloqueiam)
+    ? (nfeConfig!.alertasQueBloqueiam as string[]).filter((x) => typeof x === 'string')
+    : [];
+
   const pipelineConfig: PipelineConfig = defaultPipelineConfig({
     autoAprovar: nfeConfig?.autoAprovar ?? false,
     toleranciaTotalReais: Number(nfeConfig?.toleranciaTotalReais ?? 1),
     toleranciaTotalPercent: Number(nfeConfig?.toleranciaTotalPercent ?? 0.5),
     limiteVariacaoCustoPercent: Number(nfeConfig?.limiteVariacaoCustoPercent ?? 30),
     maxTentativas: nfeConfig?.maxTentativas ?? 3,
+    alertasQueBloqueiam,
   });
 
   return {
@@ -249,20 +254,57 @@ async function aplicarPipelineNaNota(
     if (id != null && net != null) netBySaipos.set(id, net);
   }
 
-  const itensComNet = nota.itens.map((it) => ({
-    saiposItemId: it.saiposItemId,
-    numeroItem: it.numeroItem,
-    descricao: it.descricao,
-    ean: it.ean,
-    ncm: it.ncm,
-    cfop: it.cfop,
-    unidadeComercial: it.unidadeComercial,
-    quantidade: Number(it.quantidade),
-    valorBruto: Number(it.valorBruto),
-    netItemValue:
-      netBySaipos.get(it.saiposItemId) ??
-      (it.valorLiquido != null ? Number(it.valorLiquido) : Number(it.valorBruto)),
-  }));
+  const itensComNet = nota.itens.map((it) => {
+    const preservar =
+      it.status === 'MAPEADO' || it.status === 'IGNORADO'
+        ? {
+            status: it.status as 'MAPEADO' | 'IGNORADO',
+            estoqueInsumoId: it.estoqueInsumoId,
+            mapeamentoId: it.mapeamentoId,
+            fatorConversao:
+              it.fatorConversao != null ? Number(it.fatorConversao) : null,
+            quantidadeConvertida:
+              it.quantidadeConvertida != null
+                ? Number(it.quantidadeConvertida)
+                : null,
+            unidadeConvertida: it.unidadeConvertida,
+          }
+        : null;
+    return {
+      saiposItemId: it.saiposItemId,
+      numeroItem: it.numeroItem,
+      descricao: it.descricao,
+      ean: it.ean,
+      ncm: it.ncm,
+      cfop: it.cfop,
+      unidadeComercial: it.unidadeComercial,
+      quantidade: Number(it.quantidade),
+      valorBruto: Number(it.valorBruto),
+      netItemValue:
+        netBySaipos.get(it.saiposItemId) ??
+        (it.valorLiquido != null ? Number(it.valorLiquido) : Number(it.valorBruto)),
+      preservar,
+    };
+  });
+
+  const inicioCmv =
+    (await prisma.nfeConfig.findUnique({ where: { userId } }))?.inicioCmvReal ||
+    '2026-10';
+  let statusOverride: NfeNotaStatus | null = null;
+  if (nota.competencia && nota.competencia < inicioCmv && !nota.fornecedor.ignorarCmv) {
+    statusOverride = 'ANTERIOR_CMV_REAL';
+  }
+
+  const fechado = await prisma.cmvFechamento.findUnique({
+    where: {
+      userId_storeSlug_competencia: {
+        userId,
+        storeSlug: nota.storeSlug,
+        competencia: nota.competencia,
+      },
+    },
+    select: { status: true },
+  });
 
   const out = processarNota({
     valorTotal: Number(nota.valorTotal),
@@ -275,7 +317,10 @@ async function aplicarPipelineNaNota(
     insumosConfig: ctx.insumosConfig,
     custoMedioPorInsumo: ctx.custoMedioPorInsumo,
     tentativasAtuais: nota.tentativas,
-    config: ctx.pipelineConfig,
+    config: {
+      ...ctx.pipelineConfig,
+      mesFechado: fechado?.status === 'FECHADO',
+    },
   });
 
   for (const p of out.problemasNovos) {
@@ -313,20 +358,33 @@ async function aplicarPipelineNaNota(
       });
     }
 
+    const statusFinal = statusOverride ?? out.status;
+    const aprovada = statusFinal === 'APROVADA';
     await tx.nfeNota.update({
       where: { id: nota.id },
       data: {
-        status: out.status,
+        status: statusFinal,
         tentativas: out.tentativas,
         ultimoErro: out.ultimoErro,
         alertas: out.alertas,
         somaItensLiquido: decimal(out.somaItensLiquido),
-        aprovadaEm: out.status === 'APROVADA' ? new Date() : undefined,
+        aprovadaEm: aprovada ? new Date() : null,
+        aprovadaPorId: null,
+        aprovacaoAutomatica: aprovada,
+        aprovadaComAlerta: aprovada ? out.aprovadaComAlerta : false,
+        aprovacaoRegra: aprovada
+          ? out.aprovacaoRegra
+          : statusFinal === 'ANTERIOR_CMV_REAL'
+            ? 'anterior_cmv_real'
+            : statusFinal === 'IGNORADA'
+              ? out.aprovacaoRegra
+              : null,
       },
     });
   });
 
-  if (out.gerarLancamentos) {
+  const statusFinal = statusOverride ?? out.status;
+  if (out.gerarLancamentos && statusFinal === 'APROVADA') {
     await gerarLancamentosAprovacao({
       userId,
       notaId: nota.id,
@@ -336,7 +394,7 @@ async function aplicarPipelineNaNota(
     });
   }
 
-  return out.status;
+  return statusFinal;
 }
 
 async function upsertNotaEItens(

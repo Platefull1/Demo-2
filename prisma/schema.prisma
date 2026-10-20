@@ -2069,6 +2069,8 @@ enum NfeNotaStatus {
   EM_REVISAO
   APROVADA
   IGNORADA
+  /// Competência anterior ao início do CMV Real — fora da fila "Para revisar"
+  ANTERIOR_CMV_REAL
   ERRO_PROCESSAMENTO
   FALHA
 }
@@ -2179,6 +2181,12 @@ model NfeNota {
   rawDetalhe            Json?         @map("raw_detalhe")
   aprovadaPorId         String?       @map("aprovada_por_id")
   aprovadaEm            DateTime?     @map("aprovada_em")
+  aprovacaoAutomatica   Boolean       @default(false) @map("aprovacao_automatica")
+  aprovadaComAlerta     Boolean       @default(false) @map("aprovada_com_alerta")
+  /// Ex.: itens_prontos | fornecedor_fora_cmv
+  aprovacaoRegra        String?       @map("aprovacao_regra")
+  reabertaPorId         String?       @map("reaberta_por_id")
+  reabertaEm            DateTime?     @map("reaberta_em")
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
@@ -2347,6 +2355,10 @@ model NfeConfig {
   toleranciaTotalPercent     Decimal  @default(0.5) @map("tolerancia_total_percent") @db.Decimal(14, 4)
   limiteVariacaoCustoPercent Decimal  @default(30) @map("limite_variacao_custo_percent") @db.Decimal(14, 4)
   maxTentativas              Int      @default(3) @map("max_tentativas")
+  /// Alertas que impedem auto-aprovação (vazio = nenhum bloqueia).
+  alertasQueBloqueiam        Json     @default("[]") @map("alertas_que_bloqueiam")
+  /// Competência YYYY-MM a partir da qual o CMV Real opera (notas anteriores → ANTERIOR_CMV_REAL).
+  inicioCmvReal              String   @default("2026-10") @map("inicio_cmv_real")
   /// Regras texto→categoria de refeição interna (lista ordenada). Vazio = seed DEFAULT_REFEICAO_REGRAS.
   refeicaoRegras             Json     @default("[]") @map("refeicao_regras")
   /// { incluirTaxaEntrega, usarTotalLiquido, incluirIfood }

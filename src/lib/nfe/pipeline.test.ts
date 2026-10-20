@@ -553,7 +553,44 @@ describe('pipeline decisões', () => {
       }),
     );
     assert.ok(out.itens[0].alertas.includes('CUSTO_FORA_DO_PADRAO'));
-    assert.equal(out.status, 'EM_REVISAO'); // auto-aprovação bloqueada por alerta
+    // Alertas não bloqueiam por padrão (alertasQueBloqueiam vazio)
+    assert.equal(out.status, 'APROVADA');
+    assert.equal(out.aprovadaComAlerta, true);
+  });
+
+  it('alerta em alertasQueBloqueiam impede auto-aprovação', () => {
+    const out = processarNota(
+      baseInput({
+        mapeamentos: [
+          {
+            id: 'm1',
+            chave: chaveMapeamentoEan('7891234567890'),
+            estoqueInsumoId: 'ins-1',
+            fatorConversao: 1,
+            ignorar: false,
+          },
+        ],
+        custoMedioPorInsumo: { 'ins-1': 5 },
+        itens: [
+          {
+            saiposItemId: 1,
+            descricao: 'X',
+            unidadeComercial: 'KG',
+            quantidade: 1,
+            valorBruto: 100,
+            netItemValue: 100,
+            ean: '7891234567890',
+          },
+        ],
+        config: defaultPipelineConfig({
+          autoAprovar: true,
+          limiteVariacaoCustoPercent: 30,
+          alertasQueBloqueiam: ['CUSTO_FORA_DO_PADRAO'],
+        }),
+      }),
+    );
+    assert.ok(out.itens[0].alertas.includes('CUSTO_FORA_DO_PADRAO'));
+    assert.equal(out.status, 'EM_REVISAO');
   });
 
   it('auto-aprovação desligada → EM_REVISAO mesmo mapeado', () => {
@@ -586,7 +623,7 @@ describe('pipeline decisões', () => {
     assert.equal(r3.problemasNovos.length, 1);
   });
 
-  it('transferência entre lojas → EM_REVISAO', () => {
+  it('transferência entre lojas → APROVADA com alerta (não bloqueia por padrão)', () => {
     const out = processarNota(
       baseInput({
         saiposTransferenciaId: 999,
@@ -603,7 +640,8 @@ describe('pipeline decisões', () => {
       }),
     );
     assert.ok(out.alertas.includes('TRANSFERENCIA_ENTRE_LOJAS'));
-    assert.equal(out.status, 'EM_REVISAO');
+    assert.equal(out.status, 'APROVADA');
+    assert.equal(out.aprovadaComAlerta, true);
   });
 });
 

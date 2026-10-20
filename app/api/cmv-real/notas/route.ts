@@ -81,7 +81,15 @@ export async function GET(req: NextRequest) {
             ignorarCmv: true,
           },
         },
-        itens: { select: { id: true, status: true } },
+        itens: {
+          select: {
+            id: true,
+            status: true,
+            estoqueInsumoId: true,
+            fatorConversao: true,
+            quantidadeConvertida: true,
+          },
+        },
       },
       orderBy: { dataEntrada: 'desc' },
       take: 100,
@@ -93,7 +101,14 @@ export async function GET(req: NextRequest) {
     }),
   ]);
 
-  const counts = { EM_REVISAO: 0, APROVADA: 0, IGNORADA: 0 };
+  const { itemEstaPronto } = await import('@/lib/nfe/item-pronto');
+
+  const counts = {
+    EM_REVISAO: 0,
+    APROVADA: 0,
+    IGNORADA: 0,
+    ANTERIOR_CMV_REAL: 0,
+  };
   for (const g of grouped) {
     if (g.status in counts) {
       counts[g.status as keyof typeof counts] = g._count._all;
@@ -115,9 +130,7 @@ export async function GET(req: NextRequest) {
     canMapeamentoEditar,
     counts,
     notas: notas.map((n) => {
-      const itensProntos = n.itens.filter(
-        (i) => i.status === 'MAPEADO' || i.status === 'IGNORADO',
-      ).length;
+      const itensProntos = n.itens.filter((i) => itemEstaPronto(i)).length;
       return {
         id: n.id,
         numero: n.numero,
@@ -131,6 +144,8 @@ export async function GET(req: NextRequest) {
         itensProntos,
         itensSugeridos: n.itens.filter((i) => i.status === 'SUGERIDO').length,
         itensSemMap: n.itens.filter((i) => i.status === 'SEM_MAPEAMENTO').length,
+        aprovacaoAutomatica: n.aprovacaoAutomatica,
+        aprovadaComAlerta: n.aprovadaComAlerta,
       };
     }),
   });

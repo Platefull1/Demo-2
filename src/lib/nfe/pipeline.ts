@@ -13,6 +13,7 @@ import {
   normalizarDescricao,
   normalizarUnidade,
 } from './normalize';
+import { itemEstaPronto } from './item-pronto';
 import { sugerirTopDoCatalogo, SUGESTAO_MIN_SCORE, type CatalogoItem } from './similarity';
 
 export type CmvRealUnidade = 'KG' | 'UN';
@@ -24,6 +25,10 @@ export interface PipelineConfig {
   toleranciaTotalPercent: number;
   limiteVariacaoCustoPercent: number;
   maxTentativas: number;
+  /** Alertas que impedem auto-aprovação (default vazio = nenhum bloqueia). */
+  alertasQueBloqueiam: string[];
+  /** Competência com CmvFechamento FECHADO — não auto-aprova. */
+  mesFechado?: boolean;
 }
 
 export interface PipelineMapeamento {
@@ -44,6 +49,15 @@ export interface PipelineInsumoConfig {
   kgPorUnidade?: number | null;
 }
 
+export interface PipelineItemPreservar {
+  status: 'MAPEADO' | 'IGNORADO';
+  estoqueInsumoId: string | null;
+  mapeamentoId: string | null;
+  fatorConversao: number | null;
+  quantidadeConvertida: number | null;
+  unidadeConvertida: CmvRealUnidade | null;
+}
+
 export interface PipelineItemInput {
   saiposItemId: number;
   numeroItem?: number;
@@ -56,6 +70,11 @@ export interface PipelineItemInput {
   valorBruto: number;
   /** net_item_value da Saipos (antes do rateio) */
   netItemValue: number | null;
+  /**
+   * Item já MAPEADO/IGNORADO (manual ou confirmado): não re-roda matching.
+   * Alertas e custo são recalculados.
+   */
+  preservar?: PipelineItemPreservar | null;
 }
 
 export interface PipelineNotaInput {
@@ -126,6 +145,10 @@ export interface PipelineResult {
   problemasNovos: PipelineProblema[];
   /** true se deve gerar CmvLancamento COMPRA_NFE */
   gerarLancamentos: boolean;
+  aprovadaComAlerta: boolean;
+  aprovacaoRegra: string | null;
+  /** Motivo legível quando ficou EM_REVISAO */
+  motivoRevisao: string | null;
 }
 
 function round4(n: number): number {
@@ -143,9 +166,13 @@ export function defaultPipelineConfig(partial?: Partial<PipelineConfig>): Pipeli
     toleranciaTotalPercent: 0.5,
     limiteVariacaoCustoPercent: 30,
     maxTentativas: 3,
+    alertasQueBloqueiam: [],
+    mesFechado: false,
     ...partial,
   };
 }
+
+export { itemEstaPronto } from './item-pronto';
 
 /**
  * Processa uma nota. Puro — sem I/O.
@@ -172,6 +199,9 @@ export function processarNota(input: PipelineNotaInput): PipelineResult {
         ? [{ tipo: 'FALHA', mensagem: `Nota em FALHA após ${tentativas} tentativas: ${msg}` }]
         : [],
       gerarLancamentos: false,
+      aprovadaComAlerta: false,
+      aprovacaoRegra: null,
+      motivoRevisao: msg,
     };
   }
 }
@@ -192,6 +222,9 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       ultimoErro: null,
       problemasNovos: [],
       gerarLancamentos: false,
+      aprovadaComAlerta: false,
+      aprovacaoRegra: 'fornecedor_fora_cmv',
+      motivoRevisao: null,
     };
   }
 
@@ -256,38 +289,82 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     let sugestaoInsumoId: string | null = null;
     let sugestaoScore: number | null = null;
     let sugestoes: Array<{ id: string; nome: string; score: number }> = [];
+    let fatorDeMapeamentoConfirmado = false;
 
-    // Mapeamento
-    let map: PipelineMapeamento | undefined;
-    if (it.ean) {
-      map = mapByChave.get(chaveMapeamentoEan(it.ean));
-    }
-    if (!map) {
-      map = mapByChave.get(chaveMapeamentoDesc(descNorm, und));
-    }
-
-    if (map?.ignorar) {
+    const pres = it.preservar;
+    if (pres?.status === 'IGNORADO') {
       status = 'IGNORADO';
-    } else if (map && map.estoqueInsumoId) {
+      fatorDeMapeamentoConfirmado = true;
+    } else if (pres?.status === 'MAPEADO') {
       status = 'MAPEADO';
-      estoqueInsumoId = map.estoqueInsumoId;
-      mapeamentoId = map.id;
-      fatorConversao = map.fatorConversao;
-      const cfgInsumo = input.insumosConfig[map.estoqueInsumoId];
-      unidadeConvertida = cfgInsumo?.unidade ?? map.unidadeConvertida ?? 'KG';
-      quantidadeConvertida = round4(it.quantidade * map.fatorConversao);
-      if (quantidadeConvertida > 0) {
+      estoqueInsumoId = pres.estoqueInsumoId;
+      mapeamentoId = pres.mapeamentoId;
+      fatorConversao = pres.fatorConversao;
+      quantidadeConvertida =
+        pres.quantidadeConvertida ??
+        (pres.fatorConversao != null
+          ? round4(it.quantidade * pres.fatorConversao)
+          : null);
+      unidadeConvertida =
+        pres.unidadeConvertida ??
+        (estoqueInsumoId
+          ? input.insumosConfig[estoqueInsumoId]?.unidade ?? 'KG'
+          : 'KG');
+      if (quantidadeConvertida != null && quantidadeConvertida > 0) {
         custoUnitario = round4(liq.valorLiquido / quantidadeConvertida);
       }
+      fatorDeMapeamentoConfirmado = true;
+    } else {
+      // Matching só para SUGERIDO / SEM_MAPEAMENTO (ou itens novos)
+      let map: PipelineMapeamento | undefined;
+      if (it.ean) {
+        map = mapByChave.get(chaveMapeamentoEan(it.ean));
+      }
+      if (!map) {
+        map = mapByChave.get(chaveMapeamentoDesc(descNorm, und));
+      }
 
-      // Sanidade de custo
-      const ref = input.custoMedioPorInsumo?.[map.estoqueInsumoId];
-      if (
-        ref != null &&
-        ref > 0 &&
-        custoUnitario != null &&
-        cfg.limiteVariacaoCustoPercent > 0
-      ) {
+      if (map?.ignorar) {
+        status = 'IGNORADO';
+        mapeamentoId = map.id;
+        fatorDeMapeamentoConfirmado = true;
+      } else if (map && map.estoqueInsumoId) {
+        status = 'MAPEADO';
+        estoqueInsumoId = map.estoqueInsumoId;
+        mapeamentoId = map.id;
+        fatorConversao = map.fatorConversao;
+        const cfgInsumo = input.insumosConfig[map.estoqueInsumoId];
+        unidadeConvertida = cfgInsumo?.unidade ?? map.unidadeConvertida ?? 'KG';
+        quantidadeConvertida = round4(it.quantidade * map.fatorConversao);
+        if (quantidadeConvertida > 0) {
+          custoUnitario = round4(liq.valorLiquido / quantidadeConvertida);
+        }
+        fatorDeMapeamentoConfirmado = true;
+      } else {
+        const top = sugerirTopDoCatalogo(it.descricao, input.catalogo, SUGESTAO_MIN_SCORE, {
+          ncm: it.ncm,
+          top: 3,
+        });
+        sugestoes = top.map((s) => ({ id: s.id, nome: s.nome, score: s.score }));
+        if (top[0]) {
+          status = 'SUGERIDO';
+          sugestaoInsumoId = top[0].id;
+          sugestaoScore = top[0].score;
+        } else {
+          status = 'SEM_MAPEAMENTO';
+        }
+        problemas.push({
+          tipo: status,
+          saiposItemId: it.saiposItemId,
+          mensagem: `${status}: ${it.descricao.slice(0, 80)}`,
+        });
+      }
+    }
+
+    // Sanidade de custo (recalculada; inclusive em itens preservados)
+    if (status === 'MAPEADO' && estoqueInsumoId && custoUnitario != null) {
+      const ref = input.custoMedioPorInsumo?.[estoqueInsumoId];
+      if (ref != null && ref > 0 && cfg.limiteVariacaoCustoPercent > 0) {
         const desvio = (Math.abs(custoUnitario - ref) / ref) * 100;
         if (desvio > cfg.limiteVariacaoCustoPercent) {
           alertas.push('CUSTO_FORA_DO_PADRAO');
@@ -298,27 +375,9 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
           });
         }
       }
-    } else {
-      const top = sugerirTopDoCatalogo(it.descricao, input.catalogo, SUGESTAO_MIN_SCORE, {
-        ncm: it.ncm,
-        top: 3,
-      });
-      sugestoes = top.map((s) => ({ id: s.id, nome: s.nome, score: s.score }));
-      if (top[0]) {
-        status = 'SUGERIDO';
-        sugestaoInsumoId = top[0].id;
-        sugestaoScore = top[0].score;
-      } else {
-        status = 'SEM_MAPEAMENTO';
-      }
-      problemas.push({
-        tipo: status,
-        saiposItemId: it.saiposItemId,
-        mensagem: `${status}: ${it.descricao.slice(0, 80)}`,
-      });
     }
 
-    // Sugestão de fator (não aplica)
+    // Sugestão de fator (não aplica). FATOR_AMBIGUO some se fator vem de mapeamento confirmado.
     let fatorSugerido: number | null = null;
     let fatorSugeridoOrigem: string | null = null;
     const secaoHint =
@@ -340,9 +399,10 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       fatorSugeridoOrigem = sugFator.origem;
       if (sugFator.alertas?.length) {
         for (const a of sugFator.alertas) {
+          if (a === 'FATOR_AMBIGUO' && fatorDeMapeamentoConfirmado) continue;
           if (!alertas.includes(a)) alertas.push(a);
         }
-        if (sugFator.ambiguo) {
+        if (sugFator.ambiguo && !fatorDeMapeamentoConfirmado) {
           problemas.push({
             tipo: 'FATOR_AMBIGUO',
             saiposItemId: it.saiposItemId,
@@ -381,18 +441,62 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     };
   });
 
-  // 8) Decisão
-  const todosResolvidos = itensOut.every(
-    (i) => i.status === 'MAPEADO' || i.status === 'IGNORADO',
+  // 8) Decisão — itens prontos (critério único) + alertasQueBloqueiam
+  const todosProntos = itensOut.every((i) => itemEstaPronto(i));
+  const temMapeadoPronto = itensOut.some(
+    (i) => i.status === 'MAPEADO' && itemEstaPronto(i),
   );
-  const temAlertas =
-    alertasNota.length > 0 || itensOut.some((i) => i.alertas.length > 0);
+  const todosIgnorados =
+    itensOut.length > 0 && itensOut.every((i) => i.status === 'IGNORADO');
+
+  const alertasItens = itensOut.flatMap((i) => i.alertas);
+  const todosAlertas = [...alertasNota, ...alertasItens];
+  const temAlertas = todosAlertas.length > 0;
+  const bloqueadores = todosAlertas.filter((a) =>
+    cfg.alertasQueBloqueiam.includes(a),
+  );
+
+  if (todosIgnorados) {
+    return {
+      status: 'IGNORADA',
+      alertas: alertasNota.length ? alertasNota : ['TODOS_ITENS_IGNORADOS'],
+      itens: itensOut,
+      somaItensLiquido: somaLiquido,
+      tentativas,
+      ultimoErro: null,
+      problemasNovos: [],
+      gerarLancamentos: false,
+      aprovadaComAlerta: false,
+      aprovacaoRegra: 'todos_itens_ignorados',
+      motivoRevisao: null,
+    };
+  }
+
+  if (cfg.mesFechado) {
+    if (!alertasNota.includes('MES_FECHADO')) alertasNota.push('MES_FECHADO');
+    return {
+      status: 'EM_REVISAO',
+      alertas: alertasNota,
+      itens: itensOut,
+      somaItensLiquido: somaLiquido,
+      tentativas,
+      ultimoErro: null,
+      problemasNovos: [
+        ...problemas,
+        { tipo: 'MES_FECHADO', mensagem: 'Competência com mês FECHADO' },
+      ],
+      gerarLancamentos: false,
+      aprovadaComAlerta: false,
+      aprovacaoRegra: null,
+      motivoRevisao: 'mês fechado',
+    };
+  }
 
   const podeAuto =
     cfg.autoAprovar &&
-    todosResolvidos &&
-    !temAlertas &&
-    !alertasNota.includes('TRANSFERENCIA_ENTRE_LOJAS');
+    todosProntos &&
+    temMapeadoPronto &&
+    bloqueadores.length === 0;
 
   if (podeAuto) {
     return {
@@ -404,7 +508,24 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       ultimoErro: null,
       problemasNovos: [],
       gerarLancamentos: true,
+      aprovadaComAlerta: temAlertas,
+      aprovacaoRegra: 'itens_prontos',
+      motivoRevisao: null,
     };
+  }
+
+  let motivoRevisao: string;
+  if (!todosProntos) {
+    const nProntos = itensOut.filter((i) => itemEstaPronto(i)).length;
+    motivoRevisao = `itens não prontos (${nProntos}/${itensOut.length})`;
+  } else if (!temMapeadoPronto) {
+    motivoRevisao = 'todos os itens IGNORADO (sem MAPEADO)';
+  } else if (bloqueadores.length > 0) {
+    motivoRevisao = `alertas que bloqueiam: ${bloqueadores.join(', ')}`;
+  } else if (!cfg.autoAprovar) {
+    motivoRevisao = 'autoAprovar desligado';
+  } else {
+    motivoRevisao = 'EM_REVISAO';
   }
 
   return {
@@ -416,6 +537,9 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     ultimoErro: null,
     problemasNovos: problemas,
     gerarLancamentos: false,
+    aprovadaComAlerta: false,
+    aprovacaoRegra: null,
+    motivoRevisao,
   };
 }
 

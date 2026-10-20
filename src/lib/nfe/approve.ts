@@ -121,6 +121,8 @@ export async function reabrirNotaSePermitido(params: {
   notaId: string;
   storeSlug: string;
   competencia: string;
+  /** Quem desfez (gerente/escritório) — gravado em reabertaPorId */
+  reabertaPorId?: string | null;
 }): Promise<{ ok: boolean; motivo?: string; itensPendentes?: number }> {
   const fechamento = await prisma.cmvFechamento.findUnique({
     where: {
@@ -160,6 +162,11 @@ export async function reabrirNotaSePermitido(params: {
         status: 'EM_REVISAO',
         aprovadaEm: null,
         aprovadaPorId: null,
+        aprovacaoAutomatica: false,
+        aprovadaComAlerta: false,
+        aprovacaoRegra: null,
+        reabertaPorId: params.reabertaPorId ?? null,
+        reabertaEm: new Date(),
       },
     }),
     prisma.nfeItem.updateMany({

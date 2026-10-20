@@ -45,6 +45,8 @@ type NotaRow = {
   itensProntos: number;
   itensSugeridos: number;
   itensSemMap: number;
+  aprovacaoAutomatica?: boolean;
+  aprovadaComAlerta?: boolean;
 };
 
 type TabStatus = 'EM_REVISAO' | 'APROVADA' | 'IGNORADA';
@@ -154,6 +156,7 @@ function CmvRealNotasPageInner() {
   const [msg, setMsg] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [soComAlerta, setSoComAlerta] = useState(false);
 
   const anos = [agora.getFullYear(), agora.getFullYear() - 1, agora.getFullYear() - 2];
 
@@ -232,24 +235,49 @@ function CmvRealNotasPageInner() {
       : ['ahu', 'pilarzinho', 'portao', 'uberaba'];
 
   const filtered = useMemo(() => {
+    let list = notas;
+    if (status === 'APROVADA' && soComAlerta) {
+      list = list.filter((n) => n.aprovadaComAlerta);
+    }
     const q = search.trim().toLowerCase();
-    if (!q) return notas;
-    return notas.filter((n) => {
+    if (!q) return list;
+    return list.filter((n) => {
       const forn = fornecedorNome(n).toLowerCase();
       return n.numero.toLowerCase().includes(q) || forn.includes(q);
     });
-  }, [notas, search]);
+  }, [notas, search, status, soComAlerta]);
 
   const columns = useMemo<ColumnDef<NotaRow, unknown>[]>(
     () => [
       {
         accessorKey: 'numero',
         header: 'NF',
-        cell: ({ row }) => (
-          <span className="font-medium text-foreground">
-            {row.original.numero}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const n = row.original;
+          return (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="font-medium text-foreground">{n.numero}</span>
+              {n.status === 'APROVADA' && n.aprovacaoAutomatica && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/40 text-accent-foreground bg-accent font-normal text-[10px] px-1.5 py-0"
+                  title="Aprovada automaticamente"
+                >
+                  Auto
+                </Badge>
+              )}
+              {n.status === 'APROVADA' && n.aprovadaComAlerta && (
+                <Badge
+                  variant="outline"
+                  className="border-warning/40 text-warning font-normal text-[10px] px-1.5 py-0"
+                  title="Aprovada com alerta"
+                >
+                  Com alerta
+                </Badge>
+              )}
+            </div>
+          );
+        },
       },
       {
         id: 'loja',
@@ -410,6 +438,17 @@ function CmvRealNotasPageInner() {
               className="h-8 pl-8 text-sm"
             />
           </div>
+          {status === 'APROVADA' && (
+            <Button
+              type="button"
+              size="sm"
+              variant={soComAlerta ? 'default' : 'outline'}
+              className="h-8"
+              onClick={() => setSoComAlerta((v) => !v)}
+            >
+              Com alerta
+            </Button>
+          )}
           <Select
             value={
               storeSlug ||

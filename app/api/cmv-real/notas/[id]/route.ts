@@ -326,13 +326,23 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           item.valorLiquido != null && qtdConv > 0
             ? decimal(Number(item.valorLiquido) / qtdConv)
             : null,
+        alertas: [],
       },
+    });
+
+    const { reavaliarNotaAposMapeamento } = await import('@/lib/nfe/reavaliar');
+    const reav = await reavaliarNotaAposMapeamento({
+      userId: tenant.tenantUserId,
+      notaId: id,
+      fornecedorId: item.nota.fornecedorId,
     });
 
     return NextResponse.json({
       ok: true,
       itensPropagados,
       configCriada,
+      reavaliadas: reav.notas,
+      aprovadasAuto: reav.aprovadas,
     });
   }
 
@@ -413,6 +423,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       notaId: nota.id,
       storeSlug: nota.storeSlug,
       competencia: nota.competencia,
+      reabertaPorId: tenant.actorUserId,
     });
     if (!result.ok) {
       return NextResponse.json(
