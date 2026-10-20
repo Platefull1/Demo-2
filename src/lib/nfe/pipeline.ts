@@ -585,5 +585,8 @@ export function resultadoExcecao(
       ? [{ tipo: 'FALHA', mensagem: `Nota em FALHA após ${tentativas} tentativas: ${mensagem}` }]
       : [],
     gerarLancamentos: false,
+    aprovadaComAlerta: false,
+    aprovacaoRegra: null,
+    motivoRevisao: mensagem,
   };
 }

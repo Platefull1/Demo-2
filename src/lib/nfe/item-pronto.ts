@@ -7,13 +7,20 @@
 export type ItemProntoInput = {
   status: string;
   estoqueInsumoId?: string | null;
-  fatorConversao?: number | string | null;
-  quantidadeConvertida?: number | string | null;
+  /** number | string | Prisma.Decimal */
+  fatorConversao?: unknown;
+  /** number | string | Prisma.Decimal */
+  quantidadeConvertida?: unknown;
 };
 
 function numPositivo(v: unknown): boolean {
   if (v === null || v === undefined || v === '') return false;
-  const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
+  const n =
+    typeof v === 'number'
+      ? v
+      : typeof v === 'object' && v !== null && 'toNumber' in v
+        ? Number((v as { toNumber: () => number }).toNumber())
+        : Number(String(v).replace(',', '.'));
   return Number.isFinite(n) && n > 0;
 }
 
