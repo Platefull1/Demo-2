@@ -102,9 +102,26 @@ NODE_ENV=development
 # Gera cliente Prisma
 npm run db:generate
 
-# Executa migrations
+# Executa migrations (só em branch Neon de desenvolvimento)
 npm run db:migrate
 ```
+
+## Como alterar o schema
+
+Para o time (você e o Caio). **Nunca** rode `prisma db push` nem `npm run db:push:force` em produção.
+
+1. Crie um branch no Neon a partir da produção e aponte o `.env` local para essa URL.
+2. No branch: `npx prisma migrate dev --name descricao_curta` — gera SQL em `prisma/migrations/` e aplica só no branch.
+3. Commit a pasta da migration.
+4. Em produção: `npx prisma migrate deploy`. A Vercel só roda `prisma generate`.
+
+Se o banco já tiver o schema (baseline): `npx prisma migrate resolve --applied <nome_da_pasta>` — marca como aplicada, **não** reexecuta o SQL. Confira com `npx prisma migrate status` e:
+
+```bash
+npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma
+```
+
+O diff tem que ficar vazio (`-- This is an empty migration.`).
 
 ### 5. Execute
 
