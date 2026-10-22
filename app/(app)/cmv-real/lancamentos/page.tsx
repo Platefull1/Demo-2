@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import Link from 'next/link';
 import { CMV_STORE_LABELS, formatQuantidadeBr } from '@/lib/nfe/ui-labels';
 
 type Produto = { estoqueInsumoId: string; nome: string; unidade: string };
@@ -32,8 +33,6 @@ type Lanc = {
 const TIPOS = [
   { value: 'COMPRA_MANUAL', label: 'Compra manual' },
   { value: 'DESPERDICIO', label: 'Desperdício' },
-  { value: 'TRANSFERENCIA_SAIDA', label: 'Transf. saída' },
-  { value: 'TRANSFERENCIA_ENTRADA', label: 'Transf. entrada' },
 ] as const;
 
 const STORES = Object.entries(CMV_STORE_LABELS);
@@ -65,8 +64,6 @@ export default function CmvRealLancamentosPage() {
   const [produtoId, setProdutoId] = useState('');
   const [quantidade, setQuantidade] = useState('');
   const [valorTotal, setValorTotal] = useState('');
-  const [lojaDestino, setLojaDestino] = useState('');
-  const [lojaOrigem, setLojaOrigem] = useState('');
   const [observacao, setObservacao] = useState('');
 
   const lojasOpts =
@@ -139,8 +136,6 @@ export default function CmvRealLancamentosPage() {
           estoqueInsumoId: produtoId,
           quantidade: Number(String(quantidade).replace(',', '.')),
           valorTotal: Number(String(valorTotal).replace(',', '.')),
-          lojaDestino: tipo === 'TRANSFERENCIA_SAIDA' ? lojaDestino : undefined,
-          lojaOrigem: tipo === 'TRANSFERENCIA_ENTRADA' ? lojaOrigem : undefined,
           observacao: observacao || undefined,
         }),
       });
@@ -266,6 +261,17 @@ export default function CmvRealLancamentosPage() {
         </Button>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Saída e entrada entre lojas ficam na aba{' '}
+        <Link
+          href="/cmv-real/transferencias"
+          className="text-foreground underline underline-offset-2"
+        >
+          Transferências
+        </Link>
+        .
+      </p>
+
       {showForm && (
         <div className="rounded-md border border-border bg-card p-4 space-y-3 max-w-xl">
           <p className="text-base font-semibold text-foreground">Novo lançamento</p>
@@ -315,34 +321,6 @@ export default function CmvRealLancamentosPage() {
               className="h-9"
             />
           </div>
-          {tipo === 'TRANSFERENCIA_SAIDA' && (
-            <Select value={lojaDestino || undefined} onValueChange={setLojaDestino}>
-              <SelectTrigger className="h-9 w-full text-sm">
-                <SelectValue placeholder="Loja destino…" />
-              </SelectTrigger>
-              <SelectContent>
-                {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
-                  <SelectItem key={s} value={s}>
-                    {lab}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {tipo === 'TRANSFERENCIA_ENTRADA' && (
-            <Select value={lojaOrigem || undefined} onValueChange={setLojaOrigem}>
-              <SelectTrigger className="h-9 w-full text-sm">
-                <SelectValue placeholder="Loja origem…" />
-              </SelectTrigger>
-              <SelectContent>
-                {STORES.filter(([s]) => s !== storeSlug).map(([s, lab]) => (
-                  <SelectItem key={s} value={s}>
-                    {lab}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
           <Input
             placeholder="Observação (opcional)"
             value={observacao}

@@ -33,6 +33,15 @@ export async function PATCH(
       },
     });
 
+    if (cnpj !== undefined) {
+      const { sincronizarStoreCnpjDeRhLoja } = await import('@/lib/nfe/lojas-cnpj');
+      await sincronizarStoreCnpjDeRhLoja({
+        tenantUserId: rh.userId,
+        rhNome: updated.nome,
+        cnpj: updated.cnpj,
+      });
+    }
+
     return NextResponse.json(updated);
   } catch (err) {
     console.error('[PATCH /api/rh/lojas/[id]]', err);

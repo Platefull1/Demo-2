@@ -11,6 +11,7 @@ import { notasListHref, parseNotasListFilters } from '@/lib/nfe/notas-list-query
 const TABS = [
   { href: '/cmv-real/notas', label: 'Revisão', match: '/cmv-real/notas', preserveFilters: true },
   { href: '/cmv-real/lancamentos', label: 'Lançamentos', match: '/cmv-real/lancamentos' },
+  { href: '/cmv-real/transferencias', label: 'Transferências', match: '/cmv-real/transferencias' },
   { href: '/cmv-real/fechamento', label: 'Fechamento', match: '/cmv-real/fechamento' },
   { href: '/cmv-real/produtos', label: 'Produtos', match: '/cmv-real/produtos' },
   { href: '/cmv-real/importar', label: 'Importar', match: '/cmv-real/importar' },

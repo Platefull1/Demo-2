@@ -16,6 +16,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { MapeamentosBlock } from './MapeamentosBlock';
 import { OrfaosCatalogoBlock } from './OrfaosCatalogoBlock';
+import { LojasCnpjBlock } from './LojasCnpjBlock';
 
 type Item = {
   id: string;
@@ -345,6 +346,7 @@ export default function CmvRealProdutosPage() {
         }
       />
 
+      <LojasCnpjBlock />
       <MapeamentosBlock />
     </div>
   );

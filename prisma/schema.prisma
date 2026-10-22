@@ -102,6 +102,7 @@ model User {
   cmvSaldosEstoque       CmvSaldoEstoque[]
   cmvFechamentos         CmvFechamento[]
   cmvRefeicoes           CmvRefeicao[]
+  cmvTransferencias      CmvTransferencia[]
   nfeConfig              NfeConfig?
 
   @@map("users")
@@ -2114,6 +2115,31 @@ enum CmvFechamentoStatus {
   FECHADO
 }
 
+enum CmvTransferenciaStatus {
+  AGUARDANDO_ENTRADA
+  AGUARDANDO_SAIDA
+  CONCILIADA
+  DIVERGENTE
+}
+
+enum CmvTransferenciaOrigem {
+  SAIPOS
+  NFE_LOJA
+  MANUAL
+}
+
+enum CmvTransferenciaLadoTipo {
+  SAIDA
+  ENTRADA
+}
+
+enum CmvTransferenciaCustoOrigem {
+  ULTIMO_CUSTO_ORIGEM
+  ESTOQUE_INICIAL_ORIGEM
+  ULTIMO_CUSTO_QUALQUER_LOJA
+  CUSTO_MANUAL
+}
+
 /// Configuração do produto no CMV Real (ligado ao catálogo EstoqueInsumo).
 model CmvRealInsumoConfig {
   id               String         @id @default(cuid())
@@ -2190,7 +2216,8 @@ model NfeNota {
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  itens NfeItem[]
+  itens          NfeItem[]
+  transferencias CmvTransferencia[]
 
   @@unique([userId, saiposNotaId])
   @@index([userId, storeSlug, competencia])
@@ -2246,7 +2273,7 @@ model NfeMapeamento {
   user                 User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   fornecedorId         String         @map("fornecedor_id")
   fornecedor           NfeFornecedor  @relation(fields: [fornecedorId], references: [id], onDelete: Cascade)
-  /// "ean:<ean>" ou "desc:<descricaoNormalizada>|<UNIDADE>"
+  /// "ean:<ean>|<UNIDADE>" (legado: "ean:<ean>") ou "desc:<descricaoNormalizada>|<UNIDADE>"
   chave                String
   ean                  String?
   descricaoNormalizada String?        @map("descricao_normalizada")
@@ -2279,12 +2306,14 @@ model CmvLancamento {
   quantidade      Decimal           @db.Decimal(14, 4)
   unidade         CmvRealUnidade
   valorTotal      Decimal           @map("valor_total") @db.Decimal(14, 2)
-  nfeItemId       String?           @unique @map("nfe_item_id")
-  nfeItem         NfeItem?          @relation(fields: [nfeItemId], references: [id], onDelete: SetNull)
+  nfeItemId           String?                 @unique @map("nfe_item_id")
+  nfeItem             NfeItem?                @relation(fields: [nfeItemId], references: [id], onDelete: SetNull)
+  transferenciaItemId String?                 @unique @map("transferencia_item_id")
+  transferenciaItem   CmvTransferenciaItem?   @relation(fields: [transferenciaItemId], references: [id], onDelete: SetNull)
   /// Loja que envia (TRANSFERENCIA_ENTRADA) ou recebe (TRANSFERENCIA_SAIDA)
-  lojaOrigem      String?           @map("loja_origem")
-  lojaDestino     String?           @map("loja_destino")
-  observacao      String?
+  lojaOrigem          String?                 @map("loja_origem")
+  lojaDestino         String?                 @map("loja_destino")
+  observacao          String?
   criadoPorId     String?           @map("criado_por_id")
   createdAt       DateTime          @default(now()) @map("created_at")
   updatedAt       DateTime          @updatedAt @map("updated_at")
@@ -2392,4 +2421,79 @@ model CmvRefeicao {
   @@unique([userId, storeSlug, saiposSaleId])
   @@index([userId, storeSlug, competencia])
   @@map("cmv_refeicoes")
+}
+
+/// Documento de transferência entre lojas (saída × entrada).
+model CmvTransferencia {
+  id                    String                 @id @default(cuid())
+  userId                String                 @map("user_id")
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  numeroDocumento       String                 @map("numero_documento")
+  data                  DateTime
+  competencia           String
+  lojaOrigem            String                 @map("loja_origem")
+  lojaDestino           String                 @map("loja_destino")
+  status                CmvTransferenciaStatus @default(AGUARDANDO_ENTRADA)
+  origem                CmvTransferenciaOrigem
+  saiposTransferenciaId Int?                   @map("saipos_transferencia_id")
+  nfeNotaId             String?                @map("nfe_nota_id")
+  nfeNota               NfeNota?               @relation(fields: [nfeNotaId], references: [id], onDelete: SetNull)
+  anexoUrl              String?                @map("anexo_url")
+  anexoNome             String?                @map("anexo_nome")
+  observacao            String?
+  criadoPorId           String?                @map("criado_por_id")
+  excluidoPorId         String?                @map("excluido_por_id")
+  excluidoEm            DateTime?              @map("excluido_em")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+
+  lados CmvTransferenciaLado[]
+
+  @@unique([userId, numeroDocumento, lojaOrigem, lojaDestino])
+  @@index([userId, competencia, status])
+  @@index([userId, lojaOrigem, competencia])
+  @@index([userId, lojaDestino, competencia])
+  @@index([nfeNotaId])
+  @@map("cmv_transferencias")
+}
+
+model CmvTransferenciaLado {
+  id              String                   @id @default(cuid())
+  transferenciaId String                   @map("transferencia_id")
+  transferencia   CmvTransferencia         @relation(fields: [transferenciaId], references: [id], onDelete: Cascade)
+  tipo            CmvTransferenciaLadoTipo
+  storeSlug       String                   @map("store_slug")
+  registradoPorId String?                  @map("registrado_por_id")
+  registradoEm    DateTime?                @map("registrado_em")
+  /// true = rascunho/espelho ainda não confirmado (não lança CMV)
+  rascunho        Boolean                  @default(false)
+  congelado       Boolean                  @default(false)
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+
+  itens CmvTransferenciaItem[]
+
+  @@unique([transferenciaId, tipo])
+  @@index([storeSlug])
+  @@map("cmv_transferencia_lados")
+}
+
+model CmvTransferenciaItem {
+  id              String                       @id @default(cuid())
+  ladoId          String                       @map("lado_id")
+  lado            CmvTransferenciaLado         @relation(fields: [ladoId], references: [id], onDelete: Cascade)
+  estoqueInsumoId String                       @map("estoque_insumo_id")
+  quantidade      Decimal                      @db.Decimal(14, 4)
+  unidade         CmvRealUnidade
+  custoUnitario   Decimal?                     @map("custo_unitario") @db.Decimal(14, 4)
+  valorTotal      Decimal?                     @map("valor_total") @db.Decimal(14, 2)
+  custoOrigem     CmvTransferenciaCustoOrigem? @map("custo_origem")
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+
+  lancamento CmvLancamento?
+
+  @@unique([ladoId, estoqueInsumoId])
+  @@index([estoqueInsumoId])
+  @@map("cmv_transferencia_itens")
 }

@@ -59,20 +59,29 @@ export function storeSlugFromLojaNome(lojaNome: string | null | undefined): CmvS
 }
 
 /**
- * CNPJ (só dígitos) → storeSlug, quando a nota de transferência
- * identifica a loja emissora. Preencher conforme CNPJs reais das lojas.
+ * CNPJs das lojas — só o que o escritório cadastrou (Store/RhLoja).
+ * Não preencher aqui; o runtime lê o banco.
  */
-export const STORE_CNPJ_BY_SLUG: Partial<Record<CmvStoreSlug, string>> = {
-  // preencher quando conhecidos
-};
+export const STORE_CNPJ_BY_SLUG: Partial<Record<CmvStoreSlug, string>> = {};
 
-export function storeSlugFromCnpj(cnpj: string | null | undefined): CmvStoreSlug | null {
+/** Raiz pública da Calenzano (matriz). Não atribui filial. */
+export const CALENZANO_CNPJ_RAIZ = '08821071';
+
+export function storeSlugFromCnpj(
+  cnpj: string | null | undefined,
+  map: Partial<Record<CmvStoreSlug, string>> = STORE_CNPJ_BY_SLUG,
+): CmvStoreSlug | null {
   const digits = String(cnpj || '').replace(/\D/g, '');
   if (digits.length < 11) return null;
-  for (const [slug, c] of Object.entries(STORE_CNPJ_BY_SLUG)) {
+  for (const [slug, c] of Object.entries(map)) {
     if (c && c.replace(/\D/g, '') === digits) return slug as CmvStoreSlug;
   }
   return null;
+}
+
+export function normalizarCnpjLoja(raw: string | null | undefined): string | null {
+  const d = String(raw || '').replace(/\D/g, '');
+  return d.length === 14 ? d : d.length === 0 ? null : d;
 }
 
 /** Competência anterior YYYY-MM. */

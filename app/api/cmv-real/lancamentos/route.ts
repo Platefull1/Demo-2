@@ -86,12 +86,19 @@ export async function POST(req: NextRequest) {
     observacao?: string;
   };
 
-  const tiposOk = [
-    'COMPRA_MANUAL',
-    'DESPERDICIO',
-    'TRANSFERENCIA_SAIDA',
-    'TRANSFERENCIA_ENTRADA',
-  ];
+  const tiposOk = ['COMPRA_MANUAL', 'DESPERDICIO'];
+  if (
+    body.tipo === 'TRANSFERENCIA_SAIDA' ||
+    body.tipo === 'TRANSFERENCIA_ENTRADA'
+  ) {
+    return NextResponse.json(
+      {
+        error: 'Use a aba Transferências para saída e entrada entre lojas',
+        code: 'USE_ABA_TRANSFERENCIAS',
+      },
+      { status: 400 },
+    );
+  }
   if (!body.tipo || !tiposOk.includes(body.tipo)) {
     return NextResponse.json({ error: 'tipo inválido' }, { status: 400 });
   }
