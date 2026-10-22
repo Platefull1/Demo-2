@@ -106,6 +106,18 @@ npm run db:generate
 npm run db:migrate
 ```
 
+### 5. Execute
+
+```bash
+# Desenvolvimento (com auto-reload)
+npm run dev
+
+# Produção
+npm start
+```
+
+O servidor estará disponível em `http://localhost:3001`
+
 ## Como alterar o schema
 
 Para o time (você e o Caio). **Nunca** rode `prisma db push` nem `npm run db:push:force` em produção.
@@ -122,18 +134,6 @@ npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/
 ```
 
 O diff tem que ficar vazio (`-- This is an empty migration.`).
-
-### 5. Execute
-
-```bash
-# Desenvolvimento (com auto-reload)
-npm run dev
-
-# Produção
-npm start
-```
-
-O servidor estará disponível em `http://localhost:3001`
 
 ## 🌐 Deploy na VPS
 
@@ -479,5 +479,6 @@ ISC License - Platefull © 2024
 ---
 
 **Desenvolvido com ❤️ para Platefull**
-t e s t e  
+t e s t e 
+ 
  
