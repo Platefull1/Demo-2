@@ -146,6 +146,8 @@ export async function montarFechamento(params: {
     origem: string;
     ignorada: boolean;
   }>;
+  /** Seções onde há movimento mas o saldo final não foi registrado */
+  secoesSemSaldoFinal: string[];
 }> {
   const fechamento = await garantirFechamentoAberto(params);
   const ant = competenciaAnterior(params.competencia);
@@ -375,6 +377,21 @@ export async function montarFechamento(params: {
     );
   }
 
+  // Detecta seções com movimento mas sem saldo final registrado (por seção, não global)
+  const secoesSemSaldoFinal: string[] = [];
+  for (const secao of ['MATERIA_PRIMA', 'EMBALAGEM', 'BEBIDA'] as const) {
+    const linhasSecao = linhas.filter((l) => l.secao === secao);
+    const comMovimento = linhasSecao.filter(
+      (l) => l.estoqueInicial > 0 || l.comprasQtd > 0 || l.transfRecebidaQtd > 0,
+    );
+    if (
+      comMovimento.length > 0 &&
+      comMovimento.some((l) => !fimMap.has(l.estoqueInsumoId))
+    ) {
+      secoesSemSaldoFinal.push(secao);
+    }
+  }
+
   const ajustes = parseAjustes(fechamento.ajustes);
   const ajustesValor = ajustes.reduce((a, x) => a + x.valor, 0);
 
@@ -459,6 +476,7 @@ export async function montarFechamento(params: {
     linhas,
     alertasTransferencia,
     pendencias,
+    secoesSemSaldoFinal,
     orfaosCatalogoCount: orfaosCatalogo.length,
     refeicoes: refeicaoRows.map((r) => ({
       id: r.id,

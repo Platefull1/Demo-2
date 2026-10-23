@@ -150,6 +150,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     estoqueInsumoId?: string;
     fatorConversao?: number;
     criarMapeamento?: boolean;
+    motivo?: string;
   };
 
   if (body.action === 'fornecedor_fora_cmv') {
@@ -470,6 +471,84 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       notaId: nota.id,
     });
     return NextResponse.json({ ok: true, itensPendentes: n });
+  }
+
+  /**
+   * ignorar_nota: ignora a nota inteira (motivo obrigatório, reversível via reabrir_nota).
+   * - Se APROVADA: apaga lançamentos CMV e seta IGNORADA.
+   * - Se qualquer outro status editável: seta IGNORADA diretamente.
+   * - Motivo é gravado em aprovacaoRegra (ex.: "DEVOLVIDA").
+   */
+  if (body.action === 'ignorar_nota') {
+    const { tenant, error } = await requireCmvRealAccess(P.CMV_REAL_REVISAR_APROVAR);
+    if (error) return error;
+
+    const motivo = typeof body.motivo === 'string' ? body.motivo.trim().toUpperCase() : '';
+    if (!motivo) {
+      return NextResponse.json({ error: 'motivo obrigatório para ignorar nota' }, { status: 400 });
+    }
+
+    const nota = await prisma.nfeNota.findFirst({
+      where: { id, userId: tenant.tenantUserId },
+      select: { id: true, status: true, storeSlug: true, competencia: true },
+    });
+    if (!nota) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
+
+    if (nota.status === 'IGNORADA') {
+      return NextResponse.json({ error: 'Nota já ignorada' }, { status: 400 });
+    }
+    if (
+      !tenant.isAdmin &&
+      tenant.allowedStoreSlugs &&
+      !tenant.allowedStoreSlugs.includes(nota.storeSlug)
+    ) {
+      return NextResponse.json({ error: 'Sem acesso a esta loja' }, { status: 403 });
+    }
+
+    const fechamento = await prisma.cmvFechamento.findUnique({
+      where: {
+        userId_storeSlug_competencia: {
+          userId: tenant.tenantUserId,
+          storeSlug: nota.storeSlug,
+          competencia: nota.competencia,
+        },
+      },
+      select: { status: true },
+    });
+    if (fechamento?.status === 'FECHADO') {
+      return NextResponse.json(
+        { error: 'Competência fechada — não é possível ignorar a nota.' },
+        { status: 400 },
+      );
+    }
+
+    let lancamentosRemovidos = 0;
+    if (nota.status === 'APROVADA') {
+      const del = await prisma.cmvLancamento.deleteMany({
+        where: { userId: tenant.tenantUserId, nfeItem: { notaId: nota.id } },
+      });
+      lancamentosRemovidos = del.count;
+    }
+
+    await prisma.$transaction([
+      prisma.nfeNota.update({
+        where: { id: nota.id },
+        data: {
+          status: 'IGNORADA',
+          aprovacaoRegra: motivo,
+          aprovadaEm: null,
+          aprovadaPorId: null,
+          aprovacaoAutomatica: false,
+          aprovadaComAlerta: false,
+        },
+      }),
+      prisma.nfeItem.updateMany({
+        where: { notaId: nota.id },
+        data: { status: 'IGNORADO' },
+      }),
+    ]);
+
+    return NextResponse.json({ ok: true, lancamentosRemovidos, motivo });
   }
 
   return NextResponse.json({ error: 'action inválida' }, { status: 400 });

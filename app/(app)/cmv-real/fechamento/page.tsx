@@ -205,6 +205,7 @@ export default function CmvRealFechamentoPage() {
       custo: number;
     }>;
   } | null>(null);
+  const [secoesSemSaldoFinal, setSecoesSemSaldoFinal] = useState<string[]>([]);
   const [canFechar, setCanFechar] = useState(false);
   const [canReabrir, setCanReabrir] = useState(false);
   const [lojaTravada, setLojaTravada] = useState(false);
@@ -255,6 +256,7 @@ export default function CmvRealFechamentoPage() {
       setVendaMesOrigem(data.fechamento?.vendaMesOrigem ?? null);
       setRefeicoes(data.refeicoesSaipos || []);
       setTotais(data.totais);
+      setSecoesSemSaldoFinal(Array.isArray(data.secoesSemSaldoFinal) ? data.secoesSemSaldoFinal : []);
       setCanFechar(data.canFechar === true);
       setCanReabrir(data.canReabrir === true);
       setLojaTravada(data.lojaTravada === true);
@@ -584,12 +586,14 @@ export default function CmvRealFechamentoPage() {
               <div className="grid grid-cols-2 xl:grid-cols-4">
                 {(
                   [
-                    { label: 'CMV Matéria-prima', r: displayTotais.cmvMp },
-                    { label: 'CMV Embalagens', r: displayTotais.cmvEmbalagens },
-                    { label: 'CMV Bebidas', r: displayTotais.cmvBebidas },
-                    { label: 'CMV Total', r: displayTotais.cmvTotal },
+                    { label: 'CMV Matéria-prima', r: displayTotais.cmvMp,       secao: 'MATERIA_PRIMA' },
+                    { label: 'CMV Embalagens',    r: displayTotais.cmvEmbalagens, secao: 'EMBALAGEM' },
+                    { label: 'CMV Bebidas',       r: displayTotais.cmvBebidas,   secao: 'BEBIDA' },
+                    { label: 'CMV Total',         r: displayTotais.cmvTotal,     secao: '' },
                   ] as const
-                ).map((k, i) => (
+                ).map((k, i) => {
+                  const semSaldoFim = k.secao !== '' && secoesSemSaldoFinal.includes(k.secao);
+                  return (
                   <div
                     key={k.label}
                     className={cn(
@@ -620,8 +624,14 @@ export default function CmvRealFechamentoPage() {
                         'Informe a venda'
                       )}
                     </p>
+                    {semSaldoFim && (
+                      <p className="text-xs text-warning mt-1">
+                        parcial: sem contagem final
+                      </p>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>

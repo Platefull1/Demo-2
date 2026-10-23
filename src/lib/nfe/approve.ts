@@ -145,11 +145,12 @@ export async function reabrirNotaSePermitido(params: {
   if (!nota) {
     return { ok: false, motivo: 'Nota não encontrada.' };
   }
-  if (nota.status !== 'APROVADA') {
-    return { ok: false, motivo: 'Só é possível reabrir nota aprovada.' };
+  if (nota.status !== 'APROVADA' && nota.status !== 'IGNORADA') {
+    return { ok: false, motivo: 'Só é possível reabrir nota aprovada ou ignorada.' };
   }
 
   const [, , itens] = await prisma.$transaction([
+    // Lançamentos: apaga os existentes (APROVADA → tem; IGNORADA → não tem, deleteMany é idempotente)
     prisma.cmvLancamento.deleteMany({
       where: {
         userId: params.userId,
@@ -170,7 +171,7 @@ export async function reabrirNotaSePermitido(params: {
       },
     }),
     prisma.nfeItem.updateMany({
-      where: { notaId: params.notaId, status: 'MAPEADO' },
+      where: { notaId: params.notaId, status: { in: ['MAPEADO', 'IGNORADO'] } },
       data: { status: 'SUGERIDO' },
     }),
   ]);
