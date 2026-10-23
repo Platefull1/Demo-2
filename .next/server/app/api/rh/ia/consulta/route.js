@@ -1,5 +1,5 @@
 var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/rh/ia/consulta/route.js")
-R.c("server/chunks/[root-of-the-server]__baa447ee._.js")
+R.c("server/chunks/[root-of-the-server]__3424a770._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")
 R.c("server/chunks/797a3_next_92c518d3._.js")
 R.c("server/chunks/797a3_next_dist_esm_build_templates_app-route_1b6801f0.js")

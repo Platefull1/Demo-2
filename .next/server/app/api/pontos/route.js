@@ -1,10 +1,10 @@
 var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/pontos/route.js")
-R.c("server/chunks/[root-of-the-server]__9692ee55._.js")
-R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
 R.c("server/chunks/797a3_next_92c518d3._.js")
-R.c("server/chunks/drin-platform_3df58451._.js")
+R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
+R.c("server/chunks/[root-of-the-server]__a38b605c._.js")
 R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")
+R.c("server/chunks/drin-platform_3df58451._.js")
 R.c("server/chunks/drin-platform__next-internal_server_app_api_pontos_route_actions_db2f8675.js")
 R.m(127747)
 module.exports=R.m(127747).exports

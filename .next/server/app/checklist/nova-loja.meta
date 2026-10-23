@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/checklist/layout,_N_T_/(app)/checklist/nova-loja/layout,_N_T_/(app)/checklist/nova-loja/page,_N_T_/checklist/nova-loja"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/checklist/nova-loja/__PAGE__",
+    "/!KGFwcCk/checklist/nova-loja",
+    "/!KGFwcCk/checklist",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

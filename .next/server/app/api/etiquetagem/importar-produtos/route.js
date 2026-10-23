@@ -1,5 +1,5 @@
 var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/etiquetagem/importar-produtos/route.js")
-R.c("server/chunks/[root-of-the-server]__d8d65857._.js")
+R.c("server/chunks/[root-of-the-server]__8c4efb36._.js")
 R.c("server/chunks/797a3_next_dist_esm_build_templates_app-route_a752692f.js")
 R.c("server/chunks/797a3_next_92c518d3._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")

@@ -1,0 +1,11 @@
+var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/cmv-real/transferencias/[id]/route.js")
+R.c("server/chunks/drin-platform_src_lib_nfe_transferencia-documento_ts_da3b6383._.js")
+R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
+R.c("server/chunks/797a3_next_92c518d3._.js")
+R.c("server/chunks/797a3_next_8ffc8760._.js")
+R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
+R.c("server/chunks/drin-platform_3df58451._.js")
+R.c("server/chunks/[root-of-the-server]__3701b9dd._.js")
+R.c("server/chunks/a1a6c_server_app_api_cmv-real_transferencias_[id]_route_actions_e93548aa.js")
+R.m(102449)
+module.exports=R.m(102449).exports

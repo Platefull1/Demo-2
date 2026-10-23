@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/cmv-real/layout,_N_T_/(app)/cmv-real/transferencias/layout,_N_T_/(app)/cmv-real/transferencias/page,_N_T_/cmv-real/transferencias"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/cmv-real/transferencias/__PAGE__",
+    "/!KGFwcCk/cmv-real/transferencias",
+    "/!KGFwcCk/cmv-real",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

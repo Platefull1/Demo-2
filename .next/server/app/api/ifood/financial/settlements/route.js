@@ -1,5 +1,5 @@
 var R=require("../../../../../chunks/[turbopack]_runtime.js")("server/app/api/ifood/financial/settlements/route.js")
-R.c("server/chunks/[root-of-the-server]__69e5aae8._.js")
+R.c("server/chunks/[root-of-the-server]__6bf5cf47._.js")
 R.c("server/chunks/797a3_next_dist_adc3ff95._.js")
 R.c("server/chunks/797a3_next_92c518d3._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")

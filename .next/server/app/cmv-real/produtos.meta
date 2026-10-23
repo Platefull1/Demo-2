@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/cmv-real/layout,_N_T_/(app)/cmv-real/produtos/layout,_N_T_/(app)/cmv-real/produtos/page,_N_T_/cmv-real/produtos"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/cmv-real/produtos/__PAGE__",
+    "/!KGFwcCk/cmv-real/produtos",
+    "/!KGFwcCk/cmv-real",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

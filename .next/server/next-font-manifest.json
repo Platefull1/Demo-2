@@ -76,6 +76,10 @@
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
+    "[project]/drin-platform/app/(app)/cmv-real/transferencias/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
     "[project]/drin-platform/app/(app)/cmv/page": [
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
@@ -89,6 +93,26 @@
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
     "[project]/drin-platform/app/(app)/dashboard/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/estoque/alertas/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/estoque/historico/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/estoque/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/estoque/produtos/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/estoque/resultado/[id]/page": [
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
@@ -133,6 +157,10 @@
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
     "[project]/drin-platform/app/(app)/relatorios/page": [
+      "static/media/Geist_Variable-s.p.bb1d9210.woff2",
+      "static/media/GeistMono_Variable.p.cd2691d3.woff2"
+    ],
+    "[project]/drin-platform/app/(app)/relatorios/reclamacoes/[runId]/page": [
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
@@ -284,7 +312,7 @@
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],
-    "[project]/drin-platform/app/estoque/page": [
+    "[project]/drin-platform/app/estoque/contagem/[id]/page": [
       "static/media/Geist_Variable-s.p.bb1d9210.woff2",
       "static/media/GeistMono_Variable.p.cd2691d3.woff2"
     ],

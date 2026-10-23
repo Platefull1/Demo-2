@@ -5,7 +5,7 @@ R.c("server/chunks/797a3_next_92c518d3._.js")
 R.c("server/chunks/drin-platform_3df58451._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")
 R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
-R.c("server/chunks/[root-of-the-server]__34ae9f6f._.js")
+R.c("server/chunks/[root-of-the-server]__0ea5a78d._.js")
 R.c("server/chunks/drin-platform__next-internal_server_app_api_saipos_sales_route_actions_1242c98d.js")
 R.m(215090)
 module.exports=R.m(215090).exports

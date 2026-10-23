@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/checklist/layout,_N_T_/(app)/checklist/nova-avaliacao/layout,_N_T_/(app)/checklist/nova-avaliacao/page,_N_T_/checklist/nova-avaliacao"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/checklist/nova-avaliacao/__PAGE__",
+    "/!KGFwcCk/checklist/nova-avaliacao",
+    "/!KGFwcCk/checklist",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

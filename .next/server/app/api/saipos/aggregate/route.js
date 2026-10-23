@@ -1,5 +1,5 @@
 var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/saipos/aggregate/route.js")
-R.c("server/chunks/[root-of-the-server]__260824a4._.js")
+R.c("server/chunks/[root-of-the-server]__233c3afa._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")
 R.c("server/chunks/797a3_next_92c518d3._.js")
 R.c("server/chunks/[root-of-the-server]__9a3df005._.js")

@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/tarefas/layout,_N_T_/(app)/tarefas/relatorios/layout,_N_T_/(app)/tarefas/relatorios/page,_N_T_/tarefas/relatorios"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/tarefas/relatorios/__PAGE__",
+    "/!KGFwcCk/tarefas/relatorios",
+    "/!KGFwcCk/tarefas",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

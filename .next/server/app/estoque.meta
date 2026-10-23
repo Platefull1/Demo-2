@@ -1,0 +1,16 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/estoque/layout,_N_T_/(app)/estoque/page,_N_T_/estoque"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/estoque/__PAGE__",
+    "/!KGFwcCk/estoque",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "headers": {
+    "x-nextjs-stale-time": "300",
+    "x-nextjs-prerender": "1",
+    "x-next-cache-tags": "_N_T_/layout,_N_T_/(app)/layout,_N_T_/(app)/ifood/layout,_N_T_/(app)/ifood/cardapio/layout,_N_T_/(app)/ifood/cardapio/page,_N_T_/ifood/cardapio"
+  },
+  "segmentPaths": [
+    "/_tree",
+    "/_full",
+    "/!KGFwcCk/ifood/cardapio/__PAGE__",
+    "/!KGFwcCk/ifood/cardapio",
+    "/!KGFwcCk/ifood",
+    "/!KGFwcCk",
+    "/_index",
+    "/_head"
+  ]
+}

@@ -1,7 +1,7 @@
 var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/user-apis/test/route.js")
 R.c("server/chunks/drin-platform_src_lib_saipos-api_ts_d2e21a51._.js")
 R.c("server/chunks/797a3_next_92c518d3._.js")
-R.c("server/chunks/[root-of-the-server]__95fbc1b9._.js")
+R.c("server/chunks/[root-of-the-server]__b0bd4e55._.js")
 R.c("server/chunks/797a3_next_8ffc8760._.js")
 R.c("server/chunks/[root-of-the-server]__9a3df005._.js")
 R.c("server/chunks/drin-platform_3df58451._.js")
