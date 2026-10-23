@@ -38,6 +38,10 @@ export type TransferenciaResumo = {
   status: string;
   origem: string;
   observacao: string | null;
+  criadoPorId: string | null;
+  criadoEm: string;
+  editadoPorId: string | null;
+  editadoEm: string | null;
   lados: Array<{
     tipo: string;
     storeSlug: string;
@@ -134,6 +138,10 @@ function serializar(doc: {
   status: string;
   origem: string;
   observacao: string | null;
+  criadoPorId: string | null;
+  editadoPorId: string | null;
+  editadoEm: Date | null;
+  createdAt: Date;
   lados: Array<{
     tipo: string;
     storeSlug: string;
@@ -160,6 +168,10 @@ function serializar(doc: {
     status: doc.status,
     origem: doc.origem,
     observacao: doc.observacao,
+    criadoPorId: doc.criadoPorId,
+    criadoEm: doc.createdAt.toISOString(),
+    editadoPorId: doc.editadoPorId,
+    editadoEm: doc.editadoEm ? doc.editadoEm.toISOString() : null,
     lados: doc.lados.map((l) => ({
       tipo: l.tipo,
       storeSlug: l.storeSlug,
@@ -488,7 +500,9 @@ export async function excluirTransferencia(params: {
     include: includeDoc,
   });
   if (!doc) throw new Error('Transferência não encontrada');
-  if (doc.status === 'CONCILIADA') {
+  // CONCILIADA bloqueada apenas para origens não-manuais (Saipos/NF-e).
+  // Transferências manuais CONCILIADAS podem ser excluídas enquanto o mês estiver aberto.
+  if (doc.status === 'CONCILIADA' && doc.origem !== 'MANUAL') {
     throw new Error('Documento conciliado — não é possível excluir');
   }
   for (const lado of doc.lados) {
@@ -506,6 +520,295 @@ export async function excluirTransferencia(params: {
     where: { id: doc.id },
     data: { excluidoEm: new Date(), excluidoPorId: params.actorUserId },
   });
+}
+
+// ─── Helpers internos ────────────────────────────────────────────────────────
+
+/** Gera um número de documento automático legível: TRF-YYYYMMDD-XXXX */
+function gerarNumeroDocumento(data: Date): string {
+  const y = data.getUTCFullYear();
+  const m = String(data.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(data.getUTCDate()).padStart(2, '0');
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `TRF-${y}${m}${d}-${rand}`;
+}
+
+/** Resolve custo + valida item para transferência. Reutilizado por completa e atualizar. */
+async function resolverItensParaTransferencia(params: {
+  userId: string;
+  lojaOrigem: string;
+  competencia: string;
+  itens: TransferenciaItemInput[];
+}): Promise<
+  Array<{
+    estoqueInsumoId: string;
+    quantidade: number;
+    unidade: 'KG' | 'UN';
+    custo: number;
+    valorTotal: number;
+    custoOrigem: CmvTransferenciaCustoOrigem;
+  }>
+> {
+  if (!params.itens.length) throw new Error('Inclua ao menos um item');
+  const ids = [...new Set(params.itens.map((i) => i.estoqueInsumoId))];
+  const configs = await prisma.cmvRealInsumoConfig.findMany({
+    where: { userId: params.userId, estoqueInsumoId: { in: ids }, ativo: true },
+  });
+  const cfgBy = new Map(configs.map((c) => [c.estoqueInsumoId, c]));
+
+  const resultado: Awaited<ReturnType<typeof resolverItensParaTransferencia>> = [];
+  for (const it of params.itens) {
+    const cfg = cfgBy.get(it.estoqueInsumoId);
+    if (!cfg) throw new Error('Produto CMV não encontrado no catálogo');
+    if (!(it.quantidade > 0)) throw new Error('Quantidade deve ser maior que zero');
+    const custo = await buscarCustoTransferencia({
+      userId: params.userId,
+      lojaOrigem: params.lojaOrigem,
+      estoqueInsumoId: it.estoqueInsumoId,
+      competencia: params.competencia,
+      custoInformado: it.custoUnitario,
+    });
+    if (custo.exigePreenchimento || custo.custo == null) {
+      throw new Error('Custo manual obrigatório: sem histórico na origem nem em outra loja');
+    }
+    resultado.push({
+      estoqueInsumoId: it.estoqueInsumoId,
+      quantidade: it.quantidade,
+      unidade: cfg.unidade,
+      custo: custo.custo,
+      valorTotal: Math.round(it.quantidade * custo.custo * 100) / 100,
+      custoOrigem: custo.origem,
+    });
+  }
+  return resultado;
+}
+
+// ─── Registro bilateral ───────────────────────────────────────────────────────
+
+/**
+ * Registra uma transferência bilateral de uma vez:
+ * cria o documento, os dois lados (SAIDA + ENTRADA) e os lançamentos CMV
+ * em transação atômica. Status final = CONCILIADA.
+ *
+ * Não requer `numeroDocumento` nem `tipoLado` — ambos são gerenciados internamente.
+ */
+export async function registrarTransferenciaCompleta(params: {
+  userId: string;
+  actorUserId: string;
+  lojaOrigem: string;
+  lojaDestino: string;
+  data: Date;
+  observacao?: string | null;
+  itens: TransferenciaItemInput[];
+}): Promise<TransferenciaResumo> {
+  if (!CMV_STORE_SLUGS.includes(params.lojaOrigem as CmvStoreSlug)) {
+    throw new Error('Loja de origem inválida');
+  }
+  if (!CMV_STORE_SLUGS.includes(params.lojaDestino as CmvStoreSlug)) {
+    throw new Error('Loja de destino inválida');
+  }
+  if (params.lojaOrigem === params.lojaDestino) {
+    throw new Error('Origem e destino precisam ser lojas diferentes');
+  }
+
+  // Data não pode ser futura (UTC noon como referência)
+  const hoje = new Date();
+  hoje.setUTCHours(23, 59, 59, 999);
+  if (params.data > hoje) {
+    throw new Error('A data da transferência não pode ser futura');
+  }
+
+  const competencia = competenciaFromDataEntrada(params.data);
+
+  if (await mesFechado(params.userId, params.lojaOrigem, competencia)) {
+    throw new Error(`Competência ${competencia} fechada na loja de origem`);
+  }
+  if (await mesFechado(params.userId, params.lojaDestino, competencia)) {
+    throw new Error(`Competência ${competencia} fechada na loja de destino`);
+  }
+
+  const resolvidos = await resolverItensParaTransferencia({
+    userId: params.userId,
+    lojaOrigem: params.lojaOrigem,
+    competencia,
+    itens: params.itens,
+  });
+
+  // Gera número único; garante unicidade re-tentando em colisão (improvável)
+  let numeroDocumento = gerarNumeroDocumento(params.data);
+  let tentativas = 0;
+  while (tentativas < 5) {
+    const existe = await prisma.cmvTransferencia.findUnique({
+      where: {
+        userId_numeroDocumento_lojaOrigem_lojaDestino: {
+          userId: params.userId,
+          numeroDocumento,
+          lojaOrigem: params.lojaOrigem,
+          lojaDestino: params.lojaDestino,
+        },
+      },
+      select: { id: true },
+    });
+    if (!existe) break;
+    numeroDocumento = gerarNumeroDocumento(params.data);
+    tentativas++;
+  }
+
+  const agora = new Date();
+  const itensCreate = resolvidos.map((it) => ({
+    estoqueInsumoId: it.estoqueInsumoId,
+    quantidade: decimal(it.quantidade),
+    unidade: it.unidade,
+    custoUnitario: decimal(it.custo),
+    valorTotal: decimal(it.valorTotal),
+    custoOrigem: it.custoOrigem,
+  }));
+
+  const created = await prisma.cmvTransferencia.create({
+    data: {
+      userId: params.userId,
+      numeroDocumento,
+      data: params.data,
+      competencia,
+      lojaOrigem: params.lojaOrigem,
+      lojaDestino: params.lojaDestino,
+      status: 'CONCILIADA',
+      origem: 'MANUAL',
+      observacao: params.observacao || null,
+      criadoPorId: params.actorUserId,
+      lados: {
+        create: [
+          {
+            tipo: 'SAIDA' as const,
+            storeSlug: params.lojaOrigem,
+            registradoPorId: params.actorUserId,
+            registradoEm: agora,
+            rascunho: false,
+            itens: { create: itensCreate },
+          },
+          {
+            tipo: 'ENTRADA' as const,
+            storeSlug: params.lojaDestino,
+            registradoPorId: params.actorUserId,
+            registradoEm: agora,
+            rascunho: false,
+            itens: { create: itensCreate },
+          },
+        ],
+      },
+    },
+    include: includeDoc,
+  });
+
+  // Gera CmvLancamentos para ambos os lados
+  await reconciliarELancar({ userId: params.userId, transferenciaId: created.id });
+
+  const fresh = await prisma.cmvTransferencia.findFirstOrThrow({
+    where: { id: created.id },
+    include: includeDoc,
+  });
+  return serializar(fresh);
+}
+
+// ─── Edição ───────────────────────────────────────────────────────────────────
+
+/**
+ * Edita data, observação e itens de uma transferência MANUAL existente.
+ * Bloqueia se qualquer mês envolvido estiver fechado.
+ * Grava editadoPorId + editadoEm.
+ */
+export async function atualizarTransferencia(params: {
+  userId: string;
+  actorUserId: string;
+  id: string;
+  data?: Date;
+  observacao?: string | null;
+  itens: TransferenciaItemInput[];
+}): Promise<TransferenciaResumo> {
+  const doc = await prisma.cmvTransferencia.findFirst({
+    where: { id: params.id, userId: params.userId, excluidoEm: null },
+    include: includeDoc,
+  });
+  if (!doc) throw new Error('Transferência não encontrada');
+  if (doc.origem !== 'MANUAL') {
+    throw new Error('Somente transferências manuais podem ser editadas aqui');
+  }
+
+  const novaData = params.data ?? doc.data;
+
+  // Data não pode ser futura
+  const hoje = new Date();
+  hoje.setUTCHours(23, 59, 59, 999);
+  if (novaData > hoje) {
+    throw new Error('A data da transferência não pode ser futura');
+  }
+
+  const novaCompetencia = competenciaFromDataEntrada(novaData);
+
+  // Verificar mês fechado para ambas as lojas (competência nova e antiga, se mudou)
+  const competenciasAVerificar = new Set([doc.competencia, novaCompetencia]);
+  for (const comp of competenciasAVerificar) {
+    if (await mesFechado(params.userId, doc.lojaOrigem, comp)) {
+      throw new Error(`Competência ${comp} fechada na loja de origem`);
+    }
+    if (await mesFechado(params.userId, doc.lojaDestino, comp)) {
+      throw new Error(`Competência ${comp} fechada na loja de destino`);
+    }
+  }
+
+  const resolvidos = await resolverItensParaTransferencia({
+    userId: params.userId,
+    lojaOrigem: doc.lojaOrigem,
+    competencia: novaCompetencia,
+    itens: params.itens,
+  });
+
+  const itensCreate = resolvidos.map((it) => ({
+    estoqueInsumoId: it.estoqueInsumoId,
+    quantidade: decimal(it.quantidade),
+    unidade: it.unidade,
+    custoUnitario: decimal(it.custo),
+    valorTotal: decimal(it.valorTotal),
+    custoOrigem: it.custoOrigem,
+  }));
+
+  // Remover lançamentos antigos e recriar itens dos dois lados
+  const todosItemIds = doc.lados.flatMap((l) => l.itens.map((i) => i.id));
+  await prisma.$transaction(async (tx) => {
+    if (todosItemIds.length) {
+      await tx.cmvLancamento.deleteMany({
+        where: { transferenciaItemId: { in: todosItemIds } },
+      });
+      await tx.cmvTransferenciaItem.deleteMany({
+        where: { id: { in: todosItemIds } },
+      });
+    }
+
+    for (const lado of doc.lados) {
+      await tx.cmvTransferenciaItem.createMany({
+        data: itensCreate.map((it) => ({ ladoId: lado.id, ...it })),
+      });
+    }
+
+    await tx.cmvTransferencia.update({
+      where: { id: doc.id },
+      data: {
+        data: novaData,
+        competencia: novaCompetencia,
+        observacao: params.observacao !== undefined ? params.observacao : doc.observacao,
+        editadoPorId: params.actorUserId,
+        editadoEm: new Date(),
+      },
+    });
+  });
+
+  await reconciliarELancar({ userId: params.userId, transferenciaId: doc.id });
+
+  const fresh = await prisma.cmvTransferencia.findFirstOrThrow({
+    where: { id: doc.id },
+    include: includeDoc,
+  });
+  return serializar(fresh);
 }
 
 export function itensDoLado(doc: TransferenciaResumo, tipo: 'SAIDA' | 'ENTRADA'): ItemLado[] {

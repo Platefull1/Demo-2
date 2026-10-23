@@ -6,7 +6,7 @@ import { P } from '@/lib/rh-permissions';
 import {
   buscarCustoTransferencia,
   listarTransferencias,
-  registrarLadoManual,
+  registrarTransferenciaCompleta,
 } from '@/lib/nfe/transferencia-documento';
 import { competenciaFromDataEntrada } from '@/lib/nfe/dates';
 
@@ -61,11 +61,9 @@ export async function POST(req: NextRequest) {
   if (error) return error;
 
   const body = (await req.json()) as {
-    tipoLado?: 'SAIDA' | 'ENTRADA';
     lojaOrigem?: string;
     lojaDestino?: string;
     data?: string;
-    numeroDocumento?: string;
     observacao?: string;
     itens?: Array<{
       estoqueInsumoId: string;
@@ -74,46 +72,41 @@ export async function POST(req: NextRequest) {
     }>;
   };
 
-  if (body.tipoLado !== 'SAIDA' && body.tipoLado !== 'ENTRADA') {
-    return NextResponse.json({ error: 'tipoLado inválido' }, { status: 400 });
-  }
-  if (!body.lojaOrigem || !body.lojaDestino || !body.data || !body.numeroDocumento) {
+  if (!body.lojaOrigem || !body.lojaDestino || !body.data) {
     return NextResponse.json(
-      { error: 'lojaOrigem, lojaDestino, data e numeroDocumento obrigatórios' },
+      { error: 'lojaOrigem, lojaDestino e data são obrigatórios' },
       { status: 400 },
     );
   }
 
-  const storeDoLado = body.tipoLado === 'SAIDA' ? body.lojaOrigem : body.lojaDestino;
+  // Verifica acesso a ambas as lojas
   if (
     !tenant.isAdmin &&
     tenant.allowedStoreSlugs &&
-    !tenant.allowedStoreSlugs.includes(storeDoLado)
+    (!tenant.allowedStoreSlugs.includes(body.lojaOrigem) ||
+      !tenant.allowedStoreSlugs.includes(body.lojaDestino))
   ) {
-    return NextResponse.json({ error: 'Sem acesso a esta loja' }, { status: 403 });
+    return NextResponse.json({ error: 'Sem acesso a uma das lojas' }, { status: 403 });
   }
 
   const data = new Date(`${body.data}T15:00:00.000Z`);
   if (Number.isNaN(data.getTime())) {
-    return NextResponse.json({ error: 'data inválida' }, { status: 400 });
+    return NextResponse.json({ error: 'Data inválida' }, { status: 400 });
   }
 
   try {
-    const doc = await registrarLadoManual({
+    const doc = await registrarTransferenciaCompleta({
       userId: tenant.tenantUserId,
       actorUserId: tenant.actorUserId,
-      tipoLado: body.tipoLado,
       lojaOrigem: body.lojaOrigem,
       lojaDestino: body.lojaDestino,
       data,
-      numeroDocumento: body.numeroDocumento,
       observacao: body.observacao,
       itens: body.itens ?? [],
     });
     return NextResponse.json({ ok: true, transferencia: doc }, { status: 201 });
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'Falha ao gravar';
-    const status = msg.includes('já foi registrado') ? 409 : 400;
-    return NextResponse.json({ error: msg }, { status });
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

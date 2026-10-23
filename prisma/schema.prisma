@@ -2442,6 +2442,8 @@ model CmvTransferencia {
   anexoNome             String?                @map("anexo_nome")
   observacao            String?
   criadoPorId           String?                @map("criado_por_id")
+  editadoPorId          String?                @map("editado_por_id")
+  editadoEm             DateTime?              @map("editado_em")
   excluidoPorId         String?                @map("excluido_por_id")
   excluidoEm            DateTime?              @map("excluido_em")
   createdAt             DateTime               @default(now()) @map("created_at")
