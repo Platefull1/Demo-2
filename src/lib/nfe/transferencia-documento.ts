@@ -39,6 +39,7 @@ export type TransferenciaResumo = {
   origem: string;
   observacao: string | null;
   criadoPorId: string | null;
+  criadoPorNome: string | null;
   criadoEm: string;
   editadoPorId: string | null;
   editadoEm: string | null;
@@ -76,17 +77,22 @@ export async function buscarCustoTransferencia(params: {
   competencia: string;
   custoInformado?: number | null;
 }) {
-  const [ultimoOrigem, saldoIni, ultimoQualquer] = await Promise.all([
-    prisma.cmvLancamento.findFirst({
+  // Cascata de custo (ordem de preferência):
+  // 1. Custo médio ponderado da competência atual na origem (garante simetria centavo a centavo)
+  // 2. Custo do saldo inicial (competência anterior)
+  // 3. Último custo de compra em qualquer loja
+  // 4. Custo informado manualmente
+
+  const [lancamentosOrigem, saldoIni, ultimoQualquer] = await Promise.all([
+    // Todas as entradas da competência atual na loja de origem
+    prisma.cmvLancamento.findMany({
       where: {
         userId: params.userId,
         storeSlug: params.lojaOrigem,
         estoqueInsumoId: params.estoqueInsumoId,
-        tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL'] },
-        quantidade: { gt: 0 },
-        valorTotal: { gt: 0 },
+        competencia: params.competencia,
+        tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL', 'TRANSFERENCIA_ENTRADA'] },
       },
-      orderBy: { data: 'desc' },
       select: { quantidade: true, valorTotal: true },
     }),
     prisma.cmvSaldoEstoque.findUnique({
@@ -98,7 +104,7 @@ export async function buscarCustoTransferencia(params: {
           estoqueInsumoId: params.estoqueInsumoId,
         },
       },
-      select: { custoMedio: true },
+      select: { custoMedio: true, qtdFinal: true },
     }),
     prisma.cmvLancamento.findFirst({
       where: {
@@ -113,11 +119,18 @@ export async function buscarCustoTransferencia(params: {
     }),
   ]);
 
+  // Custo médio ponderado atual: (saldoIni + entradas do período) / total qtd
+  const saldoIniQtd = saldoIni ? n(saldoIni.qtdFinal) : 0;
+  const saldoIniVal = saldoIni ? saldoIniQtd * n(saldoIni.custoMedio ?? 0) : 0;
+  const entradasQtd = lancamentosOrigem.reduce((s, l) => s + n(l.quantidade), 0);
+  const entradasVal = lancamentosOrigem.reduce((s, l) => s + n(l.valorTotal), 0);
+  const totalQtd = saldoIniQtd + entradasQtd;
+  const totalVal = saldoIniVal + entradasVal;
+  const custoMedioAtual = totalQtd > 0 ? totalVal / totalQtd : null;
+
   return resolverCustoUnitario({
-    ultimoCustoOrigem:
-      ultimoOrigem && n(ultimoOrigem.quantidade) > 0
-        ? n(ultimoOrigem.valorTotal) / n(ultimoOrigem.quantidade)
-        : null,
+    // fonte primária: custo médio ponderado da competência atual na origem
+    ultimoCustoOrigem: custoMedioAtual,
     custoEstoqueInicialOrigem:
       saldoIni?.custoMedio != null ? n(saldoIni.custoMedio) : null,
     ultimoCustoQualquerLoja:
@@ -128,7 +141,8 @@ export async function buscarCustoTransferencia(params: {
   });
 }
 
-function serializar(doc: {
+function serializar(
+  doc: {
   id: string;
   numeroDocumento: string;
   data: Date;
@@ -157,7 +171,9 @@ function serializar(doc: {
       custoOrigem: string | null;
     }>;
   }>;
-}): TransferenciaResumo {
+},
+  userNomeById?: Map<string, string>,
+): TransferenciaResumo {
   return {
     id: doc.id,
     numeroDocumento: doc.numeroDocumento,
@@ -169,6 +185,7 @@ function serializar(doc: {
     origem: doc.origem,
     observacao: doc.observacao,
     criadoPorId: doc.criadoPorId,
+    criadoPorNome: doc.criadoPorId ? (userNomeById?.get(doc.criadoPorId) ?? null) : null,
     criadoEm: doc.createdAt.toISOString(),
     editadoPorId: doc.editadoPorId,
     editadoEm: doc.editadoEm ? doc.editadoEm.toISOString() : null,
@@ -294,7 +311,18 @@ export async function listarTransferencias(params: {
     orderBy: { data: 'desc' },
     take: 200,
   });
-  return docs.map(serializar);
+
+  // Busca nomes em batch para evitar N+1
+  const userIds = [...new Set(docs.map((d) => d.criadoPorId).filter((id): id is string => id != null))];
+  const users = userIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: userIds } },
+        select: { id: true, fullName: true, name: true },
+      })
+    : [];
+  const userNomeById = new Map(users.map((u) => [u.id, u.fullName || u.name || u.id]));
+
+  return docs.map((doc) => serializar(doc, userNomeById));
 }
 
 export async function obterTransferencia(params: {

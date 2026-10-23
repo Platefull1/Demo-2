@@ -290,7 +290,7 @@ export async function montarFechamento(params: {
       desperdicioQtd -
       estoqueFinal;
 
-    // valor: usa custo médio ponderado aproximado
+    // Custo médio ponderado (mantido para referência e fallback de custos ausentes)
     const entradasQtd = estoqueInicial + comprasQtd + transfRecebidaQtd;
     const entradasValor =
       estoqueInicial * (custoMedioInicial ?? 0) +
@@ -298,7 +298,20 @@ export async function montarFechamento(params: {
       transfRecebidaValor;
     const custoMedio =
       entradasQtd > 0 ? entradasValor / entradasQtd : custoMedioFinal ?? custoMedioInicial ?? 0;
-    const consumoValor = Math.round(consumoQtd * custoMedio * 100) / 100;
+
+    // Fórmula de valor direto (value-flow):
+    //   ini_valor + compras + transfRecebida − transfEnviada − desperdício − fim_valor = CMV
+    // Usar valores gravados nos lançamentos garante simetria centavo a centavo entre lojas.
+    // Para desperdício sem valorTotal no lançamento, estima pelo custo médio (compatibilidade).
+    const iniValor = estoqueInicial * (custoMedioInicial ?? custoMedio);
+    const fimValor = estoqueFinal * (custoMedioFinal ?? custoMedio);
+    const despValorEfetivo =
+      desperdicioValor > 0 || desperdicioQtd === 0
+        ? desperdicioValor
+        : desperdicioQtd * custoMedio;
+    const consumoValor = Math.round(
+      (iniValor + comprasValor + transfRecebidaValor - transfEnviadaValor - despValorEfetivo - fimValor) * 100,
+    ) / 100;
 
     return {
       estoqueInsumoId: id,

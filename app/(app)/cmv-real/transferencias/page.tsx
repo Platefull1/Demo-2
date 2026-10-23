@@ -39,6 +39,7 @@ type Doc = {
   origem: string;
   observacao: string | null;
   criadoPorId: string | null;
+  criadoPorNome: string | null;
   criadoEm: string;
   editadoPorId: string | null;
   editadoEm: string | null;
@@ -227,16 +228,18 @@ export default function CmvRealTransferenciasPage() {
         header: 'Registrado por',
         cell: ({ row }) => {
           const d = row.original;
-          const editado = d.editadoEm
-            ? `Editado ${new Date(d.editadoEm).toLocaleDateString('pt-BR')}`
-            : null;
           return (
             <div className="space-y-0.5">
+              {d.criadoPorNome && (
+                <p className="text-xs text-foreground">{d.criadoPorNome}</p>
+              )}
               <p className="text-xs text-muted-foreground">
                 {new Date(d.criadoEm).toLocaleDateString('pt-BR')}
               </p>
-              {editado && (
-                <p className="text-xs text-muted-foreground italic">{editado}</p>
+              {d.editadoEm && (
+                <p className="text-xs text-muted-foreground italic">
+                  Editado {new Date(d.editadoEm).toLocaleDateString('pt-BR')}
+                </p>
               )}
             </div>
           );

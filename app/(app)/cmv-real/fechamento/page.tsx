@@ -1148,17 +1148,47 @@ export default function CmvRealFechamentoPage() {
                       </tr>
                       );
                     })}
-                    <tr className="border-t border-border bg-muted/40">
-                      <td className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5 text-xs font-semibold text-foreground border-r border-border">
-                        Subtotal {SECAO_LABEL[secao] || secao}
-                      </td>
-                      <td colSpan={12} className="px-2 py-1.5" />
-                      <td className="px-2 py-1.5 text-right tabular-nums text-foreground font-semibold">
-                        {fmtMoney(
-                          items.reduce((a, l) => a + l.consumoValor, 0)
-                        )}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const iniValor    = items.reduce((a, l) => a + l.estoqueInicial * (l.custoMedioInicial ?? 0), 0);
+                      const comprasVal  = items.reduce((a, l) => a + l.comprasValor, 0);
+                      const enviadoVal  = items.reduce((a, l) => a + l.transfEnviadaValor, 0);
+                      const recebidoVal = items.reduce((a, l) => a + l.transfRecebidaValor, 0);
+                      const finalValor  = items.reduce((a, l) => a + l.estoqueFinal * (l.custoMedioFinal ?? 0), 0);
+                      const cmvValor    = items.reduce((a, l) => a + l.consumoValor, 0);
+                      const sub = (v: number, cls?: string) =>
+                        v !== 0 ? (
+                          <td className={`px-2 py-1.5 text-right tabular-nums font-semibold ${cls ?? 'text-foreground'}`}>
+                            {fmtMoney(v)}
+                          </td>
+                        ) : (
+                          <td className="px-2 py-1.5" />
+                        );
+                      return (
+                        <tr className="border-t-2 border-border bg-muted/40">
+                          <td className="sticky left-0 z-10 bg-muted/40 px-2 py-1.5 text-xs font-semibold text-foreground border-r border-border">
+                            Subtotal {SECAO_LABEL[secao] || secao}
+                          </td>
+                          {sub(iniValor)}
+                          {sub(comprasVal)}
+                          {/* S1–S5 vazio */}
+                          <td className="px-2 py-1.5" />
+                          <td className="px-2 py-1.5" />
+                          <td className="px-2 py-1.5" />
+                          <td className="px-2 py-1.5" />
+                          <td className="px-2 py-1.5" />
+                          {sub(enviadoVal, 'text-destructive')}
+                          {sub(recebidoVal, 'text-success')}
+                          {/* Desp. vazio */}
+                          <td className="px-2 py-1.5" />
+                          {sub(finalValor)}
+                          {/* Consumo qty vazio */}
+                          <td className="px-2 py-1.5" />
+                          <td className="px-2 py-1.5 text-right tabular-nums font-semibold text-foreground">
+                            {fmtMoney(cmvValor)}
+                          </td>
+                        </tr>
+                      );
+                    })()}
                   </Fragment>
                 ))}
               </tbody>
