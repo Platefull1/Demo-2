@@ -21,8 +21,9 @@ export type StatusDiaPonto =
   | 'FOLGA'
   | 'TRABALHOU_NA_FOLGA'
   | 'AGUARDANDO'
+  | 'SEM_REGISTRO'      // dia de trabalho sem ponto_registros; FALTA depende de confirmação Secullum
   | 'FALTA_JUSTIFICADA'
-  | 'FALTA'
+  | 'FALTA'             // confirmado pelo Secullum (via fechamento) ou ocorrência RH futura
   | 'NORMAL'
   | 'PENDENCIA';
 
@@ -243,7 +244,7 @@ export function classificarDia(input: ClassificarDiaInput): ClassificarDiaResult
       return { status: 'FALTA_JUSTIFICADA', motivo: 'Ocorrência falta_justificada' };
     }
 
-    return { status: 'FALTA', motivo: 'Dia de trabalho sem batidas' };
+    return { status: 'SEM_REGISTRO', motivo: 'Dia de trabalho sem registro Secullum' };
   }
 
   if (completo) {
@@ -257,6 +258,7 @@ export const STATUS_DIA_LABEL: Record<StatusDiaPonto, string> = {
   FORA_VINCULO: 'Fora do vínculo',
   AFASTADO: 'Afastado',
   FERIAS: 'Férias',
+  SEM_REGISTRO: 'Sem registro',
   SEM_ESCALA: 'Sem escala',
   FOLGA: 'Folga',
   TRABALHOU_NA_FOLGA: 'Trabalhou na folga',

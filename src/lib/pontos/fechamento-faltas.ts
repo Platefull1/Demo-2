@@ -12,6 +12,7 @@ import {
   ymdToUtcDate,
 } from '@/lib/pontos/escala-dia';
 import { vigenciasParaData } from '@/lib/pontos/escala-vigencia';
+import type { DiaSemRegistro } from '@/lib/pontos/resolver-sem-registro';
 
 export type VigenciaRow = {
   vigenciaInicio: Date;
@@ -49,6 +50,8 @@ export function calcularFaltasEDsrPeriodo(opts: {
   faltasHhMm: string;
   faltaDsrHhMm: string;
   dias: Array<{ ymd: string; status: StatusDiaPonto }>;
+  /** Dias de trabalho sem ponto_registros — aguardam resolução via Secullum. */
+  diasSemRegistro: DiaSemRegistro[];
 } {
   const registrosPorDia = new Map<string, RegistroDiaRow>();
   for (const r of opts.registros) {
@@ -57,10 +60,12 @@ export function calcularFaltasEDsrPeriodo(opts: {
   }
 
   const dias: Array<{ ymd: string; status: StatusDiaPonto }> = [];
-  let faltasMinutos = 0;
-  let faltasDias = 0;
-  /** chave = ymd do domingo da semana */
-  const domingosComFalta = new Set<string>();
+  const diasSemRegistro: DiaSemRegistro[] = [];
+  // Faltas confirmadas (FALTA_JUSTIFICADA não gera DSR; FALTA não vem mais de classificarDia
+  // diretamente — são resolvidas pelo route após Secullum. Mantemos acumuladores zerados
+  // aqui; o route os incrementa após resolução.)
+  const faltasMinutos = 0;
+  const faltasDias = 0;
 
   let cur = opts.dataInicialYmd;
   while (cur <= opts.dataFinalYmd) {
@@ -85,43 +90,42 @@ export function calcularFaltasEDsrPeriodo(opts: {
       dataGozoFerias: opts.dataGozoFerias,
       diasFeriasGozados: opts.diasFeriasGozados,
       statusFerias: opts.statusFerias,
-      // Fora do "hoje" para não gerar AGUARDANDO em fechamento histórico
-      agora: ymdToUtcDate(addDaysYmd(opts.dataFinalYmd, 1)),
+      // Período histórico → projeta "agora" após o fim para nunca gerar AGUARDANDO.
+      // Período em aberto → usa now real; dias futuros viram AGUARDANDO, não FALTA.
+      agora: (() => {
+        const fimPeriodo = ymdToUtcDate(addDaysYmd(opts.dataFinalYmd, 1));
+        const now = new Date();
+        return now < fimPeriodo ? now : fimPeriodo;
+      })(),
     });
 
     if (result.status !== 'FORA_VINCULO') {
       dias.push({ ymd: cur, status: result.status });
     }
 
-    if (result.status === 'FALTA' && vig) {
-      const jm = jornadaMinutos(vig.horarioEntrada, vig.horarioSaida);
-      faltasMinutos += jm;
-      faltasDias += 1;
-      domingosComFalta.add(domingoDaSemana(cur));
+    // SEM_REGISTRO: dia de trabalho sem batidas → aguarda confirmação Secullum.
+    // Não acumula falta nem DSR aqui — o route faz isso após resolução.
+    if (result.status === 'SEM_REGISTRO' && vig) {
+      diasSemRegistro.push({
+        ymd: cur,
+        jornadaMinutos: jornadaMinutos(vig.horarioEntrada, vig.horarioSaida),
+      });
     }
 
     cur = addDaysYmd(cur, 1);
   }
 
-  let faltaDsrMinutos = 0;
-  let faltaDsrDias = 0;
-  for (const domingoYmd of domingosComFalta) {
-    // Só conta DSR se o domingo cair no período (ou sempre? CLT: perde o DSR da semana)
-    // Contamos mesmo se domingo fora do período de fechamento, desde que a falta esteja no período.
-    const vig = vigenciasParaData(opts.vigencias, domingoYmd);
-    if (!vig) continue;
-    faltaDsrMinutos += jornadaMinutos(vig.horarioEntrada, vig.horarioSaida);
-    faltaDsrDias += 1;
-  }
-
+  // DSR e minutos serão calculados pelo route após resolução do Secullum.
+  // Para períodos sem Secullum (ex.: testes unitários), retorna zerado.
   return {
     faltasMinutos,
     faltasDias,
-    faltaDsrMinutos,
-    faltaDsrDias,
+    faltaDsrMinutos: 0,
+    faltaDsrDias: 0,
     faltasHhMm: minutosParaHhMm(faltasMinutos),
-    faltaDsrHhMm: minutosParaHhMm(faltaDsrMinutos),
+    faltaDsrHhMm: minutosParaHhMm(0),
     dias,
+    diasSemRegistro,
   };
 }
 

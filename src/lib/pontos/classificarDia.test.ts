@@ -158,16 +158,17 @@ describe('classificarDia', () => {
     );
   });
 
-  it('FALTA / FALTA_JUSTIFICADA / NORMAL / PENDENCIA', () => {
+  it('SEM_REGISTRO / FALTA_JUSTIFICADA / NORMAL / PENDENCIA', () => {
     // terça = trabalho; "agora" = dia seguinte (BRT) para não cair em AGUARDANDO
     const depois = new Date('2026-10-21T15:00:00.000Z');
+    // Sem batidas e sem ocorrência → SEM_REGISTRO (FALTA só confirmada pelo Secullum)
     assert.equal(
       classificarDia({
         data: ymd('2026-10-20'),
         escalaVigente: escalaSegFolga,
         agora: depois,
       }).status,
-      'FALTA',
+      'SEM_REGISTRO',
     );
     assert.equal(
       classificarDia({
@@ -213,7 +214,8 @@ describe('classificarDia', () => {
       escalaVigente: escalaSegFolga,
       agora: new Date('2026-10-21T15:00:00.000Z'),
     });
-    assert.equal(r.status, 'FALTA');
+    // Sem batidas → SEM_REGISTRO; FALTA só após confirmação Secullum
+    assert.equal(r.status, 'SEM_REGISTRO');
   });
 
   it('troca de vigência no meio do mês', () => {
@@ -234,7 +236,7 @@ describe('classificarDia', () => {
         escalaVigente: vigAntiga,
         agora: depois,
       }).status,
-      'FALTA',
+      'SEM_REGISTRO',
     );
     assert.equal(
       classificarDia({
@@ -247,7 +249,7 @@ describe('classificarDia', () => {
 });
 
 describe('calcularFaltasEDsrPeriodo', () => {
-  it('soma jornada das faltas e DSR da semana', () => {
+  it('identifica dias SEM_REGISTRO sem acumular faltas (resolução via Secullum)', () => {
     const vigencias = [
       {
         vigenciaInicio: ymd('2026-01-01'),
@@ -259,7 +261,8 @@ describe('calcularFaltasEDsrPeriodo', () => {
         escala: '5x2',
       },
     ];
-    // 19 seg, 20 ter, 21 qua — Dom folga fixa → 3 faltas × 8h; DSR da semana do dia 19 = dom 18
+    // 19 seg, 20 ter, 21 qua — sem batidas → 3 dias SEM_REGISTRO
+    // Faltas e DSR ficam zerados aqui; resolução ocorre na route via Secullum.
     const r = calcularFaltasEDsrPeriodo({
       dataInicialYmd: '2026-10-19',
       dataFinalYmd: '2026-10-21',
@@ -267,9 +270,35 @@ describe('calcularFaltasEDsrPeriodo', () => {
       ocorrencias: [],
       registros: [],
     });
-    assert.equal(r.faltasDias, 3);
-    assert.equal(r.faltasHhMm, '24:00');
-    assert.equal(r.faltaDsrDias, 1);
-    assert.equal(r.faltaDsrHhMm, '08:00');
+    assert.equal(r.faltasDias, 0,  'faltas devem ser 0 antes da resolução Secullum');
+    assert.equal(r.faltasHhMm, '00:00');
+    assert.equal(r.faltaDsrDias, 0, 'DSR deve ser 0 antes da resolução Secullum');
+    assert.equal(r.faltaDsrHhMm, '00:00');
+    assert.equal(r.diasSemRegistro.length, 3, 'três dias de trabalho sem batidas');
+    assert.equal(r.diasSemRegistro[0]!.jornadaMinutos, 480);
+    assert.ok(r.dias.every(d => d.status === 'SEM_REGISTRO'), 'todos SEM_REGISTRO antes da resolução');
+  });
+
+  it('FALTA_JUSTIFICADA não vira SEM_REGISTRO', () => {
+    const vigencias = [
+      {
+        vigenciaInicio: ymd('2026-01-01'),
+        vigenciaFim: null,
+        diasFolga: ['Dom'],
+        domingoFolga: null as string | null,
+        horarioEntrada: '08:00',
+        horarioSaida: '16:00',
+        escala: '5x2',
+      },
+    ];
+    const r = calcularFaltasEDsrPeriodo({
+      dataInicialYmd: '2026-10-20',
+      dataFinalYmd: '2026-10-20',
+      vigencias,
+      ocorrencias: [{ tipo: 'falta_justificada', data: '2026-10-20', ativo: true }],
+      registros: [],
+    });
+    assert.equal(r.dias[0]?.status, 'FALTA_JUSTIFICADA');
+    assert.equal(r.diasSemRegistro.length, 0);
   });
 });

@@ -5,7 +5,10 @@ import { P } from '@/lib/rh-permissions';
 import { periodoFechamentoPonto } from '@/lib/ponto-periodo';
 import { Decimal } from '@prisma/client/runtime/library';
 import { calcularFaltasEDsrPeriodo } from '@/lib/pontos/fechamento-faltas';
-import { ymdToUtcDate, addDaysYmd } from '@/lib/pontos/escala-dia';
+import { ymdToUtcDate, addDaysYmd, jornadaMinutos, minutosParaHhMm, hhmmToMinutos } from '@/lib/pontos/escala-dia';
+import { resolverSemRegistroDias } from '@/lib/pontos/resolver-sem-registro';
+import { vigenciasParaData } from '@/lib/pontos/escala-vigencia';
+import { domingoDaSemana } from '@/lib/pontos/fechamento-faltas';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -288,6 +291,8 @@ export async function POST(req: NextRequest) {
         comErro++;
       }
 
+      const funcVigencias = vigPorFunc.get(func.id) ?? [];
+
       const platefull = calcularFaltasEDsrPeriodo({
         dataInicialYmd: dataInicial,
         dataFinalYmd: dataFinal,
@@ -295,10 +300,55 @@ export async function POST(req: NextRequest) {
         dataGozoFerias: func.dataGozoFerias,
         diasFeriasGozados: func.diasFeriasGozados,
         statusFerias: func.statusFerias,
-        vigencias: vigPorFunc.get(func.id) ?? [],
+        vigencias: funcVigencias,
         ocorrencias: ocPorFunc.get(func.id) ?? [],
         registros: regPorFunc.get(func.id) ?? [],
       });
+
+      // ── Resolver dias SEM_REGISTRO via Secullum ───────────────────────────
+      // Gate: só faz chamadas por dia quando Calcular do período reportar faltas > 0.
+      if (platefull.diasSemRegistro.length > 0 && func.pisSecullum && token) {
+        const faltasPeriodo = normalizeHhMm(camposSec.faltas) || '00:00';
+        const resolucao = await resolverSemRegistroDias({
+          diasSemRegistro: platefull.diasSemRegistro,
+          faltasPeriodoHhMm: faltasPeriodo,
+          calcularDia: async (ini, fim) => {
+            try {
+              const r = await calcularFuncionario(token, bancoid, func.pisSecullum!, ini, fim);
+              return r.faltas ?? '';
+            } catch {
+              return ''; // em erro de API, manter como SEM_REGISTRO
+            }
+          },
+        });
+
+        // Atualiza status no array de dias
+        for (const [ymd, status] of resolucao.statusPorDia) {
+          const entry = platefull.dias.find(d => d.ymd === ymd);
+          if (entry) entry.status = status;
+        }
+
+        // Acumula faltas confirmadas
+        const faltasDiasNovos = [...resolucao.statusPorDia.values()].filter(s => s === 'FALTA').length;
+        platefull.faltasMinutos += resolucao.faltasExtrasMinutos;
+        platefull.faltasDias    += faltasDiasNovos;
+
+        // DSR pelas novas faltas (sem duplicar domingos já contados)
+        const domingoSet = new Set<string>();
+        for (const domingoYmd of resolucao.domingosDasNovasFaltas) {
+          if (domingoSet.has(domingoYmd)) continue;
+          domingoSet.add(domingoYmd);
+          const vigDom = vigenciasParaData(funcVigencias, domingoYmd);
+          if (vigDom) {
+            platefull.faltaDsrMinutos += jornadaMinutos(vigDom.horarioEntrada, vigDom.horarioSaida);
+            platefull.faltaDsrDias    += 1;
+          }
+        }
+
+        // Recalcula strings HH:MM
+        (platefull as { faltasHhMm: string }).faltasHhMm    = minutosParaHhMm(platefull.faltasMinutos);
+        (platefull as { faltaDsrHhMm: string }).faltaDsrHhMm = minutosParaHhMm(platefull.faltaDsrMinutos);
+      }
 
       const obsPlatefull =
         platefull.faltasDias > 0 || platefull.faltaDsrDias > 0

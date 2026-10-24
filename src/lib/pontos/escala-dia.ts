@@ -120,6 +120,14 @@ export function minutosParaHhMm(total: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+/** Converte "HH:MM" ou "H:MM" → minutos totais. Retorna 0 para vazio/inválido. */
+export function hhmmToMinutos(value: string | null | undefined): number {
+  if (!value) return 0;
+  const m = /^(\d{1,3}):(\d{2})$/.exec(value.trim());
+  if (!m) return 0;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
 /** Date UTC meia-noite a partir de YYYY-MM-DD. */
 export function ymdToUtcDate(ymd: string): Date {
   return new Date(`${ymd}T00:00:00.000Z`);

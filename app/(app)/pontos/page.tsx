@@ -303,6 +303,10 @@ function statusBadgeVariant(status: string) {
   if (status === 'SEM_ESCALA' || status === 'AGUARDANDO') {
     return 'border-transparent bg-warning/15 text-warning';
   }
+  if (status === 'SEM_REGISTRO') {
+    // Laranja/âmbar: dia de trabalho sem batida, aguardando verificação Secullum
+    return 'border-transparent bg-warning/20 text-warning';
+  }
   return 'font-normal text-muted-foreground';
 }
 
@@ -312,6 +316,12 @@ function StatusRegistro({ registro }: { registro: RegistroPonto }) {
     ?? (registro.folga ? 'Folga' : registro.compensado ? 'Compensado' : null);
 
   if (!label) return <span className="text-sm text-muted-foreground">–</span>;
+
+  // SEM_REGISTRO: substitui o motivo genérico por orientação mais clara
+  const motivo =
+    pf?.status === 'SEM_REGISTRO'
+      ? 'Dia de trabalho sem batida recebida do Secullum. Confirmação de falta ocorre apenas no fechamento mensal.'
+      : pf?.motivo;
 
   const badge = (
     <Badge
@@ -324,12 +334,12 @@ function StatusRegistro({ registro }: { registro: RegistroPonto }) {
 
   return (
     <span className="inline-flex items-center gap-1.5">
-      {pf?.motivo ? (
+      {motivo ? (
         <Tooltip>
           <TooltipTrigger asChild>
             <span className="inline-flex cursor-default">{badge}</span>
           </TooltipTrigger>
-          <TooltipContent className="max-w-xs text-xs">{pf.motivo}</TooltipContent>
+          <TooltipContent className="max-w-xs text-xs">{motivo}</TooltipContent>
         </Tooltip>
       ) : (
         badge
