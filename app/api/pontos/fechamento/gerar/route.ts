@@ -114,12 +114,17 @@ function capturarQuotaHeaders(headers: Headers) {
   if (t !== null) quotaResetEm  = t;
 }
 
+// Nome do funcionário a ser logado para diagnóstico (case-insensitive, parcial).
+// Altere para '' para desativar o log ou para outro nome conforme necessário.
+const LOG_FUNC_NOME = 'ADRIANA';
+
 async function calcularFuncionario(
   token: string,
   bancoid: string,
   pis: string,
   dataInicial: string,
   dataFinal: string,
+  nomeParaLog?: string,
 ): Promise<SecullumCalcResult> {
   const cacheKey = `${pis}|${dataInicial}|${dataFinal}`;
   const cached = calcCache.get(cacheKey);
@@ -148,6 +153,18 @@ async function calcularFuncionario(
   }
 
   const data = await res.json();
+
+  // LOG de diagnóstico: loga a resposta bruta do Calcular para o funcionário alvo
+  if (LOG_FUNC_NOME && nomeParaLog?.toUpperCase().includes(LOG_FUNC_NOME)) {
+    console.log(
+      `[Secullum/Calcular LOG] Funcionário: ${nomeParaLog} | PIS: ${pis}\n` +
+      `  Período: ${dataInicial} → ${dataFinal}\n` +
+      `  Colunas: ${JSON.stringify(data?.Colunas)}\n` +
+      `  Totais:  ${JSON.stringify(data?.Totais)}\n` +
+      `  Resposta completa: ${JSON.stringify(data)}`,
+    );
+  }
+
   const result = parsearResposta(data);
   calcCache.set(cacheKey, result);
   return result;
@@ -330,27 +347,13 @@ export async function POST(req: NextRequest) {
 
       try {
         camposSec = await calcularFuncionario(
-          token, bancoid, func.pisSecullum!, dataInicial, dataFinal,
+          token, bancoid, func.pisSecullum!, dataInicial, dataFinal, func.nome,
         );
         secullumOk = true;
         processados++;
       } catch (calcErr: unknown) {
         origemErro = calcErr instanceof Error ? calcErr.message : 'Erro desconhecido';
         comErro++;
-        // Preservar valores Secullum anteriores — não sobrescrever com nulo
-        const anterior = linhaAnteriorPorFunc.get(func.id);
-        if (anterior) {
-          camposSec = {
-            ex60:  anterior.ex60  ?? undefined,
-            ex100: anterior.ex100 ?? undefined,
-            en60:  anterior.en60  ?? undefined,
-            en100: anterior.en100 ?? undefined,
-            atraso: anterior.atraso ?? undefined,
-            // faltas/faltaDsr do Secullum também preservados para a coluna Sec:
-            faltas:    anterior.faltasSecullum    ?? undefined,
-            faltaDsr:  anterior.faltaDsrSecullum  ?? undefined,
-          };
-        }
       }
 
       const funcVigencias = vigPorFunc.get(func.id) ?? [];
@@ -376,15 +379,16 @@ export async function POST(req: NextRequest) {
         ? `Platefull: ${platefull.faltasDias} falta(s), ${platefull.faltaDsrDias} DSR`
         : null;
 
-      // Campos Secullum: usar valor atual se Secullum OK; caso contrário manter o que existia
-      const anterior   = linhaAnteriorPorFunc.get(func.id);
-      const secEx60    = secullumOk ? (camposSec.ex60   ?? null) : (anterior?.ex60   ?? null);
-      const secEx100   = secullumOk ? (camposSec.ex100  ?? null) : (anterior?.ex100  ?? null);
-      const secEn60    = secullumOk ? (camposSec.en60   ?? null) : (anterior?.en60   ?? null);
-      const secEn100   = secullumOk ? (camposSec.en100  ?? null) : (anterior?.en100  ?? null);
-      const secAtraso  = secullumOk ? (camposSec.atraso ?? null) : (anterior?.atraso ?? null);
-      const secFaltas    = secullumOk ? (normalizeHhMm(camposSec.faltas)   || null) : (anterior?.faltasSecullum   ?? null);
-      const secFaltaDsr  = secullumOk ? (normalizeHhMm(camposSec.faltaDsr) || null) : (anterior?.faltaDsrSecullum ?? null);
+      // Campos Secullum: usar valor atual se OK; caso contrário preservar linha anterior.
+      // Todos normalizam via normalizeHhMm para garantir formato HH:MM ou null.
+      const anterior    = linhaAnteriorPorFunc.get(func.id);
+      const secEx60     = secullumOk ? (normalizeHhMm(camposSec.ex60)    || null) : (anterior?.ex60    ?? null);
+      const secEx100    = secullumOk ? (normalizeHhMm(camposSec.ex100)   || null) : (anterior?.ex100   ?? null);
+      const secEn60     = secullumOk ? (normalizeHhMm(camposSec.en60)    || null) : (anterior?.en60    ?? null);
+      const secEn100    = secullumOk ? (normalizeHhMm(camposSec.en100)   || null) : (anterior?.en100   ?? null);
+      const secAtraso   = secullumOk ? (normalizeHhMm(camposSec.atraso)  || null) : (anterior?.atraso  ?? null);
+      const secFaltas   = secullumOk ? (normalizeHhMm(camposSec.faltas)  || null) : (anterior?.faltasSecullum   ?? null);
+      const secFaltaDsr = secullumOk ? (normalizeHhMm(camposSec.faltaDsr)|| null) : (anterior?.faltaDsrSecullum ?? null);
 
       await prisma.fechamentoLinha.upsert({
         where: {
