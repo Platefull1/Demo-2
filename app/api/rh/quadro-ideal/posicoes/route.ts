@@ -1,29 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 
 export async function POST(req: NextRequest) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const { setorId, cargoId, turno, quantidadeIdeal, observacoes } = await req.json();
 
     if (!setorId || !cargoId || !turno || !quantidadeIdeal)
-      return NextResponse.json({ error: 'setorId, cargoId, turno e quantidadeIdeal s√£o obrigat√≥rios' }, { status: 400 });
+      return NextResponse.json({ error: 'setorId, cargoId, turno e quantidadeIdeal s„o obrigatÛrios' }, { status: 400 });
 
-    // Verificar que o setor pertence ao usu√°rio
+    // Verificar que o setor pertence ao usu·rio
     const setor = await prisma.rhSetorIdeal.findFirst({
       where: { id: setorId, ativo: true, quadroIdeal: { userId: rh!.userId } },
     });
-    if (!setor) return NextResponse.json({ error: 'Setor n√£o encontrado' }, { status: 404 });
+    if (!setor) return NextResponse.json({ error: 'Setor n„o encontrado' }, { status: 404 });
 
-    // Verificar que o cargo pertence ao usu√°rio
+    // Verificar que o cargo pertence ao usu·rio
     const cargo = await prisma.rhCargo.findFirst({ where: { id: cargoId, userId: rh!.userId } });
-    if (!cargo) return NextResponse.json({ error: 'Cargo n√£o encontrado' }, { status: 404 });
+    if (!cargo) return NextResponse.json({ error: 'Cargo n„o encontrado' }, { status: 404 });
 
     const posicao = await prisma.rhPosicaoIdeal.create({
       data: {

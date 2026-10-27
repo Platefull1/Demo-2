@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { calcularComposicaoSalarial, calcularEncargosPatronais } from '@/lib/calculos-rh';
 
 export const dynamic = 'force-dynamic';
@@ -8,13 +8,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const lojaId = req.nextUrl.searchParams.get('lojaId');
-    if (!lojaId) return NextResponse.json({ error: 'lojaId obrigat√≥rio' }, { status: 400 });
+    if (!lojaId) return NextResponse.json({ error: 'lojaId obrigatÛrio' }, { status: 400 });
 
-    // Funcion√°rios ativos da loja com dados reais de folga e sal√°rio
+    // Funcion·rios ativos da loja com dados reais de folga e sal·rio
     const funcionarios = await prisma.rhFuncionario.findMany({
       where: { userId: rh!.userId, lojaId, ativo: true },
       select: {
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       orderBy: { nome: 'asc' },
     });
 
-    // M√≠nimos por turno do Quadro Ideal (se configurado)
+    // MÌnimos por turno do Quadro Ideal (se configurado)
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { userId: rh!.userId, lojaId, ativo: true },
       include: {
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
         return {
           id: f.id,
           nome: f.nome,
-          cargo: f.cargo?.nome ?? '‚Äî',
+          cargo: f.cargo?.nome ?? 'ó',
           escala: f.escala,
           turno: f.turno,
           diasFolga: Array.isArray(f.diasFolga) ? (f.diasFolga as string[]) : [],

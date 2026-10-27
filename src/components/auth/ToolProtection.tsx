@@ -28,6 +28,8 @@ const TOOL_LABELS: Record<SystemTool, string> = {
   [SystemTool.BONIFICACAO]: "Bonificação",
   [SystemTool.CHAT]: "Chat",
   [SystemTool.PONTOS]: "Pontos",
+  [SystemTool.REGISTRAR_OCORRENCIAS]: "Registrar ocorrências",
+  [SystemTool.VER_OCORRENCIAS]: "Central de Ocorrências",
 };
 
 export default function ToolProtection({ tool, toolName, children }: ToolProtectionProps) {

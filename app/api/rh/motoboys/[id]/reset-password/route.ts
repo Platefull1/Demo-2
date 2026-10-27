@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { generateInviteToken } from '@/lib/rider-auth';
 import { buildInviteLink, buildWhatsAppLink } from '@/lib/rider-invite-email';
 
@@ -20,7 +20,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;

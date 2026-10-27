@@ -14,5 +14,9 @@
   {
     "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?\\/rh\\/usuarios(?:\\/((?:[^\\/#\\?]+?)(?:\\/(?:[^\\/#\\?]+?))*))?(\\\\.json)?[\\/#\\?]?$",
     "originalSource": "/rh/usuarios/:path*"
+  },
+  {
+    "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!_next\\/static|_next\\/image|favicon|public|icons).*))(\\\\.json)?[\\/#\\?]?$",
+    "originalSource": "/((?!_next/static|_next/image|favicon|public|icons).*)"
   }
 ]

@@ -40,6 +40,8 @@ export enum SystemTool {
   BONIFICACAO = 'bonificacao',
   CHAT = 'chat',
   PONTOS = 'pontos',
+  REGISTRAR_OCORRENCIAS = 'registrar_ocorrencias',
+  VER_OCORRENCIAS = 'ver_ocorrencias',
 }
 
 export interface StackUser {

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const rh = await rhGetUser();
+  const rh = await rhRequireModuleUser();
   if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const { id } = await params;
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const rh = await rhGetUser();
+  const rh = await rhRequireModuleUser();
   if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const { id } = await params;
@@ -91,7 +91,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const rh = await rhGetUser();
+  const rh = await rhRequireModuleUser();
   if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const { id } = await params;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { limparCPF, validarCPF } from '@/lib/validacoes';
 
 export const dynamic = 'force-dynamic';
@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const cpfParam = req.nextUrl.searchParams.get('cpf') ?? '';
     const excludeId = req.nextUrl.searchParams.get('excludeId');

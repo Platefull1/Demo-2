@@ -1,6 +1,15 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import {
+  OCORRENCIAS_ONLY_COOKIE,
+  hasStackSessionCookies,
+  isolationCookieOptions,
+  isIsolationApiPath,
+  isOcorrenciasAllowedPath,
+  readIsolationCookie,
+  signIsolationCookie,
+} from '@/lib/ocorrencias-isolation';
 
 const RIDER_COOKIE = 'rider_token';
 
@@ -17,17 +26,69 @@ async function getRiderSession(request: NextRequest) {
   }
 }
 
+function denyOcorrenciasOnly(request: NextRequest): NextResponse {
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return NextResponse.json({ error: 'Acesso restrito' }, { status: 403 });
+  }
+  return NextResponse.redirect(new URL('/ocorrencias/nova', request.url));
+}
+
+/**
+ * Decisão pela sessão. Cookie assinado é só cache (5 min).
+ * Apagar o cookie força nova consulta a /api/ocorrencias/isolation.
+ */
+async function resolveOcorrenciasOnly(request: NextRequest): Promise<{
+  only: boolean;
+  tokenToSet: string | null;
+}> {
+  const cached = await readIsolationCookie(
+    request.cookies.get(OCORRENCIAS_ONLY_COOKIE)?.value,
+  );
+  if (cached !== null) {
+    return { only: cached, tokenToSet: null };
+  }
+
+  if (!hasStackSessionCookies(request)) {
+    return { only: false, tokenToSet: null };
+  }
+
+  try {
+    const isolationUrl = new URL('/api/ocorrencias/isolation', request.url);
+    const res = await fetch(isolationUrl, {
+      headers: { cookie: request.headers.get('cookie') ?? '' },
+      cache: 'no-store',
+    });
+    if (!res.ok) return { only: false, tokenToSet: null };
+    const data = (await res.json()) as { only?: boolean };
+    const only = data.only === true;
+    const tokenToSet = await signIsolationCookie(only);
+    return { only, tokenToSet };
+  } catch {
+    return { only: false, tokenToSet: null };
+  }
+}
+
+function withIsolationCookie(response: NextResponse, token: string | null) {
+  if (token) {
+    response.cookies.set(OCORRENCIAS_ONLY_COOKIE, token, isolationCookieOptions());
+  }
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
 
-  // ── Proteção de /rh/usuarios — apenas usuários Stack Auth autenticados ─────
-  // A verificação de role Admin é feita no server-side (API retorna 403 para membros RH)
-  if (pathname.startsWith('/rh/usuarios')) {
-    // Stack Auth usa cookies — verificação granular fica no server component/API
-    // Aqui apenas garantimos que a rota existe no matcher
+  if (!isIsolationApiPath(pathname)) {
+    const { only, tokenToSet } = await resolveOcorrenciasOnly(request);
+    if (only && !isOcorrenciasAllowedPath(pathname)) {
+      return withIsolationCookie(denyOcorrenciasOnly(request), tokenToSet);
+    }
+    if (tokenToSet) {
+      const next = NextResponse.next();
+      return withIsolationCookie(next, tokenToSet);
+    }
   }
 
-  // ── Proteção do portal /rider ──────────────────────────────────────────────
   if (pathname.startsWith('/rider')) {
     const publicRiderPaths = ['/rider/login', '/rider/setup'];
     const isPublic = publicRiderPaths.some((p) => pathname.startsWith(p));
@@ -40,7 +101,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Limpar parâmetros de URL após autenticação OAuth
   if (pathname.startsWith('/handler')) {
     const code = searchParams.get('code');
     const afterAuthReturnTo = searchParams.get('after_auth_return_to');
@@ -49,7 +109,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Limpar parâmetros do dashboard
   if (pathname.startsWith('/dashboard')) {
     const code = searchParams.get('code');
     if (code) {
@@ -68,6 +127,6 @@ export const config = {
     '/dashboard/:path*',
     '/rider/:path*',
     '/rh/usuarios/:path*',
+    '/((?!_next/static|_next/image|favicon|public|icons).*)',
   ],
 };
-

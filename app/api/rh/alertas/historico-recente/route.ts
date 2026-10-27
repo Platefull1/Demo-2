@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const historico = await prisma.rhHistoricoFuncionario.findMany({
       where: { userId: rh!.userId },

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { calcularComposicaoSalarial, calcularEncargosPatronais } from '@/lib/calculos-rh';
 
 export const dynamic = 'force-dynamic';
@@ -29,8 +29,8 @@ function custoMensalFuncionario(f: {
 
 export async function POST(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const body = await req.json();
     const { lojaId, minimosPorTurno } = body as {
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     };
 
     for (const f of funcionarios) {
-      const turnoKey = f.turno === 'manh√£' ? 'manha' : f.turno === 'integral' ? 'manha' : f.turno;
+      const turnoKey = f.turno === 'manh„' ? 'manha' : f.turno === 'integral' ? 'manha' : f.turno;
       if (turnosMap[turnoKey]) {
         turnosMap[turnoKey].count += 1;
         turnosMap[turnoKey].totalCusto += custoMensalFuncionario({

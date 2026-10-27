@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 
 export async function POST(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const body = await req.json();
     const {
@@ -23,12 +23,12 @@ export async function POST(req: Request) {
     };
 
     if (!funcionarioId || !tipo || !data || !descricao || !registradoPor)
-      return NextResponse.json({ error: 'Campos obrigat√≥rios ausentes' }, { status: 400 });
+      return NextResponse.json({ error: 'Campos obrigatÛrios ausentes' }, { status: 400 });
 
     const func = await prisma.rhFuncionario.findFirst({
       where: { id: funcionarioId, userId: rh!.userId },
     });
-    if (!func) return NextResponse.json({ error: 'Funcion√°rio n√£o encontrado' }, { status: 404 });
+    if (!func) return NextResponse.json({ error: 'Funcion·rio n„o encontrado' }, { status: 404 });
 
     const ocorrencia = await prisma.rhOcorrencia.create({
       data: {

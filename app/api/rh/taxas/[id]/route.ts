@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;
@@ -38,7 +38,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;

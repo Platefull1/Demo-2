@@ -92,6 +92,7 @@ model User {
   ifoodComplaintGroups   IFoodComplaintGroup[]
   bonificacaoTrimestres  BonificacaoTrimestre[]
   tiposAvaliacao         TipoAvaliacao[]
+  ocorrencias            Ocorrencia[]   @relation("OcorrenciaUser")
 
   // CMV Real / NF-e
   cmvRealInsumoConfigs   CmvRealInsumoConfig[]
@@ -916,6 +917,7 @@ model RhLoja {
   tarefaSeries          TarefaSerie[]
   taxas                 RhTaxaLoja[]
   riders                DeliveryRider[]
+  ocorrencias           Ocorrencia[]   @relation("OcorrenciaLoja")
 
   @@index([userId])
   @@map("rh_lojas")
@@ -1437,6 +1439,7 @@ model DeliveryRider {
   user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   loja             RhLoja                 @relation(fields: [lojaId], references: [id])
   paymentPeriods   RiderPaymentPeriod[]
+  ocorrencias      Ocorrencia[]   @relation("OcorrenciaMotoboy")
 
   @@unique([userId, email])
   @@unique([userId, cnpj])
@@ -2498,4 +2501,39 @@ model CmvTransferenciaItem {
   @@unique([ladoId, estoqueInsumoId])
   @@index([estoqueInsumoId])
   @@map("cmv_transferencia_itens")
+}
+
+// ============================================
+// CENTRAL DE OCORRÊNCIAS — lançamento manual
+// ============================================
+
+enum CanalOcorrencia {
+  IFOOD
+  DELIVERY_DIRETO
+}
+
+/// Ocorrência registrada manualmente por funcionário via app mobile.
+model Ocorrencia {
+  id                  String           @id @default(cuid())
+  /// Tenant owner (User.id do admin dono dos dados)
+  userId              String
+  user                User             @relation("OcorrenciaUser", fields: [userId], references: [id], onDelete: Cascade)
+  lojaId              String
+  loja                RhLoja           @relation("OcorrenciaLoja", fields: [lojaId], references: [id])
+  numeroPedidoSaipos  String
+  numeroPedidoExterno String?
+  canalExterno        CanalOcorrencia?
+  descricao           String           @db.Text
+  /// Path interno no bucket privado ocorrencias-fotos (nunca URL pública)
+  fotoPath            String
+  motoboyId           String?
+  motoboy             DeliveryRider?   @relation("OcorrenciaMotoboy", fields: [motoboyId], references: [id])
+  /// Stack Auth user ID de quem registrou (para auditoria)
+  criadoPorUserId     String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([userId, lojaId, createdAt])
+  @@map("ocorrencias")
 }

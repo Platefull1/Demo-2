@@ -20,5 +20,13 @@ export async function getSessionDbUser() {
   });
 }
 
-/** @deprecated Prefer getSessionDbUser — mesmo comportamento (User da sessão). */
-export const getRhDbUser = getSessionDbUser;
+/**
+ * User da sessão, mas só se o caller tiver acesso ao módulo RH
+ * (admin ou pelo menos uma permissão RH). Membro com zero permissões → null.
+ */
+export async function getRhDbUser() {
+  const { rhRequireModuleUser } = await import('@/lib/rh-auth');
+  const gate = await rhRequireModuleUser();
+  if (!gate) return null;
+  return getSessionDbUser();
+}

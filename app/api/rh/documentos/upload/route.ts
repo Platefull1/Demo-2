@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -39,21 +39,21 @@ function resolveContentType(file: File): string | null {
 
 export async function POST(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     if (!supabaseUrl) {
       return NextResponse.json(
-        { error: 'NEXT_PUBLIC_SUPABASE_URL n√£o configurada' },
+        { error: 'NEXT_PUBLIC_SUPABASE_URL n„o configurada' },
         { status: 500 }
       );
     }
     if (!supabaseServiceKey) {
       return NextResponse.json(
-        { error: 'SUPABASE_SERVICE_ROLE_KEY n√£o configurada' },
+        { error: 'SUPABASE_SERVICE_ROLE_KEY n„o configurada' },
         { status: 500 }
       );
     }
@@ -61,14 +61,14 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
 
-    if (!file) return NextResponse.json({ error: 'Arquivo n√£o enviado' }, { status: 400 });
+    if (!file) return NextResponse.json({ error: 'Arquivo n„o enviado' }, { status: 400 });
     if (file.size > MAX_SIZE)
-      return NextResponse.json({ error: 'Arquivo muito grande (m√°x 10MB)' }, { status: 400 });
+      return NextResponse.json({ error: 'Arquivo muito grande (m·x 10MB)' }, { status: 400 });
 
     const contentType = resolveContentType(file);
     if (!contentType) {
       return NextResponse.json(
-        { error: 'Tipo de arquivo n√£o suportado. Use PDF, JPG, PNG ou WEBP.' },
+        { error: 'Tipo de arquivo n„o suportado. Use PDF, JPG, PNG ou WEBP.' },
         { status: 400 }
       );
     }
@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            'Bucket de storage n√£o encontrado. Crie um bucket p√∫blico no Supabase (ex: "checklist") ou configure SUPABASE_STORAGE_BUCKET.',
+            'Bucket de storage n„o encontrado. Crie um bucket p˙blico no Supabase (ex: "checklist") ou configure SUPABASE_STORAGE_BUCKET.',
         },
         { status: 500 }
       );

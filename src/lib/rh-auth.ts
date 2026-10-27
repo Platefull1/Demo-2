@@ -2,6 +2,7 @@ import { stackServerApp } from '@/stack';
 import { syncStackAuthUser } from '@/lib/stack-auth-sync';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
+import { CORE_RH_PERMISSIONS } from '@/lib/rh-permissions';
 
 /**
  * Drop-in replacement for the old `getDbUser()` pattern used across RH routes.
@@ -18,9 +19,28 @@ import { NextResponse } from 'next/server';
  *   if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
  *   // use rh.userId instead of dbUser.id
  */
+export function memberHasCoreRhPermission(ctx: RhContext): boolean {
+  if (ctx.isAdmin) return true;
+  return CORE_RH_PERMISSIONS.some((p) => ctx.hasPermission(p));
+}
+
 export async function rhGetUser(): Promise<{ userId: string; isAdmin: boolean } | null> {
   const ctx = await getRhContext();
   if (!ctx) return null;
+  return { userId: ctx.userId, isAdmin: ctx.isAdmin };
+}
+
+/**
+ * Tenant + pelo menos uma permissão RH (ou admin).
+ * Membro convidado com zero permissões não lê folha, motoboys, lojas, etc.
+ */
+export async function rhRequireModuleUser(): Promise<{
+  userId: string;
+  isAdmin: boolean;
+} | null> {
+  const ctx = await getRhContext();
+  if (!ctx) return null;
+  if (!memberHasCoreRhPermission(ctx)) return null;
   return { userId: ctx.userId, isAdmin: ctx.isAdmin };
 }
 
@@ -156,6 +176,12 @@ export async function requireRhPermission(
         { error: 'Sessão expirada. Por favor, faça login novamente.', code: 'UNAUTHENTICATED' },
         { status: 401 }
       ),
+    };
+  }
+  if (!memberHasCoreRhPermission(ctx)) {
+    return {
+      ctx: null,
+      error: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }),
     };
   }
   if (permission && !ctx.hasPermission(permission)) {

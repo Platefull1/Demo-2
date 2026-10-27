@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 
 export async function GET(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const lojaId = searchParams.get('lojaId');
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = { userId: rh!.userId, ativo: true };
 
-    // Filtra por loja se informado (via funcion√°rios)
+    // Filtra por loja se informado (via funcion·rios)
     if (lojaId) {
       const funcIds = (
         await prisma.rhFuncionario.findMany({

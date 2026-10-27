@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 /**
  * POST /api/rh/lojas/[id]/geocode
@@ -19,7 +19,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const loja = await prisma.rhLoja.findFirst({ where: { id, userId: rh.userId } });

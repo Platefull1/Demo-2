@@ -26,6 +26,11 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_mod
 ;
 ;
 const RIDER_COOKIE = 'rider_token';
+/**
+ * Cookie leve para identificar usuários que só têm REGISTRAR_OCORRENCIAS.
+ * Definido pelo layout do dashboard ao detectar esse perfil.
+ * Permite ao middleware bloquear outras rotas sem chamar o banco.
+ */ const OCORRENCIAS_ONLY_COOKIE = 'platefull_ocorrencias_only';
 async function getRiderSession(request) {
     try {
         const token = request.cookies.get(RIDER_COOKIE)?.value;
@@ -40,6 +45,24 @@ async function getRiderSession(request) {
 }
 async function middleware(request) {
     const { pathname, searchParams } = request.nextUrl;
+    // ── Proteção de usuários que só têm REGISTRAR_OCORRENCIAS ─────────────────
+    // O cookie platefull_ocorrencias_only é setado pela API /api/ocorrencias/set-mode
+    // quando o dashboard detecta que o usuário tem apenas esse perfil.
+    const ocorrenciasOnly = request.cookies.get(OCORRENCIAS_ONLY_COOKIE)?.value === '1';
+    if (ocorrenciasOnly) {
+        const isAllowed = pathname === '/ocorrencias/nova' || pathname.startsWith('/ocorrencias/nova/') || pathname.startsWith('/api/ocorrencias') || pathname.startsWith('/handler') || pathname.startsWith('/auth') || pathname.startsWith('/api/auth/check-tool-permission') || pathname === '/';
+        if (!isAllowed) {
+            // Página → redirect; API → 403
+            if (pathname.startsWith('/api/')) {
+                return __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].json({
+                    error: 'Acesso restrito'
+                }, {
+                    status: 403
+                });
+            }
+            return __TURBOPACK__imported__module__$5b$project$5d2f$drin$2d$platform$2f$node_modules$2f$next$2f$dist$2f$esm$2f$server$2f$web$2f$exports$2f$index$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["NextResponse"].redirect(new URL('/ocorrencias/nova', request.url));
+        }
+    }
     // ── Proteção de /rh/usuarios — apenas usuários Stack Auth autenticados ─────
     // A verificação de role Admin é feita no server-side (API retorna 403 para membros RH)
     if (pathname.startsWith('/rh/usuarios')) {
@@ -84,7 +107,9 @@ const config = {
         '/handler/:path*',
         '/dashboard/:path*',
         '/rider/:path*',
-        '/rh/usuarios/:path*'
+        '/rh/usuarios/:path*',
+        // Proteção de rotas não-ocorrências para usuários ocorrencias_only
+        '/((?!_next/static|_next/image|favicon|public|icons).*)'
     ]
 };
 }),

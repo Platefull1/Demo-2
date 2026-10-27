@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { generateInviteToken } from '@/lib/rider-auth';
 import { buildInviteLink, buildWhatsAppLink, sendInviteEmail } from '@/lib/rider-invite-email';
 
@@ -24,7 +24,7 @@ function buildResponse(token: string, expiresAt: Date, phone: string | null, loj
 // GET — retorna token existente (se ainda válido) ou gera novo
 export async function GET(_req: NextRequest, { params }: RouteContext) {
   try {
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;
@@ -62,7 +62,7 @@ export async function GET(_req: NextRequest, { params }: RouteContext) {
 // POST — força geração de novo token e reenvia e-mail
 export async function POST(_req: NextRequest, { params }: RouteContext) {
   try {
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const { id } = await params;

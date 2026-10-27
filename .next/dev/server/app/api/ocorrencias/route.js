@@ -1,0 +1,12 @@
+var R=require("../../../chunks/[turbopack]_runtime.js")("server/app/api/ocorrencias/route.js")
+R.c("server/chunks/797a3_next_0499314d._.js")
+R.c("server/chunks/797a3_@opentelemetry_api_build_esm_0c0749cc._.js")
+R.c("server/chunks/797a3_zod_v4_8747504d._.js")
+R.c("server/chunks/797a3_@stackframe_stack-shared_dist_esm_f6898eb8._.js")
+R.c("server/chunks/797a3_@stackframe_stack_dist_esm_da0802ad._.js")
+R.c("server/chunks/797a3_@supabase_auth-js_dist_module_6ad8c920._.js")
+R.c("server/chunks/797a3_bec1a8e9._.js")
+R.c("server/chunks/[root-of-the-server]__6e85ca05._.js")
+R.c("server/chunks/drin-platform__next-internal_server_app_api_ocorrencias_route_actions_40237bac.js")
+R.m("[project]/drin-platform/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/drin-platform/app/api/ocorrencias/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)")
+module.exports=R.m("[project]/drin-platform/node_modules/next/dist/esm/build/templates/app-route.js { INNER_APP_ROUTE => \"[project]/drin-platform/app/api/ocorrencias/route.ts [app-route] (ecmascript)\" } [app-route] (ecmascript)").exports

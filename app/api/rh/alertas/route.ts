@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { calcPeriodoAquisitivo } from '@/lib/ferias-rh';
 
 export const dynamic = 'force-dynamic';
@@ -12,8 +12,8 @@ function diffDias(a: Date, b: Date): number {
 
 export async function GET() {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const hoje = new Date();
     hoje.setHours(0, 0, 0, 0);
@@ -27,7 +27,7 @@ export async function GET() {
       orderBy: { nome: 'asc' },
     });
 
-    // Alertas de experiÃªncia â€” vencendo nos prÃ³ximos 15 dias
+    // Alertas de experiência — vencendo nos próximos 15 dias
     const alertasExperiencia = funcionarios
       .filter((f) => f.dataFimExperiencia1 || f.dataFimExperiencia2)
       .map((f) => {
@@ -52,7 +52,7 @@ export async function GET() {
           : 'atencao',
       }));
 
-    // Alertas de fÃ©rias â€” vencimento em 60 dias ou jÃ¡ vencido
+    // Alertas de férias — vencimento em 60 dias ou já vencido
     const alertasFerias = funcionarios
       .filter((f) => f.dataInicioFerias)
       .map((f) => {
@@ -80,7 +80,7 @@ export async function GET() {
         urgencia: diasParaVencimento < 0 ? 'vencido' : diasParaVencimento <= 30 ? 'critico' : 'atencao',
       }));
 
-    // AniversÃ¡rios do mÃªs atual (dataNascimento obrigatÃ³rio)
+    // Aniversários do mês atual (dataNascimento obrigatório)
     const mesAtual = hoje.getMonth() + 1;
     const aniversariantesRaw = await prisma.$queryRaw<
       { id: string; nome: string; dataNascimento: Date; lojaId: string; cargoId: string }[]

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import {
   calcularComposicaoSalarial,
   calcularEncargosPatronais,
@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const lojas = await prisma.rhLoja.findMany({
       where: { userId: rh!.userId, ativo: true },
@@ -27,7 +27,7 @@ export async function GET() {
     });
 
     const linhas: string[] = [
-      'Loja;FuncionÃ¡rio;Cargo;SalÃ¡rio Bruto;Encargos (R$);Encargos (%);Custo Total/MÃªs;Custo Anualizado',
+      'Loja;Funcionário;Cargo;Salário Bruto;Encargos (R$);Encargos (%);Custo Total/Mês;Custo Anualizado',
     ];
 
     for (const loja of lojas) {
@@ -40,7 +40,7 @@ export async function GET() {
           [
             loja.nome,
             f.nome,
-            f.cargo?.nome ?? 'â€”',
+            f.cargo?.nome ?? '—',
             comp.totalBruto.toFixed(2).replace('.', ','),
             enc.totalEncargos.toFixed(2).replace('.', ','),
             enc.percentualSobreBase.toFixed(2).replace('.', ',') + '%',

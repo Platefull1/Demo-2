@@ -42,6 +42,8 @@ const TOOL_LABELS: Record<SystemTool, string> = {
   [SystemTool.BONIFICACAO]: "Bonificação",
   [SystemTool.CHAT]: "Chat",
   [SystemTool.PONTOS]: "Pontos",
+  [SystemTool.REGISTRAR_OCORRENCIAS]: "Registrar ocorrências",
+  [SystemTool.VER_OCORRENCIAS]: "Ver ocorrências",
 };
 
 // Grupos visuais de ferramentas para organizar a UI
@@ -72,6 +74,10 @@ const TOOL_GROUPS: { label: string; tools: SystemTool[] }[] = [
   {
     label: "Outros",
     tools: [SystemTool.ANALYTICS, SystemTool.CHAT],
+  },
+  {
+    label: "Ocorrências",
+    tools: [SystemTool.REGISTRAR_OCORRENCIAS, SystemTool.VER_OCORRENCIAS],
   },
 ];
 

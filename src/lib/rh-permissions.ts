@@ -49,6 +49,11 @@ export const CMV_REAL_PERMISSIONS: RhPermissionKey[] = [
 
 export const CMV_REAL_PERMISSION_SET = new Set<string>(CMV_REAL_PERMISSIONS);
 
+/** Permissões do módulo RH (folha, motoboys, lojas). Não inclui CMV Real. */
+export const CORE_RH_PERMISSIONS: RhPermissionKey[] = (
+  Object.values(P) as RhPermissionKey[]
+).filter((p) => !CMV_REAL_PERMISSION_SET.has(p));
+
 // Permissões que NUNCA podem ser concedidas a um membro RH
 export const ADMIN_ONLY_PERMISSIONS = new Set<string>([P.USERS_MANAGE]);
 

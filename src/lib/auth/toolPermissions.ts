@@ -40,7 +40,18 @@ export async function checkToolPermission(
       (p) => p.tool === tool && p.isEnabled === true
     );
 
-    return !!permission;
+    if (permission) return true;
+
+    // Admin da empresa tem as duas permissões de ocorrências por padrão
+    if (
+      tool === SystemTool.REGISTRAR_OCORRENCIAS ||
+      tool === SystemTool.VER_OCORRENCIAS
+    ) {
+      const { isOcorrenciasTenantAdmin } = await import('@/lib/ocorrencias-auth');
+      return isOcorrenciasTenantAdmin(stackUserId);
+    }
+
+    return false;
   } catch (error) {
     console.error('Erro ao verificar permissão de ferramenta:', error);
     return false;

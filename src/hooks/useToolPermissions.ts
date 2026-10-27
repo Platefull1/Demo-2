@@ -27,6 +27,8 @@ export function useToolPermissions() {
     [SystemTool.BONIFICACAO]: false,
     [SystemTool.CHAT]: false,
     [SystemTool.PONTOS]: false,
+    [SystemTool.REGISTRAR_OCORRENCIAS]: false,
+    [SystemTool.VER_OCORRENCIAS]: false,
   });
   const [loading, setLoading] = useState(true);
 
@@ -83,6 +85,8 @@ export function useToolPermissions() {
         [SystemTool.BONIFICACAO]: false,
         [SystemTool.CHAT]: false,
         [SystemTool.PONTOS]: false,
+        [SystemTool.REGISTRAR_OCORRENCIAS]: false,
+        [SystemTool.VER_OCORRENCIAS]: false,
       };
 
       permissionChecks.forEach(({ tool, hasPermission }) => {

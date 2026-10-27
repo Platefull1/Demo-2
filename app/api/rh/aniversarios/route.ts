@@ -1,29 +1,29 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 const MESES_PT = [
-  'Janeiro','Fevereiro','MarÃ§o','Abril','Maio','Junho',
+  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
   'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
 ];
 
 /**
  * GET /api/rh/aniversarios
- * Retorna funcionÃ¡rios com aniversÃ¡rio no mÃªs atual e no prÃ³ximo mÃªs.
+ * Retorna funcionários com aniversário no mês atual e no próximo mês.
  */
 export async function GET() {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const hoje = new Date();
-    const mesAtual  = hoje.getMonth() + 1; // 1â€“12
+    const mesAtual  = hoje.getMonth() + 1; // 1–12
     const mesProx   = mesAtual === 12 ? 1 : mesAtual + 1;
     const anoProx   = mesAtual === 12 ? hoje.getFullYear() + 1 : hoje.getFullYear();
 
-    // Busca todos os funcionÃ¡rios ativos com data de nascimento
+    // Busca todos os funcionários ativos com data de nascimento
     const funcionarios = await prisma.rhFuncionario.findMany({
       where: { userId: rh.userId, ativo: true, dataNascimento: { not: null } },
       select: {
@@ -39,7 +39,7 @@ export async function GET() {
     const deste  = funcionarios.filter(f => new Date(f.dataNascimento!).getUTCMonth() + 1 === mesAtual);
     const proximo = funcionarios.filter(f => new Date(f.dataNascimento!).getUTCMonth() + 1 === mesProx);
 
-    // Ordena pelo dia do aniversÃ¡rio dentro do mÃªs
+    // Ordena pelo dia do aniversário dentro do mês
     const ordenarPorDia = (list: typeof funcionarios) =>
       [...list].sort((a, b) =>
         new Date(a.dataNascimento!).getUTCDate() - new Date(b.dataNascimento!).getUTCDate()

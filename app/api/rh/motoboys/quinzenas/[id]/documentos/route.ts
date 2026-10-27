@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { createClient } from '@supabase/supabase-js';
 import { isDocumentsComplete } from '@/lib/rider-quinzena-docs';
 
@@ -11,7 +11,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const BUCKET = 'rider-documents';
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const rh = await rhGetUser();
+  const rh = await rhRequireModuleUser();
   if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const { id: periodId } = await params;
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
 // DELETE /api/rh/motoboys/quinzenas/[id]/documentos?docId=<id>
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const rh = await rhGetUser();
+  const rh = await rhRequireModuleUser();
   if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const { id: periodId } = await params;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import {
   calcularComposicaoSalarial,
   calcularEncargosPatronais,
@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const lojas = await prisma.rhLoja.findMany({
       where: { userId: rh!.userId, ativo: true },
@@ -48,7 +48,7 @@ export async function GET() {
         return {
           id: f.id,
           nome: f.nome,
-          cargo: f.cargo?.nome ?? 'â€”',
+          cargo: f.cargo?.nome ?? '—',
           salarioBruto: composicao.totalBruto,
           baseCalculoEncargos: composicao.baseCalculoEncargos,
           composicaoSalarial: composicao,
@@ -118,8 +118,8 @@ export async function GET() {
 
 export async function PATCH(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const body = await req.json() as { lojaId?: string; fap?: number; cargoId?: string; ratPct?: number };
 

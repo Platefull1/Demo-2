@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { cargoFamilia } from '@/lib/rh-cargo-familia';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const lojaId = req.nextUrl.searchParams.get('lojaId');
-    if (!lojaId) return NextResponse.json({ error: 'lojaId Ã© obrigatÃ³rio' }, { status: 400 });
+    if (!lojaId) return NextResponse.json({ error: 'lojaId é obrigatório' }, { status: 400 });
 
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { lojaId, userId: rh!.userId, ativo: true },
@@ -31,14 +31,14 @@ export async function GET(req: NextRequest) {
 
     if (!quadro) return NextResponse.json({ quadro: null, setores: [], resumo: null });
 
-    // Carregar funcionÃ¡rios ativos da loja (com nome do cargo para famÃ­lia)
+    // Carregar funcionários ativos da loja (com nome do cargo para família)
     const funcionarios = await prisma.rhFuncionario.findMany({
       where: { userId: rh!.userId, lojaId, ativo: true },
       select: { cargoId: true, turno: true, cargo: { select: { nome: true } } },
     });
 
-    // Construir mapa famÃ­lia+turno â†’ count real
-    // "Pizzaiolo I", "Pizzaiolo II", "Pizzaiolo III" â†’ todos contam como famÃ­lia "Pizzaiolo"
+    // Construir mapa família+turno ? count real
+    // "Pizzaiolo I", "Pizzaiolo II", "Pizzaiolo III" ? todos contam como família "Pizzaiolo"
     const realMap = new Map<string, number>();
     for (const f of funcionarios) {
       const familia = f.cargo ? cargoFamilia(f.cargo.nome) : (f.cargoId ?? '');

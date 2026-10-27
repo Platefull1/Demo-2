@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import {
   enrichFuncionario,
   CAMPOS_COMPOSICAO_HISTORICO,
@@ -78,7 +78,7 @@ function calcDatasExperiencia(dataAdmissao: Date) {
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     let funcionario = await prisma.rhFuncionario.findFirst({
@@ -128,7 +128,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const existing = await prisma.rhFuncionario.findFirst({
@@ -442,7 +442,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const rh = await rhGetUser();
+    const rh = await rhRequireModuleUser();
     if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const permanent = req.nextUrl.searchParams.get('permanent') === 'true';

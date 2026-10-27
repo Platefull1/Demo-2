@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 import {
   calcularComposicaoSalarial,
   calcularEncargosPatronais,
@@ -56,8 +56,8 @@ function calcularIRRF(salario: number, inss: number): number {
 
 export async function POST(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
 
     const body = await req.json();
     const { funcionarioId, ratPct: ratParam } = body;
@@ -77,7 +77,7 @@ export async function POST(req: Request) {
         where: { id: funcionarioId, userId: rh!.userId },
         include: { cargo: { select: { ratPct: true } }, loja: { select: { fap: true } } },
       });
-      if (!f) return NextResponse.json({ error: 'Funcion√°rio n√£o encontrado' }, { status: 404 });
+      if (!f) return NextResponse.json({ error: 'Funcion·rio n„o encontrado' }, { status: 404 });
       composicaoInput = {
         salarioBase: f.salarioBase,
         cargoResponsabilidade: f.cargoResponsabilidade,
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     const base = composicao.baseCalculoEncargos;
 
     if (!base || base <= 0) {
-      return NextResponse.json({ error: 'Sal√°rio inv√°lido' }, { status: 400 });
+      return NextResponse.json({ error: 'Sal·rio inv·lido' }, { status: 400 });
     }
 
     const enc = calcularEncargosPatronais(base, rat, fap);

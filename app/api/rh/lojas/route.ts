@@ -1,14 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { rhGetUser } from '@/lib/rh-auth';
+import { rhRequireModuleUser } from '@/lib/rh-auth';
 
 export const dynamic = 'force-dynamic';
 
 
 export async function GET() {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const lojas = await prisma.rhLoja.findMany({
       where: { userId: rh!.userId },
@@ -24,14 +24,14 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    const rh = await rhGetUser();
-    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
+    const rh = await rhRequireModuleUser();
+    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
     const body = await req.json();
     const { nome, cnpj, endereco } = body;
 
     if (!nome?.trim()) {
-      return NextResponse.json({ error: 'Nome Ã© obrigatÃ³rio' }, { status: 400 });
+      return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 });
     }
 
     const loja = await prisma.rhLoja.create({
