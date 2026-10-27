@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const lojaId = req.nextUrl.searchParams.get('lojaId');
     const taxas = await prisma.rhTaxaLoja.findMany({
@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const body = await req.json() as {
       lojaId: string;
@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!body.lojaId || !body.nome || body.valorDiaria == null) {
-      return NextResponse.json({ error: 'lojaId, nome e valorDiaria s„o obrigatÛrios' }, { status: 400 });
+      return NextResponse.json({ error: 'lojaId, nome e valorDiaria s√£o obrigat√≥rios' }, { status: 400 });
     }
 
     const taxa = await prisma.rhTaxaLoja.create({

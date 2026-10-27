@@ -23,10 +23,10 @@ const INCLUDE = {
 export async function GET(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const lojaId = req.nextUrl.searchParams.get('lojaId');
-    if (!lojaId) return NextResponse.json({ error: 'lojaId È obrigatÛrio' }, { status: 400 });
+    if (!lojaId) return NextResponse.json({ error: 'lojaId √© obrigat√≥rio' }, { status: 400 });
 
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { lojaId, userId: rh!.userId, ativo: true },
@@ -43,13 +43,13 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const { lojaId, nome } = await req.json();
-    if (!lojaId) return NextResponse.json({ error: 'lojaId È obrigatÛrio' }, { status: 400 });
+    if (!lojaId) return NextResponse.json({ error: 'lojaId √© obrigat√≥rio' }, { status: 400 });
 
     const loja = await prisma.rhLoja.findFirst({ where: { id: lojaId, userId: rh!.userId } });
-    if (!loja) return NextResponse.json({ error: 'Loja n„o encontrada' }, { status: 404 });
+    if (!loja) return NextResponse.json({ error: 'Loja n√£o encontrada' }, { status: 404 });
 
     const quadro = await prisma.rhQuadroIdeal.upsert({
       where: { lojaId },

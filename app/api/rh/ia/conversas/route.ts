@@ -7,7 +7,7 @@ import { rhRequireModuleUser } from '@/lib/rh-auth';
 export async function GET() {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const conversas = await prisma.rhIaConversa.findMany({
       where: { userId: rh.userId },
@@ -30,7 +30,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const body = await request.json().catch(() => ({}));
     const titulo = body.titulo ?? null;

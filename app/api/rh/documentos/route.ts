@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const body = await req.json();
     const {
@@ -21,13 +21,13 @@ export async function POST(req: Request) {
     };
 
     if (!funcionarioId || !tipo || !nome || !url || !uploadadoPor)
-      return NextResponse.json({ error: 'Campos obrigatórios ausentes' }, { status: 400 });
+      return NextResponse.json({ error: 'Campos obrigatÃ³rios ausentes' }, { status: 400 });
 
-    // Verifica se o funcionário pertence ao usuário
+    // Verifica se o funcionÃ¡rio pertence ao usuÃ¡rio
     const func = await prisma.rhFuncionario.findFirst({
       where: { id: funcionarioId, userId: rh!.userId },
     });
-    if (!func) return NextResponse.json({ error: 'Funcionário não encontrado' }, { status: 404 });
+    if (!func) return NextResponse.json({ error: 'FuncionÃ¡rio nÃ£o encontrado' }, { status: 404 });
 
     const doc = await prisma.rhDocumentoFuncionario.create({
       data: {

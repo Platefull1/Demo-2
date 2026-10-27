@@ -20,16 +20,16 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const { searchParams } = new URL(req.url);
     const lojaId = searchParams.get('lojaId');
 
     if (!lojaId) {
-      return NextResponse.json({ error: 'lojaId obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'lojaId obrigatÃ³rio' }, { status: 400 });
     }
 
-    // Busca o quadro ideal da loja com setores e posições ativas
+    // Busca o quadro ideal da loja com setores e posiÃ§Ãµes ativas
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { lojaId, userId: rh!.userId },
       include: {
@@ -53,7 +53,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ setores: [] });
     }
 
-    // Carregar todos os cargos do usuário para montar mapa de família
+    // Carregar todos os cargos do usuÃ¡rio para montar mapa de famÃ­lia
     const todosCargos = await prisma.rhCargo.findMany({
       where: { userId: rh!.userId },
       select: { id: true, nome: true },
@@ -66,16 +66,16 @@ export async function GET(req: Request) {
       familiaMap.get(f)!.push(c.id);
     }
 
-    // Para cada posição, busca os funcionários de toda a família de cargo
+    // Para cada posiÃ§Ã£o, busca os funcionÃ¡rios de toda a famÃ­lia de cargo
     const setoresComDados = await Promise.all(
       quadro.setores.map(async (setor) => {
         const posicoesComDados = await Promise.all(
           setor.posicoes.map(async (pos) => {
-            // Família do cargo da posição (ex: "Pizzaiolo I" ? "Pizzaiolo")
+            // FamÃ­lia do cargo da posiÃ§Ã£o (ex: "Pizzaiolo I" ? "Pizzaiolo")
             const familia = cargoFamilia(pos.cargo?.nome ?? '');
             const familiaIds = familiaMap.get(familia) ?? [pos.cargoId];
 
-            // Busca funcionários de qualquer nível da família no mesmo turno
+            // Busca funcionÃ¡rios de qualquer nÃ­vel da famÃ­lia no mesmo turno
             const funcionarios = await prisma.rhFuncionario.findMany({
               where: {
                 userId: rh!.userId,

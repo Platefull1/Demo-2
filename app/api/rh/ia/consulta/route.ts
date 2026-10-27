@@ -5,32 +5,32 @@ import { prisma } from '@/lib/prisma';
 import { rhRequireModuleUser } from '@/lib/rh-auth';
 import { RH_TOOLS, RH_BONIFICACOES_PROMPT, executeRhTool } from '@/lib/rh-ia-tools';
 
-const DEFAULT_SYSTEM_PROMPT = `Você é um especialista em direito trabalhista brasileiro e gestão de RH para pequenas e médias empresas do setor de alimentação (CNAE 5611-2/01 — Restaurantes e similares).
+const DEFAULT_SYSTEM_PROMPT = `VocÃª Ã© um especialista em direito trabalhista brasileiro e gestÃ£o de RH para pequenas e mÃ©dias empresas do setor de alimentaÃ§Ã£o (CNAE 5611-2/01 Â— Restaurantes e similares).
 
-Responda SEMPRE com base na legislação vigente atual, citando:
+Responda SEMPRE com base na legislaÃ§Ã£o vigente atual, citando:
 - Artigos da CLT
-- Portarias do Ministério do Trabalho e Emprego (MTE)
-- Tabelas de INSS, IRRF e FGTS com suas datas de vigência
+- Portarias do MinistÃ©rio do Trabalho e Emprego (MTE)
+- Tabelas de INSS, IRRF e FGTS com suas datas de vigÃªncia
 - Reforma Trabalhista (Lei 13.467/2017) quando relevante
 
-Quando mencionar alíquotas, valores ou datas de vigência, busque sempre os dados mais recentes disponíveis e informe explicitamente a data de vigência.
+Quando mencionar alÃ­quotas, valores ou datas de vigÃªncia, busque sempre os dados mais recentes disponÃ­veis e informe explicitamente a data de vigÃªncia.
 
 Formate as respostas de forma clara:
-- Use valores em Reais (R$) com formatação brasileira
+- Use valores em Reais (R$) com formataÃ§Ã£o brasileira
 - Use percentuais precisos
-- Cite sempre a fonte legal (lei, portaria, resolução)
-- Organize respostas longas com tópicos ou tabelas
-- Mencione sempre se alguma informação pode ter sido atualizada recentemente
+- Cite sempre a fonte legal (lei, portaria, resoluÃ§Ã£o)
+- Organize respostas longas com tÃ³picos ou tabelas
+- Mencione sempre se alguma informaÃ§Ã£o pode ter sido atualizada recentemente
 
-Você também tem acesso ao módulo de RH da plataforma e pode realizar as seguintes ações — sempre execute usando as ferramentas disponíveis e confirme o que foi feito:
+VocÃª tambÃ©m tem acesso ao mÃ³dulo de RH da plataforma e pode realizar as seguintes aÃ§Ãµes Â— sempre execute usando as ferramentas disponÃ­veis e confirme o que foi feito:
 
-**Funcionários:** consultar, cadastrar, atualizar dados (escala, turno, horário, salário, cargo, loja), gerenciar folgas, desativar/reativar.
-**Ocorrências:** registrar faltas, atrasos, advertências, atestados, elogios; consultar histórico de ocorrências.
-**Férias:** registrar gozo de férias, atualizar status; consultar vencimentos e alertas de férias.
-**Transferências:** transferir funcionário entre lojas/unidades.
-**Bonificações:** assiduidade mensal (R$200), PLR trimestral por loja, bonificação trimestral individual.
-**Consultas e relatórios:** quadro ideal vs real por loja, custos da folha, aniversariantes do mês, alertas trabalhistas (experiência vencendo, férias vencidas).
-**Cargos:** criar novos cargos; listar cargos e lojas disponíveis.
+**FuncionÃ¡rios:** consultar, cadastrar, atualizar dados (escala, turno, horÃ¡rio, salÃ¡rio, cargo, loja), gerenciar folgas, desativar/reativar.
+**OcorrÃªncias:** registrar faltas, atrasos, advertÃªncias, atestados, elogios; consultar histÃ³rico de ocorrÃªncias.
+**FÃ©rias:** registrar gozo de fÃ©rias, atualizar status; consultar vencimentos e alertas de fÃ©rias.
+**TransferÃªncias:** transferir funcionÃ¡rio entre lojas/unidades.
+**BonificaÃ§Ãµes:** assiduidade mensal (R$200), PLR trimestral por loja, bonificaÃ§Ã£o trimestral individual.
+**Consultas e relatÃ³rios:** quadro ideal vs real por loja, custos da folha, aniversariantes do mÃªs, alertas trabalhistas (experiÃªncia vencendo, fÃ©rias vencidas).
+**Cargos:** criar novos cargos; listar cargos e lojas disponÃ­veis.
 
 ${RH_BONIFICACOES_PROMPT}`;
 
@@ -79,7 +79,7 @@ async function callOpenRouter(
   return res.json();
 }
 
-// Chama a IA via Perplexity (sem tool calling — apenas knowledge)
+// Chama a IA via Perplexity (sem tool calling Â— apenas knowledge)
 async function callPerplexity(apiKey: string, messages: any[]): Promise<any> {
   const res = await fetch('https://api.perplexity.ai/chat/completions', {
     method: 'POST',
@@ -106,13 +106,13 @@ async function callPerplexity(apiKey: string, messages: any[]): Promise<any> {
 export async function POST(request: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const body = await request.json();
     const { pergunta, historico = [], conversaId } = body;
 
     if (!pergunta || typeof pergunta !== 'string' || !pergunta.trim()) {
-      return NextResponse.json({ error: 'Pergunta inválida' }, { status: 400 });
+      return NextResponse.json({ error: 'Pergunta invÃ¡lida' }, { status: 400 });
     }
 
     const perplexityKey = process.env.PERPLEXITY_API_KEY;
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
 
     if (!perplexityKey && !openrouterKey) {
       return NextResponse.json(
-        { error: 'Nenhuma chave de API configurada. Adicione RH_OPENROUTER_API_KEY nas variáveis de ambiente.' },
+        { error: 'Nenhuma chave de API configurada. Adicione RH_OPENROUTER_API_KEY nas variÃ¡veis de ambiente.' },
         { status: 500 },
       );
     }
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         const choice = data.choices[0];
         const message = choice.message;
 
-        // Sem tool calls — resposta final
+        // Sem tool calls Â— resposta final
         if (!message.tool_calls || message.tool_calls.length === 0) {
           resposta = message.content || '';
           break;
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
             content: toolResult,
           });
 
-          // Registrar ação para retornar ao frontend
+          // Registrar aÃ§Ã£o para retornar ao frontend
           try {
             const parsed = JSON.parse(toolResult);
             if (parsed.sucesso && parsed.mensagem) {
@@ -187,14 +187,14 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // Se última iteração sem resposta, forçar resposta
+        // Se Ãºltima iteraÃ§Ã£o sem resposta, forÃ§ar resposta
         if (i === MAX_ITERATIONS - 1) {
           const finalData = await callOpenRouter(openrouterKey, currentMessages, false);
-          resposta = finalData.choices[0].message.content || 'Operação concluída.';
+          resposta = finalData.choices[0].message.content || 'OperaÃ§Ã£o concluÃ­da.';
         }
       }
 
-      resposta = resposta! || 'Operação concluída.';
+      resposta = resposta! || 'OperaÃ§Ã£o concluÃ­da.';
     }
     // -- Rota sem tool calling (Perplexity) -----------------------------------
     else {

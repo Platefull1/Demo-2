@@ -9,12 +9,12 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const lojaId = req.nextUrl.searchParams.get('lojaId');
-    if (!lojaId) return NextResponse.json({ error: 'lojaId obrigatório' }, { status: 400 });
+    if (!lojaId) return NextResponse.json({ error: 'lojaId obrigatÃ³rio' }, { status: 400 });
 
-    // Funcionários ativos da loja com dados reais de folga e salário
+    // FuncionÃ¡rios ativos da loja com dados reais de folga e salÃ¡rio
     const funcionarios = await prisma.rhFuncionario.findMany({
       where: { userId: rh!.userId, lojaId, ativo: true },
       select: {
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
       orderBy: { nome: 'asc' },
     });
 
-    // Mínimos por turno do Quadro Ideal (se configurado)
+    // MÃ­nimos por turno do Quadro Ideal (se configurado)
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { userId: rh!.userId, lojaId, ativo: true },
       include: {
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
         return {
           id: f.id,
           nome: f.nome,
-          cargo: f.cargo?.nome ?? '—',
+          cargo: f.cargo?.nome ?? 'Â—',
           escala: f.escala,
           turno: f.turno,
           diasFolga: Array.isArray(f.diasFolga) ? (f.diasFolga as string[]) : [],

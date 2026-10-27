@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const body = await req.json() as {
       funcionarioId: string;
@@ -22,21 +22,21 @@ export async function POST(req: Request) {
     const { funcionarioId, lojaDestinoId, dataTransferencia, motivo, aprovadoPor } = body;
 
     if (!funcionarioId || !lojaDestinoId || !dataTransferencia)
-      return NextResponse.json({ error: 'Campos obrigatÛrios ausentes' }, { status: 400 });
+      return NextResponse.json({ error: 'Campos obrigat√≥rios ausentes' }, { status: 400 });
 
     const func = await prisma.rhFuncionario.findFirst({
       where: { id: funcionarioId, userId: rh!.userId },
       include: { loja: true },
     });
-    if (!func) return NextResponse.json({ error: 'Funcion·rio n„o encontrado' }, { status: 404 });
+    if (!func) return NextResponse.json({ error: 'Funcion√°rio n√£o encontrado' }, { status: 404 });
 
     if (func.lojaId === lojaDestinoId)
-      return NextResponse.json({ error: 'O funcion·rio j· est· nesta loja' }, { status: 400 });
+      return NextResponse.json({ error: 'O funcion√°rio j√° est√° nesta loja' }, { status: 400 });
 
     const lojaDestino = await prisma.rhLoja.findFirst({
       where: { id: lojaDestinoId, userId: rh!.userId },
     });
-    if (!lojaDestino) return NextResponse.json({ error: 'Loja de destino n„o encontrada' }, { status: 404 });
+    if (!lojaDestino) return NextResponse.json({ error: 'Loja de destino n√£o encontrada' }, { status: 404 });
 
     const result = await prisma.$transaction([
       prisma.rhFuncionario.update({
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
           funcionarioId,
           userId: rh!.userId,
           campo: 'loja',
-          valorAnterior: func.loja?.nome ?? 'ó',
+          valorAnterior: func.loja?.nome ?? '¬ó',
           valorNovo: lojaDestino.nome,
           alteradoPor: aprovadoPor ?? 'Sistema',
           motivo: motivo ?? null,

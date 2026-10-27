@@ -8,17 +8,17 @@ export const dynamic = 'force-dynamic';
 export async function POST(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const { quadroIdealId, nome, descricao, ordem } = await req.json();
     if (!quadroIdealId || !nome?.trim())
-      return NextResponse.json({ error: 'quadroIdealId e nome s„o obrigatÛrios' }, { status: 400 });
+      return NextResponse.json({ error: 'quadroIdealId e nome s√£o obrigat√≥rios' }, { status: 400 });
 
-    // Verificar que o quadro pertence ao usu·rio
+    // Verificar que o quadro pertence ao usu√°rio
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { id: quadroIdealId, userId: rh!.userId },
     });
-    if (!quadro) return NextResponse.json({ error: 'Quadro n„o encontrado' }, { status: 404 });
+    if (!quadro) return NextResponse.json({ error: 'Quadro n√£o encontrado' }, { status: 404 });
 
     const setor = await prisma.rhSetorIdeal.create({
       data: {

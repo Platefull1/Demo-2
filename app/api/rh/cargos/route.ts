@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     await ensureRhCargosPadrao(rh!.userId);
 
@@ -28,13 +28,13 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'NÃ£o autorizado' }, { status: 401 });
 
     const body = await req.json();
     const { nome, descricao, ratPct } = body;
 
     if (!nome?.trim()) {
-      return NextResponse.json({ error: 'Nome é obrigatório' }, { status: 400 });
+      return NextResponse.json({ error: 'Nome Ã© obrigatÃ³rio' }, { status: 400 });
     }
 
     const cargo = await prisma.rhCargo.create({

@@ -8,10 +8,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: NextRequest) {
   try {
     const rh = await rhRequireModuleUser();
-    if (!rh) return NextResponse.json({ error: 'N„o autorizado' }, { status: 401 });
+    if (!rh) return NextResponse.json({ error: 'N√£o autorizado' }, { status: 401 });
 
     const lojaId = req.nextUrl.searchParams.get('lojaId');
-    if (!lojaId) return NextResponse.json({ error: 'lojaId È obrigatÛrio' }, { status: 400 });
+    if (!lojaId) return NextResponse.json({ error: 'lojaId √© obrigat√≥rio' }, { status: 400 });
 
     const quadro = await prisma.rhQuadroIdeal.findFirst({
       where: { lojaId, userId: rh!.userId, ativo: true },
@@ -31,14 +31,14 @@ export async function GET(req: NextRequest) {
 
     if (!quadro) return NextResponse.json({ quadro: null, setores: [], resumo: null });
 
-    // Carregar funcion·rios ativos da loja (com nome do cargo para famÌlia)
+    // Carregar funcion√°rios ativos da loja (com nome do cargo para fam√≠lia)
     const funcionarios = await prisma.rhFuncionario.findMany({
       where: { userId: rh!.userId, lojaId, ativo: true },
       select: { cargoId: true, turno: true, cargo: { select: { nome: true } } },
     });
 
-    // Construir mapa famÌlia+turno ? count real
-    // "Pizzaiolo I", "Pizzaiolo II", "Pizzaiolo III" ? todos contam como famÌlia "Pizzaiolo"
+    // Construir mapa fam√≠lia+turno ? count real
+    // "Pizzaiolo I", "Pizzaiolo II", "Pizzaiolo III" ? todos contam como fam√≠lia "Pizzaiolo"
     const realMap = new Map<string, number>();
     for (const f of funcionarios) {
       const familia = f.cargo ? cargoFamilia(f.cargo.nome) : (f.cargoId ?? '');
