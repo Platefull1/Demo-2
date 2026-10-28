@@ -2536,7 +2536,7 @@ model Ocorrencia {
   categorias          CategoriaOcorrencia[] @default([OUTROS])
   descricao           String           @db.Text
   /// Path interno no bucket privado ocorrencias-fotos (nunca URL pública)
-  fotoPath            String
+  fotoPath            String?
   motoboyId           String?
   motoboy             DeliveryRider?   @relation("OcorrenciaMotoboy", fields: [motoboyId], references: [id])
   /// Stack Auth user ID de quem registrou (para auditoria)

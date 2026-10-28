@@ -87,24 +87,25 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const foto = formData.get('foto') as File | null;
-  if (!foto) {
-    return NextResponse.json({ error: 'Foto obrigatória' }, { status: 400 });
-  }
+  const fotoRaw = formData.get('foto');
+  const foto =
+    fotoRaw instanceof File && fotoRaw.size > 0 ? fotoRaw : null;
 
-  if (!ACCEPTED_TYPES.has(foto.type)) {
-    return NextResponse.json(
-      { error: 'Tipo de arquivo não suportado. Use JPEG, PNG, WEBP ou HEIC.' },
-      { status: 400 },
-    );
-  }
-
-  const fotoBuffer = Buffer.from(await foto.arrayBuffer());
-  if (fotoBuffer.length > MAX_FOTO_BYTES) {
-    return NextResponse.json(
-      { error: 'Foto muito grande. Máximo: 8 MB.' },
-      { status: 400 },
-    );
+  let fotoBuffer: Buffer | null = null;
+  if (foto) {
+    if (!ACCEPTED_TYPES.has(foto.type)) {
+      return NextResponse.json(
+        { error: 'Tipo de arquivo não suportado. Use JPEG, PNG, WEBP ou HEIC.' },
+        { status: 400 },
+      );
+    }
+    fotoBuffer = Buffer.from(await foto.arrayBuffer());
+    if (fotoBuffer.length > MAX_FOTO_BYTES) {
+      return NextResponse.json(
+        { error: 'Foto muito grande. Máximo: 8 MB.' },
+        { status: 400 },
+      );
+    }
   }
 
   const campos = {
@@ -174,16 +175,19 @@ export async function POST(request: NextRequest) {
   const ocorrenciaId = randomUUID();
   const { year, month } = saoPauloYmd();
   const mesPasta = `${year}-${String(month).padStart(2, '0')}`;
-  const fotoPath = `${ctx.userId}/${mesPasta}/${ocorrenciaId}.jpg`;
+  let fotoPath: string | null = null;
 
-  try {
-    await uploadOcorrenciaFoto(fotoPath, fotoBuffer, foto.type);
-  } catch (err) {
-    console.error('[ocorrencias] upload foto falhou:', err);
-    return NextResponse.json(
-      { error: 'Erro ao enviar foto. Tente novamente.' },
-      { status: 500 },
-    );
+  if (foto && fotoBuffer) {
+    fotoPath = `${ctx.userId}/${mesPasta}/${ocorrenciaId}.jpg`;
+    try {
+      await uploadOcorrenciaFoto(fotoPath, fotoBuffer, foto.type);
+    } catch (err) {
+      console.error('[ocorrencias] upload foto falhou:', err);
+      return NextResponse.json(
+        { error: 'Erro ao enviar foto. Tente novamente.' },
+        { status: 500 },
+      );
+    }
   }
 
   try {
@@ -212,7 +216,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, ocorrencia }, { status: 201 });
   } catch (err) {
     console.error('[ocorrencias] create falhou, removendo foto:', err);
-    await deleteOcorrenciaFoto(fotoPath);
+    if (fotoPath) await deleteOcorrenciaFoto(fotoPath);
     return NextResponse.json(
       { error: 'Erro ao salvar ocorrência. Foto removida. Tente novamente.' },
       { status: 500 },
@@ -310,7 +314,9 @@ export async function GET(request: NextRequest) {
           select: { id: true, displayName: true, primaryEmail: true },
         })
       : [],
-    createOcorrenciaFotoSignedUrls(ocorrencias.map((o) => o.fotoPath)),
+    createOcorrenciaFotoSignedUrls(
+      ocorrencias.map((o) => o.fotoPath).filter((p): p is string => Boolean(p)),
+    ),
   ]);
 
   const nomeMap = Object.fromEntries(lojasNomes.map((l) => [l.id, l.nome]));
@@ -338,7 +344,8 @@ export async function GET(request: NextRequest) {
     ocorrencias: ocorrencias.map(({ fotoPath, ...oc }) => ({
       ...oc,
       criadoPorNome: criadorMap[oc.criadoPorUserId] || '—',
-      fotoUrl: fotoUrls[fotoPath] || null,
+      temFoto: Boolean(fotoPath),
+      fotoUrl: fotoPath ? fotoUrls[fotoPath] || null : null,
     })),
     total,
     page,

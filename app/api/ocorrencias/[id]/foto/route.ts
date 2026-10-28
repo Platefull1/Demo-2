@@ -29,6 +29,10 @@ export async function GET(
     return NextResponse.json({ error: 'Ocorrência não encontrada' }, { status: 404 });
   }
 
+  if (!ocorrencia.fotoPath) {
+    return NextResponse.json({ error: 'Ocorrência sem foto' }, { status: 404 });
+  }
+
   const url = await createOcorrenciaFotoSignedUrl(ocorrencia.fotoPath);
   if (!url) {
     return NextResponse.json(

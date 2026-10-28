@@ -62,6 +62,7 @@ interface Ocorrencia {
   criadoPorUserId: string;
   criadoPorNome: string;
   createdAt: string;
+  temFoto: boolean;
   fotoUrl: string | null;
   loja: { id: string; nome: string };
   motoboy: { id: string; name: string } | null;
@@ -199,7 +200,7 @@ export default function OcorrenciasClient({
   async function abrirDetalhe(oc: Ocorrencia) {
     setDetalhe(oc);
     setFotoUrl(oc.fotoUrl);
-    if (oc.fotoUrl) {
+    if (oc.fotoUrl || !oc.temFoto) {
       setCarregandoFoto(false);
       return;
     }
@@ -546,20 +547,24 @@ export default function OcorrenciasClient({
               </SheetHeader>
 
               <div className="space-y-4">
-                <div className="rounded-xl overflow-hidden border border-border bg-muted min-h-[180px] flex items-center justify-center">
-                  {carregandoFoto ? (
-                    <Skeleton className="w-full h-64" />
-                  ) : fotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={fotoUrl}
-                      alt="Foto da ocorrência"
-                      className="w-full object-contain max-h-[70vh]"
-                    />
-                  ) : (
-                    <p className="text-xs text-muted-foreground p-4">Foto indisponível</p>
-                  )}
-                </div>
+                {detalhe.temFoto || carregandoFoto || fotoUrl ? (
+                  <div className="rounded-xl overflow-hidden border border-border bg-muted min-h-[180px] flex items-center justify-center">
+                    {carregandoFoto ? (
+                      <Skeleton className="w-full h-64" />
+                    ) : fotoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={fotoUrl}
+                        alt="Foto da ocorrência"
+                        className="w-full object-contain max-h-[70vh]"
+                      />
+                    ) : (
+                      <p className="text-xs text-muted-foreground p-4">Foto indisponível</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sem foto</p>
+                )}
 
                 <dl className="space-y-3 text-sm">
                   <div className="flex justify-between gap-4">

@@ -237,9 +237,6 @@ export default function NovaOcorrenciaClient({
     if (categorias.length === 0 && descricao.trim().length < 10) {
       next.descricao = 'Descrição deve ter pelo menos 10 caracteres';
     }
-    if (!foto) {
-      next.foto = 'Anexe uma foto da ocorrência';
-    }
     setErrosCampo(next);
     return Object.keys(next).length === 0;
   }
@@ -263,14 +260,6 @@ export default function NovaOcorrenciaClient({
     setErro(null);
 
     try {
-      let fotoFile: File;
-      try {
-        const fotoBlob = await comprimirImagem(foto!);
-        fotoFile = new File([fotoBlob], 'foto.jpg', { type: 'image/jpeg' });
-      } catch {
-        fotoFile = foto!;
-      }
-
       const fd = new FormData();
       fd.append('lojaId', lojaSelecionada.id);
       fd.append('numeroPedidoSaipos', numeroPedidoSaipos.trim());
@@ -280,8 +269,16 @@ export default function NovaOcorrenciaClient({
       }
       fd.append('descricao', descricao.trim());
       fd.append('categorias', JSON.stringify(categorias));
-      fd.append('foto', fotoFile);
       if (motoboyId) fd.append('motoboyId', motoboyId);
+
+      if (foto) {
+        try {
+          const fotoBlob = await comprimirImagem(foto);
+          fd.append('foto', new File([fotoBlob], 'foto.jpg', { type: 'image/jpeg' }));
+        } catch {
+          fd.append('foto', foto);
+        }
+      }
 
       const res = await fetch('/api/ocorrencias', { method: 'POST', body: fd });
       const data = await res.json();
@@ -598,7 +595,7 @@ export default function NovaOcorrenciaClient({
 
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">
-              Foto <span className="text-destructive">*</span>
+              Foto (opcional)
             </label>
 
             {fotoPreview && foto ? (
