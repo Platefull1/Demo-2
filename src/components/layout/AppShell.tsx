@@ -2,13 +2,29 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { LucideIcon } from "lucide-react";
 import {
+  AlertTriangle,
+  BarChart2,
+  Bot,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Lock,
+  ClipboardCheck,
+  Clock,
+  FileBarChart2,
+  LayoutDashboard,
+  Link2,
+  ListChecks,
   Menu,
+  MessageSquare,
+  Package,
+  Receipt,
+  ShoppingBag,
+  Tag,
+  Users,
+  Warehouse,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -19,30 +35,32 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import {
+  navItemIsActive,
+  type NavIconName,
+  type NavItemDTO,
+  type NavSectionDTO,
+} from "@/lib/navigation-menu";
 
 const STORAGE_KEY_COLLAPSED = "platefull_sidebar_collapsed";
 
-export type AppShellNavChild = {
-  id: string;
-  label: string;
-  href: string;
-  active?: boolean;
-};
-
-export type AppShellNavItem = {
-  id: string;
-  label: string;
-  href?: string;
-  icon: LucideIcon;
-  locked?: boolean;
-  active?: boolean;
-  children?: AppShellNavChild[];
-};
-
-export type AppShellNavSection = {
-  id: string;
-  label: string;
-  items: AppShellNavItem[];
+const NAV_ICONS: Record<NavIconName, LucideIcon> = {
+  LayoutDashboard,
+  ShoppingBag,
+  ListChecks,
+  ClipboardCheck,
+  AlertTriangle,
+  BarChart2,
+  Receipt,
+  Warehouse,
+  Users,
+  Clock,
+  MessageSquare,
+  Bot,
+  Link2,
+  Package,
+  Tag,
+  FileBarChart2,
 };
 
 export type AppShellFooterContext = {
@@ -53,9 +71,8 @@ export type AppShellProps = {
   children: ReactNode;
   logo: ReactNode;
   logoCollapsed?: ReactNode;
-  navSections: AppShellNavSection[];
+  navSections: NavSectionDTO[];
   footer: ReactNode | ((ctx: AppShellFooterContext) => ReactNode);
-  navLoading?: boolean;
 };
 
 function readCollapsed(): boolean {
@@ -88,40 +105,22 @@ function activeItemClass(active?: boolean) {
 function NavItemContent({
   item,
   collapsed,
+  pathname,
   onNavigate,
 }: {
-  item: AppShellNavItem;
+  item: NavItemDTO;
   collapsed: boolean;
+  pathname: string;
   onNavigate?: () => void;
 }) {
-  const [open, setOpen] = useState(Boolean(item.active));
-  const Icon = item.icon;
+  const active = navItemIsActive(pathname, item.match);
+  const [open, setOpen] = useState(active);
+  const Icon = NAV_ICONS[item.icon];
   const hasChildren = Boolean(item.children?.length);
 
   useEffect(() => {
-    if (item.active) setOpen(true);
-  }, [item.active]);
-
-  if (item.locked) {
-    const locked = (
-      <div
-        className={cn(
-          "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground/50 cursor-not-allowed border-l-2 border-l-transparent",
-          collapsed && "justify-center px-2"
-        )}
-      >
-        <Lock className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-        {!collapsed && <span>{item.label}</span>}
-      </div>
-    );
-    if (!collapsed) return locked;
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{locked}</TooltipTrigger>
-        <TooltipContent side="right">{item.label} (bloqueado)</TooltipContent>
-      </Tooltip>
-    );
-  }
+    if (active) setOpen(true);
+  }, [active]);
 
   if (hasChildren) {
     const button = (
@@ -131,7 +130,7 @@ function NavItemContent({
         className={cn(
           "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
           navFocusClass,
-          activeItemClass(item.active),
+          activeItemClass(active),
           collapsed && "justify-center px-2"
         )}
       >
@@ -169,7 +168,7 @@ function NavItemContent({
                 className={cn(
                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors",
                   navFocusClass,
-                  activeItemClass(child.active)
+                  activeItemClass(pathname === child.href)
                 )}
               >
                 {child.label}
@@ -188,7 +187,7 @@ function NavItemContent({
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
         navFocusClass,
-        activeItemClass(item.active),
+        activeItemClass(active),
         collapsed && "justify-center px-2"
       )}
     >
@@ -208,23 +207,15 @@ function NavItemContent({
 
 function SidebarNav({
   navSections,
-  navLoading,
   collapsed,
+  pathname,
   onNavigate,
 }: {
-  navSections: AppShellNavSection[];
-  navLoading?: boolean;
+  navSections: NavSectionDTO[];
   collapsed: boolean;
+  pathname: string;
   onNavigate?: () => void;
 }) {
-  if (navLoading) {
-    return (
-      <div className="px-3 py-2 text-sm text-muted-foreground">
-        Carregando permissões...
-      </div>
-    );
-  }
-
   return (
     <nav className="flex flex-col gap-4">
       {navSections.map((section) => {
@@ -241,6 +232,7 @@ function SidebarNav({
                 key={item.id}
                 item={item}
                 collapsed={collapsed}
+                pathname={pathname}
                 onNavigate={onNavigate}
               />
             ))}
@@ -255,19 +247,19 @@ function SidebarChrome({
   logo,
   logoCollapsed,
   navSections,
-  navLoading,
   footer,
   collapsed,
+  pathname,
   onToggleCollapsed,
   onNavigate,
   showCollapseToggle,
 }: {
   logo: ReactNode;
   logoCollapsed?: ReactNode;
-  navSections: AppShellNavSection[];
-  navLoading?: boolean;
+  navSections: NavSectionDTO[];
   footer: ReactNode | ((ctx: AppShellFooterContext) => ReactNode);
   collapsed: boolean;
+  pathname: string;
   onToggleCollapsed?: () => void;
   onNavigate?: () => void;
   showCollapseToggle?: boolean;
@@ -309,8 +301,8 @@ function SidebarChrome({
       <div className="flex-1 overflow-y-auto px-2 py-3 [&::-webkit-scrollbar]:w-[3px] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border">
         <SidebarNav
           navSections={navSections}
-          navLoading={navLoading}
           collapsed={collapsed}
+          pathname={pathname}
           onNavigate={onNavigate}
         />
       </div>
@@ -333,8 +325,8 @@ export function AppShell({
   logoCollapsed,
   navSections,
   footer,
-  navLoading,
 }: AppShellProps) {
+  const pathname = usePathname() ?? "";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [hydrated, setHydrated] = useState(false);
@@ -366,9 +358,9 @@ export function AppShell({
               logo={logo}
               logoCollapsed={logoCollapsed}
               navSections={navSections}
-              navLoading={navLoading}
               footer={footer}
               collapsed={hydrated ? collapsed : false}
+              pathname={pathname}
               onToggleCollapsed={toggleCollapsed}
               showCollapseToggle
             />
@@ -394,9 +386,9 @@ export function AppShell({
               <SidebarChrome
                 logo={logo}
                 navSections={navSections}
-                navLoading={navLoading}
                 footer={footer}
                 collapsed={false}
+                pathname={pathname}
                 onNavigate={() => setMobileOpen(false)}
               />
             </SheetContent>
