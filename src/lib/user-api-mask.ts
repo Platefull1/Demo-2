@@ -28,13 +28,13 @@ export function maskApiKey(key: string | null | undefined): string {
 }
 
 /** Converte um registro interno em resposta segura para o cliente. */
-export function toPublic<T extends { apiKey?: string | null; [k: string]: unknown }>(
+export function toPublic<T extends { apiKey?: string | null }>(
   api: T
 ): Omit<T, 'apiKey'> & { keyPreview: string; hasKey: boolean } {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { apiKey, ...rest } = api
+  const { apiKey, ...rest } = api as T & Record<string, unknown>
   return {
-    ...rest,
+    ...(rest as Omit<T, 'apiKey'>),
     keyPreview: maskApiKey(apiKey as string | null | undefined),
     hasKey: Boolean(apiKey),
   }
