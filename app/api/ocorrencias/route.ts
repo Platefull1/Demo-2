@@ -41,7 +41,7 @@ const bodySchema = z
   })
   .superRefine((data, ctx) => {
     const result = resolverCategorias(data.categorias, data.descricao);
-    if (!result.ok) {
+    if (result.ok === false) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: result.error,
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
   } = parsed.data;
 
   const cats = resolverCategorias(categoriasEnviadas, descricao);
-  if (!cats.ok) {
+  if (cats.ok === false) {
     return NextResponse.json({ error: cats.error }, { status: 400 });
   }
 
