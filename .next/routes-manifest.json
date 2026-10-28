@@ -358,6 +358,22 @@
       "namedRegex": "^/api/ifood/orders/(?<nxtPorderId>[^/]+?)/startPreparation(?:/)?$"
     },
     {
+      "page": "/api/ocorrencias/[id]",
+      "regex": "^/api/ocorrencias/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/ocorrencias/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/api/ocorrencias/[id]/foto",
+      "regex": "^/api/ocorrencias/([^/]+?)/foto(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/api/ocorrencias/(?<nxtPid>[^/]+?)/foto(?:/)?$"
+    },
+    {
       "page": "/api/pontos/fechamento/[id]/exportar",
       "regex": "^/api/pontos/fechamento/([^/]+?)/exportar(?:/)?$",
       "routeKeys": {
@@ -814,6 +830,14 @@
         "nxtPid": "nxtPid"
       },
       "namedRegex": "^/cmv\\-real/notas/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/cmv-real/transferencias/[id]",
+      "regex": "^/cmv\\-real/transferencias/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/cmv\\-real/transferencias/(?<nxtPid>[^/]+?)(?:/)?$"
     },
     {
       "page": "/estoque/contagem/[id]",
@@ -1454,6 +1478,30 @@
       "namedRegex": "^/api/nfe/resumo\\-diario(?:/)?$"
     },
     {
+      "page": "/api/ocorrencias",
+      "regex": "^/api/ocorrencias(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ocorrencias(?:/)?$"
+    },
+    {
+      "page": "/api/ocorrencias/isolation",
+      "regex": "^/api/ocorrencias/isolation(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ocorrencias/isolation(?:/)?$"
+    },
+    {
+      "page": "/api/ocorrencias/opcoes",
+      "regex": "^/api/ocorrencias/opcoes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ocorrencias/opcoes(?:/)?$"
+    },
+    {
+      "page": "/api/ocorrencias/set-mode",
+      "regex": "^/api/ocorrencias/set\\-mode(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/ocorrencias/set\\-mode(?:/)?$"
+    },
+    {
       "page": "/api/pontos",
       "regex": "^/api/pontos(?:/)?$",
       "routeKeys": {},
@@ -1886,6 +1934,12 @@
       "namedRegex": "^/api/whatsapp\\-sessions/relatorios/groups(?:/)?$"
     },
     {
+      "page": "/auth/continuar",
+      "regex": "^/auth/continuar(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/continuar(?:/)?$"
+    },
+    {
       "page": "/auth/login",
       "regex": "^/auth/login(?:/)?$",
       "routeKeys": {},
@@ -2130,6 +2184,18 @@
       "regex": "^/ifood/operacional(?:/)?$",
       "routeKeys": {},
       "namedRegex": "^/ifood/operacional(?:/)?$"
+    },
+    {
+      "page": "/ocorrencias",
+      "regex": "^/ocorrencias(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ocorrencias(?:/)?$"
+    },
+    {
+      "page": "/ocorrencias/nova",
+      "regex": "^/ocorrencias/nova(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/ocorrencias/nova(?:/)?$"
     },
     {
       "page": "/pontos",

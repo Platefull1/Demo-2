@@ -5,31 +5,30 @@
     "/api/bot/tarefas/[id]/evidencias": {
       "maxDuration": 60
     },
-    "/api/checklist/drafts": {
-      "maxDuration": 60
-    },
     "/api/checklist/upload-photo": {
       "maxDuration": 60
     },
+    "/api/checklist/drafts": {
+      "maxDuration": 60
+    },
     "/api/cron/cleanup-sales": {},
+    "/api/cron/complaints-tick": {},
     "/api/cron/complaints-ifood": {
       "maxDuration": 60
     },
-    "/api/cron/complaints-tick": {},
     "/api/cmv/foto": {
       "maxDuration": 60
     },
     "/api/cron/renovar-tarefas": {},
     "/api/cron/sync-saipos": {},
-    "/api/cron/ifood-catalog-sync": {},
     "/api/debug/check-sales": {},
-    "/api/dashboard/metrics": {},
-    "/api/debug/db-sales": {},
     "/api/debug/fix-null-userid": {},
+    "/api/debug/db-sales": {},
+    "/api/cron/ifood-catalog-sync": {},
     "/api/debug/fix-store-ownership": {},
-    "/api/debug/sales": {},
     "/api/debug/storeIds": {},
-    "/api/dashboard/sales": {},
+    "/api/dashboard/metrics": {},
+    "/api/debug/sales": {},
     "/api/reports/complaints/[runId]/document": {
       "maxDuration": 300
     },
@@ -39,11 +38,11 @@
     "/api/reports/complaints/resume": {
       "maxDuration": 60
     },
-    "/api/reports/complaints/run/tick": {
-      "maxDuration": 180
-    },
     "/api/reports/complaints/run": {
       "maxDuration": 60
+    },
+    "/api/reports/complaints/run/tick": {
+      "maxDuration": 180
     },
     "/api/reports/complaints/reclassify": {
       "maxDuration": 300
@@ -51,9 +50,10 @@
     "/api/rh/documentos/upload": {
       "maxDuration": 60
     },
+    "/api/dashboard/sales": {},
     "/api/saipos/aggregate": {},
-    "/api/saipos/full-resync": {},
     "/api/saipos/sync-all": {},
+    "/api/saipos/full-resync": {},
     "/api/saipos/sync": {},
     "/api/saipos/sync-manual": {
       "maxDuration": 60

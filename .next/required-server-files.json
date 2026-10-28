@@ -101,7 +101,7 @@
         "transform": "lodash/{{member}}"
       }
     },
-    "outputFileTracingRoot": "C:\\Users\\User",
+    "outputFileTracingRoot": "C:\\Users\\liarc",
     "cacheComponents": false,
     "cacheLife": {
       "default": {
@@ -159,7 +159,7 @@
       "proxyPrefetch": "flexible",
       "optimisticClientCache": true,
       "manualClientBasePath": false,
-      "cpus": 5,
+      "cpus": 11,
       "memoryBasedWorkersCount": false,
       "imgOptConcurrency": null,
       "imgOptTimeoutInSeconds": 7,
@@ -297,12 +297,12 @@
       "responseLimit": "50mb"
     },
     "turbopack": {
-      "root": "C:\\Users\\User"
+      "root": "C:\\Users\\liarc"
     },
     "distDirRoot": ".next"
   },
-  "appDir": "C:\\Users\\User\\drin-platform",
-  "relativeAppDir": "drin-platform",
+  "appDir": "C:\\Users\\liarc\\Demo-2",
+  "relativeAppDir": "Demo-2",
   "files": [
     ".next\\routes-manifest.json",
     ".next\\server\\pages-manifest.json",

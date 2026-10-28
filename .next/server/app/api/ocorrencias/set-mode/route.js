@@ -1,0 +1,11 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/ocorrencias/set-mode/route.js")
+R.c("server/chunks/[root-of-the-server]__29f42244._.js")
+R.c("server/chunks/6e6c4_next_9550159f._.js")
+R.c("server/chunks/Demo-2_src_lib_ocorrencias-isolation_ts_ef22470c._.js")
+R.c("server/chunks/6e6c4_next_8a0b8c70._.js")
+R.c("server/chunks/Demo-2_0d15e081._.js")
+R.c("server/chunks/[root-of-the-server]__ad20b4aa._.js")
+R.c("server/chunks/6e6c4_next_dist_caea266e._.js")
+R.c("server/chunks/Demo-2__next-internal_server_app_api_ocorrencias_set-mode_route_actions_69a17df1.js")
+R.m(47936)
+module.exports=R.m(47936).exports
