@@ -160,6 +160,7 @@ function HeadTip({ label }: { label: string }) {
 export default function CmvRealFechamentoPage() {
   const now = new Date();
   const [storeSlug, setStoreSlug] = useState('ahu');
+  const [storeReady, setStoreReady] = useState(false);
   const [competencia, setCompetencia] = useState(
     `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   );
@@ -167,8 +168,9 @@ export default function CmvRealFechamentoPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [linhas, setLinhas] = useState<Linha[]>([]);
   const [ajustes, setAjustes] = useState<Ajuste[]>([]);
-  const [pendencias, setPendencias] = useState<string[]>([]);
-  const [orfaosCatalogoCount, setOrfaosCatalogoCount] = useState(0);
+  const [pendencias, setPendencias] = useState<
+    Array<{ tipo?: string; mensagem: string; href?: string | null }>
+  >([]);
   const [status, setStatus] = useState('ABERTO');
   const [vendaMes, setVendaMes] = useState('');
   const [vendaMesOrigem, setVendaMesOrigem] = useState<string | null>(null);
@@ -198,6 +200,13 @@ export default function CmvRealFechamentoPage() {
     cmvEmbalagens?: ResumoSecao;
     cmvBebidas?: ResumoSecao;
     cmvTotal?: ResumoSecao;
+    semEstoqueFinal?: boolean;
+    ritmo?: {
+      materiaPrima: ResumoSecao;
+      embalagens: ResumoSecao;
+      bebidas: ResumoSecao;
+      total: ResumoSecao;
+    };
     refeicoesPorCategoria?: Array<{
       categoria: string;
       quantidade: number;
@@ -243,11 +252,12 @@ export default function CmvRealFechamentoPage() {
       if (!res.ok) throw new Error(data.error || 'Erro');
       setLinhas(data.linhas || []);
       setAjustes(data.fechamento?.ajustes || []);
-      setPendencias(data.pendencias || []);
-      setOrfaosCatalogoCount(
-        typeof data.orfaosCatalogoCount === 'number'
-          ? data.orfaosCatalogoCount
-          : 0,
+      setPendencias(
+        (data.pendencias || []).map((p: unknown) =>
+          typeof p === 'string'
+            ? { mensagem: p }
+            : (p as { mensagem: string; href?: string | null; tipo?: string }),
+        ),
       );
       setStatus(data.fechamento?.status || 'ABERTO');
       setVendaMes(
@@ -273,8 +283,32 @@ export default function CmvRealFechamentoPage() {
   }, [storeSlug, competencia]);
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/cmv-real/access', { cache: 'no-store' });
+        const d = await res.json();
+        if (
+          !cancelled &&
+          !d.isAdmin &&
+          Array.isArray(d.allowedStoreSlugs) &&
+          d.allowedStoreSlugs.length >= 1
+        ) {
+          setStoreSlug(d.allowedStoreSlugs[0]);
+        }
+      } finally {
+        if (!cancelled) setStoreReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!storeReady) return;
     void load();
-  }, [load]);
+  }, [load, storeReady]);
 
   const patch = async (body: Record<string, unknown>) => {
     const res = await fetch('/api/cmv-real/fechamento', {
@@ -518,29 +552,21 @@ export default function CmvRealFechamentoPage() {
               Pendências (não bloqueiam)
             </AlertTitle>
             <AlertDescription className="text-xs space-y-0.5 mt-1">
-              {pendencias.map((p, i) => {
-                const isOrfao =
-                  orfaosCatalogoCount > 0 &&
-                  p.includes('fora do catálogo');
-                return (
-                  <p key={i}>
-                    •{' '}
-                    {isOrfao ? (
-                      <>
-                        {p}{' '}
-                        <Link
-                          href="/cmv-real/produtos?orfaos=1"
-                          className="underline underline-offset-2 text-foreground hover:text-primary"
-                        >
-                          Incluir no catálogo
-                        </Link>
-                      </>
-                    ) : (
-                      p
-                    )}
-                  </p>
-                );
-              })}
+              {pendencias.map((p, i) => (
+                <p key={`${p.tipo || 'p'}-${i}`}>
+                  •{' '}
+                  {p.href ? (
+                    <Link
+                      href={p.href}
+                      className="underline underline-offset-2 text-foreground hover:text-primary"
+                    >
+                      {p.mensagem}
+                    </Link>
+                  ) : (
+                    p.mensagem
+                  )}
+                </p>
+              ))}
             </AlertDescription>
           </Alert>
         )}
@@ -550,6 +576,19 @@ export default function CmvRealFechamentoPage() {
             {msg}
           </p>
         ) : null}
+
+        {displayTotais?.semEstoqueFinal && (
+          <Alert variant="warning" className="py-3 px-4">
+            <AlertTitle className="text-sm text-warning">
+              CMV parcial — sem estoque final, não comparável
+            </AlertTitle>
+            <AlertDescription className="text-xs text-muted-foreground mt-1">
+              O valor dos cards inclui o estoque inicial como se tivesse sido
+              consumido. Use o ritmo (compras ÷ venda) ao lado de cada seção
+              para comparar com a planilha.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Resumo CMV por seção (espelha a planilha) */}
         {loading && !displayTotais ? (
@@ -586,10 +625,33 @@ export default function CmvRealFechamentoPage() {
               <div className="grid grid-cols-2 xl:grid-cols-4">
                 {(
                   [
+<<<<<<< Updated upstream
                     { label: 'CMV Matéria-prima', r: displayTotais.cmvMp,       secao: 'MATERIA_PRIMA' },
                     { label: 'CMV Embalagens',    r: displayTotais.cmvEmbalagens, secao: 'EMBALAGEM' },
                     { label: 'CMV Bebidas',       r: displayTotais.cmvBebidas,   secao: 'BEBIDA' },
                     { label: 'CMV Total',         r: displayTotais.cmvTotal,     secao: '' },
+=======
+                    {
+                      label: 'CMV Matéria-prima',
+                      r: displayTotais.cmvMp,
+                      ritmo: displayTotais.ritmo?.materiaPrima,
+                    },
+                    {
+                      label: 'CMV Embalagens',
+                      r: displayTotais.cmvEmbalagens,
+                      ritmo: displayTotais.ritmo?.embalagens,
+                    },
+                    {
+                      label: 'CMV Bebidas',
+                      r: displayTotais.cmvBebidas,
+                      ritmo: displayTotais.ritmo?.bebidas,
+                    },
+                    {
+                      label: 'CMV Total',
+                      r: displayTotais.cmvTotal,
+                      ritmo: displayTotais.ritmo?.total,
+                    },
+>>>>>>> Stashed changes
                   ] as const
                 ).map((k, i) => {
                   const semSaldoFim = k.secao !== '' && secoesSemSaldoFinal.includes(k.secao);
@@ -624,11 +686,33 @@ export default function CmvRealFechamentoPage() {
                         'Informe a venda'
                       )}
                     </p>
+<<<<<<< Updated upstream
                     {semSaldoFim && (
                       <p className="text-xs text-warning mt-1">
                         parcial: sem contagem final
                       </p>
                     )}
+=======
+                    {displayTotais.semEstoqueFinal && k.ritmo ? (
+                      <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                        Ritmo{' '}
+                        <AnimatedNumber
+                          value={k.ritmo.valor}
+                          format="currency"
+                        />
+                        {k.ritmo.pct != null ? (
+                          <>
+                            {' · '}
+                            <AnimatedNumber
+                              value={k.ritmo.pct}
+                              format="percent"
+                            />
+                            {' da venda'}
+                          </>
+                        ) : null}
+                      </p>
+                    ) : null}
+>>>>>>> Stashed changes
                   </div>
                   );
                 })}

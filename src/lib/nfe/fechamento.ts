@@ -9,8 +9,17 @@ import { prisma } from '@/lib/prisma';
 import { calcularCustoRefeicoes } from '@/lib/cmv-real/refeicoes';
 import { semanaFromDataEntrada } from './dates';
 import { preencherCustosPendentesFechamento } from './importar-saldo';
-import { competenciaAnterior } from './lojas';
+import { competenciaAnterior, storeLabel } from './lojas';
+import { notasListHref } from './notas-list-query';
+import { pendenciasDocumentoTransferencia } from './transferencia-concilicao';
+import { listarTransferencias } from './transferencia-documento';
 import { conciliarTransferencias, type AlertaTransferencia } from './transferencias';
+
+export type PendenciaFechamento = {
+  tipo: string;
+  mensagem: string;
+  href?: string | null;
+};
 
 export type AjusteFechamento = {
   id: string;
@@ -111,7 +120,8 @@ export async function montarFechamento(params: {
   fechamento: Awaited<ReturnType<typeof garantirFechamentoAberto>>;
   linhas: LinhaFechamento[];
   alertasTransferencia: AlertaTransferencia[];
-  pendencias: string[];
+  pendencias: PendenciaFechamento[];
+  transferencias: Awaited<ReturnType<typeof listarTransferencias>>;
   orfaosCatalogoCount: number;
   totais: {
     consumoValor: number;
@@ -129,6 +139,15 @@ export async function montarFechamento(params: {
     cmvEmbalagens: ResumoCmvSecao;
     cmvBebidas: ResumoCmvSecao;
     cmvTotal: ResumoCmvSecao;
+    /** true quando não há saldo da competência (CMV = inicial + compras) */
+    semEstoqueFinal: boolean;
+    /** compras ÷ venda — ritmo do período, sem estoque inicial */
+    ritmo: {
+      materiaPrima: ResumoCmvSecao;
+      embalagens: ResumoCmvSecao;
+      bebidas: ResumoCmvSecao;
+      total: ResumoCmvSecao;
+    };
     refeicoesPorCategoria: Array<{
       categoria: string;
       quantidade: number;
@@ -343,7 +362,7 @@ export async function montarFechamento(params: {
 
   const alertasTransferencia = await conciliarTransferencias(params);
 
-  const pendencias: string[] = [];
+  const pendencias: PendenciaFechamento[] = [];
   const notasRev = await prisma.nfeNota.count({
     where: {
       userId: params.tenantUserId,
@@ -352,14 +371,55 @@ export async function montarFechamento(params: {
       status: 'EM_REVISAO',
     },
   });
+  const [yStr, mStr] = params.competencia.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr); // 1–12; Date.UTC month é 0-based → m = mês seguinte
   if (notasRev > 0) {
-    pendencias.push(`${notasRev} nota(s) em revisão`);
+    pendencias.push({
+      tipo: 'NOTA_REVISAO',
+      mensagem: `${notasRev} nota(s) em revisão`,
+      href: notasListHref({
+        status: 'EM_REVISAO',
+        storeSlug: params.storeSlug,
+        mes: m,
+        ano: y,
+      }),
+    });
   }
   for (const a of alertasTransferencia) {
-    pendencias.push(a.mensagem);
+    pendencias.push({
+      tipo: 'TRANSFERENCIA_LANC',
+      mensagem: a.mensagem,
+      href: `/cmv-real/transferencias?competencia=${params.competencia}&storeSlug=${params.storeSlug}`,
+    });
   }
+
+  const docsTransf = await listarTransferencias({
+    userId: params.tenantUserId,
+    storeSlugs: [params.storeSlug],
+    competencia: params.competencia,
+  });
+  for (const d of docsTransf) {
+    const msgs = pendenciasDocumentoTransferencia({
+      numeroDocumento: d.numeroDocumento,
+      status: d.status,
+      lojaOrigemLabel: storeLabel(d.lojaOrigem),
+      lojaDestinoLabel: storeLabel(d.lojaDestino),
+      lados: d.lados.map((l) => ({ tipo: l.tipo, rascunho: l.rascunho })),
+    });
+    for (const p of msgs) {
+      pendencias.push({
+        ...p,
+        href: `/cmv-real/transferencias/${d.id}`,
+      });
+    }
+  }
+
   if (!fimMap.size) {
-    pendencias.push('Estoque final ainda não informado (contagem ou importação)');
+    pendencias.push({
+      tipo: 'ESTOQUE_FINAL',
+      mensagem: 'Estoque final ainda não informado (contagem ou importação)',
+    });
   }
   const custosPendentes = linhas.filter(
     (l) =>
@@ -367,9 +427,10 @@ export async function montarFechamento(params: {
       (l.estoqueFinal > 0 && l.custoOrigemFinal === 'PENDENTE'),
   );
   if (custosPendentes.length > 0) {
-    pendencias.push(
-      `${custosPendentes.length} produto(s) com custo pendente (inicial ou final)`,
-    );
+    pendencias.push({
+      tipo: 'CUSTO',
+      mensagem: `${custosPendentes.length} produto(s) com custo pendente (inicial ou final)`,
+    });
   }
 
   const { listarOrfaosCmvCatalogo } = await import('./cmv-catalogo');
@@ -385,9 +446,11 @@ export async function montarFechamento(params: {
     return saldoLoja > 0 || comprasLoja > 0;
   });
   if (orfaosCatalogo.length > 0) {
-    pendencias.push(
-      `${orfaosCatalogo.length} produto(s) com saldo ou compras fora do catálogo`,
-    );
+    pendencias.push({
+      tipo: 'ORFAO',
+      mensagem: `${orfaosCatalogo.length} produto(s) com saldo ou compras fora do catálogo`,
+      href: '/cmv-real/produtos?orfaos=1',
+    });
   }
 
   // Detecta seções com movimento mas sem saldo final registrado (por seção, não global)
@@ -409,22 +472,23 @@ export async function montarFechamento(params: {
   const ajustesValor = ajustes.reduce((a, x) => a + x.valor, 0);
 
   // Aviso: API de Dados ~24h de atraso; sync definitivo a partir do dia 2 do mês seguinte
-  const [yStr, mStr] = params.competencia.split('-');
-  const y = Number(yStr);
-  const m = Number(mStr); // 1–12; Date.UTC month é 0-based → m = mês seguinte
   // competencia 2026-10 → Date.UTC(2026, 10, 2) = 02/11/2026
   const syncDefinitivoApartir = new Date(Date.UTC(y, m, 2));
   const hoje = new Date();
   if (fechamento.status !== 'FECHADO') {
-    pendencias.push('Dados da Saipos até ontem (API de Dados ~24h de atraso)');
+    pendencias.push({
+      tipo: 'SAIPOS',
+      mensagem: 'Dados da Saipos até ontem (API de Dados ~24h de atraso)',
+    });
   }
   if (hoje < syncDefinitivoApartir) {
     const label = syncDefinitivoApartir.toLocaleDateString('pt-BR', {
       timeZone: 'UTC',
     });
-    pendencias.push(
-      `Sync definitivo das refeições: rode a partir de ${label} (dia 2 do mês seguinte)`
-    );
+    pendencias.push({
+      tipo: 'REFEICOES_SYNC',
+      mensagem: `Sync definitivo das refeições: rode a partir de ${label} (dia 2 do mês seguinte)`,
+    });
   }
 
   const refeicaoRows = await prisma.cmvRefeicao.findMany({
@@ -484,12 +548,27 @@ export async function montarFechamento(params: {
   const cmvTotalValor =
     Math.round((cmvMpValor + cmvEmbalagensValor + cmvBebidasValor) * 100) / 100;
 
+  const comprasMp = linhas
+    .filter((l) => l.secao === 'MATERIA_PRIMA')
+    .reduce((a, l) => a + l.comprasValor, 0);
+  const comprasEmb = linhas
+    .filter((l) => l.secao === 'EMBALAGEM')
+    .reduce((a, l) => a + l.comprasValor, 0);
+  const comprasBeb = linhas
+    .filter((l) => l.secao === 'BEBIDA')
+    .reduce((a, l) => a + l.comprasValor, 0);
+  const comprasTotal = comprasMp + comprasEmb + comprasBeb;
+
   return {
     fechamento,
     linhas,
     alertasTransferencia,
     pendencias,
+<<<<<<< Updated upstream
     secoesSemSaldoFinal,
+=======
+    transferencias: docsTransf,
+>>>>>>> Stashed changes
     orfaosCatalogoCount: orfaosCatalogo.length,
     refeicoes: refeicaoRows.map((r) => ({
       id: r.id,
@@ -518,6 +597,13 @@ export async function montarFechamento(params: {
       cmvEmbalagens: { valor: cmvEmbalagensValor, pct: pctOf(cmvEmbalagensValor) },
       cmvBebidas: { valor: cmvBebidasValor, pct: pctOf(cmvBebidasValor) },
       cmvTotal: { valor: cmvTotalValor, pct: pctOf(cmvTotalValor) },
+      semEstoqueFinal: !fimMap.size,
+      ritmo: {
+        materiaPrima: { valor: comprasMp, pct: pctOf(comprasMp) },
+        embalagens: { valor: comprasEmb, pct: pctOf(comprasEmb) },
+        bebidas: { valor: comprasBeb, pct: pctOf(comprasBeb) },
+        total: { valor: comprasTotal, pct: pctOf(comprasTotal) },
+      },
       refeicoesPorCategoria: calcRef.porCategoria,
     },
   };

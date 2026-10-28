@@ -386,7 +386,8 @@ export interface SugerirFatorOpts {
 }
 
 /**
- * Sugere fator. Unidade comercial é IGNORADA quando o padrão qtd↔sufixo confirma.
+ * Sugere fator. "CAIXA N BISNAGAS" respeita a uCom (CX → N×P, UN/BIS → P).
+ * Nos demais casos, a unidade comercial é ignorada quando qtd↔sufixo confirma.
  */
 export function sugerirFatorDaDescricao(
   descricao: string,
@@ -397,6 +398,31 @@ export function sugerirFatorDaDescricao(
   const { corpo, sufixo } = separarSufixoFornecedor(descricao);
   const qtdInfo =
     qtd != null && Number.isFinite(qtd) ? ` | qtd nota: ${qtd}` : '';
+
+  // ── CAIXA N BISNAGAS: uCom decide N×P (caixa) vs P (uma interna) ────────
+  {
+    const caixa = extrairCaixaComInternas(corpo);
+    const pPack = extrairPackNP(corpo, opts?.kgPorUnidade).p;
+    const p =
+      opts?.kgPorUnidade != null && opts.kgPorUnidade > 0
+        ? opts.kgPorUnidade
+        : pPack;
+    const isCx = und === 'CX' || und === 'CAIXA' || und === 'FD';
+    const isUn = und === 'UN' || und === 'BIS' || und === 'UND';
+    if (caixa && p != null && p > 0 && (isCx || isUn)) {
+      const fator = isCx ? round4(caixa.n * p) : p;
+      return anexarSanidade(
+        {
+          fator,
+          origem: 'DESCRICAO',
+          detalhe: isCx
+            ? `uCom ${und} + ${caixa.raw} → N×P=${caixa.n}×${p}=${fator} KG${qtdInfo}`
+            : `uCom ${und} + ${caixa.raw} → P=${p} KG (uma interna)${qtdInfo}`,
+        },
+        opts,
+      );
+    }
+  }
 
   // ── Bebidas: multipack ───────────────────────────────────────────────────
   if (opts?.secao === 'BEBIDA') {

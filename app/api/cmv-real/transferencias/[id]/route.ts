@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 import {
+<<<<<<< Updated upstream
   atualizarTransferencia,
+=======
+  competenciaEstaFechada,
+>>>>>>> Stashed changes
   excluirTransferencia,
   obterTransferencia,
 } from '@/lib/nfe/transferencia-documento';
@@ -18,7 +22,19 @@ export async function GET(
   const { id } = await params;
   const doc = await obterTransferencia({ userId: tenant.tenantUserId, id });
   if (!doc) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
-  return NextResponse.json({ ok: true, transferencia: doc });
+  const [origemFechada, destinoFechada] = await Promise.all([
+    competenciaEstaFechada(tenant.tenantUserId, doc.lojaOrigem, doc.competencia),
+    competenciaEstaFechada(tenant.tenantUserId, doc.lojaDestino, doc.competencia),
+  ]);
+  return NextResponse.json({
+    ok: true,
+    transferencia: doc,
+    competenciaFechada: origemFechada || destinoFechada,
+    lojasFechadas: [
+      ...(origemFechada ? [doc.lojaOrigem] : []),
+      ...(destinoFechada ? [doc.lojaDestino] : []),
+    ],
+  });
 }
 
 export async function PATCH(

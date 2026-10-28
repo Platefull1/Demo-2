@@ -220,6 +220,72 @@ export function montarEspelhoSaida(itensEntrada: ItemLado[]): ItemLado[] {
   }));
 }
 
+export type ItemLadoDetalhe = ItemLado & {
+  custoUnitario?: number | null;
+  valorTotal?: number | null;
+};
+
+export type LinhaEspelho = {
+  estoqueInsumoId: string;
+  qtdSaida: number;
+  qtdEntrada: number;
+  custoSaida: number | null;
+  custoEntrada: number | null;
+  valorSaida: number | null;
+  valorEntrada: number | null;
+  divergente: boolean;
+};
+
+function somarDetalhe(itens: ItemLadoDetalhe[]) {
+  const m = new Map<
+    string,
+    { qtd: number; valor: number | null; custo: number | null }
+  >();
+  for (const it of itens) {
+    if (!it.estoqueInsumoId) continue;
+    const prev = m.get(it.estoqueInsumoId);
+    const qtd = (prev?.qtd ?? 0) + Number(it.quantidade);
+    const valorItem = it.valorTotal ?? null;
+    const valor =
+      prev?.valor == null && valorItem == null
+        ? null
+        : (prev?.valor ?? 0) + (valorItem ?? 0);
+    const custo =
+      it.custoUnitario != null
+        ? it.custoUnitario
+        : prev?.custo ?? null;
+    m.set(it.estoqueInsumoId, { qtd, valor, custo });
+  }
+  return m;
+}
+
+/** União origem × destino para a tela lado a lado. */
+export function linhasEspelho(
+  saida: ItemLadoDetalhe[],
+  entrada: ItemLadoDetalhe[],
+  toleranciaQtd = EPS,
+): LinhaEspelho[] {
+  const a = somarDetalhe(saida);
+  const b = somarDetalhe(entrada);
+  const ids = [...new Set([...a.keys(), ...b.keys()])].sort();
+  return ids.map((id) => {
+    const s = a.get(id);
+    const e = b.get(id);
+    const qtdSaida = s?.qtd ?? 0;
+    const qtdEntrada = e?.qtd ?? 0;
+    return {
+      estoqueInsumoId: id,
+      qtdSaida,
+      qtdEntrada,
+      custoSaida: s?.custo ?? null,
+      custoEntrada: e?.custo ?? null,
+      valorSaida: s?.valor ?? null,
+      valorEntrada: e?.valor ?? null,
+      divergente: Math.abs(qtdSaida - qtdEntrada) > toleranciaQtd,
+    };
+  });
+}
+
 /**
  * Status do documento.
  * Saída espelho (rascunho) não conta como confirmada.
@@ -257,4 +323,71 @@ export function ladoGeraLancamento(lado: {
   congelado?: boolean;
 }): boolean {
   return !lado.rascunho;
+}
+
+export type PendenciaTransferenciaDoc = {
+  tipo:
+    | 'TRANSFERENCIA_ESPELHO'
+    | 'TRANSFERENCIA_AGUARDANDO'
+    | 'TRANSFERENCIA_DIVERGENTE';
+  mensagem: string;
+};
+
+/**
+ * Regras da etapa (e) para o Fechamento:
+ * - CONCILIADA (ambos confirmados) → sem pendência
+ * - lado rascunho (espelho) → não entra no CMV
+ * - AGUARDANDO_* sem rascunho → não conciliada
+ * - DIVERGENTE → quantidades diferentes
+ */
+export function pendenciasDocumentoTransferencia(doc: {
+  numeroDocumento: string;
+  status: string;
+  lojaOrigemLabel: string;
+  lojaDestinoLabel: string;
+  lados: Array<{ tipo: string; rascunho: boolean }>;
+}): PendenciaTransferenciaDoc[] {
+  const rota = `${doc.lojaOrigemLabel} → ${doc.lojaDestinoLabel}`;
+  const saida = doc.lados.find((l) => l.tipo === 'SAIDA');
+  const entrada = doc.lados.find((l) => l.tipo === 'ENTRADA');
+  const out: PendenciaTransferenciaDoc[] = [];
+
+  if (saida?.rascunho) {
+    out.push({
+      tipo: 'TRANSFERENCIA_ESPELHO',
+      mensagem: `Transferência ${doc.numeroDocumento} (${rota}): saída ainda é espelho — não entra no CMV`,
+    });
+  }
+  if (entrada?.rascunho) {
+    out.push({
+      tipo: 'TRANSFERENCIA_ESPELHO',
+      mensagem: `Transferência ${doc.numeroDocumento} (${rota}): entrada ainda é espelho — não entra no CMV`,
+    });
+  }
+
+  if (doc.status === 'DIVERGENTE') {
+    out.push({
+      tipo: 'TRANSFERENCIA_DIVERGENTE',
+      mensagem: `Transferência ${doc.numeroDocumento} (${rota}) divergente`,
+    });
+    return out;
+  }
+
+  if (doc.status === 'CONCILIADA') return out;
+
+  const saidaPendente = !saida || saida.rascunho;
+  const entradaPendente = !entrada || entrada.rascunho;
+  if (saidaPendente && !saida?.rascunho) {
+    out.push({
+      tipo: 'TRANSFERENCIA_AGUARDANDO',
+      mensagem: `Transferência ${doc.numeroDocumento} (${rota}) aguardando saída`,
+    });
+  }
+  if (entradaPendente && !entrada?.rascunho) {
+    out.push({
+      tipo: 'TRANSFERENCIA_AGUARDANDO',
+      mensagem: `Transferência ${doc.numeroDocumento} (${rota}) aguardando entrada`,
+    });
+  }
+  return out;
 }

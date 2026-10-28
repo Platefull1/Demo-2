@@ -139,21 +139,17 @@ export default function AppGroupLayout({ children }: { children: React.ReactNode
         locked: !permissions[SystemTool.CHECKLIST],
         active: Boolean(pathname?.startsWith('/checklist')),
       }),
+      item({
+        id: 'ocorrencias',
+        label: 'Central de Ocorrências',
+        href: '/ocorrencias',
+        icon: AlertTriangle,
+        locked: !permissions[SystemTool.VER_OCORRENCIAS],
+        active:
+          pathname === '/ocorrencias' ||
+          Boolean(pathname?.startsWith('/ocorrencias/')),
+      }),
     ];
-
-    if (permissions[SystemTool.VER_OCORRENCIAS]) {
-      operacao.push(
-        item({
-          id: 'ocorrencias',
-          label: 'Central de Ocorrências',
-          href: '/ocorrencias',
-          icon: AlertTriangle,
-          active:
-            pathname === '/ocorrencias' ||
-            Boolean(pathname?.startsWith('/ocorrencias/')),
-        }),
-      );
-    }
 
     const financeiro: AppShellNavItem[] = [
       item({

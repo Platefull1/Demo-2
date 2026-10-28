@@ -51,6 +51,7 @@ export type TransferenciaResumo = {
     itens: Array<{
       id: string;
       estoqueInsumoId: string;
+      nome: string;
       quantidade: number;
       unidade: string;
       custoUnitario: number | null;
@@ -60,7 +61,11 @@ export type TransferenciaResumo = {
   }>;
 };
 
-async function mesFechado(userId: string, storeSlug: string, competencia: string) {
+export async function competenciaEstaFechada(
+  userId: string,
+  storeSlug: string,
+  competencia: string,
+) {
   const f = await prisma.cmvFechamento.findUnique({
     where: {
       userId_storeSlug_competencia: { userId, storeSlug, competencia },
@@ -197,6 +202,7 @@ function serializar(
       itens: l.itens.map((it) => ({
         id: it.id,
         estoqueInsumoId: it.estoqueInsumoId,
+        nome: '',
         quantidade: n(it.quantidade),
         unidade: it.unidade,
         custoUnitario: it.custoUnitario != null ? n(it.custoUnitario) : null,
@@ -311,6 +317,7 @@ export async function listarTransferencias(params: {
     orderBy: { data: 'desc' },
     take: 200,
   });
+<<<<<<< Updated upstream
 
   // Busca nomes em batch para evitar N+1
   const userIds = [...new Set(docs.map((d) => d.criadoPorId).filter((id): id is string => id != null))];
@@ -323,6 +330,51 @@ export async function listarTransferencias(params: {
   const userNomeById = new Map(users.map((u) => [u.id, u.fullName || u.name || u.id]));
 
   return docs.map((doc) => serializar(doc, userNomeById));
+=======
+  return preencherNomesLista(docs.map(serializar));
+}
+
+function aplicarNomes(
+  resumo: TransferenciaResumo,
+  nomes: Map<string, string>,
+): TransferenciaResumo {
+  return {
+    ...resumo,
+    lados: resumo.lados.map((l) => ({
+      ...l,
+      itens: l.itens.map((it) => ({
+        ...it,
+        nome: nomes.get(it.estoqueInsumoId) || it.nome || it.estoqueInsumoId,
+      })),
+    })),
+  };
+}
+
+async function nomesDeItens(docs: TransferenciaResumo[]) {
+  const ids = [
+    ...new Set(
+      docs.flatMap((d) =>
+        d.lados.flatMap((l) => l.itens.map((i) => i.estoqueInsumoId)),
+      ),
+    ),
+  ];
+  if (ids.length === 0) return new Map<string, string>();
+  const insumos = await prisma.estoqueInsumo.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, nome: true },
+  });
+  return new Map(insumos.map((i) => [i.id, i.nome]));
+}
+
+async function preencherNomesLista(docs: TransferenciaResumo[]) {
+  const nomes = await nomesDeItens(docs);
+  return docs.map((d) => aplicarNomes(d, nomes));
+}
+
+async function preencherNomes(resumo: TransferenciaResumo): Promise<TransferenciaResumo> {
+  const nomes = await nomesDeItens([resumo]);
+  return aplicarNomes(resumo, nomes);
+>>>>>>> Stashed changes
 }
 
 export async function obterTransferencia(params: {
@@ -333,7 +385,7 @@ export async function obterTransferencia(params: {
     where: { id: params.id, userId: params.userId, excluidoEm: null },
     include: includeDoc,
   });
-  return doc ? serializar(doc) : null;
+  return doc ? preencherNomes(serializar(doc)) : null;
 }
 
 export async function registrarLadoManual(params: {
@@ -362,7 +414,7 @@ export async function registrarLadoManual(params: {
 
   const competencia = competenciaFromDataEntrada(params.data);
   const storeDoLado = params.tipoLado === 'SAIDA' ? params.lojaOrigem : params.lojaDestino;
-  if (await mesFechado(params.userId, storeDoLado, competencia)) {
+  if (await competenciaEstaFechada(params.userId, storeDoLado, competencia)) {
     throw new Error('Competência fechada — reabra para lançar');
   }
 
@@ -534,7 +586,7 @@ export async function excluirTransferencia(params: {
     throw new Error('Documento conciliado — não é possível excluir');
   }
   for (const lado of doc.lados) {
-    if (await mesFechado(params.userId, lado.storeSlug, doc.competencia)) {
+    if (await competenciaEstaFechada(params.userId, lado.storeSlug, doc.competencia)) {
       throw new Error('Competência fechada — não é possível excluir');
     }
   }

@@ -9,7 +9,9 @@ import {
   diffItens,
   ehCfopTransferencia,
   emitenteEhLojaCalenzano,
+  linhasEspelho,
   montarEspelhoSaida,
+  pendenciasDocumentoTransferencia,
   resolverCustoUnitario,
   statusDocumento,
   ladoGeraLancamento,
@@ -154,5 +156,78 @@ describe('statusDocumento / diff', () => {
   it('espelho rascunho não lança CMV', () => {
     assert.equal(ladoGeraLancamento({ rascunho: true }), false);
     assert.equal(ladoGeraLancamento({ rascunho: false }), true);
+  });
+
+  it('linhasEspelho une os dois lados e marca divergência', () => {
+    const linhas = linhasEspelho(
+      [{ estoqueInsumoId: 'a', quantidade: 2, valorTotal: 20, custoUnitario: 10 }],
+      [{ estoqueInsumoId: 'a', quantidade: 1, valorTotal: 10, custoUnitario: 10 },
+       { estoqueInsumoId: 'b', quantidade: 3, valorTotal: 9, custoUnitario: 3 }],
+    );
+    assert.equal(linhas.length, 2);
+    assert.equal(linhas[0].estoqueInsumoId, 'a');
+    assert.equal(linhas[0].divergente, true);
+    assert.equal(linhas[0].qtdSaida, 2);
+    assert.equal(linhas[0].qtdEntrada, 1);
+    assert.equal(linhas[1].estoqueInsumoId, 'b');
+    assert.equal(linhas[1].qtdSaida, 0);
+    assert.equal(linhas[1].divergente, true);
+  });
+
+  it('CONCILIADA sem rascunho não gera pendência', () => {
+    const p = pendenciasDocumentoTransferencia({
+      numeroDocumento: '12',
+      status: 'CONCILIADA',
+      lojaOrigemLabel: 'Portão',
+      lojaDestinoLabel: 'Uberaba',
+      lados: [
+        { tipo: 'SAIDA', rascunho: false },
+        { tipo: 'ENTRADA', rascunho: false },
+      ],
+    });
+    assert.equal(p.length, 0);
+  });
+
+  it('espelho rascunho + aguardando o outro lado', () => {
+    const p = pendenciasDocumentoTransferencia({
+      numeroDocumento: '12',
+      status: 'AGUARDANDO_SAIDA',
+      lojaOrigemLabel: 'Portão',
+      lojaDestinoLabel: 'Uberaba',
+      lados: [
+        { tipo: 'SAIDA', rascunho: true },
+        { tipo: 'ENTRADA', rascunho: false },
+      ],
+    });
+    assert.equal(p.length, 1);
+    assert.equal(p[0].tipo, 'TRANSFERENCIA_ESPELHO');
+  });
+
+  it('aguardando entrada (lado ausente)', () => {
+    const p = pendenciasDocumentoTransferencia({
+      numeroDocumento: '12',
+      status: 'AGUARDANDO_ENTRADA',
+      lojaOrigemLabel: 'Portão',
+      lojaDestinoLabel: 'Uberaba',
+      lados: [{ tipo: 'SAIDA', rascunho: false }],
+    });
+    assert.deepEqual(
+      p.map((x) => x.tipo),
+      ['TRANSFERENCIA_AGUARDANDO'],
+    );
+  });
+
+  it('divergente', () => {
+    const p = pendenciasDocumentoTransferencia({
+      numeroDocumento: '12',
+      status: 'DIVERGENTE',
+      lojaOrigemLabel: 'Portão',
+      lojaDestinoLabel: 'Uberaba',
+      lados: [
+        { tipo: 'SAIDA', rascunho: false },
+        { tipo: 'ENTRADA', rascunho: false },
+      ],
+    });
+    assert.equal(p[0].tipo, 'TRANSFERENCIA_DIVERGENTE');
   });
 });

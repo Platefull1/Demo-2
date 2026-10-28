@@ -5,10 +5,12 @@ import { requireCmvRealAccess, resolveCmvRealStoreFilter } from '@/lib/nfe/tenan
 import { P } from '@/lib/rh-permissions';
 import {
   buscarCustoTransferencia,
+  competenciaEstaFechada,
   listarTransferencias,
   registrarTransferenciaCompleta,
 } from '@/lib/nfe/transferencia-documento';
 import { competenciaFromDataEntrada } from '@/lib/nfe/dates';
+import { CMV_STORE_SLUGS } from '@/lib/nfe/lojas';
 
 export async function GET(req: NextRequest) {
   const { tenant, error } = await requireCmvRealAccess(P.CMV_REAL_VISUALIZAR);
@@ -48,10 +50,27 @@ export async function GET(req: NextRequest) {
     status: sp.get('status'),
   });
 
+  const slugsFechamento =
+    storeFilter && storeFilter.length > 0
+      ? storeFilter
+      : [...CMV_STORE_SLUGS];
+  const competencia = sp.get('competencia') || competenciaFromDataEntrada(new Date());
+  const lojasFechadas: string[] = [];
+  for (const s of slugsFechamento) {
+    if (await competenciaEstaFechada(tenant.tenantUserId, s, competencia)) {
+      lojasFechadas.push(s);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     allowedStoreSlugs: tenant.allowedStoreSlugs,
     lojaTravada: !tenant.isAdmin && tenant.allowedStoreSlugs != null,
+    lojasFechadas,
+    competenciaFechada:
+      storeOverride
+        ? lojasFechadas.includes(storeOverride)
+        : lojasFechadas.length === slugsFechamento.length,
     transferencias,
   });
 }

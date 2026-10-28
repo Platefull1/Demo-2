@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/layout/DataTable';
@@ -89,16 +90,24 @@ function docParaEditar(d: Doc): TransferenciaParaEditar {
 
 export default function CmvRealTransferenciasPage() {
   const now = new Date();
+  const qs = useSearchParams();
   const [competencia, setCompetencia] = useState(
-    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+    qs.get('competencia') ||
+      `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
   );
-  const [storeSlug, setStoreSlug] = useState('');
+  const [storeSlug, setStoreSlug] = useState(qs.get('storeSlug') || '');
   const [docs, setDocs] = useState<Doc[]>([]);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [allowed, setAllowed] = useState<string[] | null>(null);
   const [lojaTravada, setLojaTravada] = useState(false);
+<<<<<<< Updated upstream
+=======
+  const [formOpen, setFormOpen] = useState(false);
+  const [competenciaFechada, setCompetenciaFechada] = useState(false);
+  const [lojasFechadas, setLojasFechadas] = useState<string[]>([]);
+>>>>>>> Stashed changes
 
   const [formOpen, setFormOpen] = useState(false);
   const [edicao, setEdicao] = useState<TransferenciaParaEditar | undefined>(undefined);
@@ -107,6 +116,10 @@ export default function CmvRealTransferenciasPage() {
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
   const lojasOpts = allowed && allowed.length > 0 ? allowed : STORES;
+
+  const novaBloqueada = storeSlug
+    ? lojasFechadas.includes(storeSlug)
+    : competenciaFechada;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -122,6 +135,8 @@ export default function CmvRealTransferenciasPage() {
       setDocs(dt.transferencias || []);
       setAllowed(dt.allowedStoreSlugs);
       setLojaTravada(dt.lojaTravada === true);
+      setCompetenciaFechada(dt.competenciaFechada === true);
+      setLojasFechadas(Array.isArray(dt.lojasFechadas) ? dt.lojasFechadas : []);
       if (
         dt.lojaTravada &&
         Array.isArray(dt.allowedStoreSlugs) &&
@@ -326,15 +341,26 @@ export default function CmvRealTransferenciasPage() {
           type="button"
           size="sm"
           className="shrink-0"
+<<<<<<< Updated upstream
           onClick={() => {
             setEdicao(undefined);
             setFormOpen(true);
           }}
+=======
+          disabled={novaBloqueada}
+          onClick={() => setFormOpen(true)}
+>>>>>>> Stashed changes
         >
           <Plus className="size-4" />
           Nova transferência
         </Button>
       </div>
+
+      {novaBloqueada ? (
+        <p className="text-sm text-muted-foreground">
+          Competência fechada — reabra o mês para lançar ou excluir transferência.
+        </p>
+      ) : null}
 
       {msg ? (
         <p className="text-sm text-warning" role="alert">
@@ -347,6 +373,7 @@ export default function CmvRealTransferenciasPage() {
         data={docs}
         loading={loading}
         pageSize={30}
+        getRowHref={(d) => `/cmv-real/transferencias/${d.id}`}
         emptyState={
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
@@ -359,10 +386,15 @@ export default function CmvRealTransferenciasPage() {
             <Button
               type="button"
               size="sm"
+<<<<<<< Updated upstream
               onClick={() => {
                 setEdicao(undefined);
                 setFormOpen(true);
               }}
+=======
+              disabled={novaBloqueada}
+              onClick={() => setFormOpen(true)}
+>>>>>>> Stashed changes
             >
               <Plus className="size-4" />
               Nova transferência

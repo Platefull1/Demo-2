@@ -59,6 +59,7 @@ export async function GET(req: NextRequest) {
       cmvEmbalagens: data.totais.cmvEmbalagens,
       cmvBebidas: data.totais.cmvBebidas,
       cmvTotal: data.totais.cmvTotal,
+      transferencias: data.transferencias,
     });
     const filename = `cmv-${storeSlug}-${competencia}.xlsx`;
     return new NextResponse(new Uint8Array(buf), {

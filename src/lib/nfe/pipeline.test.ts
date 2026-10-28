@@ -237,6 +237,30 @@ describe('fator sugerido da descrição', () => {
     assert.equal(s?.ambiguo, false);
   });
 
+  it('CAIXA 10 BISNAGAS + CX + P=1,01 → 10,1', () => {
+    const s = sugerirFatorDaDescricao(
+      'COBERTURA FORNEAVEL SABOR CHOC. AO LEITE CAIXA 10 BISNAGAS',
+      { unidadeComercial: 'CX', kgPorUnidade: 1.01 },
+    );
+    assert.equal(s?.fator, 10.1);
+  });
+
+  it('CAIXA 10 BISNAGAS + UN + P=1,01 → 1,01', () => {
+    const s = sugerirFatorDaDescricao(
+      'COBERTURA FORNEAVEL SABOR CHOC. AO LEITE CAIXA 10 BISNAGAS',
+      { unidadeComercial: 'UN', kgPorUnidade: 1.01 },
+    );
+    assert.equal(s?.fator, 1.01);
+  });
+
+  it('CAIXA 10 BISNAGAS + BIS + P=1,01 → 1,01', () => {
+    const s = sugerirFatorDaDescricao(
+      'COBERTURA FORNEAVEL SABOR CHOC. AO LEITE CAIXA 10 BISNAGAS',
+      { unidadeComercial: 'BIS', kgPorUnidade: 1.01 },
+    );
+    assert.equal(s?.fator, 1.01);
+  });
+
   it('OLEO 20X900ML - 1 CX COM 20 | qtd 20 → P=0,9', () => {
     const s = sugerirFatorDaDescricao(
       'OLEO DE SOJA COCAMAR PET CX 20X900ML - 1 CX COM 20',
@@ -424,7 +448,7 @@ describe('pipeline decisões', () => {
         mapeamentos: [
           {
             id: 'm-ean',
-            chave: chaveMapeamentoEan(ean),
+            chave: chaveMapeamentoEan(ean, 'KG'),
             estoqueInsumoId: 'ins-1',
             fatorConversao: 1,
             ignorar: false,
@@ -436,6 +460,47 @@ describe('pipeline decisões', () => {
     assert.equal(out.itens[0].status, 'MAPEADO');
     assert.equal(out.status, 'APROVADA');
     assert.equal(out.gerarLancamentos, true);
+  });
+
+  it('EAN+uCom: CX e UN não compartilham fator', () => {
+    const ean = '0742832375306';
+    const out = processarNota(
+      baseInput({
+        itens: [
+          {
+            saiposItemId: 1,
+            descricao: 'COBERTURA FORNEAVEL SABOR CHOC. AO LEITE CAIXA 10 BISNAGAS',
+            unidadeComercial: 'CX',
+            quantidade: 6,
+            valorBruto: 1219.2,
+            netItemValue: 1219.2,
+            ean,
+          },
+        ],
+        mapeamentos: [
+          {
+            id: 'm-cx',
+            chave: chaveMapeamentoEan(ean, 'CX'),
+            estoqueInsumoId: 'ins-1',
+            fatorConversao: 10.1,
+            ignorar: false,
+            unidadeComercial: 'CX',
+          },
+          {
+            id: 'm-un',
+            chave: chaveMapeamentoEan(ean, 'UN'),
+            estoqueInsumoId: 'ins-1',
+            fatorConversao: 1.01,
+            ignorar: false,
+            unidadeComercial: 'UN',
+          },
+        ],
+        config: defaultPipelineConfig({ autoAprovar: true }),
+      }),
+    );
+    assert.equal(out.itens[0].status, 'MAPEADO');
+    assert.equal(out.itens[0].fatorConversao, 10.1);
+    assert.equal(out.itens[0].quantidadeConvertida, 60.6);
   });
 
   it('mapeamento por descrição', () => {

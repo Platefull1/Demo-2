@@ -25,10 +25,8 @@ async function main() {
   // 1. Gerar Prisma Client
   runCommand('npm run db:generate', 'Gerando Prisma Client');
 
-  // 2. Para build do Vercel, NÃO fazemos db:push pois pode dropar dados
-  // O Prisma Client já foi gerado acima, que é tudo que precisamos para o build
-  console.log('\n✅ Prisma Client gerado. Pulando db:push (banco já deve estar configurado).');
-  console.log('💡 Se as tabelas não existirem, execute manualmente: npm run db:push:force');
+  // 2. Generate basta para o build. Schema sobe por migrate deploy, nunca por db push.
+  console.log('\n✅ Prisma Client gerado. Pulando qualquer alteração de schema.');
 
   // 3. Build do Next.js
   runCommand('npm run build', 'Fazendo build do Next.js');

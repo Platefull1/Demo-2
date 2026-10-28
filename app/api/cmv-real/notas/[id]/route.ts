@@ -268,7 +268,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
         await import('@/lib/nfe/normalize');
       const und = normalizarUnidade(item.unidadeComercial);
       const chave = item.ean
-        ? chaveMapeamentoEan(item.ean)
+        ? chaveMapeamentoEan(item.ean, und)
         : chaveMapeamentoDesc(normalizarDescricao(item.descricao), und);
 
       const map = await prisma.nfeMapeamento.upsert({

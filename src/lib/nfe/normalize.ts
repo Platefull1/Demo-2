@@ -53,8 +53,20 @@ export function normalizarUnidade(raw: string): string {
   return UNIDADE_SINONIMOS[u] ?? u;
 }
 
-export function chaveMapeamentoEan(ean: string): string {
-  return `ean:${ean.replace(/\D/g, '')}`;
+export function chaveMapeamentoEan(ean: string, unidade?: string | null): string {
+  const digits = String(ean || '').replace(/\D/g, '');
+  const und = unidade ? normalizarUnidade(unidade) : '';
+  return und ? `ean:${digits}|${und}` : `ean:${digits}`;
+}
+
+/** Chave nova (EAN+uCom) e legado `ean:DIGITS` para lookup. */
+export function chavesMapeamentoEan(
+  ean: string,
+  unidade: string,
+): string[] {
+  const nova = chaveMapeamentoEan(ean, unidade);
+  const legado = chaveMapeamentoEan(ean);
+  return nova === legado ? [nova] : [nova, legado];
 }
 
 export function chaveMapeamentoDesc(descricaoNormalizada: string, unidade: string): string {

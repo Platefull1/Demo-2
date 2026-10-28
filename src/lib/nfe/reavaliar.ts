@@ -193,6 +193,7 @@ async function loadReavaliarContext(
       estoqueInsumoId: m.estoqueInsumoId,
       fatorConversao: Number(m.fatorConversao),
       ignorar: m.ignorar,
+      unidadeComercial: m.unidadeComercial,
       unidadeConvertida: m.estoqueInsumoId
         ? insumosConfig[m.estoqueInsumoId]?.unidade
         : undefined,

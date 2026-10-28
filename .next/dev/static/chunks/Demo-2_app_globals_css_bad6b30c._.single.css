@@ -352,6 +352,10 @@ body {
   position: sticky;
 }
 
+.\!inset-0 {
+  inset: 0 !important;
+}
+
 .inset-0 {
   inset: 0;
 }
@@ -1023,6 +1027,10 @@ body {
   height: 100%;
 }
 
+.\!h-full {
+  height: 100% !important;
+}
+
 .h-0\.5 {
   height: .125rem;
 }
@@ -1211,6 +1219,10 @@ body {
   max-height: 200px;
 }
 
+.max-h-\[28rem\] {
+  max-height: 28rem;
+}
+
 .max-h-\[300px\] {
   max-height: 300px;
 }
@@ -1271,12 +1283,12 @@ body {
   min-height: 0;
 }
 
-.min-h-16 {
-  min-height: 4rem;
+.min-h-11 {
+  min-height: 2.75rem;
 }
 
-.min-h-5 {
-  min-height: 1.25rem;
+.min-h-16 {
+  min-height: 4rem;
 }
 
 .min-h-9 {
@@ -1285,6 +1297,10 @@ body {
 
 .min-h-\[120px\] {
   min-height: 120px;
+}
+
+.min-h-\[180px\] {
+  min-height: 180px;
 }
 
 .min-h-\[200px\] {
@@ -1297,6 +1313,10 @@ body {
 
 .min-h-\[60px\] {
   min-height: 60px;
+}
+
+.min-h-\[64px\] {
+  min-height: 64px;
 }
 
 .min-h-\[80px\] {
@@ -1313,6 +1333,10 @@ body {
 
 .min-h-screen {
   min-height: 100vh;
+}
+
+.\!w-full {
+  width: 100% !important;
 }
 
 .w-1\.5 {
@@ -1471,6 +1495,10 @@ body {
   width: 160px;
 }
 
+.w-\[180px\] {
+  width: 180px;
+}
+
 .w-\[300px\] {
   width: 300px;
 }
@@ -1499,6 +1527,10 @@ body {
   width: 96px;
 }
 
+.w-\[var\(--radix-popover-trigger-width\)\] {
+  width: var(--radix-popover-trigger-width);
+}
+
 .w-auto {
   width: auto;
 }
@@ -1525,6 +1557,10 @@ body {
 
 .min-w-10 {
   min-width: 2.5rem;
+}
+
+.min-w-11 {
+  min-width: 2.75rem;
 }
 
 .min-w-48 {
@@ -1601,6 +1637,10 @@ body {
 
 .min-w-\[var\(--radix-select-trigger-width\)\] {
   min-width: var(--radix-select-trigger-width);
+}
+
+.\!max-w-none {
+  max-width: none !important;
 }
 
 .max-w-2xl {
@@ -2058,11 +2098,6 @@ body {
 
 .gap-px {
   gap: 1px;
-}
-
-.gap-x-2 {
-  -moz-column-gap: .5rem;
-  column-gap: .5rem;
 }
 
 .gap-x-3 {
@@ -3686,6 +3721,11 @@ body {
   padding-right: 2rem;
 }
 
+.py-0 {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
 .py-0\.5 {
   padding-top: .125rem;
   padding-bottom: .125rem;
@@ -3788,6 +3828,10 @@ body {
 
 .pb-3 {
   padding-bottom: .75rem;
+}
+
+.pb-32 {
+  padding-bottom: 8rem;
 }
 
 .pb-4 {
@@ -4242,6 +4286,10 @@ body {
 
 .text-destructive {
   color: var(--destructive);
+}
+
+.text-destructive-foreground {
+  color: var(--destructive-foreground);
 }
 
 .text-emerald-400 {
@@ -4770,6 +4818,10 @@ body {
   transition-timing-function: cubic-bezier(.4, 0, .2, 1);
 }
 
+.ease-out {
+  transition-timing-function: cubic-bezier(0, 0, .2, 1);
+}
+
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -4959,6 +5011,10 @@ body {
 
 .last\:border-0:last-child {
   border-width: 0;
+}
+
+.last\:border-b-0:last-child {
+  border-bottom-width: 0;
 }
 
 .focus-within\:border-cyan-500\/30:focus-within {
@@ -5559,6 +5615,10 @@ body {
   color: rgb(34 211 238 / var(--tw-text-opacity, 1));
 }
 
+.hover\:text-destructive:hover {
+  color: var(--destructive);
+}
+
 .hover\:text-emerald-300:hover {
   --tw-text-opacity: 1;
   color: rgb(110 231 183 / var(--tw-text-opacity, 1));
@@ -5605,6 +5665,10 @@ body {
 .hover\:text-pink-400:hover {
   --tw-text-opacity: 1;
   color: rgb(244 114 182 / var(--tw-text-opacity, 1));
+}
+
+.hover\:text-primary:hover {
+  color: var(--primary);
 }
 
 .hover\:text-purple-300:hover {
@@ -6268,8 +6332,25 @@ body {
 }
 
 @media (min-width: 640px) {
+  .sm\:\!inset-y-0 {
+    top: 0 !important;
+    bottom: 0 !important;
+  }
+
+  .sm\:\!left-auto {
+    left: auto !important;
+  }
+
+  .sm\:\!right-0 {
+    right: 0 !important;
+  }
+
   .sm\:col-span-2 {
     grid-column: span 2 / span 2;
+  }
+
+  .sm\:mt-0 {
+    margin-top: 0;
   }
 
   .sm\:block {
@@ -6288,6 +6369,18 @@ body {
     display: none;
   }
 
+  .sm\:\!h-full {
+    height: 100% !important;
+  }
+
+  .sm\:\!w-full {
+    width: 100% !important;
+  }
+
+  .sm\:w-36 {
+    width: 9rem;
+  }
+
   .sm\:w-\[160px\] {
     width: 160px;
   }
@@ -6298,6 +6391,10 @@ body {
 
   .sm\:w-\[200px\] {
     width: 200px;
+  }
+
+  .sm\:\!max-w-md {
+    max-width: 28rem !important;
   }
 
   .sm\:max-w-\[140px\] {
@@ -6376,6 +6473,10 @@ body {
     --tw-space-x-reverse: 0;
     margin-right: calc(.5rem * var(--tw-space-x-reverse));
     margin-left: calc(.5rem * calc(1 - var(--tw-space-x-reverse)));
+  }
+
+  .sm\:rounded-lg {
+    border-radius: .5rem;
   }
 
   .sm\:p-6 {
@@ -6593,6 +6694,10 @@ body {
 
   .xl\:border-r {
     border-right-width: 1px;
+  }
+
+  .xl\:border-r-0 {
+    border-right-width: 0;
   }
 }
 

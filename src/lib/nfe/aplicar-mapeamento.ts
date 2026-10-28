@@ -48,10 +48,13 @@ export async function aplicarMapeamentoEmNotasPendentes(params: {
 
   const matches = candidatos.filter((it) => {
     const und = normalizarUnidade(it.unidadeComercial);
-    const chave = it.ean
-      ? chaveMapeamentoEan(it.ean)
-      : chaveMapeamentoDesc(it.descricaoNormalizada, und);
-    return chave === params.chave;
+    if (it.ean) {
+      return (
+        chaveMapeamentoEan(it.ean, und) === params.chave ||
+        chaveMapeamentoEan(it.ean) === params.chave
+      );
+    }
+    return chaveMapeamentoDesc(it.descricaoNormalizada, und) === params.chave;
   });
 
   if (matches.length === 0) return 0;

@@ -10,6 +10,7 @@ import { sugerirFatorDaDescricao } from './fator-sugerido';
 import {
   chaveMapeamentoDesc,
   chaveMapeamentoEan,
+  chavesMapeamentoEan,
   normalizarDescricao,
   normalizarUnidade,
 } from './normalize';
@@ -38,6 +39,8 @@ export interface PipelineMapeamento {
   fatorConversao: number;
   ignorar: boolean;
   unidadeConvertida?: CmvRealUnidade;
+  /** uCom do mapeamento — usado para não aplicar ean: legado em outra unidade */
+  unidadeComercial?: string | null;
   secao?: CmvRealSecao | null;
 }
 
@@ -318,7 +321,15 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
       // Matching só para SUGERIDO / SEM_MAPEAMENTO (ou itens novos)
       let map: PipelineMapeamento | undefined;
       if (it.ean) {
-        map = mapByChave.get(chaveMapeamentoEan(it.ean));
+        for (const k of chavesMapeamentoEan(it.ean, und)) {
+          const cand = mapByChave.get(k);
+          if (!cand) continue;
+          if (k === chaveMapeamentoEan(it.ean) && cand.unidadeComercial) {
+            if (normalizarUnidade(cand.unidadeComercial) !== und) continue;
+          }
+          map = cand;
+          break;
+        }
       }
       if (!map) {
         map = mapByChave.get(chaveMapeamentoDesc(descNorm, und));

@@ -5,6 +5,14 @@
 import * as XLSX from 'xlsx';
 import type { LinhaFechamento } from './fechamento';
 import { storeLabel } from './lojas';
+import type { TransferenciaResumo } from './transferencia-documento';
+
+const STATUS_XLSX: Record<string, string> = {
+  AGUARDANDO_ENTRADA: 'Aguardando entrada',
+  AGUARDANDO_SAIDA: 'Aguardando saída',
+  CONCILIADA: 'Conciliada',
+  DIVERGENTE: 'Divergente',
+};
 
 export function exportarFechamentoXlsx(params: {
   storeSlug: string;
@@ -16,6 +24,7 @@ export function exportarFechamentoXlsx(params: {
   cmvEmbalagens?: { valor: number; pct: number | null };
   cmvBebidas?: { valor: number; pct: number | null };
   cmvTotal?: { valor: number; pct: number | null };
+  transferencias?: TransferenciaResumo[];
 }): Buffer {
   const rows = params.linhas.map((l) => ({
     Seção: l.secao,
@@ -85,6 +94,38 @@ export function exportarFechamentoXlsx(params: {
   ];
   const ws2 = XLSX.utils.json_to_sheet(resumo);
   XLSX.utils.book_append_sheet(wb, ws2, 'Resumo');
+
+  const transfRows: Array<Record<string, string | number | boolean>> = [];
+  for (const d of params.transferencias ?? []) {
+    const lados = d.lados.length ? d.lados : [null];
+    for (const lado of lados) {
+      const itens = lado?.itens?.length ? lado.itens : [null];
+      for (const it of itens) {
+        transfRows.push({
+          Documento: d.numeroDocumento,
+          Data: d.data.slice(0, 10),
+          Origem: storeLabel(d.lojaOrigem),
+          Destino: storeLabel(d.lojaDestino),
+          Status: STATUS_XLSX[d.status] || d.status,
+          Lado: lado?.tipo || '',
+          Loja: lado ? storeLabel(lado.storeSlug) : '',
+          Rascunho: lado?.rascunho ? 'sim' : '',
+          Produto: it?.nome || '',
+          Qtd: it?.quantidade ?? '',
+          Unidade: it?.unidade || '',
+          'Custo un': it?.custoUnitario ?? '',
+          Valor: it?.valorTotal ?? '',
+          'Origem custo': it?.custoOrigem || '',
+        });
+      }
+    }
+  }
+  const ws3 = XLSX.utils.json_to_sheet(
+    transfRows.length
+      ? transfRows
+      : [{ Documento: 'Nenhuma transferência neste período' }],
+  );
+  XLSX.utils.book_append_sheet(wb, ws3, 'Transferências');
 
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 }

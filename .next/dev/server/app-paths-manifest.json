@@ -1,9 +1,13 @@
 {
-  "/(app)/ocorrencias/page": "app/(app)/ocorrencias/page.js",
-  "/(ocorrencias)/ocorrencias/nova/page": "app/(ocorrencias)/ocorrencias/nova/page.js",
+  "/(app)/dashboard/page": "app/(app)/dashboard/page.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/api/ocorrencias/opcoes/route": "app/api/ocorrencias/opcoes/route.js",
-  "/api/ocorrencias/route": "app/api/ocorrencias/route.js",
-  "/auth/login/page": "app/auth/login/page.js",
+  "/api/auth/check-tool-permission/route": "app/api/auth/check-tool-permission/route.js",
+  "/api/auth/stack-sync/route": "app/api/auth/stack-sync/route.js",
+  "/api/cmv-real/access/route": "app/api/cmv-real/access/route.js",
+  "/api/ifood/dashboard/realtime/route": "app/api/ifood/dashboard/realtime/route.js",
+  "/api/ifood/dashboard/summary/route": "app/api/ifood/dashboard/summary/route.js",
+  "/api/ifood/merchants/status-all/route": "app/api/ifood/merchants/status-all/route.js",
+  "/api/ocorrencias/isolation/route": "app/api/ocorrencias/isolation/route.js",
+  "/api/user-apis/route": "app/api/user-apis/route.js",
   "/page": "app/page.js"
 }
