@@ -696,10 +696,10 @@ export async function registrarTransferenciaCompleta(params: {
 
   const competencia = competenciaFromDataEntrada(params.data);
 
-  if (await mesFechado(params.userId, params.lojaOrigem, competencia)) {
+  if (await competenciaEstaFechada(params.userId, params.lojaOrigem, competencia)) {
     throw new Error(`Competência ${competencia} fechada na loja de origem`);
   }
-  if (await mesFechado(params.userId, params.lojaDestino, competencia)) {
+  if (await competenciaEstaFechada(params.userId, params.lojaDestino, competencia)) {
     throw new Error(`Competência ${competencia} fechada na loja de destino`);
   }
 
@@ -824,10 +824,10 @@ export async function atualizarTransferencia(params: {
   // Verificar mês fechado para ambas as lojas (competência nova e antiga, se mudou)
   const competenciasAVerificar = new Set([doc.competencia, novaCompetencia]);
   for (const comp of competenciasAVerificar) {
-    if (await mesFechado(params.userId, doc.lojaOrigem, comp)) {
+    if (await competenciaEstaFechada(params.userId, doc.lojaOrigem, comp)) {
       throw new Error(`Competência ${comp} fechada na loja de origem`);
     }
-    if (await mesFechado(params.userId, doc.lojaDestino, comp)) {
+    if (await competenciaEstaFechada(params.userId, doc.lojaDestino, comp)) {
       throw new Error(`Competência ${comp} fechada na loja de destino`);
     }
   }
