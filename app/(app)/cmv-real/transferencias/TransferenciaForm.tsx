@@ -26,7 +26,6 @@ type ItemForm = {
   custoOrigem: string | null;
 };
 
-<<<<<<< Updated upstream
 /** Transferência já existente (para modo edição) */
 export type TransferenciaParaEditar = {
   id: string;
@@ -45,13 +44,6 @@ export type TransferenciaParaEditar = {
   }>;
 };
 
-const hoje = () => new Date().toISOString().slice(0, 10);
-
-function fmtMoney(n: number) {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
-=======
 export type TransferenciaFormPrefill = {
   tipoLado: 'SAIDA' | 'ENTRADA';
   lojaOrigem: string;
@@ -68,7 +60,13 @@ export type TransferenciaFormPrefill = {
   }>;
 };
 
->>>>>>> Stashed changes
+const hoje = () => new Date().toISOString().slice(0, 10);
+
+function fmtMoney(n: number) {
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+
 export function TransferenciaForm({
   open,
   onOpenChange,
@@ -126,7 +124,6 @@ export function TransferenciaForm({
     if (!open) return;
     setMsg(null);
     setBusca('');
-<<<<<<< Updated upstream
     if (edicao) {
       setLojaOrigem(edicao.lojaOrigem);
       setLojaDestino(edicao.lojaDestino);
@@ -150,22 +147,10 @@ export function TransferenciaForm({
           };
         }),
       );
-    } else {
-      setLojaOrigem(lojaPadrao);
-      setLojaDestino('');
-      setData(hoje());
-      setObservacao('');
-      setItens([]);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, edicao?.id]);
-=======
-    if (prefill) {
-      setTipoLado(prefill.tipoLado);
-      setLojaA(prefill.tipoLado === 'SAIDA' ? prefill.lojaOrigem : prefill.lojaDestino);
-      setLojaB(prefill.tipoLado === 'SAIDA' ? prefill.lojaDestino : prefill.lojaOrigem);
+    } else if (prefill) {
+      setLojaOrigem(prefill.lojaOrigem);
+      setLojaDestino(prefill.lojaDestino);
       setData(prefill.data);
-      setNumero(prefill.numero);
       setObservacao(prefill.observacao || '');
       setItens(
         (prefill.itens || []).map((it) => ({
@@ -181,16 +166,15 @@ export function TransferenciaForm({
           custoOrigem: null,
         })),
       );
-      return;
+    } else {
+      setLojaOrigem(lojaPadrao);
+      setLojaDestino('');
+      setData(hoje());
+      setObservacao('');
+      setItens([]);
     }
-    setTipoLado('SAIDA');
-    setLojaA(lojaPadrao);
-    setLojaB('');
-    setNumero('');
-    setObservacao('');
-    setItens([]);
-  }, [open, lojaPadrao, prefill]);
->>>>>>> Stashed changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, edicao?.id, prefill]);
 
   const outras = lojasOpts.filter((s) => s !== lojaOrigem);
 
@@ -312,7 +296,6 @@ export function TransferenciaForm({
       >
         <SheetHeader className="text-left pr-8">
           <SheetTitle className="text-base font-semibold">
-<<<<<<< Updated upstream
             {isEdicao ? 'Editar transferência' : 'Nova transferência'}
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
@@ -362,99 +345,6 @@ export function TransferenciaForm({
                   </option>
                 ))}
               </select>
-=======
-            {prefill ? 'Registrar outro lado' : 'Nova transferência'}
-          </SheetTitle>
-          <SheetDescription className="text-sm text-muted-foreground">
-            {prefill
-              ? 'Confira quantidades e confirme o lado que faltava.'
-              : 'Lance na hora que a mercadoria sai ou chega.'}
-          </SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-6 space-y-6">
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              type="button"
-              size="lg"
-              variant={tipoLado === 'SAIDA' ? 'default' : 'outline'}
-              className="h-12 text-sm"
-              disabled={Boolean(prefill)}
-              onClick={() => setTipoLado('SAIDA')}
-            >
-              Saiu da loja
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              variant={tipoLado === 'ENTRADA' ? 'default' : 'outline'}
-              className="h-12 text-sm"
-              disabled={Boolean(prefill)}
-              onClick={() => setTipoLado('ENTRADA')}
-            >
-              Chegou na loja
-            </Button>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm">Sua loja</Label>
-            <select
-              className="h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={lojaA}
-              disabled={Boolean(prefill)}
-              onChange={(e) => {
-                setLojaA(e.target.value);
-                if (e.target.value === lojaB) setLojaB('');
-              }}
-            >
-              {lojasOpts.map((s) => (
-                <option key={s} value={s}>
-                  {CMV_STORE_LABELS[s] || s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-sm">
-              {tipoLado === 'SAIDA' ? 'Destino' : 'Origem'}
-            </Label>
-            <select
-              className="h-12 w-full rounded-md border border-input bg-background px-3 text-sm"
-              value={lojaB}
-              disabled={Boolean(prefill)}
-              onChange={(e) => setLojaB(e.target.value)}
-            >
-              <option value="">Escolher loja…</option>
-              {outras.map((s) => (
-                <option key={s} value={s}>
-                  {CMV_STORE_LABELS[s] || s}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label className="text-sm">Data</Label>
-              <Input
-                type="date"
-                value={data}
-                disabled={Boolean(prefill)}
-                onChange={(e) => setData(e.target.value)}
-                className="h-12"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-sm">Nº documento</Label>
-              <Input
-                value={numero}
-                disabled={Boolean(prefill)}
-                onChange={(e) => setNumero(e.target.value)}
-                placeholder="Ex.: 12"
-                className="h-12"
-              />
->>>>>>> Stashed changes
             </div>
           </div>
 

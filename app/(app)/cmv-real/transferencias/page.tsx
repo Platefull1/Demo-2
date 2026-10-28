@@ -102,12 +102,8 @@ export default function CmvRealTransferenciasPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [allowed, setAllowed] = useState<string[] | null>(null);
   const [lojaTravada, setLojaTravada] = useState(false);
-<<<<<<< Updated upstream
-=======
-  const [formOpen, setFormOpen] = useState(false);
   const [competenciaFechada, setCompetenciaFechada] = useState(false);
   const [lojasFechadas, setLojasFechadas] = useState<string[]>([]);
->>>>>>> Stashed changes
 
   const [formOpen, setFormOpen] = useState(false);
   const [edicao, setEdicao] = useState<TransferenciaParaEditar | undefined>(undefined);
@@ -341,15 +337,11 @@ export default function CmvRealTransferenciasPage() {
           type="button"
           size="sm"
           className="shrink-0"
-<<<<<<< Updated upstream
+          disabled={novaBloqueada}
           onClick={() => {
             setEdicao(undefined);
             setFormOpen(true);
           }}
-=======
-          disabled={novaBloqueada}
-          onClick={() => setFormOpen(true)}
->>>>>>> Stashed changes
         >
           <Plus className="size-4" />
           Nova transferência
@@ -386,15 +378,11 @@ export default function CmvRealTransferenciasPage() {
             <Button
               type="button"
               size="sm"
-<<<<<<< Updated upstream
+              disabled={novaBloqueada}
               onClick={() => {
                 setEdicao(undefined);
                 setFormOpen(true);
               }}
-=======
-              disabled={novaBloqueada}
-              onClick={() => setFormOpen(true)}
->>>>>>> Stashed changes
             >
               <Plus className="size-4" />
               Nova transferência

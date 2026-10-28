@@ -564,11 +564,8 @@ export async function montarFechamento(params: {
     linhas,
     alertasTransferencia,
     pendencias,
-<<<<<<< Updated upstream
     secoesSemSaldoFinal,
-=======
     transferencias: docsTransf,
->>>>>>> Stashed changes
     orfaosCatalogoCount: orfaosCatalogo.length,
     refeicoes: refeicaoRows.map((r) => ({
       id: r.id,

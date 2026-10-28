@@ -4,11 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 import {
-<<<<<<< Updated upstream
   atualizarTransferencia,
-=======
   competenciaEstaFechada,
->>>>>>> Stashed changes
   excluirTransferencia,
   obterTransferencia,
 } from '@/lib/nfe/transferencia-documento';

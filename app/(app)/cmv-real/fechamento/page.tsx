@@ -625,33 +625,30 @@ export default function CmvRealFechamentoPage() {
               <div className="grid grid-cols-2 xl:grid-cols-4">
                 {(
                   [
-<<<<<<< Updated upstream
-                    { label: 'CMV Matéria-prima', r: displayTotais.cmvMp,       secao: 'MATERIA_PRIMA' },
-                    { label: 'CMV Embalagens',    r: displayTotais.cmvEmbalagens, secao: 'EMBALAGEM' },
-                    { label: 'CMV Bebidas',       r: displayTotais.cmvBebidas,   secao: 'BEBIDA' },
-                    { label: 'CMV Total',         r: displayTotais.cmvTotal,     secao: '' },
-=======
                     {
                       label: 'CMV Matéria-prima',
                       r: displayTotais.cmvMp,
+                      secao: 'MATERIA_PRIMA',
                       ritmo: displayTotais.ritmo?.materiaPrima,
                     },
                     {
                       label: 'CMV Embalagens',
                       r: displayTotais.cmvEmbalagens,
+                      secao: 'EMBALAGEM',
                       ritmo: displayTotais.ritmo?.embalagens,
                     },
                     {
                       label: 'CMV Bebidas',
                       r: displayTotais.cmvBebidas,
+                      secao: 'BEBIDA',
                       ritmo: displayTotais.ritmo?.bebidas,
                     },
                     {
                       label: 'CMV Total',
                       r: displayTotais.cmvTotal,
+                      secao: '',
                       ritmo: displayTotais.ritmo?.total,
                     },
->>>>>>> Stashed changes
                   ] as const
                 ).map((k, i) => {
                   const semSaldoFim = k.secao !== '' && secoesSemSaldoFinal.includes(k.secao);
@@ -686,13 +683,11 @@ export default function CmvRealFechamentoPage() {
                         'Informe a venda'
                       )}
                     </p>
-<<<<<<< Updated upstream
                     {semSaldoFim && (
                       <p className="text-xs text-warning mt-1">
                         parcial: sem contagem final
                       </p>
                     )}
-=======
                     {displayTotais.semEstoqueFinal && k.ritmo ? (
                       <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                         Ritmo{' '}
@@ -712,7 +707,6 @@ export default function CmvRealFechamentoPage() {
                         ) : null}
                       </p>
                     ) : null}
->>>>>>> Stashed changes
                   </div>
                   );
                 })}

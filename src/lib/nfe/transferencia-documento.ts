@@ -317,7 +317,6 @@ export async function listarTransferencias(params: {
     orderBy: { data: 'desc' },
     take: 200,
   });
-<<<<<<< Updated upstream
 
   // Busca nomes em batch para evitar N+1
   const userIds = [...new Set(docs.map((d) => d.criadoPorId).filter((id): id is string => id != null))];
@@ -329,9 +328,7 @@ export async function listarTransferencias(params: {
     : [];
   const userNomeById = new Map(users.map((u) => [u.id, u.fullName || u.name || u.id]));
 
-  return docs.map((doc) => serializar(doc, userNomeById));
-=======
-  return preencherNomesLista(docs.map(serializar));
+  return preencherNomesLista(docs.map((doc) => serializar(doc, userNomeById)));
 }
 
 function aplicarNomes(
@@ -374,7 +371,6 @@ async function preencherNomesLista(docs: TransferenciaResumo[]) {
 async function preencherNomes(resumo: TransferenciaResumo): Promise<TransferenciaResumo> {
   const nomes = await nomesDeItens([resumo]);
   return aplicarNomes(resumo, nomes);
->>>>>>> Stashed changes
 }
 
 export async function obterTransferencia(params: {
