@@ -1216,6 +1216,10 @@ body {
   height: 100vh;
 }
 
+.h-fit {
+  height: fit-content;
+}
+
 .max-h-24 {
   max-height: 6rem;
 }

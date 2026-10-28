@@ -30,9 +30,24 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { saoPauloYmd } from '@/lib/ocorrencias-period';
+import {
+  TODAS_CATEGORIAS,
+  categoriaLabel,
+} from '@/lib/ocorrencias-categorias';
 
 interface Loja { id: string; nome: string; }
 interface Motoboy { id: string; nome: string; }
@@ -42,6 +57,7 @@ interface Ocorrencia {
   numeroPedidoSaipos: string;
   numeroPedidoExterno: string | null;
   canalExterno: 'IFOOD' | 'DELIVERY_DIRETO' | null;
+  categorias: string[];
   descricao: string;
   criadoPorUserId: string;
   criadoPorNome: string;
@@ -52,6 +68,7 @@ interface Ocorrencia {
 }
 
 interface ContadorLoja { lojaId: string; lojaNome: string; total: number; }
+interface ContadorCategoria { categoria: string; total: number; }
 
 interface ListaResponse {
   ocorrencias: Ocorrencia[];
@@ -60,6 +77,7 @@ interface ListaResponse {
   pageSize: number;
   totalPages: number;
   contadoresPorLoja: ContadorLoja[];
+  contadoresPorCategoria: ContadorCategoria[];
 }
 
 function canalLabel(canal: string | null) {
@@ -103,6 +121,7 @@ export default function OcorrenciasClient({
   const [lojaFiltro, setLojaFiltro] = useState('');
   const [motoboyFiltro, setMotoboyFiltro] = useState('');
   const [busca, setBusca] = useState('');
+  const [categoriasFiltro, setCategoriasFiltro] = useState<string[]>([]);
   const [page, setPage] = useState(1);
 
   const [dados, setDados] = useState<ListaResponse | null>(null);
@@ -147,6 +166,9 @@ export default function OcorrenciasClient({
     if (lojaFiltro) params.set('lojaId', lojaFiltro);
     if (motoboyFiltro) params.set('motoboyId', motoboyFiltro);
     if (busca) params.set('busca', busca);
+    if (categoriasFiltro.length > 0) {
+      params.set('categorias', categoriasFiltro.join(','));
+    }
 
     try {
       const res = await fetch(`/api/ocorrencias?${params.toString()}`);
@@ -157,7 +179,7 @@ export default function OcorrenciasClient({
     } finally {
       setCarregando(false);
     }
-  }, [inicio, fim, lojaFiltro, motoboyFiltro, busca, page]);
+  }, [inicio, fim, lojaFiltro, motoboyFiltro, busca, categoriasFiltro, page]);
 
   useEffect(() => {
     carregarDados();
@@ -168,6 +190,7 @@ export default function OcorrenciasClient({
     setLojaFiltro('');
     setMotoboyFiltro('');
     setBusca('');
+    setCategoriasFiltro([]);
     setInicio(atual.inicio);
     setFim(atual.fim);
     setPage(1);
@@ -193,7 +216,17 @@ export default function OcorrenciasClient({
     setCarregandoFoto(false);
   }
 
-  const temFiltros = Boolean(lojaFiltro || motoboyFiltro || busca);
+  const temFiltros = Boolean(
+    lojaFiltro || motoboyFiltro || busca || categoriasFiltro.length > 0,
+  );
+  const totaisCategoria = Object.fromEntries(
+    (dados?.contadoresPorCategoria ?? []).map((c) => [c.categoria, c.total]),
+  );
+  const kpiCategorias = TODAS_CATEGORIAS.map((categoria) => ({
+    key: categoria,
+    label: categoriaLabel(categoria),
+    value: totaisCategoria[categoria] ?? 0,
+  }));
   const kpiCells = dados
     ? [
         { key: 'total', label: 'Total no período', value: dados.total },
@@ -220,15 +253,37 @@ export default function OcorrenciasClient({
       />
 
       {dados && (
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-0 rounded-xl border border-border overflow-hidden bg-card">
-          {kpiCells.map((c, i) => (
-            <div key={c.key} className={cn('p-4', kpiBorder(i, kpiCells.length))}>
-              <p className="text-sm text-muted-foreground truncate">{c.label}</p>
-              <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
-                {c.value}
-              </p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-0 rounded-xl border border-border overflow-hidden bg-card">
+            {kpiCells.map((c, i) => (
+              <div key={c.key} className={cn('p-4', kpiBorder(i, kpiCells.length))}>
+                <p className="text-sm text-muted-foreground truncate">{c.label}</p>
+                <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
+                  {c.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <TooltipProvider>
+            <div className="grid grid-cols-2 xl:grid-cols-4 gap-0 rounded-xl border border-border overflow-hidden bg-card">
+              {kpiCategorias.map((c, i) => (
+                <Tooltip key={c.key}>
+                  <TooltipTrigger asChild>
+                    <div className={cn('p-4', kpiBorder(i, kpiCategorias.length))}>
+                      <p className="text-sm text-muted-foreground truncate">{c.label}</p>
+                      <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
+                        {c.value}
+                      </p>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    Uma ocorrência com 2 categorias conta em ambas
+                  </TooltipContent>
+                </Tooltip>
+              ))}
             </div>
-          ))}
+          </TooltipProvider>
         </div>
       )}
 
@@ -290,6 +345,47 @@ export default function OcorrenciasClient({
           </SelectContent>
         </Select>
 
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-10 w-44 justify-between font-normal">
+              <span className="truncate">
+                {categoriasFiltro.length === 0
+                  ? 'Categorias'
+                  : `${categoriasFiltro.length} categoria${categoriasFiltro.length > 1 ? 's' : ''}`}
+              </span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-1" align="start">
+            {TODAS_CATEGORIAS.map((c) => {
+              const sel = categoriasFiltro.includes(c);
+              return (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => {
+                    setCategoriasFiltro((prev) =>
+                      prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
+                    );
+                    setPage(1);
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm',
+                    sel ? 'bg-accent text-foreground' : 'text-foreground hover:bg-muted',
+                  )}
+                >
+                  <Check
+                    className={cn(
+                      'h-3.5 w-3.5 text-muted-foreground',
+                      sel ? 'opacity-100' : 'opacity-0',
+                    )}
+                  />
+                  {categoriaLabel(c)}
+                </button>
+              );
+            })}
+          </PopoverContent>
+        </Popover>
+
         <Input
           placeholder="Buscar por nº pedido…"
           value={busca}
@@ -333,6 +429,7 @@ export default function OcorrenciasClient({
                 <TableHead className="text-xs">Loja</TableHead>
                 <TableHead className="text-xs">Pedido Saipos</TableHead>
                 <TableHead className="text-xs">Pedido Externo</TableHead>
+                <TableHead className="text-xs">Categorias</TableHead>
                 <TableHead className="text-xs">Motoboy</TableHead>
                 <TableHead className="text-xs">Quem registrou</TableHead>
                 <TableHead className="text-xs">Foto</TableHead>
@@ -367,6 +464,15 @@ export default function OcorrenciasClient({
                     ) : (
                       <span className="text-muted-foreground text-xs">—</span>
                     )}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {(oc.categorias ?? []).map((cat) => (
+                        <Badge key={cat} variant="secondary" className="text-xs">
+                          {categoriaLabel(cat)}
+                        </Badge>
+                      ))}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm py-2">
                     {oc.motoboy?.name || (
@@ -488,10 +594,25 @@ export default function OcorrenciasClient({
                 </dl>
 
                 <div>
+                  <p className="text-xs text-muted-foreground mb-1">Categorias</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(detalhe.categorias ?? []).map((cat) => (
+                      <Badge key={cat} variant="secondary" className="text-xs">
+                        {categoriaLabel(cat)}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
                   <p className="text-xs text-muted-foreground mb-1">Descrição</p>
-                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted rounded-lg px-3 py-2">
-                    {detalhe.descricao}
-                  </p>
+                  {detalhe.descricao?.trim() ? (
+                    <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap bg-muted rounded-lg px-3 py-2">
+                      {detalhe.descricao}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">Sem descrição</p>
+                  )}
                 </div>
               </div>
             </>

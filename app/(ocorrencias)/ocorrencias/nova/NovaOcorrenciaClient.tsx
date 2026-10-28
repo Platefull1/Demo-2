@@ -33,6 +33,11 @@ import {
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
 import { nomeCurtoLoja } from '@/lib/ocorrencias-lojas';
+import {
+  CATEGORIA_CHIP_VALUES,
+  CATEGORIA_LABELS,
+  type CategoriaChip,
+} from '@/lib/ocorrencias-categorias';
 
 interface Loja {
   id: string;
@@ -134,6 +139,7 @@ export default function NovaOcorrenciaClient({
   const [motoboyId, setMotoboyId] = useState('');
   const [motoboyOpen, setMotoboyOpen] = useState(false);
   const [arrastando, setArrastando] = useState(false);
+  const [categorias, setCategorias] = useState<CategoriaChip[]>([]);
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -228,7 +234,7 @@ export default function NovaOcorrenciaClient({
     if (numeroPedidoExterno.trim() && !canalExterno) {
       next.canal = 'Escolha o canal do pedido externo';
     }
-    if (descricao.trim().length < 10) {
+    if (categorias.length === 0 && descricao.trim().length < 10) {
       next.descricao = 'Descrição deve ter pelo menos 10 caracteres';
     }
     if (!foto) {
@@ -236,6 +242,18 @@ export default function NovaOcorrenciaClient({
     }
     setErrosCampo(next);
     return Object.keys(next).length === 0;
+  }
+
+  function toggleCategoria(chip: CategoriaChip) {
+    setCategorias((prev) => {
+      const next = prev.includes(chip)
+        ? prev.filter((c) => c !== chip)
+        : [...prev, chip];
+      if (next.length > 0) {
+        setErrosCampo((er) => ({ ...er, descricao: undefined }));
+      }
+      return next;
+    });
   }
 
   async function handleSubmit() {
@@ -261,6 +279,7 @@ export default function NovaOcorrenciaClient({
         fd.append('canalExterno', canalExterno);
       }
       fd.append('descricao', descricao.trim());
+      fd.append('categorias', JSON.stringify(categorias));
       fd.append('foto', fotoFile);
       if (motoboyId) fd.append('motoboyId', motoboyId);
 
@@ -289,6 +308,7 @@ export default function NovaOcorrenciaClient({
     setNumeroPedidoExterno('');
     setCanalExterno('');
     setDescricao('');
+    setCategorias([]);
     removerFoto();
     setMotoboyId('');
     setErro(null);
@@ -355,8 +375,8 @@ export default function NovaOcorrenciaClient({
     return (
       <div className="flex flex-col min-h-screen">
         {header}
-        <main className="flex-1 px-4 py-8 flex justify-center">
-          <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8 flex flex-col items-center gap-6">
+        <main className="flex-1 px-4 py-8 flex justify-center items-start">
+          <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8 mb-8 flex flex-col items-center gap-6">
             <p className="text-2xl font-semibold text-foreground text-center">
               Ocorrência registrada
             </p>
@@ -389,8 +409,8 @@ export default function NovaOcorrenciaClient({
     return (
       <div className="flex flex-col min-h-screen">
         {header}
-        <main className="flex-1 px-4 py-8 flex justify-center">
-          <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8">
+        <main className="flex-1 px-4 py-8 flex justify-center items-start">
+          <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8 mb-8">
             <h1 className="text-2xl font-semibold text-foreground mb-1">Qual loja?</h1>
             <p className="text-sm text-muted-foreground mb-6">Escolha a loja da ocorrência</p>
 
@@ -429,8 +449,8 @@ export default function NovaOcorrenciaClient({
     <div className="flex flex-col min-h-screen">
       {header}
 
-      <main className="flex-1 px-4 py-8 flex justify-center">
-        <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8 space-y-6">
+      <main className="flex-1 px-4 py-8 flex justify-center items-start">
+        <div className="w-full max-w-[720px] h-fit rounded-xl border border-border bg-card p-6 md:p-8 mb-8 space-y-6">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted px-4 py-2.5">
             <span className="text-sm font-medium text-foreground">
               {lojaSelecionada ? nomeCurtoLoja(lojaSelecionada.nome) : ''}
@@ -509,9 +529,42 @@ export default function NovaOcorrenciaClient({
             </div>
           </div>
 
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">O que aconteceu?</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {CATEGORIA_CHIP_VALUES.map((chip) => {
+                const selecionado = categorias.includes(chip);
+                return (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => toggleCategoria(chip)}
+                    className={cn(
+                      'min-h-10 rounded-lg border text-sm font-medium px-3 flex items-center justify-center gap-1.5',
+                      selecionado
+                        ? 'bg-accent border-primary text-accent-foreground'
+                        : 'border-border text-foreground',
+                    )}
+                  >
+                    {selecionado && (
+                      <Check className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    )}
+                    {CATEGORIA_LABELS[chip]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label className="text-xs text-muted-foreground">
-              Descrição da ocorrência <span className="text-destructive">*</span>
+              {categorias.length === 0 ? (
+                <>
+                  Descrição <span className="text-destructive">*</span>
+                </>
+              ) : (
+                'Descrição (opcional)'
+              )}
             </label>
             <Textarea
               placeholder="Descreva o que aconteceu"
@@ -524,15 +577,22 @@ export default function NovaOcorrenciaClient({
               className="text-sm resize-none"
               aria-invalid={Boolean(errosCampo.descricao)}
             />
+            {categorias.length === 0 && !errosCampo.descricao && (
+              <p className="text-xs text-muted-foreground">
+                Nenhum item selecionado — será registrada como Outros. Descreva o que aconteceu.
+              </p>
+            )}
             <div className="flex items-center justify-between gap-2">
               {errosCampo.descricao ? (
                 <p className="text-xs text-destructive">{errosCampo.descricao}</p>
               ) : (
                 <span />
               )}
-              <p className="text-xs text-muted-foreground tabular-nums">
-                {descricao.trim().length}/10 mín.
-              </p>
+              {categorias.length === 0 && (
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {descricao.trim().length}/10 mín.
+                </p>
+              )}
             </div>
           </div>
 

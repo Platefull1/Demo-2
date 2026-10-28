@@ -20,6 +20,7 @@ export async function GET(
       numeroPedidoSaipos: true,
       numeroPedidoExterno: true,
       canalExterno: true,
+      categorias: true,
       descricao: true,
       criadoPorUserId: true,
       createdAt: true,

@@ -2512,6 +2512,16 @@ enum CanalOcorrencia {
   DELIVERY_DIRETO
 }
 
+enum CategoriaOcorrencia {
+  PEDIDO_ATRASADO
+  PEDIDO_REVIRADO
+  FALTOU_BEBIDA
+  PEDIDO_ERRADO
+  PEDIDO_TROCADO
+  QUALIDADE
+  OUTROS
+}
+
 /// Ocorrência registrada manualmente por funcionário via app mobile.
 model Ocorrencia {
   id                  String           @id @default(cuid())
@@ -2523,6 +2533,7 @@ model Ocorrencia {
   numeroPedidoSaipos  String
   numeroPedidoExterno String?
   canalExterno        CanalOcorrencia?
+  categorias          CategoriaOcorrencia[] @default([OUTROS])
   descricao           String           @db.Text
   /// Path interno no bucket privado ocorrencias-fotos (nunca URL pública)
   fotoPath            String

@@ -1,5 +1,6 @@
 {
   "/(app)/dashboard/page": "app/(app)/dashboard/page.js",
+  "/(app)/ocorrencias/page": "app/(app)/ocorrencias/page.js",
   "/(ocorrencias)/ocorrencias/nova/page": "app/(ocorrencias)/ocorrencias/nova/page.js",
   "/_not-found/page": "app/_not-found/page.js",
   "/api/auth/check-tool-permission/route": "app/api/auth/check-tool-permission/route.js",

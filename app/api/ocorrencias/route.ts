@@ -17,7 +17,8 @@ import {
   spDayEnd,
   saoPauloYmd,
 } from '@/lib/ocorrencias-period';
-import { CanalOcorrencia } from '@prisma/client';
+import { CanalOcorrencia, CategoriaOcorrencia, Prisma } from '@prisma/client';
+import { resolverCategorias, TODAS_CATEGORIAS } from '@/lib/ocorrencias-categorias';
 
 const MAX_FOTO_BYTES = 8 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set([
@@ -28,14 +29,39 @@ const ACCEPTED_TYPES = new Set([
   'image/heic',
 ]);
 
-const bodySchema = z.object({
-  lojaId: z.string().min(1, 'Loja obrigatória'),
-  numeroPedidoSaipos: z.string().min(1, 'Número do pedido Saipos obrigatório'),
-  numeroPedidoExterno: z.string().optional(),
-  canalExterno: z.enum(['IFOOD', 'DELIVERY_DIRETO']).optional(),
-  descricao: z.string().min(10, 'Descrição deve ter pelo menos 10 caracteres'),
-  motoboyId: z.string().optional(),
-});
+const bodySchema = z
+  .object({
+    lojaId: z.string().min(1, 'Loja obrigatória'),
+    numeroPedidoSaipos: z.string().min(1, 'Número do pedido Saipos obrigatório'),
+    numeroPedidoExterno: z.string().optional(),
+    canalExterno: z.enum(['IFOOD', 'DELIVERY_DIRETO']).optional(),
+    descricao: z.string().optional().default(''),
+    motoboyId: z.string().optional(),
+    categorias: z.array(z.string()).default([]),
+  })
+  .superRefine((data, ctx) => {
+    const result = resolverCategorias(data.categorias, data.descricao);
+    if (!result.ok) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.error,
+        path: data.categorias.length === 0 ? ['descricao'] : ['categorias'],
+      });
+    }
+  });
+
+function parseCategorias(raw: FormDataEntryValue | null): string[] {
+  if (!raw || typeof raw !== 'string') return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+}
 
 function ymdFromIsoOrDate(value: string | null): string | null {
   if (!value) return null;
@@ -86,8 +112,9 @@ export async function POST(request: NextRequest) {
     numeroPedidoSaipos: formData.get('numeroPedidoSaipos'),
     numeroPedidoExterno: formData.get('numeroPedidoExterno') || undefined,
     canalExterno: formData.get('canalExterno') || undefined,
-    descricao: formData.get('descricao'),
+    descricao: (formData.get('descricao') as string | null) || '',
     motoboyId: formData.get('motoboyId') || undefined,
+    categorias: parseCategorias(formData.get('categorias')),
   };
 
   const parsed = bodySchema.safeParse(campos);
@@ -105,7 +132,13 @@ export async function POST(request: NextRequest) {
     canalExterno,
     descricao,
     motoboyId,
+    categorias: categoriasEnviadas,
   } = parsed.data;
+
+  const cats = resolverCategorias(categoriasEnviadas, descricao);
+  if (!cats.ok) {
+    return NextResponse.json({ error: cats.error }, { status: 400 });
+  }
 
   if (numeroPedidoExterno && !canalExterno) {
     return NextResponse.json(
@@ -162,7 +195,8 @@ export async function POST(request: NextRequest) {
         numeroPedidoSaipos,
         numeroPedidoExterno: numeroPedidoExterno || null,
         canalExterno: (canalExterno as CanalOcorrencia) || null,
-        descricao,
+        categorias: cats.categorias as CategoriaOcorrencia[],
+        descricao: descricao.trim(),
         fotoPath,
         motoboyId: motoboyId || null,
         criadoPorUserId: ctx.stackUserId,
@@ -196,6 +230,12 @@ export async function GET(request: NextRequest) {
   const lojaId = searchParams.get('lojaId') || undefined;
   const motoboyId = searchParams.get('motoboyId') || undefined;
   const busca = searchParams.get('busca') || undefined;
+  const categoriasFiltro = (searchParams.get('categorias') || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s): s is CategoriaOcorrencia =>
+      (TODAS_CATEGORIAS as readonly string[]).includes(s),
+    );
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
   const pageSize = 25;
 
@@ -205,13 +245,16 @@ export async function GET(request: NextRequest) {
   const inicio = inicioYmd ? spDayStart(inicioYmd) : defaults.start;
   const fim = fimYmd ? spDayEnd(fimYmd) : defaults.end;
 
-  const where: Record<string, unknown> = {
+  const where: Prisma.OcorrenciaWhereInput = {
     userId: ctx.userId,
     createdAt: { gte: inicio, lte: fim },
   };
 
   if (lojaId) where.lojaId = lojaId;
   if (motoboyId) where.motoboyId = motoboyId;
+  if (categoriasFiltro.length > 0) {
+    where.categorias = { hasSome: categoriasFiltro };
+  }
   if (busca) {
     where.OR = [
       { numeroPedidoSaipos: { contains: busca, mode: 'insensitive' } },
@@ -219,7 +262,7 @@ export async function GET(request: NextRequest) {
     ];
   }
 
-  const [total, ocorrencias, totalPorLoja] = await Promise.all([
+  const [total, ocorrencias, totalPorLoja, catsRows] = await Promise.all([
     prisma.ocorrencia.count({ where }),
     prisma.ocorrencia.findMany({
       where,
@@ -228,6 +271,7 @@ export async function GET(request: NextRequest) {
         numeroPedidoSaipos: true,
         numeroPedidoExterno: true,
         canalExterno: true,
+        categorias: true,
         descricao: true,
         fotoPath: true,
         criadoPorUserId: true,
@@ -243,6 +287,10 @@ export async function GET(request: NextRequest) {
       by: ['lojaId'],
       where,
       _count: { id: true },
+    }),
+    prisma.ocorrencia.findMany({
+      where,
+      select: { categorias: true },
     }),
   ]);
 
@@ -276,6 +324,16 @@ export async function GET(request: NextRequest) {
     total: t._count.id,
   }));
 
+  const porCategoria: Record<string, number> = {};
+  for (const row of catsRows) {
+    for (const c of row.categorias) {
+      porCategoria[c] = (porCategoria[c] ?? 0) + 1;
+    }
+  }
+  const contadoresPorCategoria = Object.entries(porCategoria)
+    .map(([categoria, totalCat]) => ({ categoria, total: totalCat }))
+    .sort((a, b) => b.total - a.total);
+
   return NextResponse.json({
     ocorrencias: ocorrencias.map(({ fotoPath, ...oc }) => ({
       ...oc,
@@ -287,5 +345,6 @@ export async function GET(request: NextRequest) {
     pageSize,
     totalPages: Math.ceil(total / pageSize),
     contadoresPorLoja,
+    contadoresPorCategoria,
   });
 }
