@@ -28,7 +28,6 @@ import {
   Check,
   ChevronsUpDown,
   Store,
-  ArrowLeft,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
@@ -314,26 +313,22 @@ export default function NovaOcorrenciaClient({
 
   const header = (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
-      <Logo />
-      <div className="flex items-center gap-1">
-        {!isOcorrenciasOnly && (
-          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground gap-1.5">
-            <Link href="/ocorrencias">
-              <ArrowLeft className="h-4 w-4" />
-              Voltar ao painel
-            </Link>
-          </Button>
-        )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleLogout}
-          className="text-muted-foreground hover:text-foreground gap-1.5"
-        >
-          <LogOut className="h-4 w-4" />
-          Sair
-        </Button>
-      </div>
+      {isOcorrenciasOnly ? (
+        <Logo />
+      ) : (
+        <Link href="/dashboard" className="hover:opacity-80 transition-opacity">
+          <Logo />
+        </Link>
+      )}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleLogout}
+        className="text-muted-foreground hover:text-foreground gap-1.5"
+      >
+        <LogOut className="h-4 w-4" />
+        Sair
+      </Button>
     </header>
   );
 
