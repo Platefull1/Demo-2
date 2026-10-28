@@ -489,7 +489,7 @@ function StoreCarousel() {
                         console.log('🏪 Carregando lojas da API Saipos...');
                         // Verificar se há APIs conectadas (até 4 lojas)
                         const connectedSaiposAPIs = connectedAPIs.filter({
-                            "StoreCarousel.useEffect.loadStores.connectedSaiposAPIs": (api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey
+                            "StoreCarousel.useEffect.loadStores.connectedSaiposAPIs": (api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey
                         }["StoreCarousel.useEffect.loadStores.connectedSaiposAPIs"]).slice(0, 4); // Limite de 4 lojas
                         if (connectedSaiposAPIs.length === 0) {
                             console.log('⚠️ Nenhuma API Saipos conectada');
@@ -1866,7 +1866,7 @@ function ReportsSection() {
     const handleDateChange = (date)=>{
         setSelectedDate(date);
         if (date) {
-            const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+            const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey);
             if (saiposApis.length > 0) {
                 addToast(`Data alterada para ${date.toLocaleDateString("pt-BR")}`, "info");
             // DESABILITADO: loadDailyData causa requisições simultâneas e rate limiting
@@ -1901,7 +1901,7 @@ function ReportsSection() {
                 setErrorMsg(null);
                 // Obter storeId da loja selecionada ou primeira conectada
                 const saiposApis = connectedAPIs.filter({
-                    "ReportsSection.useCallback[loadSalesData].saiposApis": (api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey
+                    "ReportsSection.useCallback[loadSalesData].saiposApis": (api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey
                 }["ReportsSection.useCallback[loadSalesData].saiposApis"]);
                 if (saiposApis.length === 0) throw new Error('Nenhuma API Saipos conectada');
                 const targetApi = selectedStore?.apiId ? saiposApis.find({
@@ -2099,7 +2099,7 @@ function ReportsSection() {
             }["ReportsSection.useEffect"]);
             // Iniciar polling a cada 60s usando cache local
             const saiposApis = connectedAPIs.filter({
-                "ReportsSection.useEffect.saiposApis": (api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey
+                "ReportsSection.useEffect.saiposApis": (api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey
             }["ReportsSection.useEffect.saiposApis"]);
             const targetApi = selectedStore?.apiId ? saiposApis.find({
                 "ReportsSection.useEffect": (a)=>a.id === selectedStore.apiId
@@ -2295,7 +2295,7 @@ function ReportsSection() {
             isSyncing: dashboardData.isSyncing
         }
     ];
-    const saiposApisConnected = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+    const saiposApisConnected = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$compiled$2f$react$2f$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$client$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "space-y-8",
         children: [

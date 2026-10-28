@@ -403,7 +403,7 @@ function StoreCarousel() {
                 setIsLoadingStores(true);
                 console.log('🏪 Carregando lojas da API Saipos...');
                 // Verificar se há APIs conectadas (até 4 lojas)
-                const connectedSaiposAPIs = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey).slice(0, 4); // Limite de 4 lojas
+                const connectedSaiposAPIs = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey).slice(0, 4); // Limite de 4 lojas
                 if (connectedSaiposAPIs.length === 0) {
                     console.log('⚠️ Nenhuma API Saipos conectada');
                     setSaiposStores([]);
@@ -1646,7 +1646,7 @@ function ReportsSection() {
     const handleDateChange = (date)=>{
         setSelectedDate(date);
         if (date) {
-            const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+            const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey);
             if (saiposApis.length > 0) {
                 addToast(`Data alterada para ${date.toLocaleDateString("pt-BR")}`, "info");
             // DESABILITADO: loadDailyData causa requisições simultâneas e rate limiting
@@ -1677,7 +1677,7 @@ function ReportsSection() {
         try {
             setErrorMsg(null);
             // Obter storeId da loja selecionada ou primeira conectada
-            const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+            const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey);
             if (saiposApis.length === 0) throw new Error('Nenhuma API Saipos conectada');
             const targetApi = selectedStore?.apiId ? saiposApis.find((a)=>a.id === selectedStore.apiId) || saiposApis[0] : saiposApis[0];
             // Usar storeId da API (formato: store_${apiId})
@@ -1857,7 +1857,7 @@ function ReportsSection() {
                 }), 2000);
         });
         // Iniciar polling a cada 60s usando cache local
-        const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+        const saiposApis = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey);
         const targetApi = selectedStore?.apiId ? saiposApis.find((a)=>a.id === selectedStore.apiId) || saiposApis[0] : saiposApis[0];
         if (targetApi && selectedStore) {
             __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$realtime$2d$service$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["realtimeService"].startPolling(async ()=>{
@@ -2039,7 +2039,7 @@ function ReportsSection() {
             isSyncing: dashboardData.isSyncing
         }
     ];
-    const saiposApisConnected = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+    const saiposApisConnected = connectedAPIs.filter((api)=>api.type === 'saipos' && api.status === 'connected' && api.hasKey);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("div", {
         className: "space-y-8",
         children: [
