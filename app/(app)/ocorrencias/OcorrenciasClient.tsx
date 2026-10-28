@@ -92,7 +92,11 @@ function kpiBorder(index: number, total: number) {
   );
 }
 
-export default function OcorrenciasClient() {
+export default function OcorrenciasClient({
+  canRegister = false,
+}: {
+  canRegister?: boolean;
+}) {
   const padrao = mesAtualYmd();
   const [inicio, setInicio] = useState(padrao.inicio);
   const [fim, setFim] = useState(padrao.fim);
@@ -207,9 +211,11 @@ export default function OcorrenciasClient() {
         title="Central de Ocorrências"
         description="Ocorrências registradas pelos funcionários das lojas"
         actions={
-          <Button asChild>
-            <Link href="/ocorrencias/nova">Registrar ocorrência</Link>
-          </Button>
+          canRegister ? (
+            <Button asChild>
+              <Link href="/ocorrencias/nova">Registrar ocorrência</Link>
+            </Button>
+          ) : undefined
         }
       />
 

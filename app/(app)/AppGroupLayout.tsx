@@ -142,9 +142,13 @@ export default function AppGroupLayout({ children }: { children: React.ReactNode
       item({
         id: 'ocorrencias',
         label: 'Central de Ocorrências',
-        href: '/ocorrencias',
+        href: permissions[SystemTool.VER_OCORRENCIAS]
+          ? '/ocorrencias'
+          : '/ocorrencias/nova',
         icon: AlertTriangle,
-        locked: !permissions[SystemTool.VER_OCORRENCIAS],
+        locked:
+          !permissions[SystemTool.VER_OCORRENCIAS] &&
+          !permissions[SystemTool.REGISTRAR_OCORRENCIAS],
         active:
           pathname === '/ocorrencias' ||
           Boolean(pathname?.startsWith('/ocorrencias/')),

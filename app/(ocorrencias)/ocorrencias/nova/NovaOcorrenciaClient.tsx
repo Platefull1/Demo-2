@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/popover';
 import {
   LogOut,
+  ArrowLeft,
   ImageIcon,
   X,
   RefreshCw,
@@ -109,6 +110,7 @@ function arquivoDaClipboard(e: ClipboardEvent): File | null {
 
 export default function NovaOcorrenciaClient({
   isOcorrenciasOnly,
+  canView = false,
 }: {
   isOcorrenciasOnly: boolean;
   canView?: boolean;
@@ -311,6 +313,8 @@ export default function NovaOcorrenciaClient({
       ? 'Selecione (opcional)'
       : motoboys.find((m) => m.id === motoboyId)?.nome || 'Selecione (opcional)';
 
+  const voltarHref = canView ? '/ocorrencias' : '/dashboard';
+
   const header = (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
       {isOcorrenciasOnly ? (
@@ -320,15 +324,30 @@ export default function NovaOcorrenciaClient({
           <Logo />
         </Link>
       )}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleLogout}
-        className="text-muted-foreground hover:text-foreground gap-1.5"
-      >
-        <LogOut className="h-4 w-4" />
-        Sair
-      </Button>
+      <div className="flex items-center gap-1">
+        {!isOcorrenciasOnly && (
+          <Button
+            variant="ghost"
+            size="sm"
+            asChild
+            className="text-muted-foreground hover:text-foreground gap-1.5"
+          >
+            <Link href={voltarHref}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar ao painel
+            </Link>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="text-muted-foreground hover:text-foreground gap-1.5"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </Button>
+      </div>
     </header>
   );
 
@@ -354,7 +373,7 @@ export default function NovaOcorrenciaClient({
               <Button onClick={novoRegistro} size="lg" className="flex-1">
                 Registrar outra
               </Button>
-              {!isOcorrenciasOnly && (
+              {canView && (
                 <Button variant="outline" size="lg" asChild className="flex-1">
                   <Link href="/ocorrencias">Ver ocorrências</Link>
                 </Button>

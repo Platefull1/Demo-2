@@ -15,5 +15,5 @@ export default async function OcorrenciasPage() {
     redirect('/dashboard');
   }
 
-  return <OcorrenciasClient />;
+  return <OcorrenciasClient canRegister={ctx.canRegister} />;
 }

@@ -1787,9 +1787,9 @@ function AppGroupLayout({ children }) {
             item({
                 id: 'ocorrencias',
                 label: 'Central de Ocorrências',
-                href: '/ocorrencias',
+                href: permissions[__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SystemTool"].VER_OCORRENCIAS] ? '/ocorrencias' : '/ocorrencias/nova',
                 icon: __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$lucide$2d$react$2f$dist$2f$esm$2f$icons$2f$triangle$2d$alert$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__$3c$export__default__as__AlertTriangle$3e$__["AlertTriangle"],
-                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SystemTool"].VER_OCORRENCIAS],
+                locked: !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SystemTool"].VER_OCORRENCIAS] && !permissions[__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$types$2f$admin$2e$ts__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["SystemTool"].REGISTRAR_OCORRENCIAS],
                 active: pathname === '/ocorrencias' || Boolean(pathname?.startsWith('/ocorrencias/'))
             })
         ];
@@ -1937,12 +1937,12 @@ function AppGroupLayout({ children }) {
                 children: "Carregando..."
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                lineNumber: 286,
+                lineNumber: 290,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-            lineNumber: 285,
+            lineNumber: 289,
             columnNumber: 7
         }, this);
     }
@@ -1966,7 +1966,7 @@ function AppGroupLayout({ children }) {
                                         alt: primaryLabel
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                        lineNumber: 311,
+                                        lineNumber: 315,
                                         columnNumber: 13
                                     }, this),
                                     /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$avatar$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["AvatarFallback"], {
@@ -1974,13 +1974,13 @@ function AppGroupLayout({ children }) {
                                         children: initial
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                        lineNumber: 315,
+                                        lineNumber: 319,
                                         columnNumber: 13
                                     }, this)
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                lineNumber: 310,
+                                lineNumber: 314,
                                 columnNumber: 11
                             }, this),
                             !collapsed && /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1991,7 +1991,7 @@ function AppGroupLayout({ children }) {
                                         children: primaryLabel
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                        lineNumber: 321,
+                                        lineNumber: 325,
                                         columnNumber: 15
                                     }, this),
                                     displayName && email ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])("span", {
@@ -1999,24 +1999,24 @@ function AppGroupLayout({ children }) {
                                         children: email
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                        lineNumber: 325,
+                                        lineNumber: 329,
                                         columnNumber: 17
                                     }, this) : null
                                 ]
                             }, void 0, true, {
                                 fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                lineNumber: 320,
+                                lineNumber: 324,
                                 columnNumber: 13
                             }, this)
                         ]
                     }, void 0, true, {
                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                        lineNumber: 302,
+                        lineNumber: 306,
                         columnNumber: 9
                     }, this)
                 }, void 0, false, {
                     fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                    lineNumber: 301,
+                    lineNumber: 305,
                     columnNumber: 7
                 }, this),
                 /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuContent"], {
@@ -2031,14 +2031,14 @@ function AppGroupLayout({ children }) {
                                     className: "mr-2 h-4 w-4 text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                    lineNumber: 339,
+                                    lineNumber: 343,
                                     columnNumber: 11
                                 }, this),
                                 primaryLabel
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                            lineNumber: 338,
+                            lineNumber: 342,
                             columnNumber: 9
                         }, this),
                         email ? /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2046,7 +2046,7 @@ function AppGroupLayout({ children }) {
                             children: email
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                            lineNumber: 343,
+                            lineNumber: 347,
                             columnNumber: 11
                         }, this) : null,
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2058,7 +2058,7 @@ function AppGroupLayout({ children }) {
                                         className: "mr-2 h-4 w-4 text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                        lineNumber: 350,
+                                        lineNumber: 354,
                                         columnNumber: 15
                                     }, this),
                                     "Modo claro"
@@ -2069,7 +2069,7 @@ function AppGroupLayout({ children }) {
                                         className: "mr-2 h-4 w-4 text-muted-foreground"
                                     }, void 0, false, {
                                         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                        lineNumber: 355,
+                                        lineNumber: 359,
                                         columnNumber: 15
                                     }, this),
                                     "Modo escuro"
@@ -2077,7 +2077,7 @@ function AppGroupLayout({ children }) {
                             }, void 0, true)
                         }, void 0, false, {
                             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                            lineNumber: 347,
+                            lineNumber: 351,
                             columnNumber: 9
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2087,14 +2087,14 @@ function AppGroupLayout({ children }) {
                                     className: "mr-2 h-4 w-4 text-muted-foreground"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                    lineNumber: 361,
+                                    lineNumber: 365,
                                     columnNumber: 11
                                 }, this),
                                 "Configurações"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                            lineNumber: 360,
+                            lineNumber: 364,
                             columnNumber: 9
                         }, this),
                         /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$ui$2f$dropdown$2d$menu$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["DropdownMenuItem"], {
@@ -2105,26 +2105,26 @@ function AppGroupLayout({ children }) {
                                     className: "mr-2 h-4 w-4"
                                 }, void 0, false, {
                                     fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                                    lineNumber: 368,
+                                    lineNumber: 372,
                                     columnNumber: 11
                                 }, this),
                                 "Sair"
                             ]
                         }, void 0, true, {
                             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                            lineNumber: 364,
+                            lineNumber: 368,
                             columnNumber: 9
                         }, this)
                     ]
                 }, void 0, true, {
                     fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                    lineNumber: 333,
+                    lineNumber: 337,
                     columnNumber: 7
                 }, this)
             ]
         }, void 0, true, {
             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-            lineNumber: 300,
+            lineNumber: 304,
             columnNumber: 5
         }, this);
     const logo = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -2132,12 +2132,12 @@ function AppGroupLayout({ children }) {
         className: "hover:opacity-80 transition-opacity block",
         children: /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$components$2f$logo$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["Logo"], {}, void 0, false, {
             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-            lineNumber: 377,
+            lineNumber: 381,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-        lineNumber: 376,
+        lineNumber: 380,
         columnNumber: 5
     }, this);
     const logoCollapsed = /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$client$2f$app$2d$dir$2f$link$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["default"], {
@@ -2148,12 +2148,12 @@ function AppGroupLayout({ children }) {
             children: "P"
         }, void 0, false, {
             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-            lineNumber: 383,
+            lineNumber: 387,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-        lineNumber: 382,
+        lineNumber: 386,
         columnNumber: 5
     }, this);
     return /*#__PURE__*/ (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$next$2f$dist$2f$server$2f$route$2d$modules$2f$app$2d$page$2f$vendored$2f$ssr$2f$react$2d$jsx$2d$dev$2d$runtime$2e$js__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["jsxDEV"])(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$contexts$2f$app$2d$context$2e$tsx__$5b$app$2d$ssr$5d$__$28$ecmascript$29$__["AppProvider"], {
@@ -2168,17 +2168,17 @@ function AppGroupLayout({ children }) {
                 children: children
             }, void 0, false, {
                 fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-                lineNumber: 392,
+                lineNumber: 396,
                 columnNumber: 9
             }, this)
         }, void 0, false, {
             fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-            lineNumber: 391,
+            lineNumber: 395,
             columnNumber: 7
         }, this)
     }, void 0, false, {
         fileName: "[project]/Demo-2/app/(app)/AppGroupLayout.tsx",
-        lineNumber: 390,
+        lineNumber: 394,
         columnNumber: 5
     }, this);
 }
