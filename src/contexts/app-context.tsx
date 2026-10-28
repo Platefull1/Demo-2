@@ -24,7 +24,9 @@ interface API {
   storeId: string; // Formato: store_${id}
   status: "connected" | "disconnected" | "error";
   type: "saipos" | "custom" | "whatsapp";
-  apiKey?: string;
+  /** Preview mascarado da chave, ex: "••••a1b2". Nunca a chave completa. */
+  keyPreview?: string;
+  hasKey?: boolean;
   baseUrl?: string;
   lastTest?: string;
 }
@@ -41,10 +43,12 @@ interface DashboardData {
 interface DatabaseAPI {
   id: string;
   name: string;
-  storeId: string; // Formato: store_${id}
+  storeId: string;
   type: string;
   status: string;
-  apiKey: string;
+  /** Chave mascarada retornada pelo servidor, ex: "••••a1b2". Sem apiKey em texto. */
+  keyPreview: string;
+  hasKey: boolean;
   baseUrl: string | null;
   lastTest: string | null;
 }
@@ -123,12 +127,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const apis: API[] = data.apis.map((api: DatabaseAPI) => ({
           id: api.id,
           name: api.name,
-          storeId: api.storeId, // storeId obrigatório na API
+          storeId: api.storeId,
           type: api.type,
           status: api.status,
-          apiKey: api.apiKey,
-          baseUrl: api.baseUrl,
-          lastTest: api.lastTest
+          keyPreview: api.keyPreview,
+          hasKey: api.hasKey,
+          baseUrl: api.baseUrl ?? undefined,
+          lastTest: api.lastTest ?? undefined,
         }));
         setConnectedAPIs(apis);
         console.log('📱 APIs carregadas do banco de dados:', apis);

@@ -22,21 +22,32 @@ import { useApp } from "@/contexts/app-context";
 interface APIConfig {
   id: string;
   name: string;
-  apiKey: string;
+  /** Chave mascarada para exibição, ex: "••••a1b2". Nunca a chave completa. */
+  keyPreview: string;
+  hasKey: boolean;
   baseUrl: string;
   type: "saipos" | "custom";
   status: "connected" | "disconnected" | "error";
   lastTest?: string;
 }
 
+/** Estado do formulário de criação de nova conexão (ainda não salva). */
+interface NewAPIForm {
+  name: string;
+  /** Chave nova digitada pelo usuário antes de salvar. */
+  apiKey: string;
+  baseUrl: string;
+  type: "saipos" | "custom";
+}
+
 export function APIConfigDialog() {
   const [isOpen, setIsOpen] = useState(false);
   const [configs, setConfigs] = useState<APIConfig[]>([]);
-  const [newConfig, setNewConfig] = useState<Partial<APIConfig>>({
+  const [newConfig, setNewConfig] = useState<Partial<NewAPIForm>>({
     name: "",
     apiKey: "",
-    baseUrl: "https://api.saipos.com",
-    type: "saipos"
+    baseUrl: "https://data.saipos.io/v1",
+    type: "saipos",
   });
   const [isTesting, setIsTesting] = useState<string | null>(null);
   const { addToast, connectedAPIs, createUserAPI, deleteUserAPI, testUserAPI, userId } = useApp();
@@ -46,11 +57,12 @@ export function APIConfigDialog() {
     const localConfigs: APIConfig[] = connectedAPIs.map(api => ({
       id: api.id,
       name: api.name,
-      apiKey: api.apiKey || "",
-      baseUrl: api.baseUrl || "https://api.saipos.com",
+      keyPreview: api.keyPreview || "••••••••",
+      hasKey: api.hasKey ?? false,
+      baseUrl: api.baseUrl || "https://data.saipos.io/v1",
       type: api.type === "saipos" ? "saipos" : "custom",
       status: api.status,
-      lastTest: api.lastTest
+      lastTest: api.lastTest,
     }));
     setConfigs(localConfigs);
   }, [connectedAPIs]);
@@ -77,8 +89,8 @@ export function APIConfigDialog() {
       setNewConfig({
         name: "",
         apiKey: "",
-        baseUrl: "https://api.saipos.com",
-        type: "saipos"
+        baseUrl: "https://data.saipos.io/v1",
+        type: "saipos",
       });
     } catch (error) {
       console.error('Erro ao criar API:', error);
@@ -193,7 +205,7 @@ export function APIConfigDialog() {
                     <div>
                       <Label className="text-gray-400">API Key</Label>
                       <p className="text-white font-mono">
-                        {config.apiKey ? `${config.apiKey.substring(0, 20)}...` : "Não configurada"}
+                        {config.hasKey ? config.keyPreview : "Não configurada"}
                       </p>
                     </div>
                   </div>

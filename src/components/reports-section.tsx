@@ -107,7 +107,7 @@ export function ReportsSection() {
   const handleDateChange = (date: Date | undefined) => {
     setSelectedDate(date);
     if (date) {
-      const saiposApis = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+      const saiposApis = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.hasKey);
       if (saiposApis.length > 0) {
         addToast(`Data alterada para ${date.toLocaleDateString("pt-BR")}`, "info");
         // DESABILITADO: loadDailyData causa requisições simultâneas e rate limiting
@@ -144,7 +144,7 @@ export function ReportsSection() {
       setErrorMsg(null);
 
       // Obter storeId da loja selecionada ou primeira conectada
-      const saiposApis = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+      const saiposApis = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.hasKey);
       if (saiposApis.length === 0) throw new Error('Nenhuma API Saipos conectada');
       const targetApi = selectedStore?.apiId
         ? (saiposApis.find(a => a.id === selectedStore.apiId) || saiposApis[0])
@@ -341,7 +341,7 @@ export function ReportsSection() {
     });
 
     // Iniciar polling a cada 60s usando cache local
-    const saiposApis = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+    const saiposApis = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.hasKey);
     const targetApi = selectedStore?.apiId
       ? (saiposApis.find(a => a.id === selectedStore.apiId) || saiposApis[0])
       : saiposApis[0];
@@ -524,7 +524,7 @@ export function ReportsSection() {
     }
   ];
 
-  const saiposApisConnected = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.apiKey);
+  const saiposApisConnected = connectedAPIs.filter(api => api.type === 'saipos' && api.status === 'connected' && api.hasKey);
 
   return (
     <div className="space-y-8">

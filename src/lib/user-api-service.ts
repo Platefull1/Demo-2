@@ -9,6 +9,10 @@ if (!process.env.DATABASE_URL) {
   console.error('⚠️ DATABASE_URL não está configurada! Configure-a nas variáveis de ambiente.');
 }
 
+// Re-exportar funções puras (sem deps pesadas) para uso nas rotas e em testes
+export { maskApiKey, toPublic } from '@/lib/user-api-mask'
+export type { UserAPIPublic } from '@/lib/user-api-mask'
+
 export interface UserAPIConfig {
   id: string
   userId: string
@@ -110,8 +114,17 @@ export class UserAPIService {
         where: { id: apiId }
       })
 
+      // Montar payload de atualização
+      const updateData: Partial<UpdateUserAPIRequest> = { ...data }
+
+      // Nunca sobrescrever a chave com string vazia — campo vazio = manter existente
+      if (!updateData.apiKey?.trim()) {
+        delete updateData.apiKey
+      } else {
+        updateData.apiKey = updateData.apiKey.trim()
+      }
+
       // Se for API Saipos e baseUrl foi enviada, garantir que seja sempre a URL fixa
-      const updateData = { ...data }
       if (existingAPI?.type === 'saipos' && data.baseUrl !== undefined) {
         updateData.baseUrl = 'https://data.saipos.io/v1'
       }

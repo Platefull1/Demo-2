@@ -1,59 +1,67 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server'
-import { UserAPIService, CreateUserAPIRequest, UpdateUserAPIRequest } from '@/lib/user-api-service'
+import { UserAPIService, CreateUserAPIRequest, UpdateUserAPIRequest, toPublic } from '@/lib/user-api-service'
 import { stackServerApp } from '@/stack'
 import { syncStackAuthUser } from '@/lib/stack-auth-sync'
+import { requireToolPermission } from '@/lib/auth/toolPermissions'
+import { SystemTool } from '@/types/admin'
+import { prisma } from '@/lib/prisma'
 
-// GET /api/user-apis - Obter todas as APIs do usuário
-export async function GET() {
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Autentica + sincroniza o usuário; retorna { dbUser } ou { error: NextResponse } */
+async function resolveDbUser() {
+  const stackUser = await stackServerApp.getUser({ or: 'return-null' })
+  if (!stackUser) {
+    return { error: NextResponse.json({ error: 'Não autenticado' }, { status: 401 }) }
+  }
   try {
-    // Identificar usuário autenticado via Stack Auth e garantir sync no DB
-    const stackUser = await stackServerApp.getUser({ or: 'return-null' })
-    if (!stackUser) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    let dbUser
-    try {
-      dbUser = await syncStackAuthUser({
-        id: stackUser.id,
-        primaryEmail: stackUser.primaryEmail,
-        displayName: stackUser.displayName,
-        profileImageUrl: stackUser.profileImageUrl,
-        primaryEmailVerified: stackUser.primaryEmailVerified ? new Date() : null,
-      })
-    } catch (e: unknown) {
-      const message = (e as Error)?.message || 'Falha ao sincronizar usuário'
-      return NextResponse.json({ error: message }, { status: 500 })
-    }
-
-    const apis = await UserAPIService.getUserAPIs(dbUser.id)
-    return NextResponse.json({ apis })
-  } catch (error) {
-    console.error('Erro ao buscar APIs:', error)
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    )
+    const dbUser = await syncStackAuthUser({
+      id: stackUser.id,
+      primaryEmail: stackUser.primaryEmail,
+      displayName: stackUser.displayName,
+      profileImageUrl: stackUser.profileImageUrl,
+      primaryEmailVerified: stackUser.primaryEmailVerified ? new Date() : null,
+    })
+    return { dbUser }
+  } catch (e: unknown) {
+    const message = (e as Error)?.message || 'Falha ao sincronizar usuário'
+    return { error: NextResponse.json({ error: message }, { status: 500 }) }
   }
 }
 
-// POST /api/user-apis - Criar nova API
+// ---------------------------------------------------------------------------
+// GET /api/user-apis — Listar APIs do usuário (sem expor apiKey)
+// ---------------------------------------------------------------------------
+export async function GET() {
+  try {
+    const permErr = await requireToolPermission(SystemTool.CONEXOES)
+    if (permErr) return permErr
+
+    const { dbUser, error } = await resolveDbUser()
+    if (error) return error
+
+    const apis = await UserAPIService.getUserAPIs(dbUser!.id)
+    return NextResponse.json({ apis: apis.map(toPublic) })
+  } catch (err) {
+    console.error('GET /api/user-apis:', err)
+    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/user-apis — Criar nova conexão
+// ---------------------------------------------------------------------------
 export async function POST(request: NextRequest) {
   try {
-    const stackUser = await stackServerApp.getUser({ or: 'return-null' })
-    if (!stackUser) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    let dbUser
-    try {
-      dbUser = await syncStackAuthUser({
-        id: stackUser.id,
-        primaryEmail: stackUser.primaryEmail,
-        displayName: stackUser.displayName,
-        profileImageUrl: stackUser.profileImageUrl,
-        primaryEmailVerified: stackUser.primaryEmailVerified ? new Date() : null,
-      })
-    } catch (e: unknown) {
-      const message = (e as Error)?.message || 'Falha ao sincronizar usuário'
-      return NextResponse.json({ error: message }, { status: 500 })
-    }
+    const permErr = await requireToolPermission(SystemTool.CONEXOES)
+    if (permErr) return permErr
+
+    const { dbUser, error } = await resolveDbUser()
+    if (error) return error
 
     const body = (await request.json()) as Omit<CreateUserAPIRequest, 'userId'>
     if (!body.name || !body.apiKey) {
@@ -61,84 +69,88 @@ export async function POST(request: NextRequest) {
     }
 
     try {
-      const api = await UserAPIService.createAPI({ ...body, userId: dbUser.id })
-      return NextResponse.json({ api }, { status: 201 })
+      const api = await UserAPIService.createAPI({ ...body, userId: dbUser!.id })
+      return NextResponse.json({ api: toPublic(api) }, { status: 201 })
     } catch (e: unknown) {
       const message = (e as Error)?.message || 'Falha ao salvar API'
-      console.error('Erro ao criar API:', e)
+      console.error('POST /api/user-apis createAPI:', e)
       const status = message.includes('Limite de 4 conexões Saipos') ? 400 : 500
       return NextResponse.json({ error: message }, { status })
     }
-  } catch (error: unknown) {
-    const message = (error as Error)?.message || 'Erro interno do servidor'
-    console.error('Erro ao criar API:', error)
+  } catch (err: unknown) {
+    const message = (err as Error)?.message || 'Erro interno do servidor'
+    console.error('POST /api/user-apis:', err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
-// PUT /api/user-apis - Atualizar API
+// ---------------------------------------------------------------------------
+// PUT /api/user-apis?id=<apiId> — Atualizar conexão (ownership obrigatório)
+// ---------------------------------------------------------------------------
 export async function PUT(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const apiId = searchParams.get('id')
-
     if (!apiId) {
-      return NextResponse.json(
-        { error: 'ID da API é obrigatório' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'ID da API é obrigatório' }, { status: 400 })
     }
 
-    // Garantir usuário autenticado
-    const stackUser = await stackServerApp.getUser({ or: 'return-null' })
-    if (!stackUser) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    try {
-      await syncStackAuthUser({
-        id: stackUser.id,
-        primaryEmail: stackUser.primaryEmail,
-        displayName: stackUser.displayName,
-        profileImageUrl: stackUser.profileImageUrl,
-        primaryEmailVerified: stackUser.primaryEmailVerified ? new Date() : null,
-      })
-    } catch {
-      return NextResponse.json({ error: 'Falha ao sincronizar usuário' }, { status: 500 })
+    const permErr = await requireToolPermission(SystemTool.CONEXOES)
+    if (permErr) return permErr
+
+    const { dbUser, error } = await resolveDbUser()
+    if (error) return error
+
+    // Verificar posse: busca já filtrada por userId
+    const existing = await prisma.userAPI.findFirst({
+      where: { id: apiId, userId: dbUser!.id },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
     }
 
     const body: UpdateUserAPIRequest = await request.json()
-    // Opcional: checar ownership (não implementado aqui por brevidade)
+
+    // Campo apiKey vazio = manter existente (já tratado em UserAPIService.updateAPI)
     const api = await UserAPIService.updateAPI(apiId, body)
-    
-    return NextResponse.json({ api })
-  } catch (error: unknown) {
-    const message = (error as Error)?.message || 'Erro interno do servidor'
-    console.error('Erro ao atualizar API:', error)
+    return NextResponse.json({ api: toPublic(api) })
+  } catch (err: unknown) {
+    const message = (err as Error)?.message || 'Erro interno do servidor'
+    console.error('PUT /api/user-apis:', err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
 
-// DELETE /api/user-apis - Deletar API
+// ---------------------------------------------------------------------------
+// DELETE /api/user-apis?id=<apiId> — Remover conexão (ownership obrigatório)
+// ---------------------------------------------------------------------------
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url)
     const apiId = searchParams.get('id')
-
     if (!apiId) {
-      return NextResponse.json(
-        { error: 'ID da API é obrigatório' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'ID da API é obrigatório' }, { status: 400 })
     }
 
-    // Garantir usuário autenticado
-    const stackUser = await stackServerApp.getUser({ or: 'return-null' })
-    if (!stackUser) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
-    // Opcional: checar ownership (não implementado aqui)
+    const permErr = await requireToolPermission(SystemTool.CONEXOES)
+    if (permErr) return permErr
+
+    const { dbUser, error } = await resolveDbUser()
+    if (error) return error
+
+    // Verificar posse: busca já filtrada por userId
+    const existing = await prisma.userAPI.findFirst({
+      where: { id: apiId, userId: dbUser!.id },
+    })
+    if (!existing) {
+      return NextResponse.json({ error: 'Não encontrado' }, { status: 404 })
+    }
+
     await UserAPIService.deleteAPI(apiId)
     return NextResponse.json({ message: 'API removida com sucesso' })
-  } catch (error: unknown) {
-    const message = (error as Error)?.message || 'Erro interno do servidor'
-    console.error('Erro ao deletar API:', error)
+  } catch (err: unknown) {
+    const message = (err as Error)?.message || 'Erro interno do servidor'
+    console.error('DELETE /api/user-apis:', err)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
-
