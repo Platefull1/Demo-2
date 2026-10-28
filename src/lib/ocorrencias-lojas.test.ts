@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { isLojaEscritorio } from './ocorrencias-lojas';
+import { isLojaEscritorio, nomeCurtoLoja } from './ocorrencias-lojas';
 
 describe('isLojaEscritorio', () => {
   it('exclui escritório com e sem acento', () => {
@@ -14,5 +14,14 @@ describe('isLojaEscritorio', () => {
     assert.equal(isLojaEscritorio('Pilarzinho'), false);
     assert.equal(isLojaEscritorio('Portão'), false);
     assert.equal(isLojaEscritorio('Uberaba'), false);
+  });
+});
+
+describe('nomeCurtoLoja', () => {
+  it('remove prefixo CALENZANO e Loja', () => {
+    assert.equal(nomeCurtoLoja('CALENZANO AHÚ'), 'AHÚ');
+    assert.equal(nomeCurtoLoja('Calenzano Pilarzinho'), 'Pilarzinho');
+    assert.equal(nomeCurtoLoja('Loja Ahú'), 'Ahú');
+    assert.equal(nomeCurtoLoja('Portão'), 'Portão');
   });
 });

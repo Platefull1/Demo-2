@@ -9,7 +9,11 @@ describe('isOcorrenciasAllowedPath', () => {
     assert.equal(isOcorrenciasAllowedPath('/api/ocorrencias/opcoes'), true);
     assert.equal(isOcorrenciasAllowedPath('/api/ocorrencias/isolation'), true);
     assert.equal(isOcorrenciasAllowedPath('/auth/login'), true);
+    assert.equal(isOcorrenciasAllowedPath('/auth/continuar'), true);
     assert.equal(isOcorrenciasAllowedPath('/handler/sign-in'), true);
+    assert.equal(isOcorrenciasAllowedPath('/api/auth/stack-sync'), true);
+    assert.equal(isOcorrenciasAllowedPath('/api/auth/refresh'), true);
+    assert.equal(isOcorrenciasAllowedPath('/_next/data/build/ocorrencias/nova.json'), true);
     assert.equal(isOcorrenciasAllowedPath('/'), true);
   });
 

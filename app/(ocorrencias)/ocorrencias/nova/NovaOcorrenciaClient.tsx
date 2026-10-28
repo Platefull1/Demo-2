@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUser } from '@stackframe/stack';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -21,16 +22,17 @@ import {
 } from '@/components/ui/popover';
 import {
   LogOut,
-  Camera,
   ImageIcon,
   X,
   RefreshCw,
   Check,
-  ChevronRight,
   ChevronsUpDown,
+  Store,
+  ArrowLeft,
 } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { cn } from '@/lib/utils';
+import { nomeCurtoLoja } from '@/lib/ocorrencias-lojas';
 
 interface Loja {
   id: string;
@@ -85,8 +87,34 @@ function comprimirImagem(file: File): Promise<Blob> {
   });
 }
 
-export default function NovaOcorrenciaClient() {
-  const user = useUser({ or: 'redirect' });
+function formatBytes(n: number) {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function arquivoDaClipboard(e: ClipboardEvent): File | null {
+  const items = e.clipboardData?.items;
+  if (!items) return null;
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      const blob = item.getAsFile();
+      if (blob) {
+        const ext = item.type.split('/')[1] || 'png';
+        return new File([blob], `clipboard.${ext}`, { type: blob.type });
+      }
+    }
+  }
+  return null;
+}
+
+export default function NovaOcorrenciaClient({
+  isOcorrenciasOnly,
+}: {
+  isOcorrenciasOnly: boolean;
+  canView?: boolean;
+}) {
+  const user = useUser({ or: 'return-null' });
   const router = useRouter();
 
   const [lojas, setLojas] = useState<Loja[]>([]);
@@ -104,13 +132,19 @@ export default function NovaOcorrenciaClient() {
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [motoboyId, setMotoboyId] = useState('');
   const [motoboyOpen, setMotoboyOpen] = useState(false);
+  const [arrastando, setArrastando] = useState(false);
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<{ lojaNome: string; pedido: string } | null>(null);
+  const [errosCampo, setErrosCampo] = useState<{
+    saipos?: string;
+    canal?: string;
+    descricao?: string;
+    foto?: string;
+  }>({});
 
-  const cameraInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch('/api/ocorrencias/set-mode', { method: 'POST' }).catch(() => {});
@@ -135,25 +169,27 @@ export default function NovaOcorrenciaClient() {
       .catch(() => setMotoboys([]));
   }, [lojaSelecionada]);
 
-  const formularioValido =
-    lojaSelecionada !== null &&
-    numeroPedidoSaipos.trim().length > 0 &&
-    descricao.trim().length >= 10 &&
-    foto !== null &&
-    (numeroPedidoExterno.trim() === '' || canalExterno !== '');
-
-  function selecionarLoja(loja: Loja) {
-    setLojaSelecionada(loja);
-    setMotoboyId('');
-    setEtapa('formulario');
-  }
-
   function aplicarFoto(file: File) {
+    if (!file.type.startsWith('image/')) return;
     setFoto(file);
     const previewUrl = URL.createObjectURL(file);
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
     setFotoPreview(previewUrl);
+    setErrosCampo((e) => ({ ...e, foto: undefined }));
   }
+
+  useEffect(() => {
+    function onPaste(e: ClipboardEvent) {
+      const file = arquivoDaClipboard(e);
+      if (file) {
+        e.preventDefault();
+        aplicarFoto(file);
+      }
+    }
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fotoPreview]);
 
   function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -161,16 +197,49 @@ export default function NovaOcorrenciaClient() {
     e.target.value = '';
   }
 
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setArrastando(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) aplicarFoto(file);
+  }
+
   function removerFoto() {
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
     setFoto(null);
     setFotoPreview(null);
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-    if (galleryInputRef.current) galleryInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function selecionarLoja(loja: Loja) {
+    setLojaSelecionada(loja);
+    setMotoboyId('');
+    setErrosCampo({});
+    setErro(null);
+    setEtapa('formulario');
+  }
+
+  function validar() {
+    const next: typeof errosCampo = {};
+    if (!numeroPedidoSaipos.trim()) {
+      next.saipos = 'Informe o número do pedido Saipos';
+    }
+    if (numeroPedidoExterno.trim() && !canalExterno) {
+      next.canal = 'Escolha o canal do pedido externo';
+    }
+    if (descricao.trim().length < 10) {
+      next.descricao = 'Descrição deve ter pelo menos 10 caracteres';
+    }
+    if (!foto) {
+      next.foto = 'Anexe uma foto da ocorrência';
+    }
+    setErrosCampo(next);
+    return Object.keys(next).length === 0;
   }
 
   async function handleSubmit() {
-    if (!formularioValido || enviando) return;
+    if (enviando) return;
+    if (!validar() || !lojaSelecionada) return;
     setEnviando(true);
     setErro(null);
 
@@ -184,7 +253,7 @@ export default function NovaOcorrenciaClient() {
       }
 
       const fd = new FormData();
-      fd.append('lojaId', lojaSelecionada!.id);
+      fd.append('lojaId', lojaSelecionada.id);
       fd.append('numeroPedidoSaipos', numeroPedidoSaipos.trim());
       if (numeroPedidoExterno.trim()) {
         fd.append('numeroPedidoExterno', numeroPedidoExterno.trim());
@@ -203,7 +272,7 @@ export default function NovaOcorrenciaClient() {
       }
 
       setSucesso({
-        lojaNome: lojaSelecionada!.nome,
+        lojaNome: nomeCurtoLoja(lojaSelecionada.nome),
         pedido: numeroPedidoSaipos.trim(),
       });
       setEtapa('sucesso');
@@ -222,6 +291,7 @@ export default function NovaOcorrenciaClient() {
     removerFoto();
     setMotoboyId('');
     setErro(null);
+    setErrosCampo({});
     setSucesso(null);
     setLojaSelecionada(null);
     setEtapa('loja');
@@ -239,21 +309,31 @@ export default function NovaOcorrenciaClient() {
 
   const motoboyLabel =
     motoboyId === ''
-      ? 'Não sei / não se aplica'
-      : motoboys.find((m) => m.id === motoboyId)?.nome || 'Não sei / não se aplica';
+      ? 'Selecione (opcional)'
+      : motoboys.find((m) => m.id === motoboyId)?.nome || 'Selecione (opcional)';
 
   const header = (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-card">
       <Logo />
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleLogout}
-        className="text-muted-foreground hover:text-foreground gap-1.5"
-      >
-        <LogOut className="h-4 w-4" />
-        Sair
-      </Button>
+      <div className="flex items-center gap-1">
+        {!isOcorrenciasOnly && (
+          <Button variant="ghost" size="sm" asChild className="text-muted-foreground hover:text-foreground gap-1.5">
+            <Link href="/ocorrencias">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar ao painel
+            </Link>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleLogout}
+          className="text-muted-foreground hover:text-foreground gap-1.5"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </Button>
+      </div>
     </header>
   );
 
@@ -261,23 +341,32 @@ export default function NovaOcorrenciaClient() {
     return (
       <div className="flex flex-col min-h-screen">
         {header}
-        <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
-          <p className="text-2xl font-semibold text-foreground text-center">
-            Ocorrência registrada ✓
-          </p>
-          <div className="text-sm text-muted-foreground text-center space-y-1">
-            <p>
-              Loja: <span className="text-foreground">{sucesso.lojaNome}</span>
+        <main className="flex-1 px-4 py-8 flex justify-center">
+          <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8 flex flex-col items-center gap-6">
+            <p className="text-2xl font-semibold text-foreground text-center">
+              Ocorrência registrada
             </p>
-            <p>
-              Pedido:{' '}
-              <span className="text-foreground tabular-nums">{sucesso.pedido}</span>
-            </p>
+            <div className="text-sm text-muted-foreground text-center space-y-1">
+              <p>
+                Loja: <span className="text-foreground">{sucesso.lojaNome}</span>
+              </p>
+              <p>
+                Pedido:{' '}
+                <span className="text-foreground tabular-nums">{sucesso.pedido}</span>
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
+              <Button onClick={novoRegistro} size="lg" className="flex-1">
+                Registrar outra
+              </Button>
+              {!isOcorrenciasOnly && (
+                <Button variant="outline" size="lg" asChild className="flex-1">
+                  <Link href="/ocorrencias">Ver ocorrências</Link>
+                </Button>
+              )}
+            </div>
           </div>
-          <Button onClick={novoRegistro} size="lg" className="w-full max-w-xs">
-            Registrar outra
-          </Button>
-        </div>
+        </main>
       </div>
     );
   }
@@ -286,33 +375,37 @@ export default function NovaOcorrenciaClient() {
     return (
       <div className="flex flex-col min-h-screen">
         {header}
-        <main className="flex-1 px-4 py-6">
-          <h1 className="text-2xl font-semibold text-foreground mb-1">Qual loja?</h1>
-          <p className="text-sm text-muted-foreground mb-6">Toque para selecionar</p>
+        <main className="flex-1 px-4 py-8 flex justify-center">
+          <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8">
+            <h1 className="text-2xl font-semibold text-foreground mb-1">Qual loja?</h1>
+            <p className="text-sm text-muted-foreground mb-6">Escolha a loja da ocorrência</p>
 
-          {carregandoOpcoes ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-16 rounded-xl bg-muted animate-pulse" />
-              ))}
-            </div>
-          ) : lojas.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Nenhuma loja cadastrada.</p>
-          ) : (
-            <div className="space-y-3">
-              {lojas.map((loja) => (
-                <button
-                  key={loja.id}
-                  type="button"
-                  onClick={() => selecionarLoja(loja)}
-                  className="w-full flex items-center justify-between px-5 py-4 rounded-xl bg-card border border-border hover:bg-muted active:bg-muted text-left min-h-[64px]"
-                >
-                  <span className="text-base font-semibold text-foreground">{loja.nome}</span>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
-                </button>
-              ))}
-            </div>
-          )}
+            {carregandoOpcoes ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="h-24 rounded-xl bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : lojas.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma loja cadastrada.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {lojas.map((loja) => (
+                  <button
+                    key={loja.id}
+                    type="button"
+                    onClick={() => selecionarLoja(loja)}
+                    className="flex items-center gap-3 px-5 py-5 rounded-xl bg-background border border-border hover:border-primary text-left min-h-[88px] transition-colors"
+                  >
+                    <Store className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <span className="text-base font-semibold text-foreground">
+                      {nomeCurtoLoja(loja.nome)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </main>
       </div>
     );
@@ -322,200 +415,210 @@ export default function NovaOcorrenciaClient() {
     <div className="flex flex-col min-h-screen">
       {header}
 
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-accent border-b border-border">
-        <span className="text-sm font-medium text-foreground flex-1">
-          {lojaSelecionada?.nome}
-        </span>
-        <button
-          type="button"
-          onClick={() => setEtapa('loja')}
-          className="text-xs text-primary hover:text-primary/80 font-medium min-h-11 px-2"
-        >
-          Trocar
-        </button>
-      </div>
+      <main className="flex-1 px-4 py-8 flex justify-center">
+        <div className="w-full max-w-[720px] rounded-xl border border-border bg-card p-6 md:p-8 space-y-6">
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted px-4 py-2.5">
+            <span className="text-sm font-medium text-foreground">
+              {lojaSelecionada ? nomeCurtoLoja(lojaSelecionada.nome) : ''}
+            </span>
+            <button
+              type="button"
+              onClick={() => setEtapa('loja')}
+              className="text-xs text-primary hover:text-primary/80 font-medium min-h-9 px-2"
+            >
+              Trocar
+            </button>
+          </div>
 
-      <main className="flex-1 px-4 py-5 space-y-5 pb-32">
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
-            Nº do pedido Saipos <span className="text-destructive">*</span>
-          </label>
-          <Input
-            inputMode="numeric"
-            pattern="[0-9]*"
-            placeholder="Ex.: 12345"
-            value={numeroPedidoSaipos}
-            onChange={(e) => setNumeroPedidoSaipos(e.target.value.replace(/\D/g, ''))}
-            className="h-12 text-base tabular-nums"
-          />
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
-            Nº do pedido iFood / Delivery Direto{' '}
-            <span className="text-muted-foreground font-normal">(opcional)</span>
-          </label>
-          <Input
-            inputMode="numeric"
-            placeholder="Ex.: 987654"
-            value={numeroPedidoExterno}
-            onChange={(e) => {
-              setNumeroPedidoExterno(e.target.value);
-              if (!e.target.value) setCanalExterno('');
-            }}
-            className="h-12 text-base tabular-nums"
-          />
-          {numeroPedidoExterno.trim() && (
-            <div className="flex gap-2 pt-1">
-              {(['IFOOD', 'DELIVERY_DIRETO'] as const).map((canal) => (
-                <button
-                  key={canal}
-                  type="button"
-                  onClick={() => setCanalExterno(canal)}
-                  className={cn(
-                    'flex-1 min-h-11 rounded-lg border text-sm font-medium',
-                    canalExterno === canal
-                      ? 'bg-accent border-primary text-accent-foreground'
-                      : 'border-border text-muted-foreground',
-                  )}
-                >
-                  {canal === 'IFOOD' ? 'iFood' : 'Delivery Direto'}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
-            Descrição da ocorrência <span className="text-destructive">*</span>
-          </label>
-          <Textarea
-            placeholder="Descreva o que aconteceu"
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-            rows={4}
-            className="text-base resize-none"
-          />
-          {descricao.length > 0 && descricao.length < 10 && (
-            <p className="text-xs text-destructive">{descricao.length}/10 mín.</p>
-          )}
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
-            Foto <span className="text-destructive">*</span>
-          </label>
-
-          {fotoPreview ? (
-            <div className="relative rounded-xl overflow-hidden border border-border">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={fotoPreview}
-                alt="Preview da ocorrência"
-                className="w-full object-cover max-h-64"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">
+                Nº do pedido Saipos <span className="text-destructive">*</span>
+              </label>
+              <Input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                placeholder="Ex.: 12345"
+                value={numeroPedidoSaipos}
+                onChange={(e) => {
+                  setNumeroPedidoSaipos(e.target.value.replace(/\D/g, ''));
+                  setErrosCampo((er) => ({ ...er, saipos: undefined }));
+                }}
+                className="h-11 text-sm tabular-nums"
+                aria-invalid={Boolean(errosCampo.saipos)}
               />
-              <button
-                type="button"
-                onClick={removerFoto}
-                className="absolute top-2 right-2 p-2 rounded-full bg-background/80 border border-border min-h-11 min-w-11 flex items-center justify-center"
-              >
-                <X className="h-4 w-4 text-foreground" />
-              </button>
-              <div className="absolute bottom-2 right-2 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="flex items-center gap-1.5 px-3 min-h-11 rounded-full bg-background/80 border border-border text-xs font-medium text-foreground"
-                >
-                  <Camera className="h-3.5 w-3.5 text-muted-foreground" />
-                  Trocar
-                </button>
-              </div>
+              {errosCampo.saipos && (
+                <p className="text-xs text-destructive">{errosCampo.saipos}</p>
+              )}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
+
+            <div className="space-y-1.5">
+              <label className="text-xs text-muted-foreground">
+                Nº do pedido iFood / Delivery Direto
+              </label>
+              <Input
+                inputMode="numeric"
+                placeholder="Ex.: 987654"
+                value={numeroPedidoExterno}
+                onChange={(e) => {
+                  setNumeroPedidoExterno(e.target.value);
+                  if (!e.target.value) setCanalExterno('');
+                  setErrosCampo((er) => ({ ...er, canal: undefined }));
+                }}
+                className="h-11 text-sm tabular-nums"
+              />
+              {numeroPedidoExterno.trim() && (
+                <div className="flex gap-2 pt-1">
+                  {(['IFOOD', 'DELIVERY_DIRETO'] as const).map((canal) => (
+                    <button
+                      key={canal}
+                      type="button"
+                      onClick={() => {
+                        setCanalExterno(canal);
+                        setErrosCampo((er) => ({ ...er, canal: undefined }));
+                      }}
+                      className={cn(
+                        'flex-1 min-h-10 rounded-lg border text-sm font-medium',
+                        canalExterno === canal
+                          ? 'bg-accent border-primary text-accent-foreground'
+                          : 'border-border text-muted-foreground',
+                      )}
+                    >
+                      {canal === 'IFOOD' ? 'iFood' : 'Delivery Direto'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {errosCampo.canal && (
+                <p className="text-xs text-destructive">{errosCampo.canal}</p>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">
+              Descrição da ocorrência <span className="text-destructive">*</span>
+            </label>
+            <Textarea
+              placeholder="Descreva o que aconteceu"
+              value={descricao}
+              onChange={(e) => {
+                setDescricao(e.target.value);
+                setErrosCampo((er) => ({ ...er, descricao: undefined }));
+              }}
+              rows={4}
+              className="text-sm resize-none"
+              aria-invalid={Boolean(errosCampo.descricao)}
+            />
+            <div className="flex items-center justify-between gap-2">
+              {errosCampo.descricao ? (
+                <p className="text-xs text-destructive">{errosCampo.descricao}</p>
+              ) : (
+                <span />
+              )}
+              <p className="text-xs text-muted-foreground tabular-nums">
+                {descricao.trim().length}/10 mín.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">
+              Foto <span className="text-destructive">*</span>
+            </label>
+
+            {fotoPreview && foto ? (
+              <div className="flex items-center gap-3 rounded-xl border border-border p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={fotoPreview}
+                  alt="Preview da ocorrência"
+                  className="h-16 w-16 rounded-md object-cover border border-border shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-foreground truncate">{foto.name}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {formatBytes(foto.size)}
+                  </p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Trocar
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={removerFoto}>
+                    <X className="h-4 w-4" />
+                    Remover
+                  </Button>
+                </div>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => cameraInputRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-2 min-h-[120px] rounded-xl border border-border bg-card"
-              >
-                <Camera className="h-7 w-7 text-muted-foreground" />
-                <span className="text-sm text-foreground">Tirar foto</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => galleryInputRef.current?.click()}
-                className="flex flex-col items-center justify-center gap-2 min-h-[120px] rounded-xl border border-border bg-card"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setArrastando(true);
+                }}
+                onDragLeave={() => setArrastando(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  'flex flex-col items-center justify-center gap-2 w-full min-h-[140px] rounded-xl border border-dashed px-4 py-6',
+                  arrastando
+                    ? 'border-primary bg-accent'
+                    : 'border-border bg-background hover:border-primary',
+                )}
               >
                 <ImageIcon className="h-7 w-7 text-muted-foreground" />
-                <span className="text-sm text-foreground">Galeria</span>
+                <span className="text-sm text-foreground text-center">
+                  Clique, arraste ou cole (Ctrl+V) a foto aqui
+                </span>
               </button>
-            </div>
-          )}
+            )}
 
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handleFotoChange}
-          />
-          <input
-            ref={galleryInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={handleFotoChange}
-          />
-        </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFotoChange}
+            />
+            {errosCampo.foto && (
+              <p className="text-xs text-destructive">{errosCampo.foto}</p>
+            )}
+          </div>
 
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-foreground">
-            Motoboy <span className="text-muted-foreground font-normal">(opcional)</span>
-          </label>
-          <Popover open={motoboyOpen} onOpenChange={setMotoboyOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                role="combobox"
-                aria-expanded={motoboyOpen}
-                className="w-full h-12 justify-between font-normal text-sm"
-              >
-                <span className="truncate">{motoboyLabel}</span>
-                <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Buscar motoboy…" />
-                <CommandList>
-                  <CommandEmpty>Nenhum motoboy encontrado</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      value="nao-sei"
-                      onSelect={() => {
-                        setMotoboyId('');
-                        setMotoboyOpen(false);
-                      }}
-                      className="min-h-11"
-                    >
-                      <Check
-                        className={cn(
-                          'h-4 w-4',
-                          motoboyId === '' ? 'opacity-100' : 'opacity-0',
-                        )}
-                      />
-                      Não sei / não se aplica
-                    </CommandItem>
-                    {motoboys.map((m) => (
+          <div className="space-y-1.5">
+            <label className="text-xs text-muted-foreground">Motoboy</label>
+            <Popover open={motoboyOpen} onOpenChange={setMotoboyOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={motoboyOpen}
+                  className="w-full h-11 justify-between font-normal text-sm"
+                >
+                  <span className={cn('truncate', motoboyId === '' && 'text-muted-foreground')}>
+                    {motoboyLabel}
+                  </span>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar motoboy…" />
+                  <CommandList>
+                    <CommandEmpty>Nenhum motoboy encontrado</CommandEmpty>
+                    <CommandGroup>
                       <CommandItem
-                        key={m.id}
-                        value={m.nome}
+                        value="nao-sei"
                         onSelect={() => {
-                          setMotoboyId(m.id);
+                          setMotoboyId('');
                           setMotoboyOpen(false);
                         }}
                         className="min-h-11"
@@ -523,43 +626,62 @@ export default function NovaOcorrenciaClient() {
                         <Check
                           className={cn(
                             'h-4 w-4',
-                            motoboyId === m.id ? 'opacity-100' : 'opacity-0',
+                            motoboyId === '' ? 'opacity-100' : 'opacity-0',
                           )}
                         />
-                        {m.nome}
+                        Selecione (opcional)
                       </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-        </div>
-
-        {erro && (
-          <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
-            {erro}
+                      {motoboys.map((m) => (
+                        <CommandItem
+                          key={m.id}
+                          value={m.nome}
+                          onSelect={() => {
+                            setMotoboyId(m.id);
+                            setMotoboyOpen(false);
+                          }}
+                          className="min-h-11"
+                        >
+                          <Check
+                            className={cn(
+                              'h-4 w-4',
+                              motoboyId === m.id ? 'opacity-100' : 'opacity-0',
+                            )}
+                          />
+                          {m.nome}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
-        )}
-      </main>
 
-      <div className="fixed bottom-0 left-0 right-0 bg-background border-t border-border px-4 py-3">
-        <Button
-          onClick={handleSubmit}
-          disabled={!formularioValido || enviando}
-          size="lg"
-          className="w-full"
-        >
-          {enviando ? (
-            <>
-              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-              Registrando…
-            </>
-          ) : (
-            'Registrar ocorrência'
+          {erro && (
+            <div className="rounded-lg bg-destructive/10 border border-destructive/30 px-4 py-3 text-sm text-destructive">
+              {erro}
+            </div>
           )}
-        </Button>
-      </div>
+
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={handleSubmit}
+              disabled={enviando}
+              size="lg"
+              className="disabled:opacity-100 disabled:bg-muted disabled:text-muted-foreground"
+            >
+              {enviando ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Registrando…
+                </>
+              ) : (
+                'Registrar ocorrência'
+              )}
+            </Button>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

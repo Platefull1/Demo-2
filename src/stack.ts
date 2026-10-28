@@ -8,8 +8,8 @@ export const stackServerApp = new StackServerApp({
   urls: {
     signIn: '/auth/login',
     signUp: '/auth/register',
-    afterSignIn: '/dashboard',
-    afterSignUp: '/dashboard',
+    afterSignIn: '/auth/continuar',
+    afterSignUp: '/auth/continuar',
     afterSignOut: '/',
     handler: '/handler',
   },

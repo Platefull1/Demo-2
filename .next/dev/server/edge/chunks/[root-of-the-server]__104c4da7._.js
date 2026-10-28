@@ -46,7 +46,8 @@ const ALLOWED_PREFIXES = [
     '/api/ocorrencias',
     '/handler',
     '/auth',
-    '/api/auth/check-tool-permission'
+    '/api/auth',
+    '/_next'
 ];
 function isOcorrenciasAllowedPath(pathname) {
     if (pathname === '/') return true;

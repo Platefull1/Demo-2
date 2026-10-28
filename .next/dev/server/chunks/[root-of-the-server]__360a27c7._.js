@@ -1147,8 +1147,8 @@ const stackServerApp = new __TURBOPACK__imported__module__$5b$project$5d2f$Demo$
     urls: {
         signIn: '/auth/login',
         signUp: '/auth/register',
-        afterSignIn: '/dashboard',
-        afterSignUp: '/dashboard',
+        afterSignIn: '/auth/continuar',
+        afterSignUp: '/auth/continuar',
         afterSignOut: '/',
         handler: '/handler'
     }
