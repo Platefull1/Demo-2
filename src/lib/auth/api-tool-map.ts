@@ -46,7 +46,21 @@ const RULES: Rule[] = [
       tools: [SystemTool.CONEXOES, SystemTool.WHATSAPP_CHAT],
     },
   },
+  { prefix: '/api/whatsapp-messages', gate: { type: 'all', tool: SystemTool.AGENDAMENTO_RELATORIOS } },
   { prefix: '/api/whatsapp', gate: { type: 'all', tool: SystemTool.WHATSAPP_CHAT } },
+  { prefix: '/api/saipos/sync-manual', gate: { type: 'all', tool: SystemTool.CONEXOES } },
+  { prefix: '/api/saipos/sync-all', gate: { type: 'all', tool: SystemTool.CONEXOES } },
+  { prefix: '/api/saipos/full-resync', gate: { type: 'all', tool: SystemTool.CONEXOES } },
+  { prefix: '/api/saipos/sync', gate: { type: 'all', tool: SystemTool.CONEXOES } },
+  {
+    prefix: '/api/tipos-avaliacao',
+    gate: { type: 'any', tools: [SystemTool.RH, SystemTool.BONIFICACAO] },
+  },
+  { prefix: '/api/client', gate: { type: 'all', tool: SystemTool.WHATSAPP_CHAT } },
+  {
+    prefix: '/api/admin/reports',
+    gate: { type: 'all', tool: SystemTool.AGENDAMENTO_RELATORIOS },
+  },
 ];
 
 const SORTED_RULES = [...RULES].sort((a, b) => b.prefix.length - a.prefix.length);
