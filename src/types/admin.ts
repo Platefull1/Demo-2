@@ -32,6 +32,7 @@ export enum SystemTool {
   CONEXOES = 'conexoes',
   AGENDAMENTO_RELATORIOS = 'agendamento_relatorios',
   CMV = 'cmv',
+  CMV_REAL = 'cmv_real',
   ANALYTICS = 'analytics',
   ESTOQUE = 'estoque',
   IFOOD = 'ifood',

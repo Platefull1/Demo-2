@@ -1,62 +1,52 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SystemTool } from '@/types/admin';
 import { stackServerApp } from '@/stack';
 import { toolsQualifyForContextAccess } from '@/lib/auth/tool-access';
+import { canAccessToolFromState } from '@/lib/auth/can-access-tool';
+
+export { canAccessToolFromState, canSeeCmvReal } from '@/lib/auth/can-access-tool';
 
 /**
- * Verifica se o usuário atual (StackUser) tem permissão para acessar uma ferramenta específica
- * @param stackUserId - ID do StackUser
- * @param tool - Ferramenta que precisa ser verificada
- * @returns true se tem permissão, false caso contrário
+ * Camada 1: só UserToolPermission. Sem bypass de dono/admin/ocorrências.
+ * Erro de consulta → false (fail-closed).
  */
-export async function checkToolPermission(
+export async function canAccessTool(
   stackUserId: string,
-  tool: SystemTool
+  tool: SystemTool,
 ): Promise<boolean> {
   try {
-    if (!stackUserId) {
-      return false;
-    }
+    if (!stackUserId) return false;
 
-    // Buscar StackUser com permissões
     const stackUser = await prisma.stackUser.findUnique({
       where: { id: stackUserId },
-      include: {
-        toolPermissions: true,
+      select: {
+        isActive: true,
+        toolPermissions: {
+          where: { tool, isEnabled: true },
+          select: { id: true },
+        },
       },
     });
 
-    if (!stackUser) {
-      return false;
-    }
-
-    // Verificar se o usuário está ativo
-    if (!stackUser.isActive) {
-      return false;
-    }
-
-    // Verificar se a ferramenta está habilitada para este usuário
-    const permission = stackUser.toolPermissions.find(
-      (p) => p.tool === tool && p.isEnabled === true
-    );
-
-    if (permission) return true;
-
-    // Admin da empresa tem as duas permissões de ocorrências por padrão
-    if (
-      tool === SystemTool.REGISTRAR_OCORRENCIAS ||
-      tool === SystemTool.VER_OCORRENCIAS
-    ) {
-      const { isOcorrenciasTenantAdmin } = await import('@/lib/ocorrencias-auth');
-      return isOcorrenciasTenantAdmin(stackUserId);
-    }
-
-    return false;
+    return canAccessToolFromState({
+      stackUserExists: Boolean(stackUser),
+      isActive: stackUser?.isActive === true,
+      enabledTools: stackUser?.toolPermissions.length ? [tool] : [],
+      tool,
+    });
   } catch (error) {
-    console.error('Erro ao verificar permissão de ferramenta:', error);
+    console.error('[canAccessTool] fail-closed:', error);
     return false;
   }
+}
+
+/** Alias de canAccessTool — mesma regra, mesmo fail-closed. */
+export async function checkToolPermission(
+  stackUserId: string,
+  tool: SystemTool,
+): Promise<boolean> {
+  return canAccessTool(stackUserId, tool);
 }
 
 /**
@@ -65,24 +55,22 @@ export async function checkToolPermission(
  * @returns NextResponse com erro 403 se não tiver permissão, ou null se tiver
  */
 export async function requireToolPermission(
-  tool: SystemTool
+  tool: SystemTool,
 ): Promise<NextResponse | null> {
   try {
-    // Obter usuário do Stack Auth
     const stackUser = await stackServerApp.getUser({ or: 'return-null' });
-    
+
     if (!stackUser) {
       return NextResponse.json(
         {
           error: 'Não autenticado',
           message: 'Você precisa estar logado para acessar esta ferramenta',
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    // Verificar permissão
-    const hasPermission = await checkToolPermission(stackUser.id, tool);
+    const hasPermission = await canAccessTool(stackUser.id, tool);
 
     if (!hasPermission) {
       return NextResponse.json(
@@ -90,7 +78,7 @@ export async function requireToolPermission(
           error: 'Acesso negado',
           message: `Você não tem permissão para acessar a ferramenta: ${tool}. Entre em contato com o administrador.`,
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -102,23 +90,24 @@ export async function requireToolPermission(
         error: 'Erro ao verificar permissão',
         message: 'Ocorreu um erro ao verificar suas permissões',
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 /** True se o StackUser tem ferramenta de contexto (não só registrar_ocorrencias). */
 export async function hasAnyEnabledTool(stackUserId: string): Promise<boolean> {
-  if (!stackUserId) return false;
-  const rows = await prisma.userToolPermission.findMany({
-    where: { stackUserId, isEnabled: true },
-    select: { tool: true },
-  });
-  const tools = rows.map((r) => r.tool);
-  if (toolsQualifyForContextAccess(tools)) return true;
-  if (tools.length > 0) return false;
-  const { isOcorrenciasTenantAdmin } = await import('@/lib/ocorrencias-auth');
-  return isOcorrenciasTenantAdmin(stackUserId);
+  try {
+    if (!stackUserId) return false;
+    const rows = await prisma.userToolPermission.findMany({
+      where: { stackUserId, isEnabled: true },
+      select: { tool: true },
+    });
+    return toolsQualifyForContextAccess(rows.map((r) => r.tool));
+  } catch (error) {
+    console.error('[hasAnyEnabledTool] fail-closed:', error);
+    return false;
+  }
 }
 
 /**
@@ -165,7 +154,7 @@ export async function requireAnyToolPermission(): Promise<NextResponse | null> {
  */
 export async function checkUserToolPermission(
   stackUserId: string,
-  tool: SystemTool
+  tool: SystemTool,
 ): Promise<boolean> {
   try {
     const permission = await prisma.userToolPermission.findUnique({

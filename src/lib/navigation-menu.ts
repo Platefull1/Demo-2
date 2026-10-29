@@ -4,6 +4,7 @@
  */
 
 import { SystemTool } from '@/types/admin';
+import { canSeeCmvReal } from '@/lib/auth/can-access-tool';
 
 export type NavIconName =
   | 'LayoutDashboard'
@@ -53,6 +54,37 @@ export function navItemIsActive(pathname: string, match: NavMatch): boolean {
   if (match.exact?.some((p) => pathname === p)) return true;
   if (match.prefix?.some((p) => pathname.startsWith(p))) return true;
   return false;
+}
+
+function hasToolFromSet(enabled: Set<string>) {
+  return (tool: SystemTool) => enabled.has(tool);
+}
+
+export function visaoGeralOnlyNav() {
+  return buildNavSections({ hasTool: () => false, canViewCmvReal: false });
+}
+
+/** Camada 1 (tools) + Camada 2 (CMV Real). isAdmin não liga ferramenta. */
+export function resolveNavigationInput(opts: {
+  isActive: boolean;
+  isAdmin: boolean;
+  enabledTools: string[];
+  hasCmvRealVisualizar: boolean;
+  lojaNaoConfigurada: boolean;
+}) {
+  if (!opts.isActive) {
+    return { hasTool: (_tool: SystemTool) => false, canViewCmvReal: false };
+  }
+  const enabled = new Set(opts.enabledTools);
+  return {
+    hasTool: hasToolFromSet(enabled),
+    canViewCmvReal: canSeeCmvReal({
+      hasCmvRealTool: enabled.has(SystemTool.CMV_REAL),
+      isAdmin: opts.isAdmin,
+      hasCmvRealVisualizar: opts.hasCmvRealVisualizar,
+      lojaNaoConfigurada: opts.lojaNaoConfigurada,
+    }),
+  };
 }
 
 export function buildNavSections(input: {
