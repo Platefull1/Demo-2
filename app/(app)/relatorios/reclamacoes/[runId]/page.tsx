@@ -145,7 +145,9 @@ function ReviewPageContent() {
     for (const c of data.complaints) {
       if (c.categoria) presentes.add(c.categoria);
     }
-    return Object.keys(CATEGORIA_LABELS).filter((k) => presentes.has(k));
+    const conhecidas = Object.keys(CATEGORIA_LABELS).filter((k) => presentes.has(k));
+    const extras = [...presentes].filter((k) => !(k in CATEGORIA_LABELS));
+    return [...conhecidas, ...extras];
   }, [data]);
 
   const groups = useMemo(() => {
@@ -558,7 +560,11 @@ function ReviewPageContent() {
               }
             >
               <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Sem etiqueta" />
+                <SelectValue placeholder="Sem etiqueta">
+                  {item.categoria
+                    ? CATEGORIA_LABELS[item.categoria] ?? item.categoria
+                    : '— Sem etiqueta —'}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">— Sem etiqueta —</SelectItem>
@@ -765,8 +771,12 @@ function ReviewPageContent() {
             )}
             {categoriasPresentes.length > 0 && (
               <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-                <SelectTrigger className="h-8 w-[140px] text-sm">
-                  <SelectValue placeholder="Etiqueta" />
+                <SelectTrigger className="h-8 w-[160px] text-sm">
+                  <SelectValue placeholder="Etiqueta">
+                    {categoriaFilter === '__all__'
+                      ? 'Todas etiquetas'
+                      : CATEGORIA_LABELS[categoriaFilter] ?? categoriaFilter}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__all__">Todas etiquetas</SelectItem>
@@ -891,7 +901,35 @@ function ReviewPageContent() {
                                     <span className="text-xs text-muted-foreground shrink-0 tabular-nums">
                                       {ptDate(c.dataOcorrencia)}
                                     </span>
-                                    <EtiquetaDot categoria={c.categoria} />
+                                    {c.categoria ? (
+                                      <span
+                                        role="button"
+                                        tabIndex={0}
+                                        title="Filtrar por esta etiqueta"
+                                        className="shrink-0"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setCategoriaFilter((prev) =>
+                                            prev === c.categoria
+                                              ? '__all__'
+                                              : (c.categoria as string),
+                                          );
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setCategoriaFilter((prev) =>
+                                              prev === c.categoria
+                                                ? '__all__'
+                                                : (c.categoria as string),
+                                            );
+                                          }
+                                        }}
+                                      >
+                                        <EtiquetaDot categoria={c.categoria} />
+                                      </span>
+                                    ) : null}
                                   </div>
                                   <p className="text-xs text-muted-foreground truncate">
                                     {c.resumo}
