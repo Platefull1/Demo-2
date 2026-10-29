@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest'
 // Importar do módulo puro para evitar dependências de DB/SaiposAPI nos testes unitários
-import { maskApiKey, toPublic } from './user-api-mask'
+import { maskApiKey, toPublic, toListPublic } from './user-api-mask'
 
 // Tipo local equivalente a UserAPIConfig para os testes
 interface UserAPIConfig {
@@ -96,6 +96,28 @@ describe('toPublic', () => {
     expect(pub.storeId).toBe(cfg.storeId)
     expect(pub.type).toBe(cfg.type)
     expect(pub.status).toBe(cfg.status)
+  })
+})
+
+describe('toListPublic', () => {
+  it('só devolve campos de contexto, sem apiKey/keyPreview/baseUrl', () => {
+    const item = toListPublic({
+      id: 'id-1',
+      name: 'Loja A',
+      status: 'connected',
+      type: 'saipos',
+      storeId: 'store_id-1',
+      apiKey: 'Bearer secret-token-value',
+    })
+    expect(item).toEqual({
+      id: 'id-1',
+      name: 'Loja A',
+      status: 'connected',
+      type: 'saipos',
+      storeId: 'store_id-1',
+      hasKey: true,
+    })
+    expect(JSON.stringify(item)).not.toContain('secret-token-value')
   })
 })
 

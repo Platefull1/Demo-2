@@ -39,8 +39,30 @@ const SILENT_URL_PATTERNS = [
   /stack-auth/,
 ];
 
-// Status HTTP que não devem exibir popup (tratados pelas próprias páginas)
-const SILENT_STATUS_CODES = [401, 404];
+// Status HTTP que nunca abrem o modal global (401/404 já tratados pelas páginas;
+// 403 de GET de fundo também. Mutação 403 vira toast, não modal.)
+const SILENT_STATUS_CODES = [401, 403, 404];
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export const PERMISSION_DENIED_TOAST = 'Você não tem permissão para esta ação.';
+export const FORBIDDEN_EVENT = 'platefull:forbidden';
+
+export function isMutatingHttpMethod(method: string): boolean {
+  return MUTATING_METHODS.has(method.toUpperCase());
+}
+
+/** Toast curto em 403 de ação do usuário. GET de fundo não toasta. */
+export function shouldShowPermissionToast(
+  method: string,
+  status?: number,
+  url?: string,
+): boolean {
+  if (status !== 403) return false;
+  if (!isMutatingHttpMethod(method)) return false;
+  if (url && SILENT_URL_PATTERNS.some((p) => p.test(url))) return false;
+  return true;
+}
 
 function shouldSilenceFetchError(url: string, status?: number): boolean {
   if (status && SILENT_STATUS_CODES.includes(status)) return true;
@@ -55,6 +77,14 @@ function extractUrl(args: Parameters<typeof fetch>): string {
   return '';
 }
 
+function extractMethod(args: Parameters<typeof fetch>): string {
+  const init = args[1];
+  if (init?.method) return String(init.method).toUpperCase();
+  const firstArg = args[0];
+  if (firstArg instanceof Request) return firstArg.method.toUpperCase();
+  return 'GET';
+}
+
 // Interceptar erros de API (fetch)
 export function interceptFetchErrors() {
   // Evitar dupla interceptação
@@ -67,6 +97,13 @@ export function interceptFetchErrors() {
 
     try {
       const response = await originalFetch(...args);
+      const method = extractMethod(args);
+
+      if (shouldShowPermissionToast(method, response.status, url)) {
+        window.dispatchEvent(
+          new CustomEvent(FORBIDDEN_EVENT, { detail: { url, method } }),
+        );
+      }
 
       // Só exibe popup para respostas de erro em rotas não silenciosas
       if (!response.ok && !shouldSilenceFetchError(url, response.status)) {

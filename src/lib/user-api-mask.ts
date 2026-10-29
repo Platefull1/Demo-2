@@ -39,3 +39,31 @@ export function toPublic<T extends { apiKey?: string | null }>(
     hasKey: Boolean(apiKey),
   }
 }
+
+/** Lista de contexto (seletor de loja): sem chave, preview ou URL. */
+export type UserAPIListItem = {
+  id: string
+  name: string
+  status: 'connected' | 'disconnected' | 'error'
+  type: 'saipos' | 'custom' | 'whatsapp'
+  storeId: string
+  hasKey: boolean
+}
+
+export function toListPublic(api: {
+  id: string
+  name: string
+  status: 'connected' | 'disconnected' | 'error'
+  type: 'saipos' | 'custom' | 'whatsapp'
+  storeId: string
+  apiKey?: string | null
+}): UserAPIListItem {
+  return {
+    id: api.id,
+    name: api.name,
+    status: api.status,
+    type: api.type,
+    storeId: api.storeId,
+    hasKey: Boolean(api.apiKey),
+  }
+}

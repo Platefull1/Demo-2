@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server'
-import { UserAPIService, CreateUserAPIRequest, UpdateUserAPIRequest, toPublic } from '@/lib/user-api-service'
+import { UserAPIService, CreateUserAPIRequest, UpdateUserAPIRequest, toPublic, toListPublic } from '@/lib/user-api-service'
 import { stackServerApp } from '@/stack'
 import { syncStackAuthUser } from '@/lib/stack-auth-sync'
-import { requireToolPermission } from '@/lib/auth/toolPermissions'
+import { requireAnyToolPermission, requireToolPermission } from '@/lib/auth/toolPermissions'
 import { SystemTool } from '@/types/admin'
 import { prisma } from '@/lib/prisma'
+import { rhGetUser } from '@/lib/rh-auth'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -34,18 +35,21 @@ async function resolveDbUser() {
 }
 
 // ---------------------------------------------------------------------------
-// GET /api/user-apis — Listar APIs do usuário (sem expor apiKey)
+// GET /api/user-apis — Lista de contexto (id/nome/status). Sem secrets.
+// Qualquer usuário do tenant com pelo menos uma ferramenta.
 // ---------------------------------------------------------------------------
 export async function GET() {
   try {
-    const permErr = await requireToolPermission(SystemTool.CONEXOES)
+    const permErr = await requireAnyToolPermission()
     if (permErr) return permErr
 
     const { dbUser, error } = await resolveDbUser()
     if (error) return error
 
-    const apis = await UserAPIService.getUserAPIs(dbUser!.id)
-    return NextResponse.json({ apis: apis.map(toPublic) })
+    const rh = await rhGetUser()
+    const tenantUserId = rh?.userId ?? dbUser!.id
+    const apis = await UserAPIService.getUserAPIs(tenantUserId)
+    return NextResponse.json({ apis: apis.map(toListPublic) })
   } catch (err) {
     console.error('GET /api/user-apis:', err)
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 })

@@ -3,7 +3,7 @@
  * e /api/user-apis/test (POST).
  *
  * Cenários cobertos:
- *  - Sem CONEXOES: todos os métodos retornam 403
+ *  - Sem CONEXOES: mutações 403; GET liberado com qualquer ferramenta
  *  - Usuário A tenta PUT / DELETE / POST /test na API do usuário B → 404
  *  - Usuário B consegue PUT / DELETE / POST /test nas próprias APIs → 200
  *  - GET nunca inclui campo 'apiKey' (nem em campos aninhados)
@@ -19,6 +19,11 @@ import { NextResponse } from 'next/server'
 
 vi.mock('@/lib/auth/toolPermissions', () => ({
   requireToolPermission: vi.fn(),
+  requireAnyToolPermission: vi.fn(),
+}))
+
+vi.mock('@/lib/rh-auth', () => ({
+  rhGetUser: vi.fn(),
 }))
 
 vi.mock('@/stack', () => ({
@@ -39,6 +44,7 @@ vi.mock('@/lib/user-api-service', async () => {
   const mask = await vi.importActual<typeof import('@/lib/user-api-mask')>('@/lib/user-api-mask')
   return {
     toPublic: mask.toPublic,
+    toListPublic: mask.toListPublic,
     maskApiKey: mask.maskApiKey,
     UserAPIService: {
       getUserAPIs: vi.fn(),
@@ -56,7 +62,8 @@ vi.mock('@/lib/user-api-service', async () => {
 import { GET, PUT, DELETE } from '../../app/api/user-apis/route'
 import { POST as TEST_POST } from '../../app/api/user-apis/test/route'
 
-import { requireToolPermission } from '@/lib/auth/toolPermissions'
+import { requireToolPermission, requireAnyToolPermission } from '@/lib/auth/toolPermissions'
+import { rhGetUser } from '@/lib/rh-auth'
 import { stackServerApp } from '@/stack'
 import { syncStackAuthUser } from '@/lib/stack-auth-sync'
 import { prisma } from '@/lib/prisma'
@@ -64,6 +71,8 @@ import { UserAPIService } from '@/lib/user-api-service'
 
 // Helpers para tipagem dos mocks
 const mockRequireTP = vi.mocked(requireToolPermission)
+const mockRequireAnyTP = vi.mocked(requireAnyToolPermission)
+const mockRhGetUser = vi.mocked(rhGetUser)
 const mockGetUser    = vi.mocked(stackServerApp.getUser as ReturnType<typeof vi.fn>)
 const mockSync       = vi.mocked(syncStackAuthUser)
 const mockFindFirst  = vi.mocked(prisma.userAPI.findFirst as ReturnType<typeof vi.fn>)
@@ -93,9 +102,11 @@ function makeReq(method: string, url: string, body?: unknown): NextRequest {
 
 /** Configura "usuário X com CONEXOES=true" */
 function asUser(stackUser: typeof STACK_A, dbUser: { id: string }) {
-  mockRequireTP.mockResolvedValue(null)               // CONEXOES OK
+  mockRequireTP.mockResolvedValue(null)
+  mockRequireAnyTP.mockResolvedValue(null)
   mockGetUser.mockResolvedValue(stackUser as never)
   mockSync.mockResolvedValue(dbUser as never)
+  mockRhGetUser.mockResolvedValue({ userId: dbUser.id, isAdmin: true } as never)
 }
 
 /** Configura "sem permissão CONEXOES" */
@@ -113,12 +124,20 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
-describe('Sem permissão CONEXOES → 403 em todos os métodos', () => {
-  beforeEach(withoutConexoes)
+describe('Sem permissão CONEXOES → 403 nas mutações; GET liberado', () => {
+  beforeEach(() => {
+    withoutConexoes()
+    mockRequireAnyTP.mockResolvedValue(null)
+    mockGetUser.mockResolvedValue(STACK_A as never)
+    mockSync.mockResolvedValue(DB_A as never)
+    mockRhGetUser.mockResolvedValue({ userId: DB_A.id, isAdmin: true } as never)
+    mockGetAPIs.mockResolvedValue([API_A] as never)
+  })
 
-  it('GET retorna 403', async () => {
+  it('GET retorna 200 sem exigir CONEXOES', async () => {
     const res = await GET()
-    expect(res.status).toBe(403)
+    expect(res.status).toBe(200)
+    expect(mockRequireTP).not.toHaveBeenCalled()
   })
 
   it('PUT retorna 403', async () => {
@@ -193,6 +212,27 @@ describe('Usuário B age nas próprias APIs → 200', () => {
   })
 })
 
+describe('GET sem nenhuma ferramenta → 403', () => {
+  it('exige pelo menos uma ferramenta', async () => {
+    mockRequireAnyTP.mockResolvedValue(
+      NextResponse.json({ error: 'Acesso negado' }, { status: 403 }),
+    )
+    const res = await GET()
+    expect(res.status).toBe(403)
+    expect(mockGetAPIs).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET lista APIs do tenant', () => {
+  it('usa userId do tenant (membro de equipe), não o dbUser do login', async () => {
+    asUser(STACK_A, DB_A)
+    mockRhGetUser.mockResolvedValue({ userId: 'tenant-owner', isAdmin: false } as never)
+    mockGetAPIs.mockResolvedValue([] as never)
+    await GET()
+    expect(mockGetAPIs).toHaveBeenCalledWith('tenant-owner')
+  })
+})
+
 describe('GET: resposta nunca contém apiKey', () => {
   it('campo apiKey ausente mesmo quando DB tem a chave', async () => {
     asUser(STACK_A, DB_A)
@@ -214,9 +254,12 @@ describe('GET: resposta nunca contém apiKey', () => {
     expect(bodyStr).not.toContain('eyJAAAAAAAAAAAAAAAAAAbcd')
     expect(bodyStr).not.toContain('eyJBBBBBBBBBBBBBBBBBBBBxyz')
 
-    // 3. keyPreview e hasKey devem estar presentes
     for (const api of body.apis) {
-      expect(api).toHaveProperty('keyPreview')
+      expect(api).not.toHaveProperty('keyPreview')
+      expect(api).not.toHaveProperty('baseUrl')
+      expect(api).toHaveProperty('id')
+      expect(api).toHaveProperty('name')
+      expect(api).toHaveProperty('status')
       expect(api).toHaveProperty('hasKey')
     }
   })

@@ -10,8 +10,8 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Re-exportar funções puras (sem deps pesadas) para uso nas rotas e em testes
-export { maskApiKey, toPublic } from '@/lib/user-api-mask'
-export type { UserAPIPublic } from '@/lib/user-api-mask'
+export { maskApiKey, toPublic, toListPublic } from '@/lib/user-api-mask'
+export type { UserAPIPublic, UserAPIListItem } from '@/lib/user-api-mask'
 
 export interface UserAPIConfig {
   id: string

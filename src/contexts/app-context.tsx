@@ -2,6 +2,8 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { GlobalErrorHandler } from '@/components/global-error-handler';
+import { ToastManager } from '@/components/notification-toast';
+import { FORBIDDEN_EVENT, PERMISSION_DENIED_TOAST } from '@/lib/error-handler';
 
 interface Store {
   id: string;
@@ -118,10 +120,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setToasts(prev => [...prev, { id, message, type }]);
   }, []);
 
+  useEffect(() => {
+    const onForbidden = () => addToast(PERMISSION_DENIED_TOAST, 'error');
+    window.addEventListener(FORBIDDEN_EVENT, onForbidden);
+    return () => window.removeEventListener(FORBIDDEN_EVENT, onForbidden);
+  }, [addToast]);
+
   // Carregar APIs do usuário do banco de dados
   const loadUserAPIs = useCallback(async () => {
     try {
       const response = await fetch(`/api/user-apis`);
+      if (response.status === 401 || response.status === 403) {
+        console.warn('GET /api/user-apis:', response.status);
+        setConnectedAPIs([]);
+        return;
+      }
       if (response.ok) {
         const data = await response.json();
         const apis: API[] = data.apis.map((api: DatabaseAPI) => ({
@@ -136,13 +149,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           lastTest: api.lastTest ?? undefined,
         }));
         setConnectedAPIs(apis);
-        console.log('📱 APIs carregadas do banco de dados:', apis);
       }
     } catch (error) {
       console.error('Erro ao carregar APIs do banco:', error);
-      addToast('Erro ao carregar configurações das APIs', 'error');
+      setConnectedAPIs([]);
     }
-  }, [addToast]);
+  }, []);
 
   // Sincronizar usuário autenticado (Stack Auth) com o banco e obter o id interno
   useEffect(() => {
@@ -198,6 +210,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(data)
       });
 
+      if (response.status === 403) return;
       if (response.ok) {
         addToast(`API ${data.name} criada com sucesso!`, 'success');
         await loadUserAPIs(); // Recarregar lista
@@ -219,6 +232,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(data)
       });
 
+      if (response.status === 403) return;
       if (response.ok) {
         addToast('API atualizada com sucesso!', 'success');
         await loadUserAPIs(); // Recarregar lista
@@ -238,6 +252,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         method: 'DELETE'
       });
 
+      if (response.status === 403) return;
       if (response.ok) {
         addToast('API removida com sucesso!', 'success');
         await loadUserAPIs(); // Recarregar lista
@@ -257,6 +272,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         method: 'POST'
       });
 
+      if (response.status === 403) return;
       if (response.ok) {
         const data = await response.json();
         const status = data.api.status;
@@ -305,6 +321,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       updateDashboardData
     }}>
       <GlobalErrorHandler />
+      <ToastManager toasts={toasts} onRemoveToast={removeToast} />
       {children}
     </AppContext.Provider>
   );

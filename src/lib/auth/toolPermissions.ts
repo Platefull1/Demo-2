@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { SystemTool } from '@/types/admin';
 import { stackServerApp } from '@/stack';
+import { toolsQualifyForContextAccess } from '@/lib/auth/tool-access';
 
 /**
  * Verifica se o usuário atual (StackUser) tem permissão para acessar uma ferramenta específica
@@ -102,6 +103,56 @@ export async function requireToolPermission(
         message: 'Ocorreu um erro ao verificar suas permissões',
       },
       { status: 500 }
+    );
+  }
+}
+
+/** True se o StackUser tem ferramenta de contexto (não só registrar_ocorrencias). */
+export async function hasAnyEnabledTool(stackUserId: string): Promise<boolean> {
+  if (!stackUserId) return false;
+  const rows = await prisma.userToolPermission.findMany({
+    where: { stackUserId, isEnabled: true },
+    select: { tool: true },
+  });
+  const tools = rows.map((r) => r.tool);
+  if (toolsQualifyForContextAccess(tools)) return true;
+  if (tools.length > 0) return false;
+  const { isOcorrenciasTenantAdmin } = await import('@/lib/ocorrencias-auth');
+  return isOcorrenciasTenantAdmin(stackUserId);
+}
+
+/**
+ * Autenticado e com pelo menos uma ferramenta.
+ * Usado em leituras de contexto (ex.: lista de lojas/APIs sem secrets).
+ */
+export async function requireAnyToolPermission(): Promise<NextResponse | null> {
+  try {
+    const stackUser = await stackServerApp.getUser({ or: 'return-null' });
+    if (!stackUser) {
+      return NextResponse.json(
+        {
+          error: 'Não autenticado',
+          message: 'Você precisa estar logado para acessar esta ferramenta',
+        },
+        { status: 401 },
+      );
+    }
+    const ok = await hasAnyEnabledTool(stackUser.id);
+    if (!ok) {
+      return NextResponse.json(
+        { error: 'Acesso negado', message: 'Nenhuma ferramenta habilitada.' },
+        { status: 403 },
+      );
+    }
+    return null;
+  } catch (error) {
+    console.error('Erro ao verificar permissão de ferramenta:', error);
+    return NextResponse.json(
+      {
+        error: 'Erro ao verificar permissão',
+        message: 'Ocorreu um erro ao verificar suas permissões',
+      },
+      { status: 500 },
     );
   }
 }
