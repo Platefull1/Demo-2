@@ -97,3 +97,11 @@ export function computeRiderDocStatus(
   if (period.status === 'pending_documents') return 'pending';
   return 'none';
 }
+
+/** RH pode apagar um lançamento feito por engano enquanto nenhum documento foi enviado. */
+export function canRhDeleteQuinzena(period: {
+  status: string;
+  documents?: unknown[];
+}): boolean {
+  return period.status === 'pending_documents' && (period.documents?.length ?? 0) === 0;
+}

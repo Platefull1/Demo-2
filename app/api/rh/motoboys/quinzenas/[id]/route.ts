@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { rhRequireModuleUser } from '@/lib/rh-auth';
+import { canRhDeleteQuinzena } from '@/lib/rider-quinzena-docs';
 
 export const dynamic = 'force-dynamic';
 
@@ -58,5 +59,40 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   });
 
   if (result.count === 0) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const rh = await rhRequireModuleUser();
+  if (!rh) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+
+  const { id } = await params;
+  const period = await prisma.riderPaymentPeriod.findFirst({
+    where: { id, userId: rh.userId },
+    include: { documents: { select: { id: true } } },
+  });
+
+  if (!period) return NextResponse.json({ error: 'Não encontrado' }, { status: 404 });
+
+  if (!canRhDeleteQuinzena(period)) {
+    if (period.status === 'paid') {
+      return NextResponse.json(
+        { error: 'Quinzena já paga — não é possível excluir' },
+        { status: 409 },
+      );
+    }
+    if (period.documents.length > 0) {
+      return NextResponse.json(
+        { error: 'Há documentos enviados nesta quinzena. Exclua os documentos antes de apagar o lançamento.' },
+        { status: 409 },
+      );
+    }
+    return NextResponse.json(
+      { error: 'Só é possível excluir quinzenas que ainda aguardam documentos' },
+      { status: 409 },
+    );
+  }
+
+  await prisma.riderPaymentPeriod.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

@@ -8,6 +8,7 @@ import {
   FileText, Eye, Download, Loader2, ChevronDown, ChevronUp, DollarSign,
   Copy, RefreshCw, MessageCircle, CheckCircle2, ShieldCheck, ShieldOff, Trash2, AlertTriangle, Pencil,
 } from 'lucide-react';
+import { canRhDeleteQuinzena } from '@/lib/rider-quinzena-docs';
 
 interface Document { id: string; documentType: string; status: string; fileName: string; uploadedAt: string }
 interface Period {
@@ -150,6 +151,10 @@ export default function MotoboiDetailPage() {
   const [savingPeriod, setSavingPeriod] = useState(false);
   const [periodError, setPeriodError] = useState('');
 
+  const [deletingPeriod, setDeletingPeriod] = useState<Period | null>(null);
+  const [deletingPeriodLoading, setDeletingPeriodLoading] = useState(false);
+  const [deletePeriodError, setDeletePeriodError] = useState('');
+
   const fetchRider = useCallback(() => {
     setLoading(true);
     fetch(`/api/rh/motoboys/${id}`)
@@ -286,6 +291,35 @@ export default function MotoboiDetailPage() {
       fetchRider();
     } finally {
       setSavingPeriod(false);
+    }
+  };
+
+  const openDeletePeriod = (period: Period) => {
+    setDeletePeriodError('');
+    setDeletingPeriod(period);
+  };
+
+  const handleDeletePeriod = async () => {
+    if (!deletingPeriod) return;
+    setDeletingPeriodLoading(true);
+    setDeletePeriodError('');
+    try {
+      const res = await fetch(`/api/rh/motoboys/quinzenas/${deletingPeriod.id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        setDeletePeriodError(d.error ?? 'Erro ao excluir quinzena');
+        return;
+      }
+      if (expandedPeriod === deletingPeriod.id) setExpandedPeriod(null);
+      setDocsSigned(prev => {
+        const next = { ...prev };
+        delete next[deletingPeriod.id];
+        return next;
+      });
+      setDeletingPeriod(null);
+      fetchRider();
+    } finally {
+      setDeletingPeriodLoading(false);
     }
   };
 
@@ -701,6 +735,16 @@ export default function MotoboiDetailPage() {
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="font-bold text-green-400 text-sm">{fmtMoney(netCents(period))}</span>
+                        {canRhDeleteQuinzena(period) && (
+                          <button
+                            onClick={e => { e.stopPropagation(); openDeletePeriod(period); }}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#2a2a2e] text-red-400 hover:bg-red-500/10 transition-colors text-xs"
+                            title="Excluir quinzena lançada por engano"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Excluir
+                          </button>
+                        )}
                         <button
                           onClick={e => { e.stopPropagation(); openEditPeriod(period); }}
                           className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#2a2a2e] text-gray-400 hover:text-white hover:bg-[#3a3a3e] transition-colors text-xs"
@@ -818,6 +862,15 @@ export default function MotoboiDetailPage() {
                             </div>
                           )}
                         </div>
+                        {canRhDeleteQuinzena(period) && (
+                          <button
+                            onClick={() => openDeletePeriod(period)}
+                            className="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Excluir lançamento
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -827,6 +880,49 @@ export default function MotoboiDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Modal de exclusão de quinzena (sem documentos) */}
+      {deletingPeriod && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onClick={() => { if (!deletingPeriodLoading) { setDeletingPeriod(null); setDeletePeriodError(''); } }}>
+          <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-6 w-full max-w-md space-y-5"
+            onClick={e => e.stopPropagation()}>
+
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <AlertTriangle className="w-5 h-5 text-red-400" />
+              </div>
+              <div>
+                <p className="font-semibold text-white">Excluir quinzena?</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  <strong className="text-white">{deletingPeriod.periodLabel}</strong> ainda não recebeu documentos
+                  e será apagada. Use isso para lançamentos feitos por engano.
+                </p>
+              </div>
+            </div>
+
+            {deletePeriodError && (
+              <p className="text-sm text-red-400 bg-red-500/10 rounded-xl px-4 py-3">{deletePeriodError}</p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setDeletingPeriod(null); setDeletePeriodError(''); }}
+                disabled={deletingPeriodLoading}
+                className="flex-1 px-4 py-2.5 text-sm text-gray-400 border border-[#2a2a2e] rounded-xl hover:bg-[#2a2a2e] transition-colors disabled:opacity-50">
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeletePeriod}
+                disabled={deletingPeriodLoading}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-bold bg-red-500 text-white rounded-xl hover:bg-red-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                {deletingPeriodLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Excluir quinzena
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de confirmação de exclusão */}
       {showDeleteModal && (

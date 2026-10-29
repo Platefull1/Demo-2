@@ -18,7 +18,7 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "test": "npm run test:node && npm run test:vitest",
-    "test:node": "tsx --test src/lib/ocorrencias-*.test.ts src/lib/auth/*.test.ts src/lib/user-api-mask.test.ts src/lib/error-handler.test.ts src/lib/navigation.test.ts src/lib/store-access.test.ts src/lib/nfe/*.test.ts src/lib/cmv-real/*.test.ts src/lib/pontos/*.test.ts",
+    "test:node": "tsx --test src/lib/ocorrencias-*.test.ts src/lib/auth/*.test.ts src/lib/user-api-mask.test.ts src/lib/error-handler.test.ts src/lib/navigation.test.ts src/lib/store-access.test.ts src/lib/nfe/*.test.ts src/lib/cmv-real/*.test.ts src/lib/pontos/*.test.ts src/lib/rider-quinzena-docs.test.ts",
     "test:estoque-scope": "tsx --test src/lib/estoque/contagens-store-scope.test.ts",
     "test:vitest": "vitest run",
     "test:nfe": "tsx --test src/lib/nfe/pipeline.test.ts",
