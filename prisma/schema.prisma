@@ -2539,8 +2539,10 @@ model Ocorrencia {
   canalExterno        CanalOcorrencia?
   categorias          CategoriaOcorrencia[] @default([OUTROS])
   descricao           String           @db.Text
-  /// Path interno no bucket privado ocorrencias-fotos (nunca URL pública)
+  /// Path interno da primeira foto no bucket privado ocorrencias-fotos (nunca URL pública)
   fotoPath            String?
+  /// Todas as fotos (inclui a primeira). Vazio quando não há foto.
+  fotoPaths           String[]         @default([])
   motoboyId           String?
   motoboy             DeliveryRider?   @relation("OcorrenciaMotoboy", fields: [motoboyId], references: [id])
   /// Stack Auth user ID de quem registrou (para auditoria)

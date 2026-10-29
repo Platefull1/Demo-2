@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma';
 import { requireOcorrenciasContext } from '@/lib/ocorrencias-auth';
 import {
   uploadOcorrenciaFoto,
-  deleteOcorrenciaFoto,
+  deleteOcorrenciaFotos,
   createOcorrenciaFotoSignedUrls,
 } from '@/lib/ocorrencias-storage';
 import { isLojaEscritorio } from '@/lib/ocorrencias-lojas';
@@ -27,8 +27,10 @@ import {
 } from '@/lib/ocorrencias-validation';
 import {
   MAX_FOTO_BYTES,
+  MAX_OCORRENCIA_FOTOS,
   MAX_MULTIPART_BYTES,
   fotoPathFor,
+  ocorrenciaFotoPaths,
   processarFotoOcorrencia,
 } from '@/lib/ocorrencias-foto';
 import {
@@ -57,7 +59,10 @@ export async function POST(request: NextRequest) {
 
   const contentLength = Number(request.headers.get('content-length') || 0);
   if (contentLength > MAX_MULTIPART_BYTES) {
-    return NextResponse.json({ error: 'Foto muito grande. Máximo: 8 MB.' }, { status: 413 });
+    return NextResponse.json(
+      { error: `Arquivo(s) muito grande(s). Máximo: 8 MB por foto, até ${MAX_OCORRENCIA_FOTOS} fotos.` },
+      { status: 413 },
+    );
   }
 
   let formData: FormData;
@@ -70,15 +75,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const fotoRaw = formData.get('foto');
-  const foto =
-    fotoRaw instanceof File && fotoRaw.size > 0 ? fotoRaw : null;
+  const fotosRaw = [
+    ...formData.getAll('fotos'),
+    ...formData.getAll('foto'),
+  ].filter((f): f is File => f instanceof File && f.size > 0);
 
-  let jpegBuffer: Buffer | null = null;
-  if (foto) {
+  if (fotosRaw.length > MAX_OCORRENCIA_FOTOS) {
+    return NextResponse.json(
+      { error: `Máximo de ${MAX_OCORRENCIA_FOTOS} fotos por ocorrência.` },
+      { status: 400 },
+    );
+  }
+
+  const jpegBuffers: Buffer[] = [];
+  for (const foto of fotosRaw) {
     if (foto.size > MAX_FOTO_BYTES) {
       return NextResponse.json(
-        { error: 'Foto muito grande. Máximo: 8 MB.' },
+        { error: 'Foto muito grande. Máximo: 8 MB por arquivo.' },
         { status: 413 },
       );
     }
@@ -87,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (processed.ok === false) {
       return NextResponse.json({ error: processed.error }, { status: 400 });
     }
-    jpegBuffer = processed.jpeg;
+    jpegBuffers.push(processed.jpeg);
   }
 
   const campos = {
@@ -152,14 +165,19 @@ export async function POST(request: NextRequest) {
   const ocorrenciaId = randomUUID();
   const { year, month } = saoPauloYmd();
   const mesPasta = `${year}-${String(month).padStart(2, '0')}`;
-  let fotoPath: string | null = null;
+  const fotoPaths = jpegBuffers.map((_, i) =>
+    fotoPathFor(ctx.userId, ocorrenciaId, mesPasta, i),
+  );
+  const fotoPath = fotoPaths[0] ?? null;
 
-  if (jpegBuffer) {
-    fotoPath = fotoPathFor(ctx.userId, ocorrenciaId, mesPasta);
+  if (jpegBuffers.length > 0) {
     try {
-      await uploadOcorrenciaFoto(fotoPath, jpegBuffer, 'image/jpeg');
+      for (let i = 0; i < jpegBuffers.length; i++) {
+        await uploadOcorrenciaFoto(fotoPaths[i], jpegBuffers[i], 'image/jpeg');
+      }
     } catch {
       console.error('[ocorrencias] upload foto falhou', { ocorrenciaId });
+      await deleteOcorrenciaFotos(fotoPaths);
       return NextResponse.json(
         { error: 'Erro ao enviar foto. Tente novamente.' },
         { status: 500 },
@@ -181,6 +199,7 @@ export async function POST(request: NextRequest) {
         categorias: cats.categorias as CategoriaOcorrencia[],
         descricao: descricao.trim(),
         fotoPath,
+        fotoPaths,
         motoboyId: motoboyId || null,
         criadoPorUserId: ctx.stackUserId,
         ...(idempotencyKey ? { idempotencyKey } : {}),
@@ -210,8 +229,8 @@ export async function POST(request: NextRequest) {
         },
       });
       if (existing) {
-        if (fotoPath) {
-          const removed = await deleteOcorrenciaFoto(fotoPath);
+        if (fotoPaths.length > 0) {
+          const removed = await deleteOcorrenciaFotos(fotoPaths);
           if (!removed) {
             console.error('[ocorrencias] foto órfã não removida', { ocorrenciaId });
           }
@@ -221,8 +240,8 @@ export async function POST(request: NextRequest) {
     }
 
     console.error('[ocorrencias] create falhou', { ocorrenciaId });
-    if (fotoPath) {
-      const removed = await deleteOcorrenciaFoto(fotoPath);
+    if (fotoPaths.length > 0) {
+      const removed = await deleteOcorrenciaFotos(fotoPaths);
       if (!removed) {
         console.error('[ocorrencias] foto órfã não removida', { ocorrenciaId });
       }
@@ -288,6 +307,7 @@ export async function GET(request: NextRequest) {
         categorias: true,
         descricao: true,
         fotoPath: true,
+        fotoPaths: true,
         criadoPorUserId: true,
         createdAt: true,
         loja: { select: { id: true, nome: true } },
@@ -325,7 +345,7 @@ export async function GET(request: NextRequest) {
         })
       : [],
     createOcorrenciaFotoSignedUrls(
-      ocorrencias.map((o) => o.fotoPath).filter((p): p is string => Boolean(p)),
+      ocorrencias.flatMap((o) => ocorrenciaFotoPaths(o.fotoPath, o.fotoPaths)),
     ),
   ]);
 
@@ -351,12 +371,18 @@ export async function GET(request: NextRequest) {
     .sort((a, b) => b.total - a.total);
 
   return NextResponse.json({
-    ocorrencias: ocorrencias.map(({ fotoPath, ...oc }) => ({
-      ...oc,
-      criadoPorNome: criadorMap[oc.criadoPorUserId] || '—',
-      temFoto: Boolean(fotoPath),
-      fotoUrl: fotoPath ? fotoUrls[fotoPath] || null : null,
-    })),
+    ocorrencias: ocorrencias.map(({ fotoPath, fotoPaths, ...oc }) => {
+      const urls = ocorrenciaFotoPaths(fotoPath, fotoPaths)
+        .map((p) => fotoUrls[p])
+        .filter((u): u is string => Boolean(u));
+      return {
+        ...oc,
+        criadoPorNome: criadorMap[oc.criadoPorUserId] || '—',
+        temFoto: urls.length > 0 || Boolean(fotoPath) || (fotoPaths?.length ?? 0) > 0,
+        fotoUrl: urls[0] || null,
+        fotoUrls: urls,
+      };
+    }),
     total,
     page,
     pageSize,

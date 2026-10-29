@@ -39,9 +39,15 @@ export async function uploadOcorrenciaFoto(
  * Remove um arquivo do bucket (usado em rollback quando o prisma.create falha).
  */
 export async function deleteOcorrenciaFoto(path: string): Promise<boolean> {
+  return deleteOcorrenciaFotos([path]);
+}
+
+export async function deleteOcorrenciaFotos(paths: string[]): Promise<boolean> {
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) return true;
   const supabase = getClient();
   if (!supabase) return false;
-  const { error } = await supabase.storage.from(OCORRENCIAS_BUCKET).remove([path]);
+  const { error } = await supabase.storage.from(OCORRENCIAS_BUCKET).remove(unique);
   return !error;
 }
 

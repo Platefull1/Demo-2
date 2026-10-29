@@ -66,6 +66,6 @@ describe('fotoPathFor', () => {
     const p = fotoPathFor('../etc', 'id;rm', '2026-10');
     assert.equal(p.includes('..'), false);
     assert.equal(p.endsWith('.jpg'), true);
-    assert.match(p, /^[a-zA-Z0-9_-]+\/2026-10\/[a-zA-Z0-9_-]+\.jpg$/);
+    assert.match(p, /^[a-zA-Z0-9_-]+\/2026-10\/[a-zA-Z0-9_-]+\/0\.jpg$/);
   });
 });

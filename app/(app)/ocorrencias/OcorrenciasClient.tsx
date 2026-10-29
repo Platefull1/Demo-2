@@ -62,6 +62,7 @@ interface Ocorrencia {
   createdAt: string;
   temFoto: boolean;
   fotoUrl: string | null;
+  fotoUrls: string[];
   loja: { id: string; nome: string };
   motoboy: { id: string; name: string } | null;
 }
@@ -131,7 +132,8 @@ export default function OcorrenciasClient({
   const [motoboys, setMotoboys] = useState<Motoboy[]>([]);
 
   const [detalhe, setDetalhe] = useState<Ocorrencia | null>(null);
-  const [fotoUrl, setFotoUrl] = useState<string | null>(null);
+  const [fotoUrls, setFotoUrls] = useState<string[]>([]);
+  const [fotoAtiva, setFotoAtiva] = useState(0);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
 
   useEffect(() => {
@@ -197,8 +199,14 @@ export default function OcorrenciasClient({
 
   async function abrirDetalhe(oc: Ocorrencia) {
     setDetalhe(oc);
-    setFotoUrl(oc.fotoUrl);
-    if (oc.fotoUrl || !oc.temFoto) {
+    setFotoAtiva(0);
+    const iniciais = oc.fotoUrls?.length
+      ? oc.fotoUrls
+      : oc.fotoUrl
+        ? [oc.fotoUrl]
+        : [];
+    setFotoUrls(iniciais);
+    if (iniciais.length > 0 || !oc.temFoto) {
       setCarregandoFoto(false);
       return;
     }
@@ -207,7 +215,12 @@ export default function OcorrenciasClient({
       const res = await fetch(`/api/ocorrencias/${oc.id}/foto`);
       if (res.ok) {
         const data = await res.json();
-        setFotoUrl(data.url);
+        const urls: string[] = data.urls?.length
+          ? data.urls
+          : data.url
+            ? [data.url]
+            : [];
+        setFotoUrls(urls);
       }
     } catch {
       // foto fica indisponível
@@ -483,12 +496,19 @@ export default function OcorrenciasClient({
                   </TableCell>
                   <TableCell className="py-2">
                     {oc.fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={oc.fotoUrl}
-                        alt=""
-                        className="h-8 w-8 rounded object-cover border border-border"
-                      />
+                      <div className="relative h-8 w-8">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={oc.fotoUrl}
+                          alt=""
+                          className="h-8 w-8 rounded object-cover border border-border"
+                        />
+                        {(oc.fotoUrls?.length ?? 0) > 1 && (
+                          <span className="absolute -bottom-1 -right-1 min-w-4 h-4 px-0.5 rounded bg-card border border-border text-[10px] leading-4 text-foreground tabular-nums text-center">
+                            {oc.fotoUrls.length}
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <span className="text-xs text-muted-foreground">—</span>
                     )}
@@ -545,19 +565,40 @@ export default function OcorrenciasClient({
               </SheetHeader>
 
               <div className="space-y-4">
-                {detalhe.temFoto || carregandoFoto || fotoUrl ? (
-                  <div className="rounded-xl overflow-hidden border border-border bg-muted min-h-[180px] flex items-center justify-center">
-                    {carregandoFoto ? (
-                      <Skeleton className="w-full h-64" />
-                    ) : fotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={fotoUrl}
-                        alt="Foto da ocorrência"
-                        className="w-full object-contain max-h-[70vh]"
-                      />
-                    ) : (
-                      <p className="text-xs text-muted-foreground p-4">Foto indisponível</p>
+                {detalhe.temFoto || carregandoFoto || fotoUrls.length > 0 ? (
+                  <div className="space-y-2">
+                    <div className="rounded-xl overflow-hidden border border-border bg-muted min-h-[180px] flex items-center justify-center">
+                      {carregandoFoto ? (
+                        <Skeleton className="w-full h-64" />
+                      ) : fotoUrls[fotoAtiva] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={fotoUrls[fotoAtiva]}
+                          alt={`Foto ${fotoAtiva + 1} da ocorrência`}
+                          className="w-full object-contain max-h-[70vh]"
+                        />
+                      ) : (
+                        <p className="text-xs text-muted-foreground p-4">Foto indisponível</p>
+                      )}
+                    </div>
+                    {fotoUrls.length > 1 && (
+                      <div className="flex gap-2 overflow-x-auto">
+                        {fotoUrls.map((url, i) => (
+                          <button
+                            key={`${url}-${i}`}
+                            type="button"
+                            onClick={() => setFotoAtiva(i)}
+                            className={cn(
+                              'h-14 w-14 shrink-0 rounded-lg overflow-hidden border',
+                              i === fotoAtiva ? 'border-primary' : 'border-border',
+                            )}
+                            aria-label={`Ver foto ${i + 1}`}
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt="" className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
                     )}
                   </div>
                 ) : (

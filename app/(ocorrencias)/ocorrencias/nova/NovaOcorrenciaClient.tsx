@@ -57,6 +57,13 @@ type Etapa = 'loja' | 'formulario' | 'sucesso';
 
 const MAX_LADO_PX = 1600;
 const JPEG_QUALITY = 0.8;
+const MAX_FOTOS = 5;
+
+interface FotoItem {
+  id: string;
+  file: File;
+  preview: string;
+}
 
 function comprimirImagem(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -125,8 +132,7 @@ export default function NovaOcorrenciaClient({
   const [numeroPedidoExterno, setNumeroPedidoExterno] = useState('');
   const [canalExterno, setCanalExterno] = useState<'IFOOD' | 'DELIVERY_DIRETO' | ''>('');
   const [descricao, setDescricao] = useState('');
-  const [foto, setFoto] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [fotos, setFotos] = useState<FotoItem[]>([]);
   const [motoboyId, setMotoboyId] = useState('');
   const [motoboyOpen, setMotoboyOpen] = useState(false);
   const [erroMotoboys, setErroMotoboys] = useState(false);
@@ -186,16 +192,31 @@ export default function NovaOcorrenciaClient({
     carregarMotoboys(lojaSelecionada.id);
   }, [lojaSelecionada]);
 
-  function aplicarFoto(file: File) {
-    if (!isImageFile(file)) {
+  function novoIdFoto() {
+    return typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`;
+  }
+
+  function adicionarFotos(files: File[]) {
+    if (files.length === 0) return;
+    const invalidos = files.filter((f) => !isImageFile(f));
+    const validos = files.filter((f) => isImageFile(f));
+    setFotos((prev) => {
+      const vagas = MAX_FOTOS - prev.length;
+      if (vagas <= 0) return prev;
+      const novas = validos.slice(0, vagas).map((file) => ({
+        id: novoIdFoto(),
+        file,
+        preview: URL.createObjectURL(file),
+      }));
+      return [...prev, ...novas];
+    });
+    if (invalidos.length > 0) {
       setErrosCampo((e) => ({ ...e, foto: FOTO_FORMATO_NAO_SUPORTADO }));
-      return;
+    } else {
+      setErrosCampo((e) => ({ ...e, foto: undefined }));
     }
-    setFoto(file);
-    const previewUrl = URL.createObjectURL(file);
-    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
-    setFotoPreview(previewUrl);
-    setErrosCampo((e) => ({ ...e, foto: undefined }));
   }
 
   useEffect(() => {
@@ -203,34 +224,37 @@ export default function NovaOcorrenciaClient({
       const { files, imageCount } = arquivosImagemDaClipboard(e);
       if (imageCount === 0) return;
       e.preventDefault();
-      aplicarFoto(files[0]);
-      if (imageCount > 1) {
-        setErro('Várias imagens coladas — usando só a primeira.');
-      }
+      adicionarFotos(files);
     }
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fotoPreview]);
+  }, []);
 
   function handleFotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) aplicarFoto(file);
+    adicionarFotos(Array.from(e.target.files || []));
     e.target.value = '';
   }
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setArrastando(false);
-    const file = e.dataTransfer.files?.[0];
-    if (!file) return;
-    aplicarFoto(file);
+    adicionarFotos(Array.from(e.dataTransfer.files || []));
   }
 
-  function removerFoto() {
-    if (fotoPreview) URL.revokeObjectURL(fotoPreview);
-    setFoto(null);
-    setFotoPreview(null);
+  function removerFoto(id: string) {
+    setFotos((prev) => {
+      const found = prev.find((f) => f.id === id);
+      if (found) URL.revokeObjectURL(found.preview);
+      return prev.filter((f) => f.id !== id);
+    });
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function limparFotos() {
+    setFotos((prev) => {
+      prev.forEach((f) => URL.revokeObjectURL(f.preview));
+      return [];
+    });
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -289,12 +313,12 @@ export default function NovaOcorrenciaClient({
       if (motoboyId) fd.append('motoboyId', motoboyId);
       fd.append('idempotencyKey', idempotencyKeyRef.current);
 
-      if (foto) {
+      for (let i = 0; i < fotos.length; i++) {
         try {
-          const fotoBlob = await comprimirImagem(foto);
-          fd.append('foto', new File([fotoBlob], 'foto.jpg', { type: 'image/jpeg' }));
+          const fotoBlob = await comprimirImagem(fotos[i].file);
+          fd.append('fotos', new File([fotoBlob], `foto-${i + 1}.jpg`, { type: 'image/jpeg' }));
         } catch {
-          fd.append('foto', foto);
+          fd.append('fotos', fotos[i].file);
         }
       }
 
@@ -335,7 +359,7 @@ export default function NovaOcorrenciaClient({
     setCanalExterno('');
     setDescricao('');
     setCategorias([]);
-    removerFoto();
+    limparFotos();
     setMotoboyId('');
     setErro(null);
     setErrosCampo({});
@@ -355,7 +379,7 @@ export default function NovaOcorrenciaClient({
       numeroPedidoSaipos ||
         numeroPedidoExterno ||
         descricao ||
-        foto ||
+        fotos.length > 0 ||
         motoboyId ||
         categorias.length > 0,
     );
@@ -650,40 +674,49 @@ export default function NovaOcorrenciaClient({
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs text-muted-foreground">
-              Foto (opcional)
-            </label>
+            <div className="flex items-baseline justify-between gap-2">
+              <label className="text-xs text-muted-foreground">
+                Fotos (opcional)
+              </label>
+              <span className="text-xs text-muted-foreground tabular-nums">
+                {fotos.length}/{MAX_FOTOS}
+              </span>
+            </div>
 
-            {fotoPreview && foto ? (
-              <div className="flex items-center gap-3 rounded-xl border border-border p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={fotoPreview}
-                  alt="Preview da ocorrência"
-                  className="h-16 w-16 rounded-md object-cover border border-border shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-foreground truncate">{foto.name}</p>
-                  <p className="text-xs text-muted-foreground tabular-nums">
-                    {formatBytes(foto.size)}
-                  </p>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => fileInputRef.current?.click()}
+            {fotos.length > 0 && (
+              <div className="space-y-2">
+                {fotos.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-3 rounded-xl border border-border p-3"
                   >
-                    Trocar
-                  </Button>
-                  <Button type="button" variant="ghost" size="sm" onClick={removerFoto}>
-                    <X className="h-4 w-4" />
-                    Remover
-                  </Button>
-                </div>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.preview}
+                      alt={`Foto ${index + 1}`}
+                      className="h-16 w-16 rounded-md object-cover border border-border shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-foreground truncate">{item.file.name}</p>
+                      <p className="text-xs text-muted-foreground tabular-nums">
+                        {formatBytes(item.file.size)}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removerFoto(item.id)}
+                    >
+                      <X className="h-4 w-4" />
+                      Remover
+                    </Button>
+                  </div>
+                ))}
               </div>
-            ) : (
+            )}
+
+            {fotos.length < MAX_FOTOS && (
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
@@ -694,7 +727,8 @@ export default function NovaOcorrenciaClient({
                 onDragLeave={() => setArrastando(false)}
                 onDrop={handleDrop}
                 className={cn(
-                  'flex flex-col items-center justify-center gap-2 w-full min-h-[140px] rounded-xl border border-dashed px-4 py-6',
+                  'flex flex-col items-center justify-center gap-2 w-full rounded-xl border border-dashed px-4 py-6',
+                  fotos.length === 0 ? 'min-h-[140px]' : 'min-h-11',
                   arrastando
                     ? 'border-primary bg-accent'
                     : 'border-border bg-background hover:border-primary',
@@ -702,7 +736,9 @@ export default function NovaOcorrenciaClient({
               >
                 <ImageIcon className="h-7 w-7 text-muted-foreground" />
                 <span className="text-sm text-foreground text-center">
-                  Clique, arraste ou cole (Ctrl+V) a foto aqui
+                  {fotos.length === 0
+                    ? 'Clique, arraste ou cole (Ctrl+V) as fotos aqui'
+                    : 'Adicionar outra foto'}
                 </span>
               </button>
             )}
@@ -711,6 +747,7 @@ export default function NovaOcorrenciaClient({
               ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp"
+              multiple
               className="hidden"
               onChange={handleFotoChange}
             />

@@ -2,9 +2,10 @@ import sharp from 'sharp';
 import { FOTO_FORMATO_NAO_SUPORTADO } from './ocorrencias-clipboard';
 
 export const MAX_FOTO_BYTES = 8 * 1024 * 1024;
+export const MAX_OCORRENCIA_FOTOS = 5;
 export const MAX_FOTO_PIXELS = 40_000_000;
-/** Overhead do multipart além do arquivo. */
-export const MAX_MULTIPART_BYTES = MAX_FOTO_BYTES + 512_000;
+/** Overhead do multipart além dos arquivos. */
+export const MAX_MULTIPART_BYTES = MAX_FOTO_BYTES * MAX_OCORRENCIA_FOTOS + 512_000;
 
 const HEIC_BRANDS = new Set([
   'heic',
@@ -71,8 +72,23 @@ export async function processarFotoOcorrencia(
   }
 }
 
-export function fotoPathFor(tenantUserId: string, ocorrenciaId: string, yyyymm: string) {
+export function fotoPathFor(
+  tenantUserId: string,
+  ocorrenciaId: string,
+  yyyymm: string,
+  index = 0,
+) {
   const safeTenant = tenantUserId.replace(/[^a-zA-Z0-9_-]/g, '');
   const safeId = ocorrenciaId.replace(/[^a-zA-Z0-9_-]/g, '');
-  return `${safeTenant}/${yyyymm}/${safeId}.jpg`;
+  const safeIndex = Math.max(0, Math.floor(Number(index) || 0));
+  return `${safeTenant}/${yyyymm}/${safeId}/${safeIndex}.jpg`;
+}
+
+/** Paths de foto, compatível com registros antigos (só fotoPath). */
+export function ocorrenciaFotoPaths(
+  fotoPath?: string | null,
+  fotoPaths?: string[] | null,
+): string[] {
+  if (fotoPaths && fotoPaths.length > 0) return fotoPaths;
+  return fotoPath ? [fotoPath] : [];
 }
