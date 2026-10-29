@@ -42,11 +42,10 @@ import { SystemTool } from '@/types/admin';
 import { cn } from '@/lib/utils';
 import { ConversationMedia } from '../../_components/ConversationMedia';
 import {
-  buildGroupedList,
   CATEGORIA_DOT,
   CATEGORIA_LABELS,
   CATEGORIAS_COM_ENTREGADOR,
-  flattenGroups,
+  filterReviewComplaints,
   isGrupoComplaint,
   itemDisplayName,
   organizeReviewComplaints,
@@ -157,24 +156,29 @@ function ReviewPageContent() {
     return [...conhecidas, ...extras];
   }, [data]);
 
-  const groups = useMemo(() => {
-    if (!organized) return [];
-    const lojaSelecionada = data?.lojas.find((l) => l.id === lojaFilter);
-    return buildGroupedList(
-      organized,
+  const visibleComplaints = useMemo(() => {
+    if (!data) return [];
+    const lojaSelecionada = data.lojas.find((l) => l.id === lojaFilter) ?? null;
+    return filterReviewComplaints(data.complaints, data.lojas ?? [], {
       canal,
-      lojaFilter === LOJA_ALL
-        ? null
-        : lojaSelecionada
-          ? displayLojaNome(lojaSelecionada.nome)
-          : lojaFilter,
-      categoriaFilter === CAT_ALL ? null : categoriaFilter,
-      ataFilter,
+      lojaId: lojaFilter === LOJA_ALL ? null : lojaFilter,
+      lojaNome: lojaSelecionada ? displayLojaNome(lojaSelecionada.nome) : null,
+      categoria: categoriaFilter === CAT_ALL ? null : categoriaFilter,
+      ata: ataFilter,
       search,
-    );
-  }, [organized, canal, lojaFilter, categoriaFilter, ataFilter, search, data?.lojas]);
+    });
+  }, [data, canal, lojaFilter, categoriaFilter, ataFilter, search]);
 
-  const flatVisible = useMemo(() => flattenGroups(groups), [groups]);
+  const groups = useMemo(() => {
+    const filtered = organizeReviewComplaints(visibleComplaints, data?.lojas ?? []);
+    const out = [...filtered.conversasPorLoja, ...filtered.gruposPorLoja];
+    if (lojaFilter === LOJA_ALL && filtered.semLoja.length > 0) {
+      out.push({ lojaKey: 'Sem loja', items: filtered.semLoja });
+    }
+    return out;
+  }, [visibleComplaints, data?.lojas, lojaFilter]);
+
+  const flatVisible = visibleComplaints;
   const visibleIds = useMemo(() => flatVisible.map((c) => c.id), [flatVisible]);
 
   const selected = useMemo(
@@ -835,7 +839,10 @@ function ReviewPageContent() {
             tabIndex={0}
             onKeyDown={onListKeyDown}
           >
-            <div className="flex-1 overflow-y-auto">
+            <div
+              className="flex-1 overflow-y-auto"
+              key={`${canal}-${lojaFilter}-${categoriaFilter}-${ataFilter}-${search}`}
+            >
               {groups.length === 0 ? (
                 <p className="text-sm text-muted-foreground p-6 text-center">
                   Nenhuma reclamação neste filtro.

@@ -128,12 +128,74 @@ export function resolveLojaNome(
 
 export function isGrupoComplaint(c: ComplaintReviewItem): boolean {
   if (String(c.origem || '').toUpperCase() === 'GRUPO_IFOOD') return true;
-  if (c.lojaGrupo && String(c.lojaGrupo).trim()) return true;
   const contactId = String(c.contactId || '');
   if (contactId.includes('@g.us')) return true;
   const label = String(c.origemLabel || '').toLowerCase();
   if (label.includes('ifood')) return true;
   return false;
+}
+
+export function complaintMatchesLoja(
+  c: ComplaintReviewItem,
+  lojaId: string | null,
+  lojaNome: string | null,
+  lojaById: Map<string, string>,
+): boolean {
+  if (!lojaId && !lojaNome) return true;
+  if (lojaId && c.lojaId === lojaId) return true;
+
+  const itemNome = c.lojaId ? (lojaById.get(c.lojaId) ?? null) : null;
+  const selectedNome = lojaId ? (lojaById.get(lojaId) ?? null) : null;
+  const nome = resolveLojaNome(c, lojaById);
+
+  // lojaId conhecido de outra loja operacional não pode ser "salvo" pelo lojaGrupo
+  if (c.lojaId && (lojaId || lojaNome)) {
+    const alvo = selectedNome || lojaNome;
+    if (itemNome && alvo && !lojasEquivalentes(itemNome, alvo)) return false;
+    if (nome && alvo && !lojasEquivalentes(nome, alvo)) return false;
+  }
+
+  if (lojaNome && nome && lojasEquivalentes(nome, lojaNome)) return true;
+  if (lojaNome && !c.lojaId && c.lojaGrupo && lojasEquivalentes(c.lojaGrupo, lojaNome)) {
+    return true;
+  }
+  if (selectedNome && itemNome && lojasEquivalentes(itemNome, selectedNome)) return true;
+  if (selectedNome && nome && lojasEquivalentes(nome, selectedNome)) return true;
+  if (selectedNome && !c.lojaId && c.lojaGrupo && lojasEquivalentes(c.lojaGrupo, selectedNome)) {
+    return true;
+  }
+  return false;
+}
+
+export function filterReviewComplaints(
+  complaints: ComplaintReviewItem[],
+  lojas: LojaOption[],
+  opts: {
+    canal: ReviewCanalFilter;
+    lojaId: string | null;
+    lojaNome: string | null;
+    categoria: string | null;
+    ata: AtaFilter;
+    search: string;
+  },
+): ComplaintReviewItem[] {
+  const lojaById = new Map(lojas.map((l) => [l.id, l.nome]));
+  return complaints.filter((c) => {
+    if (opts.categoria && c.categoria !== opts.categoria) return false;
+    if (opts.ata === 'na_ata' && !c.confirmadoPorHumano) return false;
+    if (opts.ata === 'fora' && c.confirmadoPorHumano) return false;
+    if (!matchesSearch(c, opts.search)) return false;
+    if (!complaintMatchesLoja(c, opts.lojaId, opts.lojaNome, lojaById)) return false;
+
+    const grupo = isGrupoComplaint(c);
+    const nome = resolveLojaNome(c, lojaById);
+    const semLoja = !nome || c.lojaIdentificada === false;
+    if (opts.canal === 'conversas' && (grupo || semLoja)) return false;
+    if (opts.canal === 'grupos' && !grupo) return false;
+    if (opts.canal === 'semLoja' && !semLoja) return false;
+    if (opts.lojaId && semLoja && !grupo) return false;
+    return true;
+  });
 }
 
 function toSortedLojaGroups(
