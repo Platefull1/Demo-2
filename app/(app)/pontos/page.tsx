@@ -111,6 +111,7 @@ interface FechamentoLinha {
   ex100: string | null;
   en60: string | null;
   en100: string | null;
+  adicionalNoturno: string | null;
   atraso: string | null;
   faltas: string | null;
   faltaDsr: string | null;
@@ -623,6 +624,7 @@ const FECHAMENTO_FIELDS: { key: keyof LinhaEditada; header: string; placeholder:
   { key: 'ex100', header: 'Ex 100%', placeholder: '00:00' },
   { key: 'en60', header: 'EN 60%', placeholder: '00:00' },
   { key: 'en100', header: 'EN 100%', placeholder: '00:00' },
+  { key: 'adicionalNoturno', header: 'Ad. Noturno', placeholder: '00:00' },
   { key: 'atraso', header: 'Atraso', placeholder: '00:00' },
   { key: 'faltas', header: 'Faltas', placeholder: '00:00' },
   { key: 'faltaDsr', header: 'Falta DSR', placeholder: '00:00' },
@@ -881,6 +883,7 @@ interface LinhaEditada {
   ex100: string;
   en60: string;
   en100: string;
+  adicionalNoturno: string;
   atraso: string;
   faltas: string;
   faltaDsr: string;
@@ -896,6 +899,7 @@ function initEdits(linha: FechamentoLinha): LinhaEditada {
     ex100: linha.ex100 ?? '',
     en60: linha.en60 ?? '',
     en100: linha.en100 ?? '',
+    adicionalNoturno: linha.adicionalNoturno ?? '',
     atraso: linha.atraso ?? '',
     faltas: linha.faltas ?? '',
     faltaDsr: linha.faltaDsr ?? '',
@@ -1324,6 +1328,7 @@ function AbaRelatorio() {
         Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}. Faltas e Falta DSR são
         pré-preenchidas pelo Platefull (escala RH); atraso e horas extras vêm do Secullum e
         podem refletir o horário do setor — confira na coluna Sec. quando houver divergência.
+        Adicional noturno é calculado pelo Platefull (batidas × escala RH, 22h–5h, hora reduzida).
       </p>
 
       {erroGerar && (

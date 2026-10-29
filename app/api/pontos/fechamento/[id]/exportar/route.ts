@@ -80,6 +80,7 @@ interface LinhaExport {
   ex100: string | null;
   en60: string | null;
   en100: string | null;
+  adicionalNoturno: string | null;
   atraso: string | null;
   faltas: string | null;
   faltaDsr: string | null;
@@ -240,10 +241,10 @@ function buildAbaHoras(linhas: LinhaExport[], mes: number, ano: number): XLSX.Wo
     setCell(ws, row, 2, emptyCell({ ...DATA_STYLE, ...fill }));
     setCell(ws, row, 3, textCell(l.nome.toUpperCase(), { ...NAME_STYLE, ...fill }));
 
-    // Ordem: ex60, en60, ex100, en100, atraso, faltas, faltaDsr, adicional (vazio), VT
+    // Ordem: ex60, en60, ex100, en100, atraso, faltas, faltaDsr, adicionalNoturno, VT
     const horasVals = [l.ex60, l.en60, l.ex100, l.en100, l.atraso, l.faltas, l.faltaDsr];
     horasVals.forEach((v, i) => setCell(ws, row, 4 + i, horaCell(v, alt)));
-    setCell(ws, row, 11, horaCell(null, alt)); // Adicional Noturno — sem fonte ainda
+    setCell(ws, row, 11, horaCell(l.adicionalNoturno, alt));
     setCell(ws, row, 12, moneyCell(l.valeTransporte, alt));
   });
 
@@ -437,6 +438,7 @@ export async function POST(
     ex100: l.ex100,
     en60: l.en60,
     en100: l.en100,
+    adicionalNoturno: l.adicionalNoturno,
     atraso: l.atraso,
     faltas: l.faltas,
     faltaDsr: l.faltaDsr,

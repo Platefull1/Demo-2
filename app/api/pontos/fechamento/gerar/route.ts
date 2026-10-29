@@ -6,6 +6,7 @@ import { SystemTool } from '@/types/admin';
 import { periodoFechamentoPonto } from '@/lib/ponto-periodo';
 import { Decimal } from '@prisma/client/runtime/library';
 import { calcularFaltasEDsrPeriodo } from '@/lib/pontos/fechamento-faltas';
+import { calcularAdicionalNoturnoPeriodo } from '@/lib/pontos/fechamento-adicional-noturno';
 import { ymdToUtcDate, addDaysYmd } from '@/lib/pontos/escala-dia';
 
 export const dynamic = 'force-dynamic';
@@ -190,6 +191,11 @@ function normalizeHhMm(raw: string | null | undefined): string {
   return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
 }
 
+function ymdToDdMm(ymd: string): string {
+  const [, m, d] = ymd.split('-');
+  return `${d}/${m}`;
+}
+
 export async function POST(req: NextRequest) {
   const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW, SystemTool.PONTOS);
   if (error) return error;
@@ -359,7 +365,7 @@ export async function POST(req: NextRequest) {
 
       const funcVigencias = vigPorFunc.get(func.id) ?? [];
 
-      const platefull = calcularFaltasEDsrPeriodo({
+      const platefullOpts = {
         dataInicialYmd: dataInicial,
         dataFinalYmd: dataFinal,
         dataAdmissao: func.dataAdmissao,
@@ -369,7 +375,10 @@ export async function POST(req: NextRequest) {
         vigencias: funcVigencias,
         ocorrencias: ocPorFunc.get(func.id) ?? [],
         registros: regPorFunc.get(func.id) ?? [],
-      });
+      };
+
+      const platefull = calcularFaltasEDsrPeriodo(platefullOpts);
+      const adNoturno = calcularAdicionalNoturnoPeriodo(platefullOpts);
 
       // SEM_REGISTRO: dias sem batida ficam com status SEM_REGISTRO e faltas = 00:00.
       // Não há chamada dia-a-dia; a coluna "Sec:" mostra o total do período como referência.
@@ -379,6 +388,11 @@ export async function POST(req: NextRequest) {
         : platefull.faltasDias > 0 || platefull.faltaDsrDias > 0
         ? `Platefull: ${platefull.faltasDias} falta(s), ${platefull.faltaDsrDias} DSR`
         : null;
+
+      const obsAdNoturno = adNoturno.diasPendencia.length
+        ? `Ad. noturno: ${adNoturno.diasPendencia.length} dia(s) com batida ímpar não computados (${adNoturno.diasPendencia.map(ymdToDdMm).join(', ')})`
+        : null;
+      const observacao = [obsPlatefull, obsAdNoturno].filter(Boolean).join(' · ') || null;
 
       // Campos Secullum: usar valor atual se OK; caso contrário preservar linha anterior.
       // Todos normalizam via normalizeHhMm para garantir formato HH:MM ou null.
@@ -402,24 +416,26 @@ export async function POST(req: NextRequest) {
           atraso: secAtraso,
           faltas:    platefull.faltasHhMm,
           faltaDsr:  platefull.faltaDsrHhMm,
+          adicionalNoturno: adNoturno.adicionalNoturnoHhMm,
           faltasSecullum:   secFaltas,
           faltaDsrSecullum: secFaltaDsr,
           valeTransporte: func.valorVT ? new Decimal(func.valorVT) : null,
           status: 'pendente',
           origemErro,
-          observacao: obsPlatefull,
+          observacao,
         },
         update: {
           ex60: secEx60, ex100: secEx100, en60: secEn60, en100: secEn100,
           atraso: secAtraso,
           faltas:    platefull.faltasHhMm,
           faltaDsr:  platefull.faltaDsrHhMm,
+          adicionalNoturno: adNoturno.adicionalNoturnoHhMm,
           faltasSecullum:   secFaltas,
           faltaDsrSecullum: secFaltaDsr,
           valeTransporte: func.valorVT ? new Decimal(func.valorVT) : null,
           status: 'pendente',
           origemErro,
-          observacao: obsPlatefull,
+          observacao,
         },
       });
     }

@@ -45,6 +45,7 @@ export async function PATCH(
       ...(body.ex100 !== undefined ? { ex100: body.ex100 || null } : {}),
       ...(body.en60 !== undefined ? { en60: body.en60 || null } : {}),
       ...(body.en100 !== undefined ? { en100: body.en100 || null } : {}),
+      ...(body.adicionalNoturno !== undefined ? { adicionalNoturno: body.adicionalNoturno || null } : {}),
       ...(body.atraso !== undefined ? { atraso: body.atraso || null } : {}),
       ...(body.faltas !== undefined ? { faltas: body.faltas || null } : {}),
       ...(body.faltaDsr !== undefined ? { faltaDsr: body.faltaDsr || null } : {}),

@@ -1083,7 +1083,7 @@ model FechamentoLinha {
   funcionarioId String
   funcionario  RhFuncionario    @relation(fields: [funcionarioId], references: [id])
 
-  /// HE/atraso: Secullum. faltas/faltaDsr: pré-preenchidos pelo Platefull (editáveis)
+  /// HE/atraso: Secullum. faltas/faltaDsr/adicionalNoturno: Platefull (editáveis)
   ex60      String?
   ex100     String?
   en60      String?
@@ -1091,6 +1091,8 @@ model FechamentoLinha {
   atraso    String?
   faltas    String?
   faltaDsr  String?
+  /// Horas noturnas dentro da jornada (22h–5h, hora reduzida). Calculado no Platefull.
+  adicionalNoturno String?
   /// Totais originais do Secullum (somente leitura na UI) para conferência
   faltasSecullum   String?
   faltaDsrSecullum String?
