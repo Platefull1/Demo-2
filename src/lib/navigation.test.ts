@@ -5,7 +5,12 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { SystemTool } from '../types/admin';
-import { buildNavSections, navItemIsActive } from './navigation-menu';
+import {
+  buildNavSections,
+  navItemIsActive,
+  resolveNavigationInput,
+  visaoGeralOnlyNav,
+} from './navigation-menu';
 
 function hasTools(...tools: SystemTool[]) {
   const set = new Set(tools);
@@ -114,7 +119,7 @@ describe('buildNavSections', () => {
     );
   });
 
-  it('admin do tenant (todas as tools) vê o menu completo', () => {
+  it('todas as tools ligadas no painel → menu completo (sem bypass de isAdmin)', () => {
     const nav = buildNavSections({
       hasTool: () => true,
       canViewCmvReal: true,
@@ -140,6 +145,85 @@ describe('buildNavSections', () => {
     ]) {
       assert.equal(ids.includes(id), true, `faltou ${id}`);
     }
+  });
+});
+
+describe('Camada 1 — getNavigationForUser / resolveNavigationInput', () => {
+  it('impressao.portao (conta solta, isAdmin fallback, só etiquetagem) vê Visão geral + Etiquetagem', () => {
+    const nav = buildNavSections(
+      resolveNavigationInput({
+        isActive: true,
+        isAdmin: true,
+        enabledTools: [SystemTool.ETIQUETAGEM],
+        hasCmvRealVisualizar: false,
+        lojaNaoConfigurada: false,
+      }),
+    );
+    assert.deepEqual(itemIds(nav), ['visao-geral', 'etiquetagem']);
+  });
+
+  it('platefull.app dono com Chat/iFood/Produtos desligados não vê esses itens', () => {
+    const nav = buildNavSections(
+      resolveNavigationInput({
+        isActive: true,
+        isAdmin: true,
+        enabledTools: [
+          SystemTool.CMV,
+          SystemTool.CMV_REAL,
+          SystemTool.ESTOQUE,
+          SystemTool.RH,
+          SystemTool.PONTOS,
+          SystemTool.CHECKLIST,
+          SystemTool.CONEXOES,
+          SystemTool.WHATSAPP_CHAT,
+          SystemTool.ETIQUETAGEM,
+          SystemTool.TAREFAS,
+          SystemTool.AGENDAMENTO_RELATORIOS,
+          SystemTool.VER_OCORRENCIAS,
+          SystemTool.REGISTRAR_OCORRENCIAS,
+        ],
+        hasCmvRealVisualizar: true,
+        lojaNaoConfigurada: false,
+      }),
+    );
+    const ids = itemIds(nav);
+    assert.equal(ids.includes('chat'), false);
+    assert.equal(ids.includes('ifood'), false);
+    assert.equal(ids.includes('produtos'), false);
+    assert.equal(ids.includes('cmv-real'), true);
+    assert.equal(ids.includes('estoque'), true);
+  });
+
+  it('membro com CMV_REAL ligada mas sem cmv_real.visualizar não vê CMV Real', () => {
+    const nav = buildNavSections(
+      resolveNavigationInput({
+        isActive: true,
+        isAdmin: false,
+        enabledTools: [SystemTool.CMV_REAL],
+        hasCmvRealVisualizar: false,
+        lojaNaoConfigurada: false,
+      }),
+    );
+    assert.equal(itemIds(nav).includes('cmv-real'), false);
+  });
+
+  it('membro com CMV_REAL + visualizar vê CMV Real (escopo de loja é Camada 2)', () => {
+    const nav = buildNavSections(
+      resolveNavigationInput({
+        isActive: true,
+        isAdmin: false,
+        enabledTools: [SystemTool.CMV_REAL],
+        hasCmvRealVisualizar: true,
+        lojaNaoConfigurada: false,
+      }),
+    );
+    assert.equal(itemIds(nav).includes('cmv-real'), true);
+  });
+
+  it('erro de cálculo (fail-closed) → só Visão geral', () => {
+    const nav = visaoGeralOnlyNav();
+    assert.deepEqual(itemIds(nav), ['visao-geral']);
+    assert.deepEqual(sectionIds(nav), ['geral']);
   });
 });
 
