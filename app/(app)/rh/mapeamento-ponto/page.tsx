@@ -2,8 +2,10 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CheckCircle, Search, AlertTriangle, Link2 } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Search, AlertTriangle, Link2, X } from 'lucide-react';
 import { distance } from 'fastest-levenshtein';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface Pendencia {
   id: string;
@@ -31,10 +33,13 @@ const inputCls =
   'w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors';
 const labelCls = 'block text-xs font-medium text-gray-400 mb-1.5';
 
+function normalizeNome(s: string): string {
+  return s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+}
+
 function scoreMatch(a: string, b: string): number {
-  const normalize = (s: string) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
-  const na = normalize(a);
-  const nb = normalize(b);
+  const na = normalizeNome(a);
+  const nb = normalizeNome(b);
   if (nb.includes(na) || na.includes(nb)) return 0;
   return distance(na, nb);
 }
@@ -48,7 +53,18 @@ export default function MapeamentoPontoPage() {
   const [search, setSearch] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [done, setDone] = useState<Record<string, boolean>>({});
+  const [filtroLista, setFiltroLista] = useState('');
   const [toast, setToast] = useState('');
+
+  const gruposFiltrados = useMemo(() => {
+    const q = normalizeNome(filtroLista.trim());
+    if (!q) return grupos;
+    return grupos.filter((g) => {
+      const nome = normalizeNome(g.nomeSugerido ?? '');
+      const folha = g.numeroFolhaOrigem.toLowerCase();
+      return nome.includes(q) || folha.includes(q);
+    });
+  }, [grupos, filtroLista]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -69,9 +85,12 @@ export default function MapeamentoPontoPage() {
   const filteredFuncionarios = useMemo(() => {
     return (folha: string, query: string) => {
       const nomeSugerido = grupos.find((g) => g.numeroFolhaOrigem === folha)?.nomeSugerido ?? '';
-      const base = query.trim()
-        ? funcionarios.filter((f) =>
-            f.nome.toLowerCase().includes(query.toLowerCase())
+      const q = normalizeNome(query.trim());
+      const base = q
+        ? funcionarios.filter(
+            (f) =>
+              normalizeNome(f.nome).includes(q) ||
+              (f.numeroFolha ?? '').toLowerCase().includes(q)
           )
         : funcionarios;
 
@@ -132,6 +151,9 @@ export default function MapeamentoPontoPage() {
               {pendingCount > 0
                 ? `${pendingCount} matrícula${pendingCount !== 1 ? 's' : ''} sem funcionário vinculado`
                 : 'Tudo mapeado'}
+              {filtroLista.trim() && grupos.length > 0
+                ? ` · ${gruposFiltrados.length} na busca`
+                : ''}
             </p>
           </div>
         </div>
@@ -150,7 +172,47 @@ export default function MapeamentoPontoPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {grupos.map((grupo) => {
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={filtroLista}
+                  onChange={(e) => setFiltroLista(e.target.value)}
+                  placeholder="Buscar por nome ou número da folha..."
+                  className="h-8 pl-8"
+                  aria-label="Buscar matrícula para mapear"
+                />
+                {filtroLista ? (
+                  <button
+                    type="button"
+                    onClick={() => setFiltroLista('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Limpar busca"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+              {filtroLista ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0"
+                  onClick={() => setFiltroLista('')}
+                >
+                  Limpar
+                </Button>
+              ) : null}
+            </div>
+
+            {gruposFiltrados.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8">
+                Nenhuma matrícula encontrada para &quot;{filtroLista.trim()}&quot;.
+              </p>
+            ) : null}
+
+            {gruposFiltrados.map((grupo) => {
               const isResolved = done[grupo.numeroFolhaOrigem];
               const selectedId = matching[grupo.numeroFolhaOrigem] ?? '';
               const query = search[grupo.numeroFolhaOrigem] ?? '';
