@@ -2,6 +2,11 @@
 
 Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 
+## Auth / Camada 1 (out/2026)
+
+- **Defesa em profundidade:** rotas sensíveis devem checar `canAccessTool` também no próprio handler, não só no middleware. O middleware cobre o prefixo; um handler sem checagem fica aberto se o mapa falhar ou se a rota for chamada internamente.
+- **Dashboard / Visão geral:** métricas e vendas da dashboard ficam disponíveis a qualquer usuário logado (filtro pelas `user_apis` da conta, não pelo escopo de loja do RH). Avaliar restringir por loja (`lojas` do membro) para quem não é escritório.
+
 ## Estoque (out/2026) — PRIORIDADE ALTA
 
 - Contagem: valores digitados e ainda não salvos ficam só em memória; se o app for fechado sem rede, são perdidos. Sugestão: rascunho local (IndexedDB/localStorage) por contagem/sessão, reenviado ao reabrir, com aviso de "valores pendentes de envio". (Uso real hoje: sinal ruim com o app aberto — fila de PATCH + keepalive; não há service worker.)
