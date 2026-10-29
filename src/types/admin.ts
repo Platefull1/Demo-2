@@ -88,13 +88,14 @@ export interface AdminUser {
 }
 
 export interface AdminSession {
+  adminId: string;
   userId: string;
   email: string;
   name?: string;
   role: UserRole;
   clientId?: string;
   permissions: Permission[];
-  exp?: number; // Opcional - será adicionado automaticamente pelo JWT
+  exp?: number;
 }
 
 export interface AdminClient {

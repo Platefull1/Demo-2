@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOcorrenciasContext } from '@/lib/ocorrencias-auth';
 import { createOcorrenciaFotoSignedUrl } from '@/lib/ocorrencias-storage';
+import { ocorrenciaByIdWhere } from '@/lib/ocorrencias-validation';
 
 /**
  * GET /api/ocorrencias/:id/foto
@@ -21,7 +22,7 @@ export async function GET(
   const { id } = await params;
 
   const ocorrencia = await prisma.ocorrencia.findFirst({
-    where: { id, userId: ctx.userId },
+    where: ocorrenciaByIdWhere(ctx.userId, id),
     select: { fotoPath: true },
   });
 
@@ -41,5 +42,8 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({ url });
+  return NextResponse.json(
+    { url },
+    { headers: { 'Cache-Control': 'private, no-store' } },
+  );
 }

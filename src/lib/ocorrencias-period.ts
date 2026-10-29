@@ -39,3 +39,18 @@ export function spDayStart(ymd: string): Date {
 export function spDayEnd(ymd: string): Date {
   return new Date(`${ymd}T23:59:59.999${SP_OFFSET}`);
 }
+
+/** Data/hora da ocorrência sempre em America/Sao_Paulo. */
+export function formatOcorrenciaDateTime(iso: string): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')}`;
+}

@@ -3,9 +3,12 @@ export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { denyDebugInProduction } from "@/lib/debug-guard";
 
 // POST /api/debug/fix-null-userid - Corrigir registros com userId null
 export async function POST() {
+  const denied = denyDebugInProduction();
+  if (denied) return denied;
   try {
     console.log("🔧 Iniciando correção de registros com userId null...");
 

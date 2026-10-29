@@ -21,6 +21,8 @@ module.exports = mod;
  */ __turbopack_context__.s([
     "ISOLATION_COOKIE_MAX_AGE",
     ()=>ISOLATION_COOKIE_MAX_AGE,
+    "ISOLATION_JWT_ISSUER",
+    ()=>ISOLATION_JWT_ISSUER,
     "OCORRENCIAS_ONLY_COOKIE",
     ()=>OCORRENCIAS_ONLY_COOKIE,
     "hasStackSessionCookies",
@@ -33,6 +35,8 @@ module.exports = mod;
     ()=>isolationCookieOptions,
     "readIsolationCookie",
     ()=>readIsolationCookie,
+    "sessionFingerprint",
+    ()=>sessionFingerprint,
     "signIsolationCookie",
     ()=>signIsolationCookie
 ]);
@@ -41,6 +45,7 @@ var __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f
 ;
 const OCORRENCIAS_ONLY_COOKIE = 'platefull_ocorrencias_only';
 const ISOLATION_COOKIE_MAX_AGE = 5 * 60;
+const ISOLATION_JWT_ISSUER = 'ocorrencias-isolation';
 const ALLOWED_PREFIXES = [
     '/ocorrencias/nova',
     '/api/ocorrencias',
@@ -51,13 +56,18 @@ const ALLOWED_PREFIXES = [
 ];
 function isOcorrenciasAllowedPath(pathname) {
     if (pathname === '/') return true;
-    return ALLOWED_PREFIXES.some((p)=>pathname === p || pathname.startsWith(`${p}/`) || pathname.startsWith(p));
+    return ALLOWED_PREFIXES.some((p)=>pathname === p || pathname.startsWith(`${p}/`));
 }
 function hasStackSessionCookies(request) {
     return request.cookies.getAll().some((c)=>/stack/i.test(c.name));
 }
+async function sessionFingerprint(request) {
+    const raw = request.cookies.getAll().filter((c)=>/stack/i.test(c.name)).map((c)=>`${c.name}=${c.value}`).sort().join('|');
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+    return Array.from(new Uint8Array(buf).slice(0, 16)).map((b)=>b.toString(16).padStart(2, '0')).join('');
+}
 function isolationSecret() {
-    const raw = process.env.ADMIN_JWT_SECRET || process.env.NEXTAUTH_SECRET || process.env.STACK_SECRET_SERVER_KEY;
+    const raw = process.env.OCORRENCIAS_ISOLATION_SECRET || process.env.ADMIN_JWT_SECRET || process.env.NEXTAUTH_SECRET;
     if (!raw) return null;
     return new TextEncoder().encode(raw);
 }
@@ -70,21 +80,28 @@ function isolationCookieOptions() {
         maxAge: ISOLATION_COOKIE_MAX_AGE
     };
 }
-async function signIsolationCookie(only) {
+async function signIsolationCookie(only, fingerprint) {
     const secret = isolationSecret();
-    if (!secret) return null;
+    if (!secret || !fingerprint) return null;
     return new __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$jose$2f$dist$2f$webapi$2f$jwt$2f$sign$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["SignJWT"]({
-        only
+        only,
+        fp: fingerprint
     }).setProtectedHeader({
         alg: 'HS256'
-    }).setIssuedAt().setExpirationTime(`${ISOLATION_COOKIE_MAX_AGE}s`).sign(secret);
+    }).setIssuer(ISOLATION_JWT_ISSUER).setIssuedAt().setExpirationTime(`${ISOLATION_COOKIE_MAX_AGE}s`).sign(secret);
 }
-async function readIsolationCookie(token) {
-    if (!token) return null;
+async function readIsolationCookie(token, fingerprint) {
+    if (!token || !fingerprint) return null;
     const secret = isolationSecret();
     if (!secret) return null;
     try {
-        const { payload } = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$jose$2f$dist$2f$webapi$2f$jwt$2f$verify$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["jwtVerify"])(token, secret);
+        const { payload } = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$node_modules$2f$jose$2f$dist$2f$webapi$2f$jwt$2f$verify$2e$js__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["jwtVerify"])(token, secret, {
+            algorithms: [
+                'HS256'
+            ],
+            issuer: ISOLATION_JWT_ISSUER
+        });
+        if (payload.fp !== fingerprint) return null;
         return payload.only === true;
     } catch  {
         return null;
@@ -137,7 +154,8 @@ function denyOcorrenciasOnly(request) {
  * Decisão pela sessão. Cookie assinado é só cache (5 min).
  * Apagar o cookie força nova consulta a /api/ocorrencias/isolation.
  */ async function resolveOcorrenciasOnly(request) {
-    const cached = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["readIsolationCookie"])(request.cookies.get(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["OCORRENCIAS_ONLY_COOKIE"])?.value);
+    const fp = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["sessionFingerprint"])(request);
+    const cached = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["readIsolationCookie"])(request.cookies.get(__TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["OCORRENCIAS_ONLY_COOKIE"])?.value, fp);
     if (cached !== null) {
         return {
             only: cached,
@@ -158,20 +176,22 @@ function denyOcorrenciasOnly(request) {
             },
             cache: 'no-store'
         });
-        if (!res.ok) return {
-            only: false,
-            tokenToSet: null
-        };
+        if (!res.ok) {
+            return {
+                only: true,
+                tokenToSet: null
+            };
+        }
         const data = await res.json();
         const only = data.only === true;
-        const tokenToSet = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["signIsolationCookie"])(only);
+        const tokenToSet = await (0, __TURBOPACK__imported__module__$5b$project$5d2f$Demo$2d$2$2f$src$2f$lib$2f$ocorrencias$2d$isolation$2e$ts__$5b$middleware$2d$edge$5d$__$28$ecmascript$29$__["signIsolationCookie"])(only, fp);
         return {
             only,
             tokenToSet
         };
     } catch  {
         return {
-            only: false,
+            only: true,
             tokenToSet: null
         };
     }

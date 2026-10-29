@@ -2,8 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { format, parseISO } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { saoPauloYmd, formatOcorrenciaDateTime } from '@/lib/ocorrencias-period';
 import {
   Table,
   TableBody,
@@ -43,7 +42,6 @@ import {
 } from '@/components/ui/tooltip';
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { saoPauloYmd } from '@/lib/ocorrencias-period';
 import {
   TODAS_CATEGORIAS,
   categoriaLabel,
@@ -88,7 +86,7 @@ function canalLabel(canal: string | null) {
 }
 
 function formatDT(iso: string) {
-  return format(parseISO(iso), 'dd/MM/yy HH:mm', { locale: ptBR });
+  return formatOcorrenciaDateTime(iso);
 }
 
 function mesAtualYmd() {

@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { UserRole, Permission, AdminSession } from '@/types/admin';
+import { ADMIN_JWT_ISSUER, JWT_ALGORITHMS } from '@/lib/auth/jwt-config';
 
 // Obter JWT_SECRET com validação
 function getJwtSecret(): string {
@@ -48,8 +49,8 @@ export async function createAdminSession(user: {
     select: { name: true },
   });
 
-  // Criar payload do JWT (sem exp, será adicionado automaticamente pelo jwt.sign)
   const sessionPayload = {
+    adminId: user.id,
     userId: user.id,
     email: user.email,
     name: userWithName?.name,
@@ -63,9 +64,10 @@ export async function createAdminSession(user: {
     const jwtSecret = getJwtSecret();
     console.log('🔑 JWT_SECRET configurado:', jwtSecret.substring(0, 10) + '...');
     
-    // Usar expiresIn nas opções - o JWT library adiciona exp automaticamente
     token = jwt.sign(sessionPayload, jwtSecret, {
       expiresIn: SESSION_DURATION,
+      algorithm: 'HS256',
+      issuer: ADMIN_JWT_ISSUER,
     });
     
     console.log('✅ Token JWT criado com sucesso');
@@ -121,6 +123,20 @@ export async function createAdminSession(user: {
   return token;
 }
 
+export function verifyAdminJwt(token: string): AdminSession {
+  const decoded = jwt.verify(token, getJwtSecret(), {
+    algorithms: [...JWT_ALGORITHMS],
+    issuer: ADMIN_JWT_ISSUER,
+  }) as AdminSession & { exp?: number };
+  if (!decoded.adminId) {
+    throw new Error('Token admin sem adminId');
+  }
+  if (decoded.exp && decoded.exp < Date.now() / 1000) {
+    throw new Error('Token admin expirado');
+  }
+  return decoded;
+}
+
 export async function verifyAdminSession(
   request: NextRequest
 ): Promise<AdminSession | null> {
@@ -132,41 +148,37 @@ export async function verifyAdminSession(
       return null;
     }
 
-    // Verificar JWT
-    const jwtSecret = getJwtSecret();
-    const decoded = jwt.verify(token, jwtSecret) as AdminSession & { exp?: number };
+    const decoded = verifyAdminJwt(token);
 
-    // Verificar se sessão expirou (exp é adicionado automaticamente pelo JWT)
-    if (decoded.exp && decoded.exp < Date.now() / 1000) {
+    const user = await prisma.adminUser.findUnique({
+      where: { id: decoded.adminId },
+      include: { permissions: true },
+    });
+    if (!user || !user.isActive) {
       return null;
     }
 
-    // Verificar se sessão existe no banco e não expirou
     const session = await prisma.adminSession.findFirst({
       where: {
         token,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-      include: {
-        user: {
-          include: {
-            permissions: true,
-          },
-        },
+        userId: decoded.adminId,
+        expiresAt: { gt: new Date() },
       },
     });
-
-    if (!session || !session.user || !session.user.isActive) {
+    if (!session) {
       return null;
     }
 
-    // Atualizar permissões do token com as do banco
-    const permissions = session.user.permissions.map(p => p.permission as Permission);
-    
+    const permissions = user.permissions.map((p) => p.permission as Permission);
+
     return {
       ...decoded,
+      adminId: user.id,
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role as UserRole,
+      clientId: user.clientId || undefined,
       permissions,
     };
   } catch (error) {

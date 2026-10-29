@@ -2541,9 +2541,12 @@ model Ocorrencia {
   motoboy             DeliveryRider?   @relation("OcorrenciaMotoboy", fields: [motoboyId], references: [id])
   /// Stack Auth user ID de quem registrou (para auditoria)
   criadoPorUserId     String
+  /// Chave de idempotência (retry/duplo clique). Null = envio sem chave.
+  idempotencyKey      String?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
+  @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([userId, lojaId, createdAt])
   @@map("ocorrencias")

@@ -1,14 +1,18 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { RIDER_JWT_ISSUER } from '@/lib/auth/jwt-config';
 import {
   OCORRENCIAS_ONLY_COOKIE,
   hasStackSessionCookies,
   isolationCookieOptions,
   isIsolationApiPath,
+  isIsolationSecretConfigured,
   isOcorrenciasAllowedPath,
   readIsolationCookie,
+  sessionFingerprint,
   signIsolationCookie,
+  warnIfIsolationSecretMissing,
 } from '@/lib/ocorrencias-isolation';
 
 const RIDER_COOKIE = 'rider_token';
@@ -17,9 +21,12 @@ async function getRiderSession(request: NextRequest) {
   try {
     const token = request.cookies.get(RIDER_COOKIE)?.value;
     if (!token) return null;
-    const secret = process.env.ADMIN_JWT_SECRET || process.env.NEXTAUTH_SECRET;
+    const secret = process.env.RIDER_JWT_SECRET;
     if (!secret) return null;
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+    const { payload } = await jwtVerify(token, new TextEncoder().encode(secret), {
+      algorithms: ['HS256'],
+      issuer: RIDER_JWT_ISSUER,
+    });
     return payload as { riderId: string };
   } catch {
     return null;
@@ -41,11 +48,18 @@ async function resolveOcorrenciasOnly(request: NextRequest): Promise<{
   only: boolean;
   tokenToSet: string | null;
 }> {
-  const cached = await readIsolationCookie(
-    request.cookies.get(OCORRENCIAS_ONLY_COOKIE)?.value,
-  );
-  if (cached !== null) {
-    return { only: cached, tokenToSet: null };
+  const cacheEnabled = isIsolationSecretConfigured();
+  if (!cacheEnabled) {
+    warnIfIsolationSecretMissing();
+  } else {
+    const fp = await sessionFingerprint(request);
+    const cached = await readIsolationCookie(
+      request.cookies.get(OCORRENCIAS_ONLY_COOKIE)?.value,
+      fp,
+    );
+    if (cached !== null) {
+      return { only: cached, tokenToSet: null };
+    }
   }
 
   if (!hasStackSessionCookies(request)) {
@@ -58,13 +72,17 @@ async function resolveOcorrenciasOnly(request: NextRequest): Promise<{
       headers: { cookie: request.headers.get('cookie') ?? '' },
       cache: 'no-store',
     });
-    if (!res.ok) return { only: false, tokenToSet: null };
+    if (!res.ok) {
+      return { only: true, tokenToSet: null };
+    }
     const data = (await res.json()) as { only?: boolean };
     const only = data.only === true;
-    const tokenToSet = await signIsolationCookie(only);
+    const tokenToSet = cacheEnabled
+      ? await signIsolationCookie(only, await sessionFingerprint(request))
+      : null;
     return { only, tokenToSet };
   } catch {
-    return { only: false, tokenToSet: null };
+    return { only: true, tokenToSet: null };
   }
 }
 

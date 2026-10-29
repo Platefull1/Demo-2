@@ -47,6 +47,7 @@ export default function AdminDashboard({ session, data }: DashboardProps) {
   }
 
   const safeSession: AdminSession = {
+    adminId: String(session.adminId || session.userId || ""),
     userId: String(session.userId || ""),
     email: String(session.email || ""),
     name: String(session.name || session.email || ""),

@@ -28,6 +28,7 @@ export default function AdminSidebar({ session, onLogout, loading }: SidebarProp
 
   // Garantir que session sempre tenha valores válidos
   const safeSession: AdminSession = {
+    adminId: session?.adminId || session?.userId || "",
     userId: session?.userId || "",
     email: session?.email || "",
     name: session?.name || session?.email || "",

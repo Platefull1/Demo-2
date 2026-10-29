@@ -4,6 +4,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOcorrenciasContext } from '@/lib/ocorrencias-auth';
 import { isLojaEscritorio } from '@/lib/ocorrencias-lojas';
+import {
+  rateLimitAllow,
+  OPCOES_LIMIT,
+  OPCOES_WINDOW_MS,
+} from '@/lib/ocorrencias-rate-limit';
 
 /**
  * GET /api/ocorrencias/opcoes?lojaId=...
@@ -14,6 +19,10 @@ import { isLojaEscritorio } from '@/lib/ocorrencias-lojas';
 export async function GET(request: NextRequest) {
   const { ctx, error } = await requireOcorrenciasContext('ANY');
   if (error) return error;
+
+  if (!rateLimitAllow(`opcoes:${ctx.stackUserId}`, OPCOES_LIMIT, OPCOES_WINDOW_MS)) {
+    return NextResponse.json({ error: 'Muitas tentativas. Aguarde um minuto.' }, { status: 429 });
+  }
 
   const { searchParams } = new URL(request.url);
   const lojaId = searchParams.get('lojaId');

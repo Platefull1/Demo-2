@@ -5,9 +5,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stackServerApp } from "@/stack";
 import { syncStackAuthUser } from "@/lib/stack-auth-sync";
+import { denyDebugInProduction } from "@/lib/debug-guard";
 
 // GET /api/debug/storeIds - Retorna dados de debug para storeIds
 export async function GET() {
+  const denied = denyDebugInProduction();
+  if (denied) return denied;
   try {
     const stackUser = await stackServerApp.getUser({ or: "return-null" });
     if (!stackUser) {

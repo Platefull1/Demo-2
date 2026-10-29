@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stackServerApp } from "@/stack";
 import { syncStackAuthUser } from "@/lib/stack-auth-sync";
+import { denyDebugInProduction } from "@/lib/debug-guard";
 
 /**
  * Rota TEMPORÁRIA de manutenção para corrigir userId em sales_daily
@@ -16,6 +17,8 @@ import { syncStackAuthUser } from "@/lib/stack-auth-sync";
  * pode ser apagada ou deixar protegida por algum segredo.
  */
 export async function POST() {
+  const denied = denyDebugInProduction();
+  if (denied) return denied;
   try {
     // Autenticação básica (pode adicionar proteção adicional se necessário)
     const stackUser = await stackServerApp.getUser({ or: "return-null" });

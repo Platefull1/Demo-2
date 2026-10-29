@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { requireOcorrenciasContext } from '@/lib/ocorrencias-auth';
@@ -19,49 +18,24 @@ import {
 } from '@/lib/ocorrencias-period';
 import { CanalOcorrencia, CategoriaOcorrencia, Prisma } from '@prisma/client';
 import { resolverCategorias, TODAS_CATEGORIAS } from '@/lib/ocorrencias-categorias';
-
-const MAX_FOTO_BYTES = 8 * 1024 * 1024;
-const ACCEPTED_TYPES = new Set([
-  'image/jpeg',
-  'image/jpg',
-  'image/png',
-  'image/webp',
-  'image/heic',
-]);
-
-const bodySchema = z
-  .object({
-    lojaId: z.string().min(1, 'Loja obrigatória'),
-    numeroPedidoSaipos: z.string().min(1, 'Número do pedido Saipos obrigatório'),
-    numeroPedidoExterno: z.string().optional(),
-    canalExterno: z.enum(['IFOOD', 'DELIVERY_DIRETO']).optional(),
-    descricao: z.string().optional().default(''),
-    motoboyId: z.string().optional(),
-    categorias: z.array(z.string()).default([]),
-  })
-  .superRefine((data, ctx) => {
-    const result = resolverCategorias(data.categorias, data.descricao);
-    if (result.ok === false) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: result.error,
-        path: data.categorias.length === 0 ? ['descricao'] : ['categorias'],
-      });
-    }
-  });
-
-function parseCategorias(raw: FormDataEntryValue | null): string[] {
-  if (!raw || typeof raw !== 'string') return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(String) : [];
-  } catch {
-    return raw
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-}
+import {
+  ocorrenciaBodySchema,
+  parseCategorias,
+  parsePage,
+  parsePageSize,
+  clampBusca,
+} from '@/lib/ocorrencias-validation';
+import {
+  MAX_FOTO_BYTES,
+  MAX_MULTIPART_BYTES,
+  fotoPathFor,
+  processarFotoOcorrencia,
+} from '@/lib/ocorrencias-foto';
+import {
+  rateLimitAllow,
+  POST_OCORRENCIA_LIMIT,
+  POST_OCORRENCIA_WINDOW_MS,
+} from '@/lib/ocorrencias-rate-limit';
 
 function ymdFromIsoOrDate(value: string | null): string | null {
   if (!value) return null;
@@ -77,6 +51,15 @@ export async function POST(request: NextRequest) {
   const { ctx, error } = await requireOcorrenciasContext('REGISTRAR');
   if (error) return error;
 
+  if (!rateLimitAllow(`post:${ctx.stackUserId}`, POST_OCORRENCIA_LIMIT, POST_OCORRENCIA_WINDOW_MS)) {
+    return NextResponse.json({ error: 'Muitas tentativas. Aguarde um minuto.' }, { status: 429 });
+  }
+
+  const contentLength = Number(request.headers.get('content-length') || 0);
+  if (contentLength > MAX_MULTIPART_BYTES) {
+    return NextResponse.json({ error: 'Foto muito grande. Máximo: 8 MB.' }, { status: 413 });
+  }
+
   let formData: FormData;
   try {
     formData = await request.formData();
@@ -91,21 +74,20 @@ export async function POST(request: NextRequest) {
   const foto =
     fotoRaw instanceof File && fotoRaw.size > 0 ? fotoRaw : null;
 
-  let fotoBuffer: Buffer | null = null;
+  let jpegBuffer: Buffer | null = null;
   if (foto) {
-    if (!ACCEPTED_TYPES.has(foto.type)) {
-      return NextResponse.json(
-        { error: 'Tipo de arquivo não suportado. Use JPEG, PNG, WEBP ou HEIC.' },
-        { status: 400 },
-      );
-    }
-    fotoBuffer = Buffer.from(await foto.arrayBuffer());
-    if (fotoBuffer.length > MAX_FOTO_BYTES) {
+    if (foto.size > MAX_FOTO_BYTES) {
       return NextResponse.json(
         { error: 'Foto muito grande. Máximo: 8 MB.' },
-        { status: 400 },
+        { status: 413 },
       );
     }
+    const rawBuf = Buffer.from(await foto.arrayBuffer());
+    const processed = await processarFotoOcorrencia(rawBuf);
+    if (processed.ok === false) {
+      return NextResponse.json({ error: processed.error }, { status: 400 });
+    }
+    jpegBuffer = processed.jpeg;
   }
 
   const campos = {
@@ -116,12 +98,13 @@ export async function POST(request: NextRequest) {
     descricao: (formData.get('descricao') as string | null) || '',
     motoboyId: formData.get('motoboyId') || undefined,
     categorias: parseCategorias(formData.get('categorias')),
+    idempotencyKey: (formData.get('idempotencyKey') as string | null) || undefined,
   };
 
-  const parsed = bodySchema.safeParse(campos);
+  const parsed = ocorrenciaBodySchema.safeParse(campos);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: 'Dados inválidos', detalhes: parsed.error.flatten().fieldErrors },
+      { error: 'Dados inválidos' },
       { status: 400 },
     );
   }
@@ -134,18 +117,12 @@ export async function POST(request: NextRequest) {
     descricao,
     motoboyId,
     categorias: categoriasEnviadas,
+    idempotencyKey,
   } = parsed.data;
 
   const cats = resolverCategorias(categoriasEnviadas, descricao);
   if (cats.ok === false) {
     return NextResponse.json({ error: cats.error }, { status: 400 });
-  }
-
-  if (numeroPedidoExterno && !canalExterno) {
-    return NextResponse.json(
-      { error: 'Canal externo obrigatório quando há número de pedido externo' },
-      { status: 400 },
-    );
   }
 
   const loja = await prisma.rhLoja.findFirst({
@@ -177,12 +154,12 @@ export async function POST(request: NextRequest) {
   const mesPasta = `${year}-${String(month).padStart(2, '0')}`;
   let fotoPath: string | null = null;
 
-  if (foto && fotoBuffer) {
-    fotoPath = `${ctx.userId}/${mesPasta}/${ocorrenciaId}.jpg`;
+  if (jpegBuffer) {
+    fotoPath = fotoPathFor(ctx.userId, ocorrenciaId, mesPasta);
     try {
-      await uploadOcorrenciaFoto(fotoPath, fotoBuffer, foto.type);
-    } catch (err) {
-      console.error('[ocorrencias] upload foto falhou:', err);
+      await uploadOcorrenciaFoto(fotoPath, jpegBuffer, 'image/jpeg');
+    } catch {
+      console.error('[ocorrencias] upload foto falhou', { ocorrenciaId });
       return NextResponse.json(
         { error: 'Erro ao enviar foto. Tente novamente.' },
         { status: 500 },
@@ -198,12 +175,15 @@ export async function POST(request: NextRequest) {
         lojaId,
         numeroPedidoSaipos,
         numeroPedidoExterno: numeroPedidoExterno || null,
-        canalExterno: (canalExterno as CanalOcorrencia) || null,
+        canalExterno: numeroPedidoExterno
+          ? ((canalExterno as CanalOcorrencia) || null)
+          : null,
         categorias: cats.categorias as CategoriaOcorrencia[],
         descricao: descricao.trim(),
         fotoPath,
         motoboyId: motoboyId || null,
         criadoPorUserId: ctx.stackUserId,
+        ...(idempotencyKey ? { idempotencyKey } : {}),
       },
       select: {
         id: true,
@@ -215,10 +195,40 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, ocorrencia }, { status: 201 });
   } catch (err) {
-    console.error('[ocorrencias] create falhou, removendo foto:', err);
-    if (fotoPath) await deleteOcorrenciaFoto(fotoPath);
+    if (
+      idempotencyKey &&
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === 'P2002'
+    ) {
+      const existing = await prisma.ocorrencia.findFirst({
+        where: { userId: ctx.userId, idempotencyKey },
+        select: {
+          id: true,
+          numeroPedidoSaipos: true,
+          loja: { select: { nome: true } },
+          createdAt: true,
+        },
+      });
+      if (existing) {
+        if (fotoPath) {
+          const removed = await deleteOcorrenciaFoto(fotoPath);
+          if (!removed) {
+            console.error('[ocorrencias] foto órfã não removida', { ocorrenciaId });
+          }
+        }
+        return NextResponse.json({ ok: true, ocorrencia: existing, replay: true }, { status: 200 });
+      }
+    }
+
+    console.error('[ocorrencias] create falhou', { ocorrenciaId });
+    if (fotoPath) {
+      const removed = await deleteOcorrenciaFoto(fotoPath);
+      if (!removed) {
+        console.error('[ocorrencias] foto órfã não removida', { ocorrenciaId });
+      }
+    }
     return NextResponse.json(
-      { error: 'Erro ao salvar ocorrência. Foto removida. Tente novamente.' },
+      { error: 'Erro ao salvar ocorrência. Tente novamente.' },
       { status: 500 },
     );
   }
@@ -233,15 +243,15 @@ export async function GET(request: NextRequest) {
 
   const lojaId = searchParams.get('lojaId') || undefined;
   const motoboyId = searchParams.get('motoboyId') || undefined;
-  const busca = searchParams.get('busca') || undefined;
+  const busca = clampBusca(searchParams.get('busca') || undefined);
   const categoriasFiltro = (searchParams.get('categorias') || '')
     .split(',')
     .map((s) => s.trim())
     .filter((s): s is CategoriaOcorrencia =>
       (TODAS_CATEGORIAS as readonly string[]).includes(s),
     );
-  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
-  const pageSize = 25;
+  const page = parsePage(searchParams.get('page'));
+  const pageSize = parsePageSize(searchParams.get('pageSize'));
 
   const defaults = currentMonthBoundsSP();
   const inicioYmd = ymdFromIsoOrDate(searchParams.get('inicio'));

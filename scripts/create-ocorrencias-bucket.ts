@@ -31,7 +31,7 @@ async function main() {
   const { error } = await supabase.storage.createBucket(OCORRENCIAS_BUCKET, {
     public: false,
     fileSizeLimit: '8MB',
-    allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic'],
+    allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
   });
   if (error) throw error;
   console.log(`Bucket privado ${OCORRENCIAS_BUCKET} criado.`);

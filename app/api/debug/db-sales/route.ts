@@ -5,9 +5,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stackServerApp } from "@/stack";
 import { syncStackAuthUser } from "@/lib/stack-auth-sync";
+import { denyDebugInProduction } from "@/lib/debug-guard";
 
 // GET /api/debug/db-sales - Debug: Verificar dados no banco
 export async function GET(request: Request) {
+  const denied = denyDebugInProduction();
+  if (denied) return denied;
   try {
     // Autenticação obrigatória
     const stackUser = await stackServerApp.getUser({ or: "return-null" });

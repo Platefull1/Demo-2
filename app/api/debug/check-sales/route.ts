@@ -3,9 +3,12 @@ export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { denyDebugInProduction } from "@/lib/debug-guard";
 
 // GET /api/debug/check-sales - Verificar registros em sales_daily
 export async function GET() {
+  const denied = denyDebugInProduction();
+  if (denied) return denied;
   try {
     // Buscar os 20 registros mais recentes para verificação
     const rows = await db.salesDaily.findMany({

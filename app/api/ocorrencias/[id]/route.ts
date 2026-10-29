@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireOcorrenciasContext } from '@/lib/ocorrencias-auth';
+import { ocorrenciaByIdWhere } from '@/lib/ocorrencias-validation';
 
 export async function GET(
   _request: NextRequest,
@@ -14,7 +15,7 @@ export async function GET(
   const { id } = await params;
 
   const ocorrencia = await prisma.ocorrencia.findFirst({
-    where: { id, userId: ctx.userId },
+    where: ocorrenciaByIdWhere(ctx.userId, id),
     select: {
       id: true,
       numeroPedidoSaipos: true,

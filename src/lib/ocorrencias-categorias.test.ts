@@ -27,4 +27,14 @@ describe('resolverCategorias', () => {
     const fail = resolverCategorias(['XYZ'], 'descrição longa suficiente');
     assert.equal(fail.ok, false);
   });
+
+  it('remove duplicatas dos chips', () => {
+    const ok = resolverCategorias(['PEDIDO_ERRADO', 'PEDIDO_ERRADO'], '');
+    assert.deepEqual(ok, { ok: true, categorias: ['PEDIDO_ERRADO'] });
+  });
+
+  it('espaços na descrição não bastam para OUTROS', () => {
+    const fail = resolverCategorias([], '          ');
+    assert.equal(fail.ok, false);
+  });
 });

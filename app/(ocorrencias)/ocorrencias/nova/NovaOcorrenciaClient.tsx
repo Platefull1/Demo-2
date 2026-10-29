@@ -38,6 +38,11 @@ import {
   CATEGORIA_LABELS,
   type CategoriaChip,
 } from '@/lib/ocorrencias-categorias';
+import {
+  arquivosImagemDaClipboard,
+  FOTO_FORMATO_NAO_SUPORTADO,
+  isImageFile,
+} from '@/lib/ocorrencias-clipboard';
 
 interface Loja {
   id: string;
@@ -98,20 +103,6 @@ function formatBytes(n: number) {
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function arquivoDaClipboard(e: ClipboardEvent): File | null {
-  const items = e.clipboardData?.items;
-  if (!items) return null;
-  for (const item of items) {
-    if (item.type.startsWith('image/')) {
-      const blob = item.getAsFile();
-      if (blob) {
-        const ext = item.type.split('/')[1] || 'png';
-        return new File([blob], `clipboard.${ext}`, { type: blob.type });
-      }
-    }
-  }
-  return null;
-}
 
 export default function NovaOcorrenciaClient({
   isOcorrenciasOnly,
@@ -138,6 +129,7 @@ export default function NovaOcorrenciaClient({
   const [fotoPreview, setFotoPreview] = useState<string | null>(null);
   const [motoboyId, setMotoboyId] = useState('');
   const [motoboyOpen, setMotoboyOpen] = useState(false);
+  const [erroMotoboys, setErroMotoboys] = useState(false);
   const [arrastando, setArrastando] = useState(false);
   const [categorias, setCategorias] = useState<CategoriaChip[]>([]);
 
@@ -152,6 +144,12 @@ export default function NovaOcorrenciaClient({
   }>({});
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const enviandoRef = useRef(false);
+  const idempotencyKeyRef = useRef(
+    typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`,
+  );
 
   useEffect(() => {
     fetch('/api/ocorrencias/set-mode', { method: 'POST' }).catch(() => {});
@@ -165,19 +163,34 @@ export default function NovaOcorrenciaClient({
       .finally(() => setCarregandoOpcoes(false));
   }, []);
 
+  const carregarMotoboys = (lojaId: string) => {
+    setErroMotoboys(false);
+    fetch(`/api/ocorrencias/opcoes?lojaId=${lojaId}`)
+      .then((r) => {
+        if (!r.ok) throw new Error('opcoes');
+        return r.json();
+      })
+      .then((data) => setMotoboys(data.motoboys || []))
+      .catch(() => {
+        setMotoboys([]);
+        setErroMotoboys(true);
+      });
+  };
+
   useEffect(() => {
     if (!lojaSelecionada) {
       setMotoboys([]);
+      setErroMotoboys(false);
       return;
     }
-    fetch(`/api/ocorrencias/opcoes?lojaId=${lojaSelecionada.id}`)
-      .then((r) => r.json())
-      .then((data) => setMotoboys(data.motoboys || []))
-      .catch(() => setMotoboys([]));
+    carregarMotoboys(lojaSelecionada.id);
   }, [lojaSelecionada]);
 
   function aplicarFoto(file: File) {
-    if (!file.type.startsWith('image/')) return;
+    if (!isImageFile(file)) {
+      setErrosCampo((e) => ({ ...e, foto: FOTO_FORMATO_NAO_SUPORTADO }));
+      return;
+    }
     setFoto(file);
     const previewUrl = URL.createObjectURL(file);
     if (fotoPreview) URL.revokeObjectURL(fotoPreview);
@@ -187,10 +200,12 @@ export default function NovaOcorrenciaClient({
 
   useEffect(() => {
     function onPaste(e: ClipboardEvent) {
-      const file = arquivoDaClipboard(e);
-      if (file) {
-        e.preventDefault();
-        aplicarFoto(file);
+      const { files, imageCount } = arquivosImagemDaClipboard(e);
+      if (imageCount === 0) return;
+      e.preventDefault();
+      aplicarFoto(files[0]);
+      if (imageCount > 1) {
+        setErro('Várias imagens coladas — usando só a primeira.');
       }
     }
     document.addEventListener('paste', onPaste);
@@ -208,7 +223,8 @@ export default function NovaOcorrenciaClient({
     e.preventDefault();
     setArrastando(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) aplicarFoto(file);
+    if (!file) return;
+    aplicarFoto(file);
   }
 
   function removerFoto() {
@@ -254,8 +270,9 @@ export default function NovaOcorrenciaClient({
   }
 
   async function handleSubmit() {
-    if (enviando) return;
+    if (enviandoRef.current) return;
     if (!validar() || !lojaSelecionada) return;
+    enviandoRef.current = true;
     setEnviando(true);
     setErro(null);
 
@@ -270,6 +287,7 @@ export default function NovaOcorrenciaClient({
       fd.append('descricao', descricao.trim());
       fd.append('categorias', JSON.stringify(categorias));
       if (motoboyId) fd.append('motoboyId', motoboyId);
+      fd.append('idempotencyKey', idempotencyKeyRef.current);
 
       if (foto) {
         try {
@@ -281,7 +299,17 @@ export default function NovaOcorrenciaClient({
       }
 
       const res = await fetch('/api/ocorrencias', { method: 'POST', body: fd });
-      const data = await res.json();
+      let data: { error?: string } = {};
+      try {
+        data = await res.json();
+      } catch {
+        data = {};
+      }
+
+      if (res.status === 401) {
+        setErro('Sessão expirada. Faça login novamente — os dados preenchidos foram mantidos.');
+        return;
+      }
 
       if (!res.ok) {
         setErro(data.error || 'Erro ao registrar ocorrência. Tente novamente.');
@@ -296,6 +324,7 @@ export default function NovaOcorrenciaClient({
     } catch {
       setErro('Erro de rede. Verifique a conexão e tente novamente.');
     } finally {
+      enviandoRef.current = false;
       setEnviando(false);
     }
   }
@@ -313,7 +342,33 @@ export default function NovaOcorrenciaClient({
     setSucesso(null);
     setLojaSelecionada(null);
     setEtapa('loja');
+    enviandoRef.current = false;
+    idempotencyKeyRef.current =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`;
   }
+
+  const formularioSujo =
+    etapa === 'formulario' &&
+    Boolean(
+      numeroPedidoSaipos ||
+        numeroPedidoExterno ||
+        descricao ||
+        foto ||
+        motoboyId ||
+        categorias.length > 0,
+    );
+
+  useEffect(() => {
+    function onBeforeUnload(e: BeforeUnloadEvent) {
+      if (!formularioSujo) return;
+      e.preventDefault();
+      e.returnValue = '';
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [formularioSujo]);
 
   async function handleLogout() {
     try {
@@ -535,6 +590,7 @@ export default function NovaOcorrenciaClient({
                   <button
                     key={chip}
                     type="button"
+                    aria-pressed={selecionado}
                     onClick={() => toggleCategoria(chip)}
                     className={cn(
                       'min-h-10 rounded-lg border text-sm font-medium px-3 flex items-center justify-center gap-1.5',
@@ -654,7 +710,7 @@ export default function NovaOcorrenciaClient({
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               className="hidden"
               onChange={handleFotoChange}
             />
@@ -726,6 +782,24 @@ export default function NovaOcorrenciaClient({
                 </Command>
               </PopoverContent>
             </Popover>
+            {erroMotoboys ? (
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-destructive">Não foi possível carregar motoboys.</p>
+                {lojaSelecionada && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => carregarMotoboys(lojaSelecionada.id)}
+                  >
+                    Tentar de novo
+                  </Button>
+                )}
+              </div>
+            ) : motoboys.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Nenhum motoboy nesta loja</p>
+            ) : null}
           </div>
 
           {erro && (
