@@ -5,6 +5,7 @@ export const CATEGORIA_CHIP_VALUES = [
   'PEDIDO_ERRADO',
   'PEDIDO_TROCADO',
   'QUALIDADE',
+  'PROBLEMAS_COM_BORDA',
 ] as const;
 
 export type CategoriaChip = (typeof CATEGORIA_CHIP_VALUES)[number];
@@ -17,6 +18,7 @@ export const CATEGORIA_LABELS: Record<CategoriaOcorrenciaValor, string> = {
   PEDIDO_ERRADO: 'Pedido errado',
   PEDIDO_TROCADO: 'Pedido trocado',
   QUALIDADE: 'Problema com qualidade',
+  PROBLEMAS_COM_BORDA: 'Problemas com borda',
   OUTROS: 'Outros',
 };
 

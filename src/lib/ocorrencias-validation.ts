@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { resolverCategorias } from '@/lib/ocorrencias-categorias';
+import { CATEGORIA_CHIP_VALUES, resolverCategorias } from '@/lib/ocorrencias-categorias';
 
 export const DESCRICAO_MAX = 2000;
 export const SAIPOS_MAX = 20;
@@ -29,7 +29,7 @@ export const ocorrenciaBodySchema = z
       .max(64)
       .optional()
       .transform((s) => (s && s.length > 0 ? s : undefined)),
-    categorias: z.array(z.string().max(40)).max(7).default([]),
+    categorias: z.array(z.string().max(40)).max(CATEGORIA_CHIP_VALUES.length).default([]),
     idempotencyKey: z.preprocess(
       (v) => (typeof v === 'string' && v.trim() === '' ? undefined : v),
       z.string().uuid().optional(),
