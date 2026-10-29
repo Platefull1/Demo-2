@@ -30,7 +30,7 @@ export async function GET() {
     // Verificar se é erro de tabela não existente
     if (errorMessage.includes('does not exist') || errorMessage.includes('relation') || errorMessage.includes('table')) {
       return NextResponse.json(
-        { error: 'Tabelas do banco de dados não foram criadas. Execute: GET /api/admin/sync-database?secret=YOUR_ADMIN_SECRET' },
+        { error: 'Tabelas do banco de dados não foram criadas. Execute: npx prisma db push' },
         { status: 500 }
       );
     }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { 
-          error: 'Tabelas do banco de dados não foram criadas. Execute: npx prisma db push ou acesse /api/admin/sync-database?secret=YOUR_ADMIN_SECRET',
+          error: 'Tabelas do banco de dados não foram criadas. Execute: npx prisma db push',
           details: errorMessage
         },
         { status: 500 }

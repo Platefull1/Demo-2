@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getReportsTenantUserId } from '@/lib/reports-tenant-auth';
+import { getReportsTenantUserId, requireReportsTool } from '@/lib/reports-tenant-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +10,8 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET() {
   try {
+    const toolErr = await requireReportsTool();
+    if (toolErr) return toolErr;
     const tenantUserId = await getReportsTenantUserId();
     if (!tenantUserId) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

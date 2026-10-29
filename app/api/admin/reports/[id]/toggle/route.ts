@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getReportsTenantUserIds } from '@/lib/reports-tenant-auth';
+import { getReportsTenantUserIds, requireReportsTool } from '@/lib/reports-tenant-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +13,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const toolErr = await requireReportsTool();
+    if (toolErr) return toolErr;
     const userIds = await getReportsTenantUserIds();
     if (!userIds) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

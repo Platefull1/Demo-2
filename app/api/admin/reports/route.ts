@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getReportsTenantUserId, getReportsTenantUserIds } from '@/lib/reports-tenant-auth';
+import {
+  getReportsTenantUserId,
+  getReportsTenantUserIds,
+  requireReportsTool,
+} from '@/lib/reports-tenant-auth';
 import { ReportEscopoLoja, ReportFonte } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +21,8 @@ function validarHorario(h: unknown): h is string {
  */
 export async function GET() {
   try {
+    const toolErr = await requireReportsTool();
+    if (toolErr) return toolErr;
     const userIds = await getReportsTenantUserIds();
     if (!userIds) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
@@ -51,6 +57,8 @@ export async function GET() {
  */
 export async function POST(req: Request) {
   try {
+    const toolErr = await requireReportsTool();
+    if (toolErr) return toolErr;
     const tenantUserId = await getReportsTenantUserId();
     if (!tenantUserId) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 

@@ -282,9 +282,6 @@ export default function EtiquetagemPage() {
                   <p className="text-xs">
                     Execute no terminal: <code className="bg-black/30 px-2 py-1 rounded">npx prisma db push</code>
                   </p>
-                  <p className="text-xs mt-2">
-                    Ou acesse: <code className="bg-black/30 px-2 py-1 rounded">/api/admin/sync-database?secret=YOUR_ADMIN_SECRET</code>
-                  </p>
                 </div>
               )}
             </div>

@@ -51,13 +51,13 @@ async function _syncStackAuthUserImpl(stackUser: StackAuthUser) {
       
       // Detectar erros específicos
       if (errorMsg.includes('closed the connection') || errorMsg.includes('connection closed')) {
-        throw new Error(`Erro ao acessar banco de dados: Conexão foi fechada. Possível causa: tabelas não criadas ou conexão perdida. Execute: GET /api/admin/sync-database?secret=YOUR_ADMIN_SECRET`);
+        throw new Error(`Erro ao acessar banco de dados: Conexão foi fechada. Possível causa: tabelas não criadas ou conexão perdida. Execute: npx prisma db push`);
       }
       if (errorMsg.includes('does not exist') || errorMsg.includes('relation') || errorMsg.includes('table')) {
-        throw new Error(`Erro ao acessar banco de dados: Tabelas não foram criadas. Execute: GET /api/admin/sync-database?secret=YOUR_ADMIN_SECRET`);
+        throw new Error(`Erro ao acessar banco de dados: Tabelas não foram criadas. Execute: npx prisma db push`);
       }
       
-      throw new Error(`Erro ao acessar banco de dados: ${errorMsg}. Possível causa: tabelas não criadas. Execute: GET /api/admin/sync-database?secret=YOUR_ADMIN_SECRET`);
+      throw new Error(`Erro ao acessar banco de dados: ${errorMsg}. Possível causa: tabelas não criadas. Execute: npx prisma db push`);
     });
 
     // Se não existe, criar novo
@@ -154,10 +154,10 @@ async function _syncStackAuthUserImpl(stackUser: StackAuthUser) {
       throw new Error('Variável de ambiente DATABASE_URL não configurada. Configure-a nas variáveis de ambiente da Vercel.');
     }
     if (errorMessage.includes('does not exist') || (errorMessage.includes('relation') && errorMessage.includes('does not exist'))) {
-      throw new Error('Tabelas do banco de dados não foram criadas. Execute: GET /api/admin/sync-database?secret=YOUR_ADMIN_SECRET');
+      throw new Error('Tabelas do banco de dados não foram criadas. Execute: npx prisma db push');
     }
     if (errorMessage.includes('closed the connection') || errorMessage.includes('connection closed')) {
-      throw new Error('Conexão com o banco de dados foi fechada. Possível causa: tabelas não criadas ou conexão perdida. Execute: GET /api/admin/sync-database?secret=YOUR_ADMIN_SECRET');
+      throw new Error('Conexão com o banco de dados foi fechada. Possível causa: tabelas não criadas ou conexão perdida. Execute: npx prisma db push');
     }
     
     throw error;

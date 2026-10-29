@@ -1,16 +1,57 @@
 /**
- * Script para sincronizar conexões WhatsApp existentes para user_apis
- * 
- * Este script busca todos os WhatsAppBots conectados e cria/atualiza
- * as entradas correspondentes na tabela user_apis
+ * Sincroniza WhatsAppBots conectados para user_apis (todos os tenants).
+ *
+ *   npx tsx scripts/sync-whatsapp-connections.ts --dry-run
+ *   npx tsx scripts/sync-whatsapp-connections.ts
+ * Produção: --confirm-prod
  */
 
 import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('Defina DATABASE_URL antes de rodar.');
+  process.exit(1);
+}
+
+const DRY = process.argv.includes('--dry-run');
+const CONFIRM_PROD = process.argv.includes('--confirm-prod');
+
+const PRODUCTION_DATABASE_HOSTS = [
+  'ep-odd-sunset-ac2loti5-pooler.sa-east-1.aws.neon.tech',
+  'ep-odd-sunset-ac2loti5.sa-east-1.aws.neon.tech',
+  process.env.PRODUCTION_DATABASE_HOST,
+].filter(Boolean) as string[];
+
+function databaseHost(url: string): string {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    throw new Error('DATABASE_URL inválida (não é URL).');
+  }
+}
+
+const HOST = databaseHost(DATABASE_URL);
+console.log(`DATABASE_URL host: ${HOST}`);
+
+if (PRODUCTION_DATABASE_HOSTS.includes(HOST) && !CONFIRM_PROD) {
+  console.error(
+    '\nABORTADO: este host é o banco de PRODUÇÃO.\n' +
+      'Use a URL da branch Neon, ou passe --confirm-prod somente após validar a branch.\n',
+  );
+  process.exit(1);
+}
+if (PRODUCTION_DATABASE_HOSTS.includes(HOST) && CONFIRM_PROD) {
+  console.warn('AVISO: --confirm-prod ativo — escrevendo no banco de PRODUÇÃO.');
+}
+
+const prisma = new PrismaClient({
+  datasources: { db: { url: DATABASE_URL } },
+});
 
 async function syncWhatsAppConnections() {
-  console.log('🔄 Iniciando sincronização de conexões WhatsApp...\n');
+  console.log('Iniciando sincronização de conexões WhatsApp...\n');
+  if (DRY) console.log('DRY-RUN: nenhuma escrita.\n');
 
   try {
     // Buscar todos os WhatsAppBots conectados
@@ -30,7 +71,19 @@ async function syncWhatsAppConnections() {
     console.log(`📱 Encontrados ${connectedBots.length} bots conectados\n`);
 
     if (connectedBots.length === 0) {
-      console.log('✅ Nenhum bot conectado encontrado. Nada para sincronizar.');
+      console.log('Nenhum bot conectado encontrado. Nada para sincronizar.');
+      return;
+    }
+
+    if (DRY) {
+      for (const bot of connectedBots) {
+        const email = bot.stackUser?.primaryEmail ?? '(sem email)';
+        const userId = bot.stackUser?.user?.id ?? '(sem User)';
+        console.log(
+          `  bot ${bot.userId} slot ${bot.slot} ${bot.connectedNumber ?? ''} → user ${userId} ${email}`,
+        );
+      }
+      console.log(`\nDRY-RUN: ${connectedBots.length} bot(s) seriam sincronizados.`);
       return;
     }
 

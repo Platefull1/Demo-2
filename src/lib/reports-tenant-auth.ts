@@ -2,6 +2,8 @@ import { getRhContext, type RhContext } from '@/lib/rh-auth';
 import { getEffectiveUserIds } from '@/lib/effective-user';
 import { getSessionDbUser } from '@/lib/rh-api-auth';
 import { NextResponse } from 'next/server';
+import { requireToolPermission } from '@/lib/auth/toolPermissions';
+import { SystemTool } from '@/types/admin';
 
 /**
  * Contexto do tenant para o módulo Central de Relatórios.
@@ -9,6 +11,10 @@ import { NextResponse } from 'next/server';
  */
 export async function getReportsTenantContext(): Promise<RhContext | null> {
   return getRhContext();
+}
+
+export async function requireReportsTool(): Promise<NextResponse | null> {
+  return requireToolPermission(SystemTool.AGENDAMENTO_RELATORIOS);
 }
 
 export async function requireReportsTenantAuth(): Promise<
