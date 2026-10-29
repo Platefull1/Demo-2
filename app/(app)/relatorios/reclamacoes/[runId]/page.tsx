@@ -59,6 +59,10 @@ import {
   type ComplaintReviewItem,
   type ReviewCanalFilter,
 } from '../../_lib/complaints-review';
+import { displayLojaNome } from '@/lib/complaints/loja-match';
+
+const LOJA_ALL = '__loja_all__';
+const CAT_ALL = '__cat_all__';
 
 function EtiquetaDot({ categoria }: { categoria: string | null | undefined }) {
   if (!categoria) return null;
@@ -84,8 +88,8 @@ function ReviewPageContent() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const [canal, setCanal] = useState<ReviewCanalFilter>('todas');
-  const [lojaFilter, setLojaFilter] = useState<string>('__all__');
-  const [categoriaFilter, setCategoriaFilter] = useState<string>('__all__');
+  const [lojaFilter, setLojaFilter] = useState<string>(LOJA_ALL);
+  const [categoriaFilter, setCategoriaFilter] = useState<string>(CAT_ALL);
   const [ataFilter, setAtaFilter] = useState<AtaFilter>('todas');
   const [search, setSearch] = useState('');
 
@@ -127,8 +131,8 @@ function ReviewPageContent() {
 
   useEffect(() => {
     setCanal('todas');
-    setLojaFilter('__all__');
-    setCategoriaFilter('__all__');
+    setLojaFilter(LOJA_ALL);
+    setCategoriaFilter(CAT_ALL);
     setAtaFilter('todas');
     setSearch('');
     setSelectedId(null);
@@ -152,15 +156,20 @@ function ReviewPageContent() {
 
   const groups = useMemo(() => {
     if (!organized) return [];
+    const lojaSelecionada = data?.lojas.find((l) => l.id === lojaFilter);
     return buildGroupedList(
       organized,
       canal,
-      lojaFilter === '__all__' ? null : lojaFilter,
-      categoriaFilter === '__all__' ? null : categoriaFilter,
+      lojaFilter === LOJA_ALL
+        ? null
+        : lojaSelecionada
+          ? displayLojaNome(lojaSelecionada.nome)
+          : lojaFilter,
+      categoriaFilter === CAT_ALL ? null : categoriaFilter,
       ataFilter,
       search,
     );
-  }, [organized, canal, lojaFilter, categoriaFilter, ataFilter, search]);
+  }, [organized, canal, lojaFilter, categoriaFilter, ataFilter, search, data?.lojas]);
 
   const flatVisible = useMemo(() => flattenGroups(groups), [groups]);
   const visibleIds = useMemo(() => flatVisible.map((c) => c.id), [flatVisible]);
@@ -458,12 +467,10 @@ function ReviewPageContent() {
         ]
       : [];
 
-  const lojaOptions =
-    canal === 'grupos'
-      ? organized?.gruposPorLoja.map((g) => g.lojaKey) ?? []
-      : canal === 'conversas'
-        ? organized?.conversasPorLoja.map((g) => g.lojaKey) ?? []
-        : organized?.lojaNames ?? [];
+  const lojaOptions = (data?.lojas ?? []).map((l) => ({
+    id: l.id,
+    label: displayLojaNome(l.nome),
+  }));
 
   const progressPct =
     data && data.complaints.length > 0
@@ -731,7 +738,7 @@ function ReviewPageContent() {
             onValueChange={(v) => {
               if (!v) return;
               setCanal(v as ReviewCanalFilter);
-              if (v === 'semLoja') setLojaFilter('__all__');
+              if (v === 'semLoja') setLojaFilter(LOJA_ALL);
             }}
             size="sm"
             className="w-full lg:w-fit flex-wrap"
@@ -756,14 +763,18 @@ function ReviewPageContent() {
             </div>
             {canal !== 'semLoja' && lojaOptions.length > 0 && (
               <Select value={lojaFilter} onValueChange={setLojaFilter}>
-                <SelectTrigger className="h-8 w-[140px] text-sm">
-                  <SelectValue placeholder="Loja" />
+                <SelectTrigger className="h-8 w-[160px] text-sm">
+                  <SelectValue placeholder="Loja">
+                    {lojaFilter === LOJA_ALL
+                      ? 'Todas as lojas'
+                      : lojaOptions.find((l) => l.id === lojaFilter)?.label ?? 'Loja'}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">Todas as lojas</SelectItem>
-                  {lojaOptions.map((n) => (
-                    <SelectItem key={n} value={n}>
-                      {n}
+                  <SelectItem value={LOJA_ALL}>Todas as lojas</SelectItem>
+                  {lojaOptions.map((l) => (
+                    <SelectItem key={l.id} value={l.id}>
+                      {l.label}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -773,13 +784,13 @@ function ReviewPageContent() {
               <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
                 <SelectTrigger className="h-8 w-[160px] text-sm">
                   <SelectValue placeholder="Etiqueta">
-                    {categoriaFilter === '__all__'
+                    {categoriaFilter === CAT_ALL
                       ? 'Todas etiquetas'
                       : CATEGORIA_LABELS[categoriaFilter] ?? categoriaFilter}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">Todas etiquetas</SelectItem>
+                  <SelectItem value={CAT_ALL}>Todas etiquetas</SelectItem>
                   {categoriasPresentes.map((cat) => (
                     <SelectItem key={cat} value={cat}>
                       {CATEGORIA_LABELS[cat] ?? cat}
@@ -911,7 +922,7 @@ function ReviewPageContent() {
                                           e.stopPropagation();
                                           setCategoriaFilter((prev) =>
                                             prev === c.categoria
-                                              ? '__all__'
+                                              ? CAT_ALL
                                               : (c.categoria as string),
                                           );
                                         }}
@@ -921,7 +932,7 @@ function ReviewPageContent() {
                                             e.stopPropagation();
                                             setCategoriaFilter((prev) =>
                                               prev === c.categoria
-                                                ? '__all__'
+                                                ? CAT_ALL
                                                 : (c.categoria as string),
                                             );
                                           }

@@ -3,6 +3,8 @@
  * Sem lógica de API — só shape e organização client-side.
  */
 
+import { displayLojaNome, lojasEquivalentes } from '@/lib/complaints/loja-match';
+
 export type ReviewCanalFilter = 'todas' | 'conversas' | 'grupos' | 'semLoja';
 export type AtaFilter = 'todas' | 'na_ata' | 'fora';
 
@@ -120,7 +122,8 @@ export function resolveLojaNome(
   c: ComplaintReviewItem,
   lojaById: Map<string, string>,
 ): string | null {
-  return (c.lojaId ? lojaById.get(c.lojaId) : null) ?? c.lojaGrupo ?? null;
+  const raw = (c.lojaId ? lojaById.get(c.lojaId) : null) ?? c.lojaGrupo ?? null;
+  return raw ? displayLojaNome(raw) : null;
 }
 
 export function isGrupoComplaint(c: ComplaintReviewItem): boolean {
@@ -259,7 +262,9 @@ export function buildGroupedList(
 
   const pushGroups = (source: LojaGroup[]) => {
     for (const g of source) {
-      if (lojaFilter && g.lojaKey !== lojaFilter) continue;
+      if (lojaFilter && !lojasEquivalentes(g.lojaKey, lojaFilter) && g.lojaKey !== lojaFilter) {
+        continue;
+      }
       const items = g.items.filter(match);
       if (items.length) groups.push({ lojaKey: g.lojaKey, items });
     }

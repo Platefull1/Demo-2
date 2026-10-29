@@ -15,6 +15,28 @@ const LOJA_KEYS = [
 
 export type LojaKey = (typeof LOJA_KEYS)[number]['key'];
 
+export const LOJA_CANONICAL_LABEL: Record<LojaKey, string> = {
+  ahu: 'Ahú',
+  pilarzinho: 'Pilarzinho',
+  portao: 'Portão',
+  uberaba: 'Uberaba',
+};
+
+/** Ahú / Pilarzinho / Portão / Uberaba a partir de qualquer variante de nome. */
+export function displayLojaNome(nome: string): string {
+  const key = normalizeLojaKey(nome);
+  if (key) return LOJA_CANONICAL_LABEL[key];
+  return nome.replace(/^\s*calenzano\s+/i, '').replace(/^\s*loja\s+/i, '').trim() || nome;
+}
+
+export function lojasEquivalentes(a: string, b: string): boolean {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const ka = normalizeLojaKey(a);
+  const kb = normalizeLojaKey(b);
+  return ka != null && ka === kb;
+}
+
 function stripAccents(s: string): string {
   return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
