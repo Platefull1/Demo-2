@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
+import { SystemTool } from '@/types/admin';
 import { Decimal } from '@prisma/client/runtime/library';
 
 export const dynamic = 'force-dynamic';
@@ -14,7 +15,7 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; linhaId: string }> },
 ) {
-  const { error } = await requireRhPermission(P.EMPLOYEES_VIEW);
+  const { error } = await requireRhPermission(P.EMPLOYEES_VIEW, SystemTool.PONTOS);
   if (error) return error;
 
   const { id: fechamentoId, linhaId } = await params;

@@ -1,17 +1,18 @@
-import { stackServerApp } from '@/stack';
 import { LojaProvider } from '@/contexts/LojaContext';
 import { RhClientWrapper } from '@/components/rh/RhClientWrapper';
+import { RequireTool } from '@/components/auth/RequireTool';
+import { SystemTool } from '@/types/admin';
 
-export default async function BonificacaoLayout({
+export default function BonificacaoLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await stackServerApp.getUser({ or: 'redirect' });
-
   return (
-    <LojaProvider>
-      <RhClientWrapper>{children}</RhClientWrapper>
-    </LojaProvider>
+    <RequireTool tool={SystemTool.RH} toolName="RH">
+      <LojaProvider>
+        <RhClientWrapper>{children}</RhClientWrapper>
+      </LojaProvider>
+    </RequireTool>
   );
 }

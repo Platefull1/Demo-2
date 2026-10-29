@@ -16,6 +16,8 @@ import { prisma } from '@/lib/prisma';
 import { getRhContext, type RhContext } from '@/lib/rh-auth';
 import { findWhatsAppBotForTenant } from '@/lib/whatsapp-sessions';
 import { type RhMemberPerfil, type RhPermissionKey } from '@/lib/rh-permissions';
+import { canAccessTool } from '@/lib/auth/toolPermissions';
+import { SystemTool } from '@/types/admin';
 
 export interface CmvRealTenant {
   tenantUserId: string;
@@ -173,7 +175,7 @@ export type CmvRealAccessErr = {
 };
 
 /**
- * Autentica + checa permissão cmv_real.* + escopo de loja.
+ * Autentica + Camada 1 (CMV_REAL) + Camada 2 (cmv_real.* + escopo de loja).
  */
 export async function requireCmvRealAccess(
   permission: RhPermissionKey | string,
@@ -190,6 +192,21 @@ export async function requireCmvRealAccess(
           code: 'UNAUTHENTICATED',
         },
         { status: 401 },
+      ),
+    };
+  }
+
+  if (!(await canAccessTool(ctx.stackUserId, SystemTool.CMV_REAL))) {
+    return {
+      ctx: null,
+      tenant: null,
+      error: NextResponse.json(
+        {
+          error: 'Acesso negado',
+          message: 'Você não tem permissão para acessar a ferramenta: cmv_real.',
+          code: 'FORBIDDEN',
+        },
+        { status: 403 },
       ),
     };
   }

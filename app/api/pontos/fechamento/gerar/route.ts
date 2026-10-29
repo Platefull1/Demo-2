@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
+import { SystemTool } from '@/types/admin';
 import { periodoFechamentoPonto } from '@/lib/ponto-periodo';
 import { Decimal } from '@prisma/client/runtime/library';
 import { calcularFaltasEDsrPeriodo } from '@/lib/pontos/fechamento-faltas';
@@ -190,7 +191,7 @@ function normalizeHhMm(raw: string | null | undefined): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW);
+  const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW, SystemTool.PONTOS);
   if (error) return error;
 
   let body: { mes?: number; ano?: number };

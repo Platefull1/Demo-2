@@ -1,8 +1,11 @@
-import { stackServerApp } from '@/stack';
 import { LojaProvider } from '@/contexts/LojaContext';
+import { RequireTool } from '@/components/auth/RequireTool';
+import { SystemTool } from '@/types/admin';
 
-export default async function PontosLayout({ children }: { children: React.ReactNode }) {
-  await stackServerApp.getUser({ or: 'redirect' });
-
-  return <LojaProvider>{children}</LojaProvider>;
+export default function PontosLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <RequireTool tool={SystemTool.PONTOS} toolName="Pontos">
+      <LojaProvider>{children}</LojaProvider>
+    </RequireTool>
+  );
 }

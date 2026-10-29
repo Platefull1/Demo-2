@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react';
 import { useUser } from '@stackframe/stack';
 
 /**
- * Visibilidade do menu CMV Real — só cmv_real.visualizar (RH),
- * independente de UserToolPermission / SystemTool.CMV.
+ * Camada 2 do CMV Real na UI (loja + cmv_real.visualizar).
+ * Camada 1 (tool CMV_REAL) é checada no layout e nas APIs.
  */
 export function useCmvRealAccess() {
   const user = useUser({ or: 'return-null' });

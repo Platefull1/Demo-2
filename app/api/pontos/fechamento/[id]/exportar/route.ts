@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
+import { SystemTool } from '@/types/admin';
 import * as XLSX from 'xlsx-js-style';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -408,7 +409,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const { error } = await requireRhPermission(P.EMPLOYEES_VIEW);
+  const { error } = await requireRhPermission(P.EMPLOYEES_VIEW, SystemTool.PONTOS);
   if (error) return error;
 
   const fechamento = await prisma.fechamentoMensal.findUnique({

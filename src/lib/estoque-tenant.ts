@@ -3,6 +3,9 @@ import {
   getCmvRealTenantFromSession,
   type CmvRealTenant,
 } from '@/lib/nfe/tenant';
+import { canAccessTool } from '@/lib/auth/toolPermissions';
+import { getRhContext } from '@/lib/rh-auth';
+import { SystemTool } from '@/types/admin';
 
 export {
   dedupeInsumosByNome,
@@ -19,6 +22,9 @@ export interface EstoqueTenantContext {
 
 /** Tenant + IDs históricos dos membros da equipe RH + escopo de loja. */
 export async function getEstoqueTenantContext(): Promise<EstoqueTenantContext | null> {
+  const ctx = await getRhContext();
+  if (!ctx) return null;
+  if (!(await canAccessTool(ctx.stackUserId, SystemTool.ESTOQUE))) return null;
   const dbUser = await getEffectiveDbUser();
   if (!dbUser) return null;
   const store = await getCmvRealTenantFromSession();

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
+import { SystemTool } from '@/types/admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * Retorna o FechamentoMensal (com linhas) para o mês/ano informado, ou null.
  */
 export async function GET(req: NextRequest) {
-  const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW);
+  const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW, SystemTool.PONTOS);
   if (error) return error;
 
   const { searchParams } = req.nextUrl;

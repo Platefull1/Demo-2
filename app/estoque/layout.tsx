@@ -1,11 +1,15 @@
-import { stackServerApp } from '@/stack';
+import { RequireTool } from '@/components/auth/RequireTool';
+import { SystemTool } from '@/types/admin';
 
 /** Layout mínimo para o fluxo de contagem (fora do AppShell). */
-export default async function EstoqueContagemLayout({
+export default function EstoqueContagemLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await stackServerApp.getUser({ or: 'redirect' });
-  return <div className="min-h-screen bg-background">{children}</div>;
+  return (
+    <RequireTool tool={SystemTool.ESTOQUE} toolName="Estoque">
+      <div className="min-h-screen bg-background">{children}</div>
+    </RequireTool>
+  );
 }

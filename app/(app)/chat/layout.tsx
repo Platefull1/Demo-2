@@ -1,12 +1,10 @@
-'use client';
-
-import ToolProtection from '@/components/auth/ToolProtection';
+import { RequireTool } from '@/components/auth/RequireTool';
 import { SystemTool } from '@/types/admin';
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ToolProtection tool={SystemTool.CHAT} toolName="Chat">
+    <RequireTool tool={SystemTool.CHAT} toolName="Chat">
       {children}
-    </ToolProtection>
+    </RequireTool>
   );
 }

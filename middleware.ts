@@ -14,6 +14,7 @@ import {
   signIsolationCookie,
   warnIfIsolationSecretMissing,
 } from '@/lib/ocorrencias-isolation';
+import { isCronApiRequest, matchApiTool } from '@/lib/auth/api-tool-map';
 
 const RIDER_COOKIE = 'rider_token';
 
@@ -93,18 +94,72 @@ function withIsolationCookie(response: NextResponse, token: string | null) {
   return response;
 }
 
+async function enforceApiTool(request: NextRequest): Promise<NextResponse | null> {
+  const { pathname } = request.nextUrl;
+  if (!pathname.startsWith('/api/')) return null;
+  if (isCronApiRequest(request.headers)) return null;
+  // Ingest / relatórios via ServiceApiKey (sem sessão Stack)
+  if (request.headers.get('x-api-key') && !hasStackSessionCookies(request)) {
+    return null;
+  }
+
+  const gate = matchApiTool(pathname);
+  if (!gate || gate.type === 'skip') return null;
+
+  const tools = gate.type === 'any' ? gate.tools : [gate.tool];
+  let sawUnauthenticated = false;
+
+  for (const tool of tools) {
+    const url = new URL('/api/auth/check-tool-permission', request.url);
+    url.searchParams.set('tool', tool);
+    const res = await fetch(url, {
+      headers: { cookie: request.headers.get('cookie') ?? '' },
+      cache: 'no-store',
+    });
+    if (res.status === 401) {
+      sawUnauthenticated = true;
+      continue;
+    }
+    if (res.ok) {
+      const data = (await res.json()) as { hasPermission?: boolean };
+      if (data.hasPermission === true) return null;
+    }
+  }
+
+  if (sawUnauthenticated) {
+    return NextResponse.json(
+      {
+        error: 'Não autenticado',
+        message: 'Você precisa estar logado para acessar esta ferramenta',
+      },
+      { status: 401 },
+    );
+  }
+
+  return NextResponse.json(
+    {
+      error: 'Acesso negado',
+      message: `Você não tem permissão para acessar a ferramenta: ${tools[0]}. Entre em contato com o administrador.`,
+    },
+    { status: 403 },
+  );
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+  let isolationToken: string | null = null;
 
   if (!isIsolationApiPath(pathname)) {
     const { only, tokenToSet } = await resolveOcorrenciasOnly(request);
+    isolationToken = tokenToSet;
     if (only && !isOcorrenciasAllowedPath(pathname)) {
       return withIsolationCookie(denyOcorrenciasOnly(request), tokenToSet);
     }
-    if (tokenToSet) {
-      const next = NextResponse.next();
-      return withIsolationCookie(next, tokenToSet);
-    }
+  }
+
+  const toolDeny = await enforceApiTool(request);
+  if (toolDeny) {
+    return withIsolationCookie(toolDeny, isolationToken);
   }
 
   if (pathname.startsWith('/rider')) {
@@ -114,7 +169,10 @@ export async function middleware(request: NextRequest) {
     if (!isPublic) {
       const session = await getRiderSession(request);
       if (!session) {
-        return NextResponse.redirect(new URL('/rider/login', request.url));
+        return withIsolationCookie(
+          NextResponse.redirect(new URL('/rider/login', request.url)),
+          isolationToken,
+        );
       }
     }
   }
@@ -123,7 +181,7 @@ export async function middleware(request: NextRequest) {
     const code = searchParams.get('code');
     const afterAuthReturnTo = searchParams.get('after_auth_return_to');
     if (code || afterAuthReturnTo) {
-      return NextResponse.next();
+      return withIsolationCookie(NextResponse.next(), isolationToken);
     }
   }
 
@@ -132,11 +190,11 @@ export async function middleware(request: NextRequest) {
     if (code) {
       const url = request.nextUrl.clone();
       url.search = '';
-      return NextResponse.redirect(url);
+      return withIsolationCookie(NextResponse.redirect(url), isolationToken);
     }
   }
 
-  return NextResponse.next();
+  return withIsolationCookie(NextResponse.next(), isolationToken);
 }
 
 export const config = {

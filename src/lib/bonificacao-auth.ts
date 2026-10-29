@@ -20,10 +20,7 @@ export async function getBonificacaoAuth() {
     checkToolPermission(stackUser.id, SystemTool.BONIFICACAO),
   ]);
 
-  // Membro ativo de equipe RH (mesmo sem flag SystemTool.RH no admin)
-  const isRhTeamMember = ctx.memberId != null;
-
-  if (!hasRh && !hasLegacyBonif && !isRhTeamMember) return null;
+  if (!hasRh && !hasLegacyBonif) return null;
 
   return ctx;
 }

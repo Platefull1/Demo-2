@@ -3,6 +3,8 @@ import { syncStackAuthUser } from '@/lib/stack-auth-sync';
 import { prisma } from '@/lib/prisma';
 import { NextResponse } from 'next/server';
 import { CORE_RH_PERMISSIONS } from '@/lib/rh-permissions';
+import { canAccessTool } from '@/lib/auth/toolPermissions';
+import { SystemTool } from '@/types/admin';
 
 /**
  * Drop-in replacement for the old `getDbUser()` pattern used across RH routes.
@@ -40,6 +42,7 @@ export async function rhRequireModuleUser(): Promise<{
 } | null> {
   const ctx = await getRhContext();
   if (!ctx) return null;
+  if (!(await canAccessTool(ctx.stackUserId, SystemTool.RH))) return null;
   if (!memberHasCoreRhPermission(ctx)) return null;
   return { userId: ctx.userId, isAdmin: ctx.isAdmin };
 }
@@ -153,7 +156,8 @@ export async function getRhContext(): Promise<RhContext | null> {
  * quando o contexto não existe ou não tem a permissão exigida.
  */
 export async function requireRhPermission(
-  permission?: string
+  permission?: string,
+  moduleTool: SystemTool = SystemTool.RH,
 ): Promise<{ ctx: RhContext; error: null } | { ctx: null; error: NextResponse }> {
   let ctx: RhContext | null;
   try {
@@ -175,6 +179,18 @@ export async function requireRhPermission(
       error: NextResponse.json(
         { error: 'Sessão expirada. Por favor, faça login novamente.', code: 'UNAUTHENTICATED' },
         { status: 401 }
+      ),
+    };
+  }
+  if (!(await canAccessTool(ctx.stackUserId, moduleTool))) {
+    return {
+      ctx: null,
+      error: NextResponse.json(
+        {
+          error: 'Acesso negado',
+          message: `Você não tem permissão para acessar a ferramenta: ${moduleTool}.`,
+        },
+        { status: 403 },
       ),
     };
   }

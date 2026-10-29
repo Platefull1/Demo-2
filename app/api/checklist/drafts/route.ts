@@ -235,8 +235,18 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// 🎯 DELETE - Remover rascunhos expirados (executar via cron)
+// 🎯 DELETE - Remover rascunhos expirados (somente cron)
 export async function DELETE(request: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  const headerSecret = request.headers.get('x-cron-secret');
+  const bearer = request.headers.get('authorization');
+  const cronOk =
+    Boolean(secret) &&
+    (headerSecret === secret || bearer === `Bearer ${secret}`);
+  if (!cronOk) {
+    return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
+  }
+
   try {
     // Deletar rascunhos expirados (mais de 2 dias)
     const result = await prisma.checklistDraft.deleteMany({

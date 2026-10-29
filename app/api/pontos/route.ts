@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
+import { SystemTool } from '@/types/admin';
 import {
   classificarDia,
   divergenciaSecullum,
@@ -16,7 +17,7 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
-    const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW);
+    const { ctx, error } = await requireRhPermission(P.EMPLOYEES_VIEW, SystemTool.PONTOS);
     if (error) return error;
 
     const { searchParams } = req.nextUrl;

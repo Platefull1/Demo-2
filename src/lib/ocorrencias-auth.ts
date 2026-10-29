@@ -77,7 +77,7 @@ export async function resolveOcorrenciasTenant(
   return { tenantUserId: dbUserId, isTenantOwner: hasLojas };
 }
 
-/** Admin da empresa (dono das lojas / equipe) — tem as duas permissões por padrão. */
+/** Dono das lojas / equipe. Usado no isolamento; não concede ferramenta. */
 export async function isOcorrenciasTenantAdmin(
   stackUserId: string,
 ): Promise<boolean> {
@@ -134,9 +134,8 @@ export async function getOcorrenciasContext(): Promise<OcorrenciasContext | null
     }),
   ]);
 
-  const canRegister =
-    regPerm?.isEnabled === true || isTenantOwner;
-  const canView = verPerm?.isEnabled === true || isTenantOwner;
+  const canRegister = regPerm?.isEnabled === true;
+  const canView = verPerm?.isEnabled === true;
 
   if (!canRegister && !canView) return null;
 
