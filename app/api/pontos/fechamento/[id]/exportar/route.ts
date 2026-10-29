@@ -417,9 +417,10 @@ export async function POST(
     where: { id },
     include: {
       linhas: {
+        where: { funcionario: { ativo: true } },
         include: {
           funcionario: {
-            select: { nome: true, codigoEmpregadoSecullum: true },
+            select: { nome: true, codigoEmpregadoSecullum: true, ativo: true },
           },
         },
         orderBy: { funcionario: { nome: 'asc' } },

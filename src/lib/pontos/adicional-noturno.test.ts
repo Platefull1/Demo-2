@@ -31,7 +31,24 @@ describe('intersecaoIntervalos', () => {
 });
 
 describe('calcularAdicionalNoturnoDia', () => {
-  it('18:00–00:00 com intervalo: 22:00–00:00 = 120 relógio / 137 considerados', () => {
+  it('14:08/17:23/18:23/00:00 (ajuste RH) → 22:00–00:00 = 120', () => {
+    const r = calcularAdicionalNoturnoDia({
+      batidas: batidas({
+        entrada1: '14:08',
+        saida1: '17:23',
+        entrada2: '18:23',
+        saida2: '00:00',
+      }),
+      horarioEntrada: '15:40',
+      horarioSaida: '23:35',
+      ehFolga: false,
+    });
+    assert.equal(r.status, 'OK');
+    assert.equal(r.minutosRelogio, 120);
+    assert.equal(r.minutosConsiderados, 120);
+  });
+
+  it('18:00–00:00 com intervalo: 22:00–00:00 = 120 relógio', () => {
     const r = calcularAdicionalNoturnoDia({
       batidas: batidas({
         entrada1: '18:00',
@@ -45,10 +62,10 @@ describe('calcularAdicionalNoturnoDia', () => {
     });
     assert.equal(r.status, 'OK');
     assert.equal(r.minutosRelogio, 120);
-    assert.equal(r.minutosConsiderados, 137);
+    assert.equal(r.minutosConsiderados, 120);
   });
 
-  it('18:00–00:00 batidas 18:00–00:40: extra depois da jornada entra (160/183)', () => {
+  it('18:00–00:00 batidas 18:00–00:40: extra depois da jornada entra (160 relógio)', () => {
     const r = calcularAdicionalNoturnoDia({
       batidas: batidas({ entrada1: '18:00', saida1: '00:40' }),
       horarioEntrada: '18:00',
@@ -57,7 +74,7 @@ describe('calcularAdicionalNoturnoDia', () => {
     });
     assert.equal(r.status, 'OK');
     assert.equal(r.minutosRelogio, 160);
-    assert.equal(r.minutosConsiderados, 183);
+    assert.equal(r.minutosConsiderados, 160);
   });
 
   it('17:00–23:00 = 60 relógio', () => {
@@ -69,7 +86,7 @@ describe('calcularAdicionalNoturnoDia', () => {
     });
     assert.equal(r.status, 'OK');
     assert.equal(r.minutosRelogio, 60);
-    assert.equal(r.minutosConsiderados, 69);
+    assert.equal(r.minutosConsiderados, 60);
   });
 
   it('diurno 08:00–17:00 = 0', () => {
@@ -98,7 +115,7 @@ describe('calcularAdicionalNoturnoDia', () => {
     });
     assert.equal(r.status, 'OK');
     assert.equal(r.minutosRelogio, 210);
-    assert.equal(r.minutosConsiderados, 240);
+    assert.equal(r.minutosConsiderados, 210);
   });
 
   it('batidas ímpares → PENDENCIA, 0', () => {
@@ -134,7 +151,26 @@ describe('calcularAdicionalNoturnoDia', () => {
     });
     assert.equal(r.status, 'FOLGA_TRABALHADA');
     assert.equal(r.minutosRelogio, 113);
-    assert.equal(r.minutosConsiderados, 129);
+    assert.equal(r.minutosConsiderados, 113);
+  });
+
+  it('5º par 22:00–00:00 conta 120 relógio', () => {
+    const r = calcularAdicionalNoturnoDia({
+      batidas: batidas({
+        entrada1: '08:00',
+        saida1: '12:00',
+        entrada2: '13:00',
+        saida2: '17:00',
+        entrada5: '22:00',
+        saida5: '00:00',
+      }),
+      horarioEntrada: '08:00',
+      horarioSaida: '17:00',
+      ehFolga: false,
+    });
+    assert.equal(r.status, 'OK');
+    assert.equal(r.minutosRelogio, 120);
+    assert.equal(r.minutosConsiderados, 120);
   });
 
   it('entrada 04:00 escala 04:00–12:00 → 60 relógio (janela madrugada)', () => {
@@ -146,6 +182,6 @@ describe('calcularAdicionalNoturnoDia', () => {
     });
     assert.equal(r.status, 'OK');
     assert.equal(r.minutosRelogio, 60);
-    assert.equal(r.minutosConsiderados, 69);
+    assert.equal(r.minutosConsiderados, 60);
   });
 });

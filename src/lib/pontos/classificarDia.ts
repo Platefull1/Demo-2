@@ -42,6 +42,10 @@ export type BatidasDia = {
   saida2?: string | null;
   entrada3?: string | null;
   saida3?: string | null;
+  entrada4?: string | null;
+  saida4?: string | null;
+  entrada5?: string | null;
+  saida5?: string | null;
 };
 
 export type OcorrenciaDia = {
@@ -143,6 +147,10 @@ export function analisarBatidas(batidas: BatidasDia | null | undefined): {
     batidas.saida2,
     batidas.entrada3,
     batidas.saida3,
+    batidas.entrada4,
+    batidas.saida4,
+    batidas.entrada5,
+    batidas.saida5,
   ];
   const filled = slots.filter((s) => s != null && String(s).trim() !== '');
   if (filled.length === 0) return { temBatidas: false, completo: false };

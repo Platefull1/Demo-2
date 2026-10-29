@@ -14,7 +14,7 @@ const MES = 10;
 const ANO = 2026;
 const DATA_INI = '2026-09-28';
 const DATA_FIM = '2026-10-27';
-const NOME_ALVO = 'ADRIANA';
+const NOME_ALVO = process.argv[2] ?? 'ADRIANA';
 
 function slots(r: {
   entrada1: string | null;
@@ -342,9 +342,9 @@ async function main() {
   if (r.adriana) {
     await item3(r.adriana.funcionarioId, r.adriana.funcionario.nome, r.adriana.adicionalNoturno);
   } else {
-    console.log('\n[3] Adriana não está nas linhas do fechamento — pulando dia a dia');
+    console.log(`\n[3] ${NOME_ALVO} não está nas linhas do fechamento — pulando dia a dia`);
   }
-  await item4(ids);
+  if (!process.argv[2]) await item4(ids);
 }
 
 main()

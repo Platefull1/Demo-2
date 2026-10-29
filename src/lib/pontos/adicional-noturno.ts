@@ -1,12 +1,13 @@
 /**
- * Adicional noturno (CLT): minutos efetivamente trabalhados na janela 22h–5h,
- * com hora reduzida. Folga trabalhada e horas além da saída prevista entram.
- * 100% local (PontoRegistro). Não usa Secullum Calcular.
+ * Adicional noturno: minutos efetivamente trabalhados na janela 22h–5h (relógio).
+ * Folga trabalhada e horas além da saída prevista entram.
+ * Fonte preferencial: batidas tratadas do Secullum Calcular (até 5 pares).
  */
 
 export const JANELA_NOTURNA_INICIO = '22:00';
 export const JANELA_NOTURNA_FIM = '05:00';
-export const APLICAR_HORA_REDUZIDA = true;
+/** false = RH/planilha: horas de relógio, sem fator 60/52.5. */
+export const APLICAR_HORA_REDUZIDA = false;
 /** false = CLT: não recortar pela jornada prevista; só trabalhados ∩ noturno. */
 export const LIMITAR_A_JORNADA_PREVISTA = false;
 
@@ -22,6 +23,10 @@ export type BatidasAdicional = {
   saida2?: string | null;
   entrada3?: string | null;
   saida3?: string | null;
+  entrada4?: string | null;
+  saida4?: string | null;
+  entrada5?: string | null;
+  saida5?: string | null;
 };
 
 export type StatusAdicionalNoturno =
@@ -41,6 +46,8 @@ const PARES = [
   ['entrada1', 'saida1'],
   ['entrada2', 'saida2'],
   ['entrada3', 'saida3'],
+  ['entrada4', 'saida4'],
+  ['entrada5', 'saida5'],
 ] as const;
 
 function parseHhMmToMin(value: string): number | null {
@@ -147,6 +154,8 @@ export function calcularAdicionalNoturnoDia(opts: {
     b.entrada1, b.saida1,
     b.entrada2, b.saida2,
     b.entrada3, b.saida3,
+    b.entrada4, b.saida4,
+    b.entrada5, b.saida5,
   ];
   const preenchidos = slots.filter(slotPreenchido);
   if (preenchidos.length === 0) {
@@ -163,7 +172,7 @@ export function calcularAdicionalNoturnoDia(opts: {
 
   const timeline = horariosParaTimeline(slots);
   const trabalhados: IntervaloMinutos[] = [];
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < PARES.length; i++) {
     const ini = timeline[i * 2];
     const fim = timeline[i * 2 + 1];
     if (ini == null && fim == null) continue;

@@ -1091,8 +1091,10 @@ model FechamentoLinha {
   atraso    String?
   faltas    String?
   faltaDsr  String?
-  /// Horas noturnas dentro da jornada (22h–5h, hora reduzida). Calculado no Platefull.
+  /// Horas noturnas 22h–5h (relógio). Calculado no Platefull a partir das Linhas do Calcular.
   adicionalNoturno String?
+  /// Total da coluna Not.Tot. do Secullum Calcular (somente leitura na UI)
+  adicionalNoturnoSecullum String?
   /// Totais originais do Secullum (somente leitura na UI) para conferência
   faltasSecullum   String?
   faltaDsrSecullum String?

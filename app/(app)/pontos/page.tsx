@@ -112,6 +112,7 @@ interface FechamentoLinha {
   en60: string | null;
   en100: string | null;
   adicionalNoturno: string | null;
+  adicionalNoturnoSecullum?: string | null;
   atraso: string | null;
   faltas: string | null;
   faltaDsr: string | null;
@@ -983,7 +984,10 @@ function FechamentoLinhaRow({
   const dsrDiverge =
     Boolean(linha.faltaDsrSecullum) &&
     normalizeCmp(linha.faltaDsrSecullum) !== normalizeCmp(edits.faltaDsr);
-  const linhaDiverge = faltasDiverge || dsrDiverge;
+  const adNoturnoDiverge =
+    Boolean(linha.adicionalNoturnoSecullum) &&
+    normalizeCmp(linha.adicionalNoturnoSecullum) !== normalizeCmp(edits.adicionalNoturno);
+  const linhaDiverge = faltasDiverge || dsrDiverge || adNoturnoDiverge;
 
   return (
     <>
@@ -1029,6 +1033,17 @@ function FechamentoLinhaRow({
                 title="Valor Secullum (somente leitura)"
               >
                 Sec: {linha.faltaDsrSecullum}
+              </p>
+            )}
+            {field.key === 'adicionalNoturno' && linha.adicionalNoturnoSecullum && (
+              <p
+                className={cn(
+                  'text-[10px] mt-0.5 tabular-nums',
+                  adNoturnoDiverge ? 'text-warning' : 'text-muted-foreground',
+                )}
+                title="Not.Tot. Secullum (somente leitura)"
+              >
+                Sec: {linha.adicionalNoturnoSecullum}
               </p>
             )}
           </TableCell>
@@ -1328,7 +1343,8 @@ function AbaRelatorio() {
         Período do ponto: {labelPeriodoFechamentoPonto(mes, ano)}. Faltas e Falta DSR são
         pré-preenchidas pelo Platefull (escala RH); atraso e horas extras vêm do Secullum e
         podem refletir o horário do setor — confira na coluna Sec. quando houver divergência.
-        Adicional noturno é calculado pelo Platefull (batidas × escala RH, 22h–5h, hora reduzida).
+        Adicional noturno é calculado pelo Platefull a partir das batidas tratadas do
+        Secullum (22h–5h, horas de relógio); a coluna Sec. mostra o Not.Tot. do Calcular.
       </p>
 
       {erroGerar && (
