@@ -20,6 +20,7 @@ const TOOL_LABELS: Record<SystemTool, string> = {
   [SystemTool.CONEXOES]: "Conexões",
   [SystemTool.AGENDAMENTO_RELATORIOS]: "Central de Relatórios",
   [SystemTool.CMV]: "CMV",
+  [SystemTool.CMV_REAL]: "CMV Real",
   [SystemTool.ANALYTICS]: "Analytics",
   [SystemTool.ESTOQUE]: "Estoque",
   [SystemTool.IFOOD]: "iFood",
