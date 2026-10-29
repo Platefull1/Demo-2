@@ -15,8 +15,8 @@ function getJwtSecret(): string {
   }
   
   if (secret.length < 32) {
-    console.error('❌ ADMIN_JWT_SECRET muito curto! Mínimo 32 caracteres.');
-    throw new Error('ADMIN_JWT_SECRET deve ter pelo menos 32 caracteres.');
+    console.error('ADMIN_JWT_SECRET inválido.');
+    throw new Error('ADMIN_JWT_SECRET inválido.');
   }
   
   return secret;
@@ -62,8 +62,7 @@ export async function createAdminSession(user: {
   let token: string;
   try {
     const jwtSecret = getJwtSecret();
-    console.log('🔑 JWT_SECRET configurado:', jwtSecret.substring(0, 10) + '...');
-    
+
     token = jwt.sign(sessionPayload, jwtSecret, {
       expiresIn: SESSION_DURATION,
       algorithm: 'HS256',

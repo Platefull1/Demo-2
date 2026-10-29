@@ -22,17 +22,9 @@ export async function sendToGPT(userMessage, conversationHistory = [], settings 
     const apiKey = (config.openRouterKey || '').trim();
     
     if (!apiKey || apiKey.length < 10) {
-      logger.error('OPENROUTER_API_KEY não configurada ou inválida! Verifique o arquivo .env na raiz do projeto.');
-      logger.error(`[DEBUG] process.env.OPENROUTER_API_KEY: ${process.env.OPENROUTER_API_KEY ? 'EXISTE' : 'NÃO EXISTE'}`);
-      logger.error(`[DEBUG] config.openRouterKey: ${config.openRouterKey ? 'EXISTE' : 'NÃO EXISTE'}`);
-      logger.error(`[DEBUG] process.cwd(): ${process.cwd()}`);
-      logger.error(`[DEBUG] Tamanho da API key: ${apiKey.length}`);
+      logger.error('OPENROUTER_API_KEY não configurada ou inválida. Verifique o arquivo .env.');
       throw new Error('API Key da OpenRouter não configurada ou inválida. Configure OPENROUTER_API_KEY no arquivo .env');
     }
-
-    // Debug: Log da API key (mascarada) para verificar se está sendo usada
-    const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
-    logger.ai(`[DEBUG] Usando API Key: ${maskedKey} (tamanho: ${apiKey.length})`);
 
     const {
       botName = 'Assistente',

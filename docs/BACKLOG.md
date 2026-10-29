@@ -7,6 +7,14 @@ Pendências encontradas durante redesigns (não bloqueiam a entrega visual).
 - **Defesa em profundidade:** rotas sensíveis devem checar `canAccessTool` também no próprio handler, não só no middleware. O middleware cobre o prefixo; um handler sem checagem fica aberto se o mapa falhar ou se a rota for chamada internamente.
 - **Dashboard / Visão geral:** métricas e vendas da dashboard ficam disponíveis a qualquer usuário logado (filtro pelas `user_apis` da conta, não pelo escopo de loja do RH). Avaliar restringir por loja (`lojas` do membro) para quem não é escritório.
 
+## Segredos / criptografia (out/2026) — PRIORIDADE MÉDIA
+
+- **iFood:** usar `IFOOD_TOKEN_ENCRYPTION_KEY` dedicada (sem fallback), com leitura dupla (chave nova, depois `ADMIN_JWT_SECRET`) e regravação; remover o caminho antigo após 48h. Objetivo: poder trocar o `ADMIN_JWT_SECRET` no futuro sem quebrar o iFood.
+- Trocar o `ADMIN_JWT_SECRET` após separar a chave do iFood (higiene). Usar segredo sem acentos (base64 gerado por `crypto.randomBytes`).
+- `config.js`: remover fallback de `JWT_SECRET` (ou o campo, se não é usado).
+- **VPS:** `WHATSAPP_API_KEY` fail-closed; `platefulApi.js` abortar se `BOT_API_KEY` vazia.
+- Remover `NEXT_PUBLIC_SAIPOS_API_KEY` do código cliente.
+
 ## Estoque (out/2026) — PRIORIDADE ALTA
 
 - Contagem: valores digitados e ainda não salvos ficam só em memória; se o app for fechado sem rede, são perdidos. Sugestão: rascunho local (IndexedDB/localStorage) por contagem/sessão, reenviado ao reabrir, com aviso de "valores pendentes de envio". (Uso real hoje: sinal ruim com o app aberto — fila de PATCH + keepalive; não há service worker.)

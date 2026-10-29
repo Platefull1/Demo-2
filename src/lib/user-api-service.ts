@@ -183,7 +183,6 @@ export class UserAPIService {
 
       console.log(`🔗 Testando conexão com ${api.name}...`)
       console.log(`📍 URL: ${api.baseUrl}`)
-      console.log(`🔑 API Key: ${api.apiKey.substring(0, 12)}...`)
 
       // Para APIs Saipos, sempre usar URL fixa
       const finalBaseUrl = api.type === 'saipos' 

@@ -38,14 +38,11 @@ if (!envLoaded) {
   }
 }
 
-// Debug: Verificar se a API key foi carregada (sem mostrar o valor completo)
 const apiKey = process.env.OPENROUTER_API_KEY;
 if (apiKey) {
-  const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
-  console.log(`[config] ✅ OPENROUTER_API_KEY carregada: ${maskedKey}`);
+  console.log('[config] OPENROUTER_API_KEY carregada.');
 } else {
-  console.error(`[config] ❌ ERRO: OPENROUTER_API_KEY NÃO encontrada!`);
-  console.error(`[config] Verifique se o arquivo .env existe e contém OPENROUTER_API_KEY`);
+  console.error('[config] OPENROUTER_API_KEY não encontrada. Verifique o arquivo .env.');
 }
 
 export default {

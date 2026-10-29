@@ -50,9 +50,7 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const maskedKey = apiKey.substring(0, 10) + '...' + apiKey.substring(apiKey.length - 4);
-console.log(`📌 API Key encontrada: ${maskedKey}`);
-console.log(`📌 Tamanho: ${apiKey.length} caracteres\n`);
+console.log('API Key encontrada.\n');
 
 // Teste 1: Listar modelos disponíveis
 console.log('🧪 Teste 1: Listando modelos disponíveis...');

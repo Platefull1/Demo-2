@@ -133,7 +133,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🔑 API Key encontrada:', apiKey.substring(0, 20) + '...');
     console.log(`📦 Processando ${produtosParaImportar.length} produtos...`);
 
     for (const produto of produtosParaImportar) {

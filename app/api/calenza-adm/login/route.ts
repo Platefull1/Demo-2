@@ -130,9 +130,6 @@ export async function POST(request: NextRequest) {
     // Criar sessão
     let token: string;
     try {
-      console.log('🔄 Criando sessão para usuário:', user.email);
-      console.log('🔑 ADMIN_JWT_SECRET configurado:', process.env.ADMIN_JWT_SECRET ? 'Sim (' + process.env.ADMIN_JWT_SECRET.substring(0, 10) + '...)' : 'NÃO');
-      
       token = await createAdminSession({
         id: user.id,
         email: user.email,

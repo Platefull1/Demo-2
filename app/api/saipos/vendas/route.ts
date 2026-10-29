@@ -80,7 +80,6 @@ export async function GET(request: Request) {
     console.log("API ID recebido:", apiId);
     console.log("Store ID:", storeId);
     console.log("Token presente:", cleanToken ? "SIM" : "NÃO");
-    console.log("Token preview:", cleanToken.substring(0, 20) + "...");
 
     console.log("Datas recebidas do cliente - start:", start, "end:", end);
 

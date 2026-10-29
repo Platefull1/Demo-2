@@ -21,6 +21,7 @@ describe('rotas de debug e manutenção HTTP removidas', () => {
     'src/lib/debug-guard.ts',
     'app/api/admin/sync-database/route.ts',
     'app/api/admin/sync-whatsapp-connections/route.ts',
+    'app/api/calenza-adm/test-env/route.ts',
   ];
 
   for (const rel of gone) {
