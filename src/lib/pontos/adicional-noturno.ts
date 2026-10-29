@@ -1,12 +1,14 @@
 /**
- * Adicional noturno (horas noturnas DENTRO da jornada prevista).
- * 100% local: batidas PontoRegistro × escala RhEscalaVigencia.
- * Não usa Secullum Calcular. EN 60%/100% (HE noturna extra) é outro campo.
+ * Adicional noturno (CLT): minutos efetivamente trabalhados na janela 22h–5h,
+ * com hora reduzida. Folga trabalhada e horas além da saída prevista entram.
+ * 100% local (PontoRegistro). Não usa Secullum Calcular.
  */
 
 export const JANELA_NOTURNA_INICIO = '22:00';
 export const JANELA_NOTURNA_FIM = '05:00';
 export const APLICAR_HORA_REDUZIDA = true;
+/** false = CLT: não recortar pela jornada prevista; só trabalhados ∩ noturno. */
+export const LIMITAR_A_JORNADA_PREVISTA = false;
 
 /** Fator CLT da hora noturna reduzida: 52min30s de relógio = 60min considerados. */
 const FATOR_HORA_REDUZIDA = 60 / 52.5;
@@ -22,7 +24,12 @@ export type BatidasAdicional = {
   saida3?: string | null;
 };
 
-export type StatusAdicionalNoturno = 'OK' | 'FOLGA' | 'SEM_BATIDAS' | 'PENDENCIA';
+export type StatusAdicionalNoturno =
+  | 'OK'
+  | 'FOLGA'
+  | 'FOLGA_TRABALHADA'
+  | 'SEM_BATIDAS'
+  | 'PENDENCIA';
 
 export type ResultadoAdicionalNoturnoDia = {
   minutosRelogio: number;
@@ -135,8 +142,6 @@ export function calcularAdicionalNoturnoDia(opts: {
   horarioSaida: string;
   ehFolga: boolean;
 }): ResultadoAdicionalNoturnoDia {
-  if (opts.ehFolga) return zero('FOLGA');
-
   const b = opts.batidas;
   const slots: Array<string | null | undefined> = [
     b.entrada1, b.saida1,
@@ -144,7 +149,9 @@ export function calcularAdicionalNoturnoDia(opts: {
     b.entrada3, b.saida3,
   ];
   const preenchidos = slots.filter(slotPreenchido);
-  if (preenchidos.length === 0) return zero('SEM_BATIDAS');
+  if (preenchidos.length === 0) {
+    return zero(opts.ehFolga ? 'FOLGA' : 'SEM_BATIDAS');
+  }
 
   let parIncompleto = false;
   for (const [ek, sk] of PARES) {
@@ -163,16 +170,21 @@ export function calcularAdicionalNoturnoDia(opts: {
     if (ini == null || fim == null || fim <= ini) return zero('PENDENCIA');
     trabalhados.push({ ini, fim });
   }
-  if (trabalhados.length === 0) return zero('SEM_BATIDAS');
+  if (trabalhados.length === 0) {
+    return zero(opts.ehFolga ? 'FOLGA' : 'SEM_BATIDAS');
+  }
 
-  const prevista = jornadaPrevista(opts.horarioEntrada, opts.horarioSaida);
-  if (!prevista) return zero('OK');
+  const base = LIMITAR_A_JORNADA_PREVISTA
+    ? (() => {
+        const prevista = jornadaPrevista(opts.horarioEntrada, opts.horarioSaida);
+        return prevista ? recortar(trabalhados, prevista) : [];
+      })()
+    : trabalhados;
 
-  const naJornada = recortar(trabalhados, prevista);
-  const minutosRelogio = somaIntersecoes(naJornada, janelasNoturnas());
+  const minutosRelogio = somaIntersecoes(base, janelasNoturnas());
   return {
     minutosRelogio,
     minutosConsiderados: aplicarHoraReduzida(minutosRelogio),
-    status: 'OK',
+    status: opts.ehFolga ? 'FOLGA_TRABALHADA' : 'OK',
   };
 }

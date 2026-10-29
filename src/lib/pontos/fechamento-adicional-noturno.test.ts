@@ -33,9 +33,9 @@ describe('calcularAdicionalNoturnoPeriodo', () => {
         },
       ],
     });
-    // 20 ter: 120 relógio → 137 considerados; 21 qua: ímpar; 22 qui: sem batida
-    assert.equal(r.adicionalNoturnoMinutos, 137);
-    assert.equal(r.adicionalNoturnoHhMm, '02:17');
+    // 20 ter: 18:00–00:40 → 160 relógio → 183 considerados; 21 qua: ímpar; 22 qui: sem batida
+    assert.equal(r.adicionalNoturnoMinutos, 183);
+    assert.equal(r.adicionalNoturnoHhMm, '03:03');
     assert.deepEqual(r.diasPendencia, ['2026-10-21']);
   });
 

@@ -48,7 +48,7 @@ describe('calcularAdicionalNoturnoDia', () => {
     assert.equal(r.minutosConsiderados, 137);
   });
 
-  it('18:00–00:00 batidas 18:00–00:40: extras depois da jornada ficam de fora', () => {
+  it('18:00–00:00 batidas 18:00–00:40: extra depois da jornada entra (160/183)', () => {
     const r = calcularAdicionalNoturnoDia({
       batidas: batidas({ entrada1: '18:00', saida1: '00:40' }),
       horarioEntrada: '18:00',
@@ -56,8 +56,8 @@ describe('calcularAdicionalNoturnoDia', () => {
       ehFolga: false,
     });
     assert.equal(r.status, 'OK');
-    assert.equal(r.minutosRelogio, 120);
-    assert.equal(r.minutosConsiderados, 137);
+    assert.equal(r.minutosRelogio, 160);
+    assert.equal(r.minutosConsiderados, 183);
   });
 
   it('17:00–23:00 = 60 relógio', () => {
@@ -113,9 +113,9 @@ describe('calcularAdicionalNoturnoDia', () => {
     assert.equal(r.minutosConsiderados, 0);
   });
 
-  it('ehFolga = true → FOLGA, 0 (mesmo com batidas)', () => {
+  it('ehFolga sem batidas → FOLGA, 0', () => {
     const r = calcularAdicionalNoturnoDia({
-      batidas: batidas({ entrada1: '18:00', saida1: '00:00' }),
+      batidas: batidas({}),
       horarioEntrada: '18:00',
       horarioSaida: '00:00',
       ehFolga: true,
@@ -123,6 +123,18 @@ describe('calcularAdicionalNoturnoDia', () => {
     assert.equal(r.status, 'FOLGA');
     assert.equal(r.minutosRelogio, 0);
     assert.equal(r.minutosConsiderados, 0);
+  });
+
+  it('folga trabalhada 18:00–23:53 → 113 relógio / FOLGA_TRABALHADA', () => {
+    const r = calcularAdicionalNoturnoDia({
+      batidas: batidas({ entrada1: '18:00', saida1: '23:53' }),
+      horarioEntrada: '18:00',
+      horarioSaida: '00:00',
+      ehFolga: true,
+    });
+    assert.equal(r.status, 'FOLGA_TRABALHADA');
+    assert.equal(r.minutosRelogio, 113);
+    assert.equal(r.minutosConsiderados, 129);
   });
 
   it('entrada 04:00 escala 04:00–12:00 → 60 relógio (janela madrugada)', () => {

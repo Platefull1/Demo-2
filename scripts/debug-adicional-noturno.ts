@@ -186,7 +186,7 @@ async function item3(funcionarioId: string, nome: string, gravado: string | null
       ehFolga,
     });
     statusCount[dia.status] = (statusCount[dia.status] ?? 0) + 1;
-    if (dia.status === 'OK') {
+    if (dia.status === 'OK' || dia.status === 'FOLGA_TRABALHADA') {
       totalRelogio += dia.minutosRelogio;
       totalConsiderados += dia.minutosConsiderados;
     }
@@ -212,10 +212,39 @@ async function item3(funcionarioId: string, nome: string, gravado: string | null
   });
 
   console.log('\nstatusCount:', json(statusCount));
-  console.log('total relogio (só OK, script dia a dia):', totalRelogio);
-  console.log('total considerados (só OK, script dia a dia):', totalConsiderados);
+  console.log('total relogio (OK + FOLGA_TRABALHADA):', totalRelogio);
+  console.log('total considerados (OK + FOLGA_TRABALHADA):', totalConsiderados);
   console.log('calcularAdicionalNoturnoPeriodo:', json(periodo));
-  console.log('gravado na linha:', json(gravado));
+  console.log('gravado na linha (ainda a regra antiga, sem regerar):', json(gravado));
+
+  const pend = registrosPorDia.get('2026-10-07');
+  if (pend && vigencias.length > 0) {
+    const vig = vigenciasParaData(vigencias, '2026-10-07') ?? vigencias[0];
+    const hipotese = (saida2: string) =>
+      calcularAdicionalNoturnoDia({
+        batidas: {
+          entrada1: pend.entrada1,
+          saida1: pend.saida1,
+          entrada2: pend.entrada2,
+          saida2,
+          entrada3: pend.entrada3,
+          saida3: pend.saida3,
+        },
+        horarioEntrada: vig.horarioEntrada,
+        horarioSaida: vig.horarioSaida,
+        ehFolga: false,
+      });
+    const h0000 = hipotese('00:00');
+    const h0015 = hipotese('00:15');
+    console.log('\n--- 07/10 PENDENCIA (slots reais:', slots(pend), ') ---');
+    console.log('atual (ímpar): 0 relógio / 0 considerados — não entra no total');
+    console.log(
+      `se saida2=00:00: ${h0000.minutosRelogio} relógio / ${h0000.minutosConsiderados} considerados (${h0000.status})`,
+    );
+    console.log(
+      `se saida2=00:15 (padrão 08/10): ${h0015.minutosRelogio} relógio / ${h0015.minutosConsiderados} considerados (${h0015.status})`,
+    );
+  }
 }
 
 async function item4(funcionarioIds: string[]) {

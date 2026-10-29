@@ -19,7 +19,7 @@ export type ResultadoAdicionalNoturnoPeriodo = {
 /**
  * Soma o adicional noturno (hora reduzida) de cada dia do período.
  * Ignora FORA_VINCULO / FERIAS / AFASTADO (mesma classificação do ponto).
- * Folga → 0 no dia. Batida ímpar → 0 e ymd em diasPendencia.
+ * Folga trabalhada entra. Batida ímpar → 0 e ymd em diasPendencia.
  */
 export function calcularAdicionalNoturnoPeriodo(opts: {
   dataInicialYmd: string;
