@@ -1,3 +1,0 @@
-{
-  "/api/reports/complaints/[runId]/conversation/route": "app/api/reports/complaints/[runId]/conversation/route.js"
-}

@@ -1,3 +1,0 @@
-module.exports=[862980,a=>{"use strict";var b=a.i(849594),c=a.i(99872);a.i(660516);var d=a.i(617622);async function e({children:a}){return await c.stackServerApp.getUser({or:"return-null"})||(0,d.redirect)("/auth/login"),(0,b.jsx)("div",{className:"dark min-h-screen bg-background font-sans antialiased",children:a})}a.s(["default",()=>e])}];
-
-//# sourceMappingURL=Demo-2_app_%28ocorrencias%29_layout_tsx_8ed0fdaa._.js.map

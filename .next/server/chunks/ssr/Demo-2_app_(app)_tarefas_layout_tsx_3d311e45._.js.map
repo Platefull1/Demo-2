@@ -1,1 +1,0 @@
-{"version":3,"sources":["../../../../../Demo-2/app/%28app%29/tarefas/layout.tsx"],"sourcesContent":["export default function TarefasLayout({\r\n  children,\r\n}: {\r\n  children: React.ReactNode;\r\n}) {\r\n  return children;\r\n}\r\n"],"names":[],"mappings":"wCAAe,SAAS,EAAc,UACpC,CAAQ,CAGT,EACC,OAAO,CACT"}

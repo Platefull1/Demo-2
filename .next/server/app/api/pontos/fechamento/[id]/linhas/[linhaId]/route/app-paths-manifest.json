@@ -1,3 +1,0 @@
-{
-  "/api/pontos/fechamento/[id]/linhas/[linhaId]/route": "app/api/pontos/fechamento/[id]/linhas/[linhaId]/route.js"
-}
