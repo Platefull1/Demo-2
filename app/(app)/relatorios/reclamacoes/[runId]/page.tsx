@@ -64,6 +64,9 @@ import { displayLojaNome } from '@/lib/complaints/loja-match';
 const LOJA_ALL = '__loja_all__';
 const CAT_ALL = '__cat_all__';
 
+const filtroSelectClass =
+  'h-8 rounded-md border border-input bg-background px-2 text-sm text-foreground';
+
 function EtiquetaDot({ categoria }: { categoria: string | null | undefined }) {
   if (!categoria) return null;
   const label = CATEGORIA_LABELS[categoria] ?? categoria;
@@ -762,58 +765,58 @@ function ReviewPageContent() {
               />
             </div>
             {canal !== 'semLoja' && lojaOptions.length > 0 && (
-              <Select value={lojaFilter} onValueChange={setLojaFilter}>
-                <SelectTrigger className="h-8 w-[160px] text-sm">
-                  <SelectValue placeholder="Loja">
-                    {lojaFilter === LOJA_ALL
-                      ? 'Todas as lojas'
-                      : lojaOptions.find((l) => l.id === lojaFilter)?.label ?? 'Loja'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={LOJA_ALL}>Todas as lojas</SelectItem>
-                  {lojaOptions.map((l) => (
-                    <SelectItem key={l.id} value={l.id}>
-                      {l.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Filtrar por loja"
+                value={lojaFilter}
+                onChange={(e) => setLojaFilter(e.target.value)}
+                className={cn(filtroSelectClass, 'w-[160px]')}
+              >
+                <option value={LOJA_ALL}>Todas as lojas</option>
+                {lojaOptions.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
             )}
             {categoriasPresentes.length > 0 && (
-              <Select value={categoriaFilter} onValueChange={setCategoriaFilter}>
-                <SelectTrigger className="h-8 w-[160px] text-sm">
-                  <SelectValue placeholder="Etiqueta">
-                    {categoriaFilter === CAT_ALL
-                      ? 'Todas etiquetas'
-                      : CATEGORIA_LABELS[categoriaFilter] ?? categoriaFilter}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={CAT_ALL}>Todas etiquetas</SelectItem>
-                  {categoriasPresentes.map((cat) => (
-                    <SelectItem key={cat} value={cat}>
-                      {CATEGORIA_LABELS[cat] ?? cat}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                aria-label="Filtrar por etiqueta"
+                value={categoriaFilter}
+                onChange={(e) => setCategoriaFilter(e.target.value)}
+                className={cn(filtroSelectClass, 'w-[160px]')}
+              >
+                <option value={CAT_ALL}>Todas etiquetas</option>
+                {categoriasPresentes.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {CATEGORIA_LABELS[cat] ?? cat}
+                  </option>
+                ))}
+              </select>
             )}
-            <Select
+            <select
+              aria-label="Filtrar por ata"
               value={ataFilter}
-              onValueChange={(v) => setAtaFilter(v as AtaFilter)}
+              onChange={(e) => setAtaFilter(e.target.value as AtaFilter)}
+              className={cn(filtroSelectClass, 'w-[120px]')}
             >
-              <SelectTrigger className="h-8 w-[120px] text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="na_ata">Na ata</SelectItem>
-                <SelectItem value="fora">Fora da ata</SelectItem>
-              </SelectContent>
-            </Select>
+              <option value="todas">Todas</option>
+              <option value="na_ata">Na ata</option>
+              <option value="fora">Fora da ata</option>
+            </select>
           </div>
         </div>
+      )}
+
+      {!loading && data && (
+        <p className="text-xs text-muted-foreground">
+          {flatVisible.length} de {data.complaints.length} nesta visão
+          {lojaFilter !== LOJA_ALL &&
+            ` · ${lojaOptions.find((l) => l.id === lojaFilter)?.label ?? 'loja'}`}
+          {categoriaFilter !== CAT_ALL &&
+            ` · ${CATEGORIA_LABELS[categoriaFilter] ?? categoriaFilter}`}
+          {search.trim() ? ` · “${search.trim()}”` : ''}
+        </p>
       )}
 
       {loading ? (
