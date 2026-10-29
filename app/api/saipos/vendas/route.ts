@@ -3,6 +3,9 @@ export const dynamic = 'force-dynamic';
 export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { stackServerApp } from "@/stack";
+import { syncStackAuthUser } from "@/lib/stack-auth-sync";
+import { saiposApiBelongsToUser } from "@/lib/auth/saipos-tenant";
 
 // Tipo para dados de venda da API Saipos
 interface SaiposSale {
@@ -22,6 +25,18 @@ interface SaiposSale {
 
 export async function GET(request: Request) {
   try {
+    const stackUser = await stackServerApp.getUser({ or: "return-null" });
+    if (!stackUser) {
+      return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+    }
+    const dbUser = await syncStackAuthUser({
+      id: stackUser.id,
+      primaryEmail: stackUser.primaryEmail || undefined,
+      displayName: stackUser.displayName || undefined,
+      profileImageUrl: stackUser.profileImageUrl || undefined,
+      primaryEmailVerified: stackUser.primaryEmailVerified ? new Date() : null,
+    });
+
     const url = new URL(request.url);
 
     const start = url.searchParams.get("data_inicial");
@@ -37,7 +52,7 @@ export async function GET(request: Request) {
       where: { id: apiId },
     });
 
-    if (!saiposAPI || saiposAPI.type !== "saipos") {
+    if (!saiposAPI || !saiposApiBelongsToUser(saiposAPI, dbUser.id)) {
       return NextResponse.json({ error: "API Saipos não encontrada" }, { status: 404 });
     }
 

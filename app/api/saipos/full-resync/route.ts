@@ -6,6 +6,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stackServerApp } from "@/stack";
 import { syncStackAuthUser } from "@/lib/stack-auth-sync";
+import { requireToolOrCron } from "@/lib/auth/toolPermissions";
+import { SystemTool } from "@/types/admin";
 
 const BRT_OFFSET = "-03:00";
 
@@ -218,8 +220,11 @@ async function syncApi(apiId: string, apiKey: string, storeId: string): Promise<
 /**
  * Rota para sincronizar TODAS as APIs Saipos do usuário autenticado
  */
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    const toolErr = await requireToolOrCron(SystemTool.CONEXOES, request.headers);
+    if (toolErr) return toolErr;
+
     const stackUser = await stackServerApp.getUser({ or: "return-null" });
     if (!stackUser) {
       return NextResponse.json(
@@ -311,6 +316,6 @@ export async function POST() {
   }
 }
 
-export async function GET() {
-  return POST();
+export async function GET(request: Request) {
+  return POST(request);
 }

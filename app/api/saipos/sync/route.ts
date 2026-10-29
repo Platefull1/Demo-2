@@ -8,6 +8,8 @@ import { normalizeSalesResponse, type SaiposRawSale } from "@/lib/saipos-api";
 import { stackServerApp } from "@/stack";
 import { syncStackAuthUser } from "@/lib/stack-auth-sync";
 import { fetchSaiposSalesLargePeriod } from "@/lib/saipos-api-client";
+import { requireToolOrCron } from "@/lib/auth/toolPermissions";
+import { SystemTool } from "@/types/admin";
 
 interface SyncRequest {
   apiId?: string;
@@ -48,6 +50,9 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export async function POST(request: Request) {
   try {
+    const toolErr = await requireToolOrCron(SystemTool.CONEXOES, request.headers);
+    if (toolErr) return toolErr;
+
     // 1) Autenticação via Stack Auth
     const stackUser = await stackServerApp.getUser({ or: "return-null" });
     if (!stackUser) {

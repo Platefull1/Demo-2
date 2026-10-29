@@ -4,6 +4,7 @@ import { SystemTool } from '@/types/admin';
 import { stackServerApp } from '@/stack';
 import { toolsQualifyForContextAccess } from '@/lib/auth/tool-access';
 import { canAccessToolFromState } from '@/lib/auth/can-access-tool';
+import { isCronApiRequest } from '@/lib/auth/api-tool-map';
 
 export { canAccessToolFromState, canSeeCmvReal } from '@/lib/auth/can-access-tool';
 
@@ -93,6 +94,15 @@ export async function requireToolPermission(
       { status: 500 },
     );
   }
+}
+
+/** Cron (CRON_SECRET) ou Camada 1 da ferramenta. */
+export async function requireToolOrCron(
+  tool: SystemTool,
+  headers: { get(name: string): string | null },
+): Promise<NextResponse | null> {
+  if (isCronApiRequest(headers)) return null;
+  return requireToolPermission(tool);
 }
 
 /** True se o StackUser tem ferramenta de contexto (não só registrar_ocorrencias). */

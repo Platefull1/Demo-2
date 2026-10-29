@@ -7,6 +7,8 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { stackServerApp } from "@/stack";
 import { syncStackAuthUser } from "@/lib/stack-auth-sync";
+import { requireToolOrCron } from "@/lib/auth/toolPermissions";
+import { SystemTool } from "@/types/admin";
 
 interface SyncRequest {
   apiId: string;
@@ -223,6 +225,9 @@ function aggregateSalesByDay(sales: unknown[]): Map<string, {
 
 export async function POST(request: Request) {
   try {
+    const toolErr = await requireToolOrCron(SystemTool.CONEXOES, request.headers);
+    if (toolErr) return toolErr;
+
     // 1) Autenticação
     const stackUser = await stackServerApp.getUser({ or: "return-null" });
     if (!stackUser) {
