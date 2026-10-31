@@ -44,3 +44,28 @@ CREATE UNIQUE INDEX IF NOT EXISTS "ocorrencia_atas_companyId_ano_mes_escopo_key"
 
 CREATE INDEX IF NOT EXISTS "ocorrencia_atas_companyId_ano_mes_idx"
   ON "ocorrencia_atas" ("companyId", "ano", "mes");
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ocorrencia_atrasos_mensais_companyId_fkey'
+  ) THEN
+    ALTER TABLE "ocorrencia_atrasos_mensais"
+      ADD CONSTRAINT "ocorrencia_atrasos_mensais_companyId_fkey"
+      FOREIGN KEY ("companyId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ocorrencia_atrasos_mensais_lojaId_fkey'
+  ) THEN
+    ALTER TABLE "ocorrencia_atrasos_mensais"
+      ADD CONSTRAINT "ocorrencia_atrasos_mensais_lojaId_fkey"
+      FOREIGN KEY ("lojaId") REFERENCES "rh_lojas"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ocorrencia_atas_companyId_fkey'
+  ) THEN
+    ALTER TABLE "ocorrencia_atas"
+      ADD CONSTRAINT "ocorrencia_atas_companyId_fkey"
+      FOREIGN KEY ("companyId") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END $$;
