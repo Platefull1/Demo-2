@@ -1,17 +1,16 @@
 /**
- * Gerador .docx da ata de ocorrências.
- * Copia o visual da ata de Reclamações (títulos, bullets, divisor)
- * sem importar nem alterar generate-ata.ts.
+ * Gerador .docx da ata de ocorrências — painel compacto
+ * (modelo-3) nas cores Platefull. Não altera a ata de Reclamações.
  */
 
 import {
   AlignmentType,
   BorderStyle,
   Document,
-  HeadingLevel,
+  Footer,
   ImageRun,
   Packer,
-  PageOrientation,
+  PageNumber,
   Paragraph,
   Table,
   TableCell,
@@ -25,7 +24,6 @@ import sharp from 'sharp';
 import { formatOcorrenciaDateTime, monthYearLabelSP } from '@/lib/ocorrencias-period';
 import { downloadOcorrenciaFotoBytes } from '@/lib/ocorrencias-storage';
 import { categoriaLabel } from '@/lib/ocorrencias-categorias';
-import { TODAS_CATEGORIAS } from '@/lib/ocorrencias-categorias';
 import {
   ATRASO_NAO_INFORMADO,
   buildLojaResumo,
@@ -36,124 +34,110 @@ import {
   formatNomePessoa,
   nomeEmpresaAta,
   quebraCategoriaLabel,
-  totalOcorrenciasTexto,
   type LojaAtaRef,
   type OcorrenciaAtaRow,
   type AtrasoInformado,
   type MotoboyAtaRow,
+  type ResumoCategoria,
 } from '@/lib/ocorrencias-ata-data';
 
-const MAX_FOTO_WIDTH_PX = 454;
 const PHOTO_CONCURRENCY = 5;
+const CARD_FOTO_W = 280;
+const CARD_FOTO_H = 170;
+const TOP_MOTOBOYS = 6;
+const BAR_W = 1700;
 
-/** A4 portrait 210mm × 297mm em DXA (twips). */
+/** A4 210×297 mm. Margem do modelo compacto: 1134 DXA. */
 export const ATA_A4_WIDTH_DXA = 11906;
 export const ATA_A4_HEIGHT_DXA = 16838;
-export const ATA_PAGE_MARGIN_DXA = 720;
-export const ATA_CONTENT_PORTRAIT_DXA = ATA_A4_WIDTH_DXA - 2 * ATA_PAGE_MARGIN_DXA; // 10466
-export const ATA_CONTENT_LANDSCAPE_DXA = ATA_A4_HEIGHT_DXA - 2 * ATA_PAGE_MARGIN_DXA; // 15398
-export const ATA_MIN_GRID_COL_DXA = 500;
+export const ATA_PAGE_MARGIN_DXA = 1134;
+export const ATA_CONTENT_PORTRAIT_DXA = ATA_A4_WIDTH_DXA - 2 * ATA_PAGE_MARGIN_DXA; // 9638
+export const ATA_MIN_GRID_COL_DXA = 80;
 
-/** Resumo por categoria: Categoria / Quantidade / Variação. */
-export const ATA_RESUMO_COL_WIDTHS = [5466, 2500, 2500] as const;
+const W = ATA_CONTENT_PORTRAIT_DXA;
+const COL = 4600;
+const GUTTER = 438;
+const HERO_LEFT = 6638;
+const HERO_RIGHT = 3000;
+const CAT_LABEL = 2300;
+const CAT_BAR = 1820;
+const CAT_QTD = 480;
+const MOTO_NOME = 3900;
+const MOTO_QTD = 700;
+const CARD = 4669;
+const CARD_GAP = 300;
 
-/** Motoboy / Total / Detalhe por categoria. */
-export const ATA_MOTOBOY_COL_WIDTHS = [3466, 1500, 5500] as const;
+const C = {
+  green: '22C55E',
+  ink: '0A0A0A',
+  muted: '71717A',
+  line: 'E4E4E7',
+  track: 'F4F4F5',
+  banner: 'ECFDF3',
+  card: 'FAFAFA',
+} as const;
 
-/** Abaixo disso a coluna restante da matriz não cabe em retrato. */
-const ATA_MATRIZ_MIN_REST_PORTRAIT_DXA = 1000;
-
-export function divideRestanteIgual(total: number, count: number): number[] {
-  if (count <= 0) return [];
-  const base = Math.floor(total / count);
-  const extra = total - base * count;
-  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
+function noneBorder() {
+  return { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
 }
 
-/** Primeira coluna maior; as demais iguais. Soma === contentWidth. */
-export function matrizLojaCategoriaWidths(
-  colCount: number,
-  contentWidth: number,
-): number[] {
-  if (colCount <= 1) return [contentWidth];
-  const restCount = colCount - 1;
-  const idealFirst = Math.floor((contentWidth * 2) / (2 + restCount));
-  const maxFirst = contentWidth - restCount * ATA_MIN_GRID_COL_DXA;
-  const first = Math.min(maxFirst, Math.max(ATA_MIN_GRID_COL_DXA, idealFirst));
-  return [first, ...divideRestanteIgual(contentWidth - first, restCount)];
+function hairBottom() {
+  return {
+    top: noneBorder(),
+    left: noneBorder(),
+    right: noneBorder(),
+    bottom: { style: BorderStyle.SINGLE, size: 4, color: C.line },
+  };
 }
 
-export function matrizUsaPaisagem(colCount: number): boolean {
-  const portrait = matrizLojaCategoriaWidths(colCount, ATA_CONTENT_PORTRAIT_DXA);
-  return portrait.slice(1).some((w) => w < ATA_MATRIZ_MIN_REST_PORTRAIT_DXA);
+function noBorders() {
+  return {
+    top: noneBorder(),
+    left: noneBorder(),
+    right: noneBorder(),
+    bottom: noneBorder(),
+  };
 }
 
-function heading(text: string) {
-  return new Paragraph({
+function run(
+  text: string,
+  opts: {
+    size: number;
+    bold?: boolean;
+    italics?: boolean;
+    color?: string;
+    spacing?: number;
+  },
+) {
+  return new TextRun({
     text,
-    heading: HeadingLevel.HEADING_1,
-    spacing: { before: 360, after: 160 },
+    font: 'Calibri',
+    size: opts.size,
+    bold: opts.bold,
+    italics: opts.italics,
+    color: opts.color ?? C.ink,
+    characterSpacing: opts.spacing,
   });
 }
 
-function subheading(text: string) {
+function para(
+  children: TextRun[],
+  opts?: { after?: number; before?: number; align?: (typeof AlignmentType)[keyof typeof AlignmentType] },
+) {
   return new Paragraph({
-    text,
-    heading: HeadingLevel.HEADING_2,
-    spacing: { before: 280, after: 120 },
+    children,
+    spacing: { after: opts?.after ?? 0, before: opts?.before ?? 0 },
+    alignment: opts?.align,
   });
 }
 
-function muted(text: string) {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 20, italics: true, color: '666666' })],
-    spacing: { after: 80 },
-  });
+function emptyPara() {
+  return para([run('', { size: 20 })]);
 }
 
-function bullet(text: string) {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 22 })],
-    bullet: { level: 0 },
-    spacing: { after: 60 },
-  });
-}
-
-function body(text: string) {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 22 })],
-    spacing: { after: 80 },
-  });
-}
-
-function divider() {
-  return new Paragraph({
-    border: {
-      bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CCCCCC', space: 8 },
-    },
-    spacing: { before: 80, after: 160 },
-  });
-}
-
-function thinBorder() {
-  return { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
-}
-
-function cell(text: string, width: number, opts?: { bold?: boolean }) {
-  return new TableCell({
-    width: { size: width, type: WidthType.DXA },
-    borders: {
-      top: thinBorder(),
-      bottom: thinBorder(),
-      left: thinBorder(),
-      right: thinBorder(),
-    },
-    verticalAlign: VerticalAlign.CENTER,
-    children: [
-      new Paragraph({
-        children: [new TextRun({ text, size: 18, bold: opts?.bold })],
-      }),
-    ],
+function sectionLabel(text: string) {
+  return para([run(text, { size: 15, bold: true, color: C.green, spacing: 30 })], {
+    after: 100,
   });
 }
 
@@ -167,24 +151,66 @@ function ataTable(columnWidths: readonly number[], rows: TableRow[]) {
   });
 }
 
-function pageProperties(landscape: boolean) {
+function tc(
+  width: number,
+  children: (Paragraph | Table)[],
+  opts?: {
+    borders?: ReturnType<typeof hairBottom>;
+    fill?: string;
+    align?: (typeof VerticalAlign)[keyof typeof VerticalAlign];
+    pad?: { top?: number; bottom?: number; left?: number; right?: number };
+  },
+) {
+  const pad = opts?.pad ?? { top: 80, bottom: 80, left: 0, right: 0 };
+  return new TableCell({
+    width: { size: width, type: WidthType.DXA },
+    borders: opts?.borders ?? noBorders(),
+    shading: opts?.fill ? { fill: opts.fill, type: 'clear' as const } : undefined,
+    verticalAlign: opts?.align ?? VerticalAlign.CENTER,
+    margins: {
+      top: pad.top ?? 80,
+      bottom: pad.bottom ?? 80,
+      left: pad.left ?? 0,
+      right: pad.right ?? 0,
+    },
+    children: children.length ? children : [emptyPara()],
+  });
+}
+
+function pageProperties() {
   return {
     page: {
       size: {
         width: ATA_A4_WIDTH_DXA,
         height: ATA_A4_HEIGHT_DXA,
-        orientation: landscape
-          ? PageOrientation.LANDSCAPE
-          : PageOrientation.PORTRAIT,
       },
       margin: {
         top: ATA_PAGE_MARGIN_DXA,
         right: ATA_PAGE_MARGIN_DXA,
         bottom: ATA_PAGE_MARGIN_DXA,
         left: ATA_PAGE_MARGIN_DXA,
+        header: 708,
+        footer: 708,
       },
     },
   };
+}
+
+function rodape(empresa: string, geradoEm: string) {
+  const prefix = empresa
+    ? `${empresa} · gerada em ${geradoEm}   ·   página `
+    : `gerada em ${geradoEm}   ·   página `;
+  return new Footer({
+    children: [
+      para(
+        [
+          run(prefix, { size: 16, color: C.muted }),
+          new TextRun({ children: [PageNumber.CURRENT], font: 'Calibri', size: 16, color: C.muted }),
+        ],
+        { align: AlignmentType.CENTER },
+      ),
+    ],
+  });
 }
 
 async function mapPool<T, R>(
@@ -206,29 +232,19 @@ async function mapPool<T, R>(
   return out;
 }
 
-async function fotoParaAtaFromBytes(
-  raw: Buffer,
-): Promise<{ data: Buffer; w: number; h: number } | null> {
+async function fotoParaCard(raw: Buffer): Promise<{ data: Buffer; w: number; h: number } | null> {
   try {
-    const img = sharp(raw);
-    const meta = await img.metadata();
-    const srcW = meta.width || MAX_FOTO_WIDTH_PX;
-    const srcH = meta.height || MAX_FOTO_WIDTH_PX;
-    const scale = Math.min(1, MAX_FOTO_WIDTH_PX / srcW);
-    const w = Math.max(1, Math.round(srcW * scale));
-    const h = Math.max(1, Math.round(srcH * scale));
-    const data = await img
-      .resize(w, h, { fit: 'inside' })
+    const data = await sharp(raw)
+      .resize(CARD_FOTO_W, CARD_FOTO_H, { fit: 'cover', position: 'centre' })
       .jpeg({ quality: 72 })
       .toBuffer();
-    return { data, w, h };
+    return { data, w: CARD_FOTO_W, h: CARD_FOTO_H };
   } catch {
     return null;
   }
 }
 
 type FotoMap = Map<string, { data: Buffer; w: number; h: number }>;
-
 export type AtaFotoBytesByPath = ReadonlyMap<string, Buffer>;
 
 async function carregarFotos(
@@ -242,7 +258,7 @@ async function carregarFotos(
     const raw = fotoBytesByPath
       ? (fotoBytesByPath.get(path) ?? null)
       : await downloadOcorrenciaFotoBytes(path);
-    return { path, foto: raw ? await fotoParaAtaFromBytes(raw) : null };
+    return { path, foto: raw ? await fotoParaCard(raw) : null };
   });
   for (const r of results) {
     if (r.foto) map.set(r.path, r.foto);
@@ -250,164 +266,453 @@ async function carregarFotos(
   return map;
 }
 
-function cabecalho(opts: {
-  empresa: string;
-  escopoLabel: string;
+function eyebrow(empresa: string) {
+  const text = empresa
+    ? `${empresa.toUpperCase()}  ·  ATA DE REUNIÃO`
+    : 'ATA DE REUNIÃO';
+  return para([run(text, { size: 15, bold: true, color: C.muted, spacing: 40 })], {
+    after: 120,
+  });
+}
+
+function hero(opts: {
+  titulo: string;
   periodo: string;
-  geradoEm: string;
-}): Paragraph[] {
-  const empresa = nomeEmpresaAta({ name: opts.empresa });
-  const out: Paragraph[] = [
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({ text: 'ATA DE REUNIÃO — OCORRÊNCIAS', bold: true, size: 32 }),
-      ],
-      spacing: { after: 120 },
+  ocorrencias: number;
+  atrasos: number | null;
+}) {
+  const ocLabel =
+    opts.ocorrencias === 1 ? 'ocorrência registrada' : 'ocorrências registradas';
+  const extra =
+    opts.atrasos !== null && opts.atrasos > 0
+      ? `+ ${opts.atrasos} ${opts.atrasos === 1 ? 'pedido atrasado' : 'pedidos atrasados'}`
+      : null;
+
+  const right: Paragraph[] = [
+    para([run(String(opts.ocorrencias), { size: 64, bold: true, color: C.green })], {
+      align: AlignmentType.RIGHT,
     }),
+    para([run(ocLabel, { size: 17, color: C.muted })], { align: AlignmentType.RIGHT }),
   ];
-  if (empresa) {
+  if (extra) {
+    right.push(
+      para([run(extra, { size: 15, color: C.muted })], { align: AlignmentType.RIGHT }),
+    );
+  }
+
+  return ataTable([HERO_LEFT, HERO_RIGHT], [
+    new TableRow({
+      children: [
+        tc(
+          HERO_LEFT,
+          [
+            para([run('Ocorrências do mês', { size: 18, color: C.muted })]),
+            para([
+              run(opts.titulo, { size: 52, bold: true, color: C.ink }),
+              run(`  ${opts.periodo}`, { size: 28, color: C.muted }),
+            ]),
+          ],
+          {
+            align: VerticalAlign.BOTTOM,
+            pad: { top: 80, bottom: 80, left: 0, right: 120 },
+          },
+        ),
+        tc(HERO_RIGHT, right, {
+          align: VerticalAlign.BOTTOM,
+          pad: { top: 80, bottom: 80, left: 120, right: 0 },
+        }),
+      ],
+    }),
+  ]);
+}
+
+function regraHero() {
+  return new Paragraph({
+    border: {
+      bottom: { style: BorderStyle.SINGLE, size: 12, color: C.ink, space: 6 },
+    },
+    spacing: { after: 200, before: 0 },
+    children: [run('', { size: 20 })],
+  });
+}
+
+function sortResumo(rows: ResumoCategoria[]): ResumoCategoria[] {
+  const atrasado = rows.filter((r) => r.categoria === 'PEDIDO_ATRASADO');
+  const rest = rows
+    .filter((r) => r.categoria !== 'PEDIDO_ATRASADO')
+    .sort((a, b) => {
+      const qa = a.quantidade ?? -1;
+      const qb = b.quantidade ?? -1;
+      if (qb !== qa) return qb - qa;
+      return a.label.localeCompare(b.label, 'pt-BR');
+    });
+  return [...atrasado, ...rest];
+}
+
+function barra(value: number, max: number): Table {
+  const fill =
+    max <= 0 || value <= 0
+      ? 0
+      : Math.min(BAR_W, Math.max(80, Math.round((BAR_W * value) / max)));
+  const rest = BAR_W - fill;
+  const widths = rest > 0 && fill > 0 ? [fill, rest] : [BAR_W];
+  const fills = rest > 0 && fill > 0 ? [C.green, C.track] : [fill > 0 ? C.green : C.track];
+  return ataTable(
+    widths,
+    [
+      new TableRow({
+        children: widths.map((w, i) =>
+          tc(w, [para([run(' ', { size: 4 })])], {
+            fill: fills[i],
+            pad: { top: 40, bottom: 40, left: 0, right: 0 },
+          }),
+        ),
+      }),
+    ],
+  );
+}
+
+function painelCategorias(rows: ResumoCategoria[]): Table {
+  const ordered = sortResumo(rows);
+  const max = Math.max(
+    0,
+    ...ordered
+      .filter((r) => r.quantidade !== null)
+      .map((r) => r.quantidade ?? 0),
+  );
+  return ataTable(
+    [CAT_LABEL, CAT_BAR, CAT_QTD],
+    ordered.map((r) => {
+      const semNumero = r.quantidade === null;
+      const mid = semNumero
+        ? [
+            para([
+              run(ATRASO_NAO_INFORMADO, { size: 15, italics: true, color: C.muted }),
+            ]),
+          ]
+        : [barra(r.quantidade ?? 0, max), emptyPara()];
+      return new TableRow({
+        children: [
+          tc(
+            CAT_LABEL,
+            [para([run(r.label, { size: 18, color: C.ink })])],
+            { borders: hairBottom(), pad: { top: 80, bottom: 80, left: 0, right: 120 } },
+          ),
+          tc(CAT_BAR, mid, {
+            borders: hairBottom(),
+            pad: { top: 80, bottom: 80, left: 0, right: 120 },
+          }),
+          tc(
+            CAT_QTD,
+            [
+              para(
+                [
+                  run(semNumero ? '—' : String(r.quantidade ?? 0), {
+                    size: 18,
+                    bold: true,
+                    color: C.ink,
+                  }),
+                ],
+                { align: AlignmentType.RIGHT },
+              ),
+            ],
+            { borders: hairBottom(), pad: { top: 80, bottom: 80, left: 120, right: 0 } },
+          ),
+        ],
+      });
+    }),
+  );
+}
+
+function detalheMotoboy(m: MotoboyAtaRow): string {
+  const q = quebraCategoriaLabel(m.porCategoria);
+  return q ? q.replace(/, /g, ' · ') : '—';
+}
+
+function painelLista(
+  rows: { titulo: string; detalhe: string; total: number }[],
+): Table {
+  return ataTable(
+    [MOTO_NOME, MOTO_QTD],
+    rows.map((r) =>
+      new TableRow({
+        children: [
+          tc(
+            MOTO_NOME,
+            [
+              para([run(r.titulo, { size: 18, bold: true, color: C.ink })]),
+              para([run(r.detalhe, { size: 15, color: C.muted })]),
+            ],
+            { borders: hairBottom(), pad: { top: 80, bottom: 80, left: 0, right: 120 } },
+          ),
+          tc(
+            MOTO_QTD,
+            [
+              para(
+                [
+                  run(String(r.total), {
+                    size: 26,
+                    bold: true,
+                    color: r.total > 1 ? C.green : C.ink,
+                  }),
+                ],
+                { align: AlignmentType.RIGHT },
+              ),
+            ],
+            { borders: hairBottom(), pad: { top: 80, bottom: 80, left: 120, right: 0 } },
+          ),
+        ],
+      }),
+    ),
+  );
+}
+
+function restoMotoboys(ocultos: MotoboyAtaRow[]): Paragraph | null {
+  if (ocultos.length === 0) return null;
+  const allOne = ocultos.every((m) => m.total === 1);
+  const n = ocultos.length;
+  const text = allOne
+    ? `+ ${n} ${n === 1 ? 'motoboy' : 'motoboys'} com 1 ocorrência`
+    : `+ ${n} ${n === 1 ? 'motoboy' : 'motoboys'}`;
+  return para([run(text, { size: 15, italics: true, color: C.muted })], { before: 80 });
+}
+
+function duasColunas(left: (Paragraph | Table)[], right: (Paragraph | Table)[]) {
+  return ataTable([COL, GUTTER, COL], [
+    new TableRow({
+      children: [
+        tc(COL, [...left, emptyPara()], {
+          align: VerticalAlign.TOP,
+          pad: { top: 80, bottom: 80, left: 0, right: 0 },
+        }),
+        tc(GUTTER, [emptyPara()], {
+          pad: { top: 80, bottom: 80, left: 120, right: 120 },
+        }),
+        tc(COL, [...right, emptyPara()], {
+          align: VerticalAlign.TOP,
+          pad: { top: 80, bottom: 80, left: 0, right: 0 },
+        }),
+      ],
+    }),
+  ]);
+}
+
+function banner(text: string) {
+  return ataTable([W], [
+    new TableRow({
+      children: [
+        tc(
+          W,
+          [
+            para([
+              run('Atenção: ', { size: 17, bold: true, color: C.green }),
+              run(text, { size: 17, color: C.ink }),
+            ]),
+          ],
+          {
+            fill: C.banner,
+            pad: { top: 140, bottom: 140, left: 200, right: 120 },
+          },
+        ),
+      ],
+    }),
+  ]);
+}
+
+function bannerText(opts: {
+  mesNome: string;
+  atrasosNull: boolean;
+  temDadosAnterior: boolean;
+  lojasSemAtraso: string[];
+}): string | null {
+  const bits: string[] = [];
+  if (opts.atrasosNull && opts.lojasSemAtraso.length === 0) {
+    bits.push(
+      `o número de pedidos atrasados de ${opts.mesNome} ainda não foi informado.`,
+    );
+  } else if (opts.lojasSemAtraso.length > 0) {
+    bits.push(
+      `pedidos atrasados ainda sem número em ${opts.lojasSemAtraso.join(', ')}.`,
+    );
+  }
+  if (!opts.temDadosAnterior) {
+    bits.push('Variação vs. mês anterior disponível a partir do próximo mês.');
+  }
+  if (bits.length === 0) return null;
+  return bits.join(' ');
+}
+
+function cardDestaque(
+  d: OcorrenciaAtaRow,
+  fotos: FotoMap,
+  lojaNome?: string,
+): (Paragraph | Table)[] {
+  const quando = formatOcorrenciaDateTime(
+    typeof d.createdAt === 'string' ? d.createdAt : d.createdAt.toISOString(),
+  );
+  const cat = (d.categorias[0] ? categoriaLabel(d.categorias[0]) : 'Ocorrência').toUpperCase();
+  const canal = d.canalExterno ? canalAtaLabel(d.canalExterno) : '';
+  const metaParts = [
+    canal && d.numeroPedidoExterno ? `${canal} ${d.numeroPedidoExterno}` : d.numeroPedidoExterno,
+    quando,
+    lojaNome,
+  ].filter(Boolean);
+  const desc = d.descricao.trim();
+  const out: (Paragraph | Table)[] = [];
+  const foto = d.fotoPaths.map((p) => fotos.get(p)).find(Boolean);
+  if (foto) {
     out.push(
       new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [new TextRun({ text: empresa, size: 26, bold: true })],
-        spacing: { after: 60 },
+        spacing: { after: 0, before: 0 },
+        children: [
+          new ImageRun({
+            type: 'jpg',
+            data: foto.data,
+            transformation: { width: foto.w, height: foto.h },
+          }),
+        ],
       }),
     );
   }
   out.push(
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: opts.escopoLabel, size: 24 })],
-      spacing: { after: 60 },
+    para([run(cat, { size: 14, bold: true, color: C.green, spacing: 20 })], {
+      before: 140,
     }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [
-        new TextRun({
-          text: `Período: ${opts.periodo}  ·  Gerado em: ${opts.geradoEm}`,
-          size: 20,
-          color: '555555',
+    para([run(`Pedido ${d.numeroPedidoSaipos}`, { size: 26, bold: true, color: C.ink })], {
+      before: 40,
+    }),
+    para([run(metaParts.join(' · ') || '—', { size: 16, color: C.muted })]),
+  );
+  if (d.motoboyNome) {
+    out.push(
+      para([run(formatNomePessoa(d.motoboyNome), { size: 17, color: C.ink })], {
+        before: 80,
+      }),
+    );
+  }
+  out.push(
+    para(
+      [
+        run(desc || 'Sem descrição', {
+          size: 17,
+          color: desc ? C.ink : C.muted,
+          italics: !desc,
         }),
       ],
-      spacing: { after: 200 },
-    }),
-    divider(),
+      { before: 80 },
+    ),
   );
   return out;
 }
 
-function blocosDestaque(
-  items: OcorrenciaAtaRow[],
+function gradeDestaques(
+  items: { row: OcorrenciaAtaRow; lojaNome?: string }[],
   fotos: FotoMap,
-  titulo?: string,
-): (Paragraph | Table)[] {
-  if (items.length === 0) return [];
-  const out: (Paragraph | Table)[] = [];
-  if (titulo) {
-    out.push(divider(), heading(titulo));
-  }
-  for (const d of items) {
-    const quando = formatOcorrenciaDateTime(
-      typeof d.createdAt === 'string' ? d.createdAt : d.createdAt.toISOString(),
-    );
-    const cats = d.categorias.map((c) => categoriaLabel(c)).join(', ') || '—';
-    const ext = d.numeroPedidoExterno
-      ? `${d.numeroPedidoExterno}${d.canalExterno ? ` (${canalAtaLabel(d.canalExterno)})` : ''}`
-      : '—';
-    out.push(subheading(`Pedido Saipos ${d.numeroPedidoSaipos}`));
-    out.push(bullet(`Data/hora: ${quando}`));
-    out.push(bullet(`Pedido externo: ${ext}`));
-    out.push(bullet(`Categorias: ${cats}`));
-    if (d.motoboyNome) {
-      out.push(bullet(`Motoboy: ${formatNomePessoa(d.motoboyNome)}`));
-    }
-    if (d.descricao.trim()) out.push(body(d.descricao.trim()));
-    for (const path of d.fotoPaths) {
-      const foto = fotos.get(path);
-      if (!foto) continue;
-      out.push(
-        new Paragraph({
+): Table[] {
+  const tables: Table[] = [];
+  for (let i = 0; i < items.length; i += 2) {
+    const a = items[i]!;
+    const b = items[i + 1];
+    const left = cardDestaque(a.row, fotos, a.lojaNome);
+    const right = b ? cardDestaque(b.row, fotos, b.lojaNome) : [emptyPara()];
+    tables.push(
+      ataTable([CARD, CARD_GAP, CARD], [
+        new TableRow({
           children: [
-            new ImageRun({
-              type: 'jpg',
-              data: foto.data,
-              transformation: { width: foto.w, height: foto.h },
+            tc(CARD, left, {
+              fill: C.card,
+              align: VerticalAlign.TOP,
+              pad: { top: 180, bottom: 200, left: 180, right: 180 },
+            }),
+            tc(CARD_GAP, [emptyPara()], {
+              pad: { top: 80, bottom: 80, left: 120, right: 120 },
+            }),
+            tc(CARD, right, {
+              fill: b ? C.card : undefined,
+              align: VerticalAlign.TOP,
+              pad: { top: 180, bottom: 200, left: 180, right: 180 },
             }),
           ],
-          spacing: { after: 160 },
         }),
-      );
-    }
+      ]),
+    );
   }
-  return out;
+  return tables;
 }
 
-function tabelaResumo(
-  rows: { label: string; quantidadeLabel: string; variacao: string }[],
-) {
-  const w = ATA_RESUMO_COL_WIDTHS;
-  return ataTable(w, [
-    new TableRow({
-      children: [
-        cell('Categoria', w[0], { bold: true }),
-        cell('Quantidade', w[1], { bold: true }),
-        cell('Variação', w[2], { bold: true }),
-      ],
-    }),
-    ...rows.map(
-      (r) =>
-        new TableRow({
-          children: [
-            cell(r.label, w[0]),
-            cell(r.quantidadeLabel, w[1]),
-            cell(r.variacao, w[2]),
-          ],
-        }),
-    ),
-  ]);
-}
-
-function motoboyLabel(m: MotoboyAtaRow, comLoja: boolean): string {
-  return comLoja ? `${m.nome} (${m.lojaNome})` : m.nome;
-}
-
-function tabelaMotoboys(motoboys: MotoboyAtaRow[], comLoja: boolean) {
-  const w = ATA_MOTOBOY_COL_WIDTHS;
-  return ataTable(w, [
-    new TableRow({
-      children: [
-        cell('Motoboy', w[0], { bold: true }),
-        cell('Total', w[1], { bold: true }),
-        cell('Detalhe por categoria', w[2], { bold: true }),
-      ],
-    }),
-    ...motoboys.map(
-      (m) =>
-        new TableRow({
-          children: [
-            cell(motoboyLabel(m, comLoja), w[0]),
-            cell(String(m.total), w[1]),
-            cell(quebraCategoriaLabel(m.porCategoria) || '—', w[2]),
-          ],
-        }),
-    ),
-  ]);
-}
-
-function secaoMotoboys(
+function painelMotoboys(
   motoboys: MotoboyAtaRow[],
-  titulo: string,
   comLoja: boolean,
 ): (Paragraph | Table)[] {
-  const out: (Paragraph | Table)[] = [divider(), heading(titulo)];
+  const out: (Paragraph | Table)[] = [sectionLabel('MOTOBOYS MAIS CITADOS')];
   if (motoboys.length === 0) {
-    out.push(muted('Nenhum motoboy citado nas ocorrências do período.'));
+    out.push(
+      para([
+        run('Nenhum motoboy citado nas ocorrências do período.', {
+          size: 17,
+          italics: true,
+          color: C.muted,
+        }),
+      ]),
+    );
     return out;
   }
-  out.push(muted('Pedidos atrasados não entram nesta contagem.'));
-  out.push(tabelaMotoboys(motoboys, comLoja));
+  const top = motoboys.slice(0, TOP_MOTOBOYS);
+  const rest = motoboys.slice(TOP_MOTOBOYS);
+  out.push(
+    painelLista(
+      top.map((m) => ({
+        titulo: comLoja ? `${m.nome} (${m.lojaNome})` : m.nome,
+        detalhe: detalheMotoboy(m),
+        total: m.total,
+      })),
+    ),
+  );
+  const extra = restoMotoboys(rest);
+  if (extra) out.push(extra);
   return out;
+}
+
+type DocBlock = Paragraph | Table;
+
+function montarPainel(opts: {
+  empresa: string;
+  titulo: string;
+  periodo: string;
+  geradoEm: string;
+  ocorrencias: number;
+  atrasos: number | null;
+  resumo: ResumoCategoria[];
+  direita: DocBlock[];
+  banner: string | null;
+  destaques: { row: OcorrenciaAtaRow; lojaNome?: string }[];
+  fotos: FotoMap;
+}): DocBlock[] {
+  const children: DocBlock[] = [
+    eyebrow(opts.empresa),
+    hero({
+      titulo: opts.titulo,
+      periodo: opts.periodo,
+      ocorrencias: opts.ocorrencias,
+      atrasos: opts.atrasos,
+    }),
+    regraHero(),
+    emptyPara(),
+    duasColunas(
+      [sectionLabel('POR CATEGORIA'), painelCategorias(opts.resumo)],
+      opts.direita,
+    ),
+  ];
+  if (opts.banner) {
+    children.push(para([run('', { size: 20 })], { after: 240 }));
+    children.push(banner(opts.banner));
+  }
+  if (opts.destaques.length > 0) {
+    children.push(para([run('', { size: 20 })], { after: 280 }));
+    children.push(sectionLabel('OCORRÊNCIAS EM DESTAQUE'));
+    children.push(...gradeDestaques(opts.destaques, opts.fotos));
+  }
+  return children;
 }
 
 export async function generateOcorrenciaAtaLojaDocx(opts: {
@@ -429,7 +734,7 @@ export async function generateOcorrenciaAtaLojaDocx(opts: {
     year: 'numeric',
     timeZone: 'America/Sao_Paulo',
   }).format(new Date());
-
+  const empresa = nomeEmpresaAta({ name: opts.empresa });
   const resumo = buildLojaResumo({
     loja: opts.loja,
     items: opts.items,
@@ -438,78 +743,39 @@ export async function generateOcorrenciaAtaLojaDocx(opts: {
     prevAtraso: opts.prevAtraso,
     temDadosAnterior: opts.temDadosAnterior,
   });
-
   const destaques = destaquesDaAta(opts.items);
   const fotos = await carregarFotos(destaques, opts.fotoBytesByPath);
+  const mesNome = periodo.split('/')[0]!.toLocaleLowerCase('pt-BR');
 
-  const children: (Paragraph | Table)[] = [
-    ...cabecalho({
-      empresa: opts.empresa,
-      escopoLabel: `Loja: ${resumo.lojaNome}`,
-      periodo,
-      geradoEm,
+  const children = montarPainel({
+    empresa,
+    titulo: resumo.lojaNome,
+    periodo,
+    geradoEm,
+    ocorrencias: resumo.ocorrencias,
+    atrasos: resumo.atrasos,
+    resumo: resumo.resumo,
+    direita: painelMotoboys(resumo.motoboys, false),
+    banner: bannerText({
+      mesNome,
+      atrasosNull: resumo.atrasos === null,
+      temDadosAnterior: opts.temDadosAnterior,
+      lojasSemAtraso: [],
     }),
-    heading('1. Resumo por categoria'),
-    tabelaResumo(resumo.resumo),
-    divider(),
-    heading('2. Total de ocorrências'),
-    muted(totalOcorrenciasTexto(resumo.ocorrencias, resumo.atrasos)),
-    ...secaoMotoboys(resumo.motoboys, '3. Motoboys citados', false),
-    ...blocosDestaque(destaques, fotos, '4. Ocorrências em destaque'),
-  ];
+    destaques: destaques.map((row) => ({ row })),
+    fotos,
+  });
 
   const doc = new Document({
-    sections: [{ properties: pageProperties(false), children }],
-  });
-  return Buffer.from(await Packer.toBuffer(doc));
-}
-
-function tabelaMatrizRede(
-  rede: ReturnType<typeof buildRedeResumo>,
-  widths: number[],
-) {
-  const headerCells = [
-    cell('Loja', widths[0]!, { bold: true }),
-    ...TODAS_CATEGORIAS.map((c, i) =>
-      cell(categoriaLabel(c), widths[i + 1]!, { bold: true }),
-    ),
-    cell('Total', widths[widths.length - 1]!, { bold: true }),
-  ];
-  const bodyRows = rede.matriz.lojas.map(
-    (l) =>
-      new TableRow({
-        children: [
-          cell(l.lojaNome, widths[0]!),
-          ...TODAS_CATEGORIAS.map((c, i) =>
-            cell(
-              c === 'PEDIDO_ATRASADO' && l.valores[c] === null
-                ? ATRASO_NAO_INFORMADO
-                : String(l.valores[c] ?? 0),
-              widths[i + 1]!,
-            ),
-          ),
-          cell(String(l.total), widths[widths.length - 1]!, { bold: true }),
-        ],
-      }),
-  );
-  const footer = new TableRow({
-    children: [
-      cell('Total', widths[0]!, { bold: true }),
-      ...TODAS_CATEGORIAS.map((c, i) =>
-        cell(
-          rede.matriz.totaisColuna[c] === null
-            ? ATRASO_NAO_INFORMADO
-            : String(rede.matriz.totaisColuna[c] ?? 0),
-          widths[i + 1]!,
-          { bold: true },
-        ),
-      ),
-      cell(String(rede.matriz.totalGeral), widths[widths.length - 1]!, {
-        bold: true,
-      }),
+    sections: [
+      {
+        properties: pageProperties(),
+        footers: { default: rodape(empresa, geradoEm) },
+        children,
+      },
     ],
   });
-  return ataTable(widths, [new TableRow({ children: headerCells }), ...bodyRows, footer]);
+  return Buffer.from(await Packer.toBuffer(doc));
 }
 
 export async function generateOcorrenciaAtaRedeDocx(opts: {
@@ -531,69 +797,62 @@ export async function generateOcorrenciaAtaRedeDocx(opts: {
     year: 'numeric',
     timeZone: 'America/Sao_Paulo',
   }).format(new Date());
-
+  const empresa = nomeEmpresaAta({ name: opts.empresa });
   const rede = buildRedeResumo(opts);
-  const destaques = rede.destaquesPorLoja.flatMap((g) => g.items);
-  const fotos = await carregarFotos(destaques, opts.fotoBytesByPath);
+  const destaques = rede.destaquesPorLoja.flatMap((g) =>
+    g.items.map((row) => ({ row, lojaNome: g.lojaNome })),
+  );
+  const fotos = await carregarFotos(
+    rede.destaquesPorLoja.flatMap((g) => g.items),
+    opts.fotoBytesByPath,
+  );
+  const mesNome = periodo.split('/')[0]!.toLocaleLowerCase('pt-BR');
 
-  const colCount = 1 + TODAS_CATEGORIAS.length + 1;
-  const landscape = matrizUsaPaisagem(colCount);
-  const contentW = landscape
-    ? ATA_CONTENT_LANDSCAPE_DXA
-    : ATA_CONTENT_PORTRAIT_DXA;
-  const matrizWidths = matrizLojaCategoriaWidths(colCount, contentW);
+  const porLoja: DocBlock[] = [
+    sectionLabel('POR LOJA'),
+    painelLista(
+      rede.rankingLojas.map((r) => ({
+        titulo: r.lojaNome,
+        detalhe:
+          r.atrasos === null
+            ? `${r.ocorrencias} ocorrências · atrasos ${ATRASO_NAO_INFORMADO}`
+            : `${r.ocorrencias} ocorrências · ${r.atrasos} atrasos`,
+        total: r.total,
+      })),
+    ),
+  ];
 
-  const before: (Paragraph | Table)[] = [
-    ...cabecalho({
-      empresa: opts.empresa,
-      escopoLabel: 'Rede',
-      periodo,
-      geradoEm,
+  const children = montarPainel({
+    empresa,
+    titulo: 'Rede',
+    periodo,
+    geradoEm,
+    ocorrencias: opts.items.length,
+    atrasos: rede.matriz.totaisColuna.PEDIDO_ATRASADO ?? null,
+    resumo: rede.resumo,
+    direita: porLoja,
+    banner: bannerText({
+      mesNome,
+      atrasosNull: false,
+      temDadosAnterior: opts.temDadosAnterior,
+      lojasSemAtraso: rede.lojasSemAtraso,
     }),
-    heading('1. Resumo consolidado por categoria'),
-    tabelaResumo(rede.resumo),
-  ];
+    destaques,
+    fotos,
+  });
 
-  const matrixBlocks: (Paragraph | Table)[] = [
-    heading('2. Loja × categoria'),
-    tabelaMatrizRede(rede, matrizWidths),
-  ];
+  children.push(para([run('', { size: 20 })], { after: 240 }));
+  children.push(...painelMotoboys(rede.motoboys, true));
 
-  const after: (Paragraph | Table)[] = [
-    divider(),
-    heading('3. Total por loja'),
-    ...rede.rankingLojas.map((r) => {
-      const atrasosTxt =
-        r.atrasos === null ? ATRASO_NAO_INFORMADO : String(r.atrasos);
-      return bullet(
-        `${r.lojaNome}: ${r.total} (ocorrências ${r.ocorrencias} + atrasos ${atrasosTxt})`,
-      );
-    }),
-    ...secaoMotoboys(rede.motoboys, '4. Motoboys citados na rede', true),
-  ];
-
-  if (rede.destaquesPorLoja.length > 0) {
-    after.push(divider(), heading('5. Ocorrências em destaque'));
-    for (const grupo of rede.destaquesPorLoja) {
-      after.push(subheading(grupo.lojaNome));
-      after.push(...blocosDestaque(grupo.items, fotos));
-    }
-  }
-
-  const sections = landscape
-    ? [
-        { properties: pageProperties(false), children: [...before, divider()] },
-        { properties: pageProperties(true), children: matrixBlocks },
-        { properties: pageProperties(false), children: after },
-      ]
-    : [
-        {
-          properties: pageProperties(false),
-          children: [...before, divider(), ...matrixBlocks, ...after],
-        },
-      ];
-
-  const doc = new Document({ sections });
+  const doc = new Document({
+    sections: [
+      {
+        properties: pageProperties(),
+        footers: { default: rodape(empresa, geradoEm) },
+        children,
+      },
+    ],
+  });
   return Buffer.from(await Packer.toBuffer(doc));
 }
 

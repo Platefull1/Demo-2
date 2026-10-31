@@ -2,16 +2,11 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { inflateRawSync } from 'node:zlib';
 import {
-  ATA_CONTENT_LANDSCAPE_DXA,
   ATA_CONTENT_PORTRAIT_DXA,
   ATA_MIN_GRID_COL_DXA,
-  ATA_RESUMO_COL_WIDTHS,
   generateOcorrenciaAtaLojaDocx,
   generateOcorrenciaAtaRedeDocx,
-  matrizLojaCategoriaWidths,
-  matrizUsaPaisagem,
 } from './ocorrencias-ata-docx';
-import { TODAS_CATEGORIAS } from './ocorrencias-categorias';
 import type { OcorrenciaAtaRow } from './ocorrencias-ata-data';
 
 const PNG_1X1 = Buffer.from(
@@ -98,21 +93,11 @@ const lojaBase = {
 };
 
 describe('larguras da ata de ocorrências', () => {
-  it('resumo 5466/2500/2500 soma 10466; matriz paisagem quando o resto não cabe', () => {
-    assert.deepEqual([...ATA_RESUMO_COL_WIDTHS], [5466, 2500, 2500]);
-    assert.equal(
-      ATA_RESUMO_COL_WIDTHS.reduce((a, b) => a + b, 0),
-      ATA_CONTENT_PORTRAIT_DXA,
-    );
-    const colCount = 1 + TODAS_CATEGORIAS.length + 1;
-    assert.equal(matrizUsaPaisagem(colCount), true);
-    const landscape = matrizLojaCategoriaWidths(colCount, ATA_CONTENT_LANDSCAPE_DXA);
-    assert.equal(landscape.reduce((a, b) => a + b, 0), ATA_CONTENT_LANDSCAPE_DXA);
-    assert.ok(landscape.every((w) => w >= ATA_MIN_GRID_COL_DXA));
-    assert.ok(landscape[0]! > landscape[1]!);
+  it('largura útil do painel compacto é 9638 DXA', () => {
+    assert.equal(ATA_CONTENT_PORTRAIT_DXA, 9638);
   });
 
-  it('falha se alguma tabela sair com gridCol menor que 500 DXA', async () => {
+  it('falha se alguma tabela sair com gridCol menor que 80 DXA (bug do w=100)', async () => {
     const lojaDoc = await generateOcorrenciaAtaLojaDocx({
       ...lojaBase,
       empresa: 'Calenzano Pizzarias',
@@ -157,7 +142,7 @@ describe('larguras da ata de ocorrências', () => {
       assert.deepEqual(
         estreitas,
         [],
-        `${label}: gridCol < 500 DXA: ${widths.join(', ')}`,
+        `${label}: gridCol < ${ATA_MIN_GRID_COL_DXA} DXA: ${widths.join(', ')}`,
       );
       assert.equal(
         xml.includes('w:type="pct"') || xml.includes("w:type='pct'"),
@@ -181,7 +166,7 @@ describe('conteúdo da ata de ocorrências', () => {
       items: [row()],
       atraso: 0,
     });
-    assert.match(documentXml(comNome), /Calenzano Pizzarias/);
+    assert.match(documentXml(comNome), /CALENZANO PIZZARIAS/);
 
     const soEmail = await generateOcorrenciaAtaLojaDocx({
       ...lojaBase,
@@ -204,17 +189,17 @@ describe('conteúdo da ata de ocorrências', () => {
     assert.equal(xmlVazio.includes('>Empresa<'), false);
   });
 
-  it('total de ocorrências com e sem atrasos; singular/plural', async () => {
+  it('hero e banner: singular/plural e atrasos', async () => {
     const comAtraso = await generateOcorrenciaAtaLojaDocx({
       ...lojaBase,
       empresa: 'Calenzano Pizzarias',
       items: Array.from({ length: 25 }, (_, i) => row({ id: String(i) })),
       atraso: 6,
     });
-    assert.match(
-      documentXml(comAtraso),
-      /Total: 31 — 25 ocorrências registradas \+ 6 pedidos atrasados\./,
-    );
+    const xmlAtraso = documentXml(comAtraso);
+    assert.match(xmlAtraso, />25</);
+    assert.match(xmlAtraso, /ocorrências registradas/);
+    assert.match(xmlAtraso, /\+ 6 pedidos atrasados/);
 
     const semAtraso = await generateOcorrenciaAtaLojaDocx({
       ...lojaBase,
@@ -222,13 +207,12 @@ describe('conteúdo da ata de ocorrências', () => {
       items: [row()],
       atraso: null,
     });
-    assert.match(
-      documentXml(semAtraso),
-      /Total: 1 ocorrência registrada\. Pedidos atrasados: não informado\./,
-    );
+    const xmlSem = documentXml(semAtraso);
+    assert.match(xmlSem, /ocorrência registrada/);
+    assert.match(xmlSem, /pedidos atrasados de outubro ainda não foi informado/);
   });
 
-  it('motoboys viram tabela com Nome Sobrenome, ordenada pelo total', async () => {
+  it('motoboys no painel com Nome Sobrenome, ordenados pelo total', async () => {
     const buf = await generateOcorrenciaAtaLojaDocx({
       ...lojaBase,
       empresa: 'Calenzano Pizzarias',
@@ -240,8 +224,7 @@ describe('conteúdo da ata de ocorrências', () => {
       atraso: 0,
     });
     const xml = documentXml(buf);
-    assert.match(xml, /Motoboy/);
-    assert.match(xml, /Detalhe por categoria/);
+    assert.match(xml, /MOTOBOYS MAIS CITADOS/);
     assert.match(xml, /João da Silva/);
     assert.match(xml, /Maria Santos/);
     assert.equal(xml.includes('JOÃO DA SILVA'), false);
@@ -267,7 +250,7 @@ describe('conteúdo da ata de ocorrências', () => {
       fotoBytesByPath: new Map([['fotos/dest.jpg', PNG_1X1]]),
     });
     const xmlDest = documentXml(comDestaque);
-    assert.match(xmlDest, /Ocorrências em destaque/);
+    assert.match(xmlDest, /OCORRÊNCIAS EM DESTAQUE/);
     assert.match(xmlDest, /borda queimada na foto/);
     assert.match(xmlDest, /<w:drawing[\s>]/);
     assert.equal(xmlDest.includes('sem destaque'), false);
@@ -286,11 +269,11 @@ describe('conteúdo da ata de ocorrências', () => {
       fotoBytesByPath: new Map([['fotos/dest.jpg', PNG_1X1]]),
     });
     const xmlSem = documentXml(semDestaque);
-    assert.equal(xmlSem.includes('Ocorrências em destaque'), false);
+    assert.equal(xmlSem.includes('OCORRÊNCIAS EM DESTAQUE'), false);
     assert.equal(/<w:drawing[\s>]/.test(xmlSem), false);
   });
 
-  it('ata da rede usa paisagem só na seção loja × categoria', async () => {
+  it('ata da rede usa o painel compacto (categorias + lojas + motoboys)', async () => {
     const buf = await generateOcorrenciaAtaRedeDocx({
       empresa: 'Calenzano Pizzarias',
       ano: 2026,
@@ -309,8 +292,11 @@ describe('conteúdo da ata de ocorrências', () => {
       temDadosAnterior: false,
     });
     const xml = documentXml(buf);
-    assert.match(xml, /w:orient="landscape"/);
-    assert.match(xml, /Ocorrências em destaque/);
+    assert.match(xml, /POR CATEGORIA/);
+    assert.match(xml, /POR LOJA/);
+    assert.match(xml, /MOTOBOYS MAIS CITADOS/);
+    assert.match(xml, /OCORRÊNCIAS EM DESTAQUE/);
     assert.match(xml, /destaque rede/);
+    assert.match(xml, /22C55E/);
   });
 });
