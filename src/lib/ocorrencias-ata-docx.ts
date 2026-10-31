@@ -17,7 +17,7 @@ import {
   TableLayoutType,
   TableRow,
   TextRun,
-  VerticalAlign,
+  VerticalAlignTable,
   WidthType,
 } from 'docx';
 import sharp from 'sharp';
@@ -157,7 +157,7 @@ function tc(
   opts?: {
     borders?: ReturnType<typeof hairBottom>;
     fill?: string;
-    align?: (typeof VerticalAlign)[keyof typeof VerticalAlign];
+    align?: (typeof VerticalAlignTable)[keyof typeof VerticalAlignTable];
     pad?: { top?: number; bottom?: number; left?: number; right?: number };
   },
 ) {
@@ -166,7 +166,7 @@ function tc(
     width: { size: width, type: WidthType.DXA },
     borders: opts?.borders ?? noBorders(),
     shading: opts?.fill ? { fill: opts.fill, type: 'clear' as const } : undefined,
-    verticalAlign: opts?.align ?? VerticalAlign.CENTER,
+    verticalAlign: opts?.align ?? VerticalAlignTable.CENTER,
     margins: {
       top: pad.top ?? 80,
       bottom: pad.bottom ?? 80,
@@ -313,12 +313,12 @@ function hero(opts: {
             ]),
           ],
           {
-            align: VerticalAlign.BOTTOM,
+            align: VerticalAlignTable.BOTTOM,
             pad: { top: 80, bottom: 80, left: 0, right: 120 },
           },
         ),
         tc(HERO_RIGHT, right, {
-          align: VerticalAlign.BOTTOM,
+          align: VerticalAlignTable.BOTTOM,
           pad: { top: 80, bottom: 80, left: 120, right: 0 },
         }),
       ],
@@ -482,14 +482,14 @@ function duasColunas(left: (Paragraph | Table)[], right: (Paragraph | Table)[]) 
     new TableRow({
       children: [
         tc(COL, [...left, emptyPara()], {
-          align: VerticalAlign.TOP,
+          align: VerticalAlignTable.TOP,
           pad: { top: 80, bottom: 80, left: 0, right: 0 },
         }),
         tc(GUTTER, [emptyPara()], {
           pad: { top: 80, bottom: 80, left: 120, right: 120 },
         }),
         tc(COL, [...right, emptyPara()], {
-          align: VerticalAlign.TOP,
+          align: VerticalAlignTable.TOP,
           pad: { top: 80, bottom: 80, left: 0, right: 0 },
         }),
       ],
@@ -621,7 +621,7 @@ function gradeDestaques(
           children: [
             tc(CARD, left, {
               fill: C.card,
-              align: VerticalAlign.TOP,
+              align: VerticalAlignTable.TOP,
               pad: { top: 180, bottom: 200, left: 180, right: 180 },
             }),
             tc(CARD_GAP, [emptyPara()], {
@@ -629,7 +629,7 @@ function gradeDestaques(
             }),
             tc(CARD, right, {
               fill: b ? C.card : undefined,
-              align: VerticalAlign.TOP,
+              align: VerticalAlignTable.TOP,
               pad: { top: 180, bottom: 200, left: 180, right: 180 },
             }),
           ],
