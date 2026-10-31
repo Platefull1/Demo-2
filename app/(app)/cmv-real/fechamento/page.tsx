@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { MonthPicker } from '@/components/ui/month-picker';
 import {
   Select,
   SelectContent,
@@ -487,11 +488,9 @@ export default function CmvRealFechamentoPage() {
                 ))}
               </SelectContent>
             </Select>
-            <Input
-              type="month"
+            <MonthPicker
               value={competencia}
-              onChange={(e) => setCompetencia(e.target.value)}
-              className="h-8 w-[150px] text-sm"
+              onChange={setCompetencia}
             />
             <Badge
               variant="secondary"

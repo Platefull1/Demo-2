@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   ArrowLeft, Bell, AlertTriangle, Calendar, Gift, History,
   ChevronDown, ChevronUp, Clock, CheckCircle, RefreshCw,
@@ -359,11 +360,9 @@ export default function AlertasPage() {
                     <div className="flex items-center gap-3 bg-[#0a0a0a] rounded-xl p-3 flex-wrap">
                       <div className="flex items-center gap-2 flex-1 min-w-[200px]">
                         <label className="text-xs text-gray-400 whitespace-nowrap">Data início:</label>
-                        <input
-                          type="date"
+                        <DatePicker
                           value={dataGozo}
-                          onChange={(e) => setDataGozo(e.target.value)}
-                          className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-amber-500/50"
+                          onChange={(v) => setDataGozo(v ?? '')}
                         />
                       </div>
                       <div className="flex gap-2">

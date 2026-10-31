@@ -18,6 +18,8 @@ type DatePickerProps = {
   placeholder?: string
   disabled?: boolean
   captionLayout?: React.ComponentProps<typeof Calendar>["captionLayout"]
+  min?: string
+  max?: string
   id?: string
   "aria-label"?: string
 }
@@ -28,6 +30,8 @@ export function DatePicker({
   placeholder = "Selecionar data",
   disabled,
   captionLayout = "dropdown",
+  min,
+  max,
   id,
   "aria-label": ariaLabel,
 }: DatePickerProps) {
@@ -63,6 +67,10 @@ export function DatePicker({
           }}
           captionLayout={captionLayout}
           defaultMonth={selected}
+          disabled={[
+            ...(min ? [{ before: parseYmd(min) }] : []),
+            ...(max ? [{ after: parseYmd(max) }] : []),
+          ]}
         />
         <div className="flex justify-end gap-2 border-t border-border p-2">
           <Button

@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import ComposicaoSalarialForm, { type ComposicaoSalarialValues } from './ComposicaoSalarialForm';
 import { formatarCPF, limparCPF, validarCPF, calcularIdade, validarDataNascimento } from '@/lib/validacoes';
+import { DatePicker } from '@/components/ui/date-picker';
 
 export function formatCPFInput(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
@@ -130,11 +131,10 @@ export function DadosPessoaisFields({
       </div>
       <div>
         <label className={labelCls}>Data de nascimento</label>
-        <input
-          type="date"
+        <DatePicker
           value={values.dataNascimento}
-          onChange={(e) => onChange({ dataNascimento: e.target.value })}
-          className={`${inputCls} ${nascError ? 'border-red-500/50' : ''}`}
+          onChange={(v) => onChange({ dataNascimento: v ?? '' })}
+          captionLayout="dropdown"
         />
         {idade !== null && !nascError && (
           <p className="text-xs text-gray-500 mt-1">{idade} anos</p>
@@ -160,11 +160,10 @@ export function DadosPessoaisFields({
       </div>
       <div>
         <label className={labelCls}>Data de admissão</label>
-        <input
-          type="date"
+        <DatePicker
           value={values.dataAdmissao}
-          onChange={(e) => onChange({ dataAdmissao: e.target.value })}
-          className={`${inputCls} ${errors.dataAdmissao ? 'border-red-500/50' : ''}`}
+          onChange={(v) => onChange({ dataAdmissao: v ?? '' })}
+          captionLayout="dropdown"
         />
         {errors.dataAdmissao && (
           <p className="text-xs text-red-400 mt-1">{errors.dataAdmissao}</p>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import {
   Sheet,
@@ -355,12 +356,12 @@ export function TransferenciaForm({
           {/* Data */}
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Data da transferência</Label>
-            <Input
-              type="date"
+            <DatePicker
               value={data}
               max={hoje()}
-              onChange={(e) => setData(e.target.value)}
-              className="h-10"
+              onChange={(v) => {
+                if (v) setData(v);
+              }}
             />
           </div>
 

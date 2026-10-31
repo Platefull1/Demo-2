@@ -55,6 +55,18 @@ const PRESETS = [
   { id: "passado", label: "Mês passado" },
 ] as const
 
+function useRangeMonthCount() {
+  const [months, setMonths] = React.useState(2)
+  React.useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)")
+    const apply = () => setMonths(mq.matches ? 2 : 1)
+    apply()
+    mq.addEventListener("change", apply)
+    return () => mq.removeEventListener("change", apply)
+  }, [])
+  return months
+}
+
 export function DateRangePicker({
   value,
   onChange,
@@ -66,6 +78,7 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false)
   const [draft, setDraft] = React.useState<DateRange | undefined>()
+  const numberOfMonths = useRangeMonthCount()
 
   React.useEffect(() => {
     if (!open) return
@@ -129,7 +142,7 @@ export function DateRangePicker({
           <div>
             <Calendar
               mode="range"
-              numberOfMonths={2}
+              numberOfMonths={numberOfMonths}
               selected={draft}
               onSelect={setDraft}
               defaultMonth={draft?.from ?? (value ? parseYmd(value.from) : undefined)}

@@ -28,6 +28,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 
 interface StoreData {
   id: string;
@@ -790,12 +791,11 @@ export default function NewEvaluationPage() {
                 <label className="block text-sm font-semibold text-gray-300 mb-2">
                   Data da Avaliação *
                 </label>
-                <input
-                  type="date"
-                  required
+                <DatePicker
                   value={evaluationDate}
-                  onChange={(e) => setEvaluationDate(e.target.value)}
-                  className="w-full px-4 py-3 bg-[#0f0f10] border border-[#374151] rounded-xl text-white focus:ring-2 focus:ring-[#001F05] focus:border-transparent outline-none"
+                  onChange={(v) => {
+                    if (v) setEvaluationDate(v);
+                  }}
                 />
               </div>
 

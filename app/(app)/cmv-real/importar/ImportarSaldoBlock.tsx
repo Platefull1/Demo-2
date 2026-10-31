@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MonthPicker } from '@/components/ui/month-picker';
 import {
   Select,
   SelectContent,
@@ -344,11 +345,9 @@ export function ImportarSaldoBlock() {
           <label className="text-xs text-muted-foreground">
             Competência do saldo
           </label>
-          <Input
-            type="month"
+          <MonthPicker
             value={competencia}
-            onChange={(e) => setCompetencia(e.target.value)}
-            className="h-9"
+            onChange={setCompetencia}
           />
         </div>
       </div>

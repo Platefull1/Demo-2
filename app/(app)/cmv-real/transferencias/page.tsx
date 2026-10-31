@@ -8,6 +8,7 @@ import { DataTable } from '@/components/layout/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { MonthPicker } from '@/components/ui/month-picker';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -326,11 +327,9 @@ export default function CmvRealTransferenciasPage() {
               </option>
             ))}
           </select>
-          <Input
-            type="month"
+          <MonthPicker
             value={competencia}
-            onChange={(e) => setCompetencia(e.target.value)}
-            className="h-9 w-[160px]"
+            onChange={setCompetencia}
           />
         </div>
         <Button

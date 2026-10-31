@@ -22,7 +22,8 @@ import {
   AlertCircle,
   Layers,
 } from 'lucide-react';
-import DateTimePicker, { DatePicker } from '@/components/ui/date-time-picker';
+import DateTimePicker from '@/components/ui/date-time-picker';
+import { DatePicker } from '@/components/ui/date-picker';
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -913,11 +914,11 @@ export default function AtribuicoesPage() {
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <input
-              type="date"
+            <DatePicker
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="bg-transparent text-sm text-white focus:outline-none w-36 text-center"
+              onChange={(v) => {
+                if (v) setSelectedDate(v);
+              }}
             />
             <button
               onClick={nextDay}
@@ -1595,10 +1596,12 @@ export default function AtribuicoesPage() {
                                 </span>
                               </label>
                               <DatePicker
-                                date={slot.dataFim}
-                                minDate={new Date(`${addDays(slot.data, 1)}T00:00:00`)}
-                                maxDate={new Date(`${addDays(slot.data, 90)}T00:00:00`)}
-                                onDateChange={(d) => updateSlot(idx, 'dataFim', d)}
+                                value={slot.dataFim}
+                                min={addDays(slot.data, 1)}
+                                max={addDays(slot.data, 90)}
+                                onChange={(d) => {
+                                  if (d) updateSlot(idx, 'dataFim', d);
+                                }}
                                 placeholder="Escolher data final"
                               />
                             </div>
@@ -1791,11 +1794,9 @@ export default function AtribuicoesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Nova data</label>
-                <input
-                  type="date"
+                <DatePicker
                   value={reagendarData}
-                  onChange={(e) => setReagendarData(e.target.value)}
-                  className={inputCls}
+                  onChange={(v) => setReagendarData(v ?? '')}
                 />
               </div>
               <div>

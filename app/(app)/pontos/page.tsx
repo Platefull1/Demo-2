@@ -11,6 +11,7 @@ import { RhLojaCombobox } from '@/components/rh/RhLojaCombobox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Tooltip,
   TooltipContent,
@@ -1551,11 +1552,11 @@ export default function PontosPage() {
             >
               <ChevronLeft />
             </Button>
-            <Input
-              type="date"
+            <DatePicker
               value={data}
-              onChange={(e) => setData(e.target.value)}
-              className="h-8 w-[148px] text-sm"
+              onChange={(v) => {
+                if (v) setData(v);
+              }}
               aria-label="Data"
             />
             <Button

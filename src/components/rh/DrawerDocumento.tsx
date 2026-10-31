@@ -2,6 +2,7 @@
 
 import { useState, useRef, useCallback } from 'react';
 import { X, Upload, FileText, Loader2, CheckCircle } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const TIPOS_DOCUMENTO = [
   { value: 'contrato_experiencia_45', label: 'Contrato de Experiência (45d)' },
@@ -182,12 +183,7 @@ export default function DrawerDocumento({ funcionarioId, uploadadoPor, onClose, 
               <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
                 Data de Vencimento
               </label>
-              <input
-                type="date"
-                value={dataVencimento}
-                onChange={(e) => setDataVencimento(e.target.value)}
-                className="w-full bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-              />
+              <DatePicker value={dataVencimento} onChange={(v) => setDataVencimento(v ?? '')} />
             </div>
           )}
 

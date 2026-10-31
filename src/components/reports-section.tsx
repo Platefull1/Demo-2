@@ -9,10 +9,10 @@ import {
   CardTitle
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { parseYmd, formatYmd } from "@/lib/date-ymd";
 import {
-  CalendarIcon,
   TrendingUp,
   ShoppingCart,
   DollarSign,
@@ -20,7 +20,6 @@ import {
   RefreshCw
 } from "lucide-react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import {
   LineChart,
   Line,
@@ -544,66 +543,23 @@ export function ReportsSection() {
 
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Seletores de Data */}
-          <div className="flex gap-2">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-400">Data Inicial</label>
-              <input
-                type="date"
-                value={dateStart}
-                max={getToday()}
-                onChange={(e) => {
-                  const newStartDate = e.target.value;
-                  const startDate = new Date(newStartDate);
-                  const endDate = new Date(dateEnd);
-                  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                  
-                  if (daysDiff > 15) {
-                    addToast('Período máximo permitido é de 15 dias', 'error');
-                    // Ajustar data final automaticamente
-                    const maxEndDate = new Date(startDate);
-                    maxEndDate.setDate(maxEndDate.getDate() + 14);
-                    if (maxEndDate <= new Date()) {
-                      setDateEnd(maxEndDate.toISOString().split('T')[0]);
-                    }
-                  }
-                  
-                  if (startDate > endDate) {
-                    addToast('Data inicial deve ser menor ou igual à data final', 'error');
-                    return;
-                  }
-                  
-                  setDateStart(newStartDate);
-                }}
-                className="px-3 py-2 bg-[#141415] border border-[#374151] rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#001F05]"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs text-gray-400">Data Final</label>
-              <input
-                type="date"
-                value={dateEnd}
-                max={getToday()}
-                onChange={(e) => {
-                  const newEndDate = e.target.value;
-                  const startDate = new Date(dateStart);
-                  const endDate = new Date(newEndDate);
-                  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-                  
-                  if (daysDiff > 15) {
-                    addToast('Período máximo permitido é de 15 dias', 'error');
-                    return;
-                  }
-                  
-                  if (endDate < startDate) {
-                    addToast('Data final deve ser maior ou igual à data inicial', 'error');
-                    return;
-                  }
-                  
-                  setDateEnd(newEndDate);
-                }}
-                className="px-3 py-2 bg-[#141415] border border-[#374151] rounded-md text-white text-sm focus:outline-none focus:ring-2 focus:ring-[#001F05]"
-              />
-            </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-400">Período</label>
+            <DateRangePicker
+              value={{ from: dateStart, to: dateEnd }}
+              onChange={(range) => {
+                if (!range) return;
+                const start = parseYmd(range.from);
+                const end = parseYmd(range.to);
+                const daysDiff = Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+                if (daysDiff > 15) {
+                  addToast('Período máximo permitido é de 15 dias', 'error');
+                  return;
+                }
+                setDateStart(range.from);
+                setDateEnd(range.to);
+              }}
+            />
           </div>
 
           {/* Botões de Filtro Rápido */}
@@ -697,28 +653,11 @@ export function ReportsSection() {
             </DialogContent>
           </Dialog>
 
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                className="bg-[#141415] border-[#374151] text-white hover:bg-[#374151]"
-              >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate
-                  ? format(selectedDate, "dd/MM/yyyy", { locale: ptBR })
-                  : "Selecionar data"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#141415] border-[#374151]" align="end">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={handleDateChange}
-                initialFocus
-                className="bg-[#141415] text-white"
-              />
-            </PopoverContent>
-          </Popover>
+          <DatePicker
+            value={selectedDate ? formatYmd(selectedDate) : null}
+            onChange={(ymd) => handleDateChange(ymd ? parseYmd(ymd) : undefined)}
+            placeholder="Selecionar data"
+          />
         </div>
       </div>
 

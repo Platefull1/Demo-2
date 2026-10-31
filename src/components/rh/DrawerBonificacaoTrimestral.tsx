@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 
 export interface BonificacaoTrimestral {
   id: string;
@@ -142,12 +143,7 @@ export default function DrawerBonificacaoTrimestral({
           </div>
           <div>
             <label className={labelCls}>Data de pagamento</label>
-            <input
-              type="date"
-              value={dataPagamento}
-              onChange={(e) => setDataPagamento(e.target.value)}
-              className={inputCls}
-            />
+            <DatePicker value={dataPagamento} onChange={(v) => setDataPagamento(v ?? '')} />
           </div>
           <div>
             <label className={labelCls}>Motivo (opcional)</label>

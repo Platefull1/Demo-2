@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, AlertTriangle, Loader2, CheckCircle } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 
 const TIPOS_OCORRENCIA = [
   { value: 'falta_justificada', label: 'Falta Justificada' },
@@ -114,12 +115,7 @@ export default function DrawerOcorrencia({ funcionarioId, registradoPor, onClose
 
           <div>
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Data da Ocorrência *</label>
-            <input
-              type="date"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              className="w-full bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-            />
+            <DatePicker value={data} onChange={(v) => setData(v ?? '')} />
           </div>
 
           <div>
@@ -176,21 +172,11 @@ export default function DrawerOcorrencia({ funcionarioId, registradoPor, onClose
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Início Afastamento</label>
-                  <input
-                    type="date"
-                    value={dataInicioAfastamento}
-                    onChange={(e) => setDataInicioAfastamento(e.target.value)}
-                    className="w-full bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-                  />
+                  <DatePicker value={dataInicioAfastamento} onChange={(v) => setDataInicioAfastamento(v ?? '')} />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Fim Afastamento</label>
-                  <input
-                    type="date"
-                    value={dataFimAfastamento}
-                    onChange={(e) => setDataFimAfastamento(e.target.value)}
-                    className="w-full bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-                  />
+                  <DatePicker value={dataFimAfastamento} onChange={(v) => setDataFimAfastamento(v ?? '')} />
                 </div>
               </div>
               <div>

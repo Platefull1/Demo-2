@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { X, ArrowRight, Loader2, CheckCircle } from 'lucide-react';
+import { DatePicker } from '@/components/ui/date-picker';
 
 interface Loja { id: string; nome: string }
 
@@ -113,12 +114,7 @@ export default function DrawerTransferencia({
             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
               Data da Transferência *
             </label>
-            <input
-              type="date"
-              value={dataTransferencia}
-              onChange={(e) => setDataTransferencia(e.target.value)}
-              className="w-full bg-[#1c1c1e] border border-[#2a2a2e] rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-amber-500"
-            />
+            <DatePicker value={dataTransferencia} onChange={(v) => setDataTransferencia(v ?? '')} />
           </div>
 
           <div>

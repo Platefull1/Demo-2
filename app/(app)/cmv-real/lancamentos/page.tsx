@@ -6,6 +6,7 @@ import { Loader2, Plus } from 'lucide-react';
 import { DataTable } from '@/components/layout/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Select,
   SelectContent,
@@ -287,11 +288,11 @@ export default function CmvRealLancamentosPage() {
               ))}
             </SelectContent>
           </Select>
-          <Input
-            type="date"
+          <DatePicker
             value={data}
-            onChange={(e) => setData(e.target.value)}
-            className="h-9"
+            onChange={(v) => {
+              if (v) setData(v);
+            }}
           />
           <Select value={produtoId || undefined} onValueChange={setProdutoId}>
             <SelectTrigger className="h-9 w-full text-sm">

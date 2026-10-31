@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { DatePicker } from '@/components/ui/date-picker';
 import { useLoja } from '@/contexts/LojaContext';
 import {
   ArrowLeft, Edit3, Save, X, User, Briefcase, DollarSign, Clock,
@@ -468,8 +469,8 @@ export default function FuncionarioDetailPage() {
                     </div>
                     <div><label className={labelCls}>Telefone</label><input type="text" value={telefone} onChange={e => setTelefone(e.target.value)} className={inputCls} /></div>
                     <div className="sm:col-span-2"><label className={labelCls}>E-mail</label><input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} /></div>
-                    <div><label className={labelCls}>Data de admissão</label><input type="date" value={dataAdmissao} onChange={e => setDataAdmissao(e.target.value)} className={inputCls} /></div>
-                    <div><label className={labelCls}>Data de nascimento</label><input type="date" value={dataNascimento} onChange={e => setDataNascimento(e.target.value)} className={inputCls} /></div>
+                    <div><label className={labelCls}>Data de admissão</label><DatePicker value={dataAdmissao} onChange={(v) => setDataAdmissao(v ?? '')} captionLayout="dropdown" /></div>
+                    <div><label className={labelCls}>Data de nascimento</label><DatePicker value={dataNascimento} onChange={(v) => setDataNascimento(v ?? '')} captionLayout="dropdown" /></div>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -680,11 +681,9 @@ export default function FuncionarioDetailPage() {
                     </div>
                     <div>
                       <label className={labelCls}>Escala vale a partir de</label>
-                      <input
-                        type="date"
+                      <DatePicker
                         value={escalaVigenciaInicio}
-                        onChange={(e) => setEscalaVigenciaInicio(e.target.value)}
-                        className={inputCls}
+                        onChange={(v) => setEscalaVigenciaInicio(v ?? '')}
                       />
                       <p className="text-xs text-gray-500 mt-1.5">
                         Padrão: hoje. Use uma data passada só para correção retroativa (não altera meses já fechados se a vigência anterior cobrir essas datas).
@@ -843,7 +842,7 @@ export default function FuncionarioDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Data de início das férias</label>
-                  <input type="date" value={dataGozoFerias || ''} onChange={e => setDataGozoFerias(e.target.value)} className={inputCls} />
+                  <DatePicker value={dataGozoFerias || ''} onChange={(v) => setDataGozoFerias(v ?? '')} />
                 </div>
                 <div>
                   <label className={labelCls}>Quantos dias de férias?</label>

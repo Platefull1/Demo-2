@@ -7,6 +7,7 @@ import { Logo } from '@/components/logo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useApp } from '@/contexts/app-context';
@@ -579,23 +580,15 @@ export default function IfoodFinanceiroPage() {
               </div>
 
               {periodPreset === 'custom' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={customStart}
-                    max={getToday()}
-                    onChange={(e) => setCustomStart(e.target.value)}
-                    className="h-8 px-2 text-xs bg-[#141415] border border-[#374151] rounded text-white"
-                  />
-                  <span className="text-gray-500 text-xs">até</span>
-                  <input
-                    type="date"
-                    value={customEnd}
-                    max={getToday()}
-                    onChange={(e) => setCustomEnd(e.target.value)}
-                    className="h-8 px-2 text-xs bg-[#141415] border border-[#374151] rounded text-white"
-                  />
-                </div>
+                <DateRangePicker
+                  value={{ from: customStart, to: customEnd }}
+                  onChange={(range) => {
+                    if (!range) return;
+                    setCustomStart(range.from);
+                    setCustomEnd(range.to);
+                  }}
+                  presets={false}
+                />
               )}
 
               <span className="text-xs text-gray-600">

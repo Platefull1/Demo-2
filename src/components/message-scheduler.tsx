@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MessagePresetService, MessagePreset, ScheduledMessage } from "@/lib/message-preset-service";
 import { useNotification } from "@/components/ui/notification";
 import { Plus, Calendar, Clock, Send, X, Edit } from "lucide-react";
+import { DatePicker } from "@/components/ui/date-picker";
 
 export default function MessageScheduler() {
   const [presets, setPresets] = useState<MessagePreset[]>([]);
@@ -190,13 +191,9 @@ export default function MessageScheduler() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="scheduledDate" className="text-white">Data</Label>
-                  <Input
-                    id="scheduledDate"
-                    type="date"
+                  <DatePicker
                     value={formData.scheduledDate}
-                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                    className="bg-[#374151] border-[#6b7280] text-white focus:border-[#001F05]"
-                    required
+                    onChange={(v) => setFormData({ ...formData, scheduledDate: v ?? "" })}
                   />
                 </div>
                 

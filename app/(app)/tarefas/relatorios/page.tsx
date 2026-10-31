@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import {
   ArrowLeft, Download, BarChart3, CheckCircle2, Clock,
   XCircle, AlertTriangle, Loader2, RefreshCw, Search,
@@ -403,21 +404,14 @@ export default function RelatoriosTarefasPage() {
         <div className="bg-[#1c1c1e] border border-[#2a2a2e] rounded-2xl p-5">
           <div className="flex flex-wrap gap-4 items-end">
             <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Início</label>
-              <input
-                type="date"
-                value={inicio}
-                onChange={(e) => setInicio(e.target.value)}
-                className="bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1.5">Fim</label>
-              <input
-                type="date"
-                value={fim}
-                onChange={(e) => setFim(e.target.value)}
-                className="bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-amber-500"
+              <label className="block text-xs text-gray-400 mb-1.5">Período</label>
+              <DateRangePicker
+                value={{ from: inicio, to: fim }}
+                onChange={(range) => {
+                  if (!range) return;
+                  setInicio(range.from);
+                  setFim(range.to);
+                }}
               />
             </div>
             <div>
