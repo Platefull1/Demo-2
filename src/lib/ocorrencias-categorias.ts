@@ -2,6 +2,7 @@
 export const CATEGORIA_CHIP_VALUES = [
   'PEDIDO_REVIRADO',
   'FALTOU_BEBIDA',
+  'FALTOU_ITEM',
   'PEDIDO_ERRADO',
   'PEDIDO_TROCADO',
   'QUALIDADE',
@@ -15,6 +16,7 @@ export const CATEGORIA_LABELS: Record<CategoriaOcorrenciaValor, string> = {
   PEDIDO_ATRASADO: 'Pedido atrasado',
   PEDIDO_REVIRADO: 'Pedido revirado',
   FALTOU_BEBIDA: 'Faltou bebida',
+  FALTOU_ITEM: 'Faltou item',
   PEDIDO_ERRADO: 'Pedido errado',
   PEDIDO_TROCADO: 'Pedido trocado',
   QUALIDADE: 'Problema com qualidade',
