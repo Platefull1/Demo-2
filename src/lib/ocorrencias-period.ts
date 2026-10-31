@@ -48,6 +48,36 @@ export function monthYearLabelSP(ano: number, mes: number): string {
   return `${name.charAt(0).toUpperCase()}${name.slice(1)}/${ano}`;
 }
 
+export function monthNameSP(ano: number, mes: number): string {
+  return monthYearLabelSP(ano, mes).replace(/\/\d+$/, '');
+}
+
+export function formatDateSP(date: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('day')}/${get('month')}/${get('year')}`;
+}
+
+/** Data/hora com ano de 4 dígitos (atas em PDF). */
+export function formatOcorrenciaDateTimeLong(iso: string | Date): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('day')}/${get('month')}/${get('year')} ${get('hour')}:${get('minute')}`;
+}
+
 /** Meses civis SP que intersectam o intervalo [inicio, fim]. */
 export function monthsOverlappingRange(
   inicio: Date,

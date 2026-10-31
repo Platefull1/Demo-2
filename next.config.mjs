@@ -15,6 +15,12 @@ const nextConfig = {
   images: {
     domains: ['platefull.com.br'],
   },
+
+  serverExternalPackages: ['@react-pdf/renderer'],
+  outputFileTracingIncludes: {
+    '/api/ocorrencias/atas': ['./src/assets/fonts/**/*'],
+    '/api/ocorrencias/atas/**': ['./src/assets/fonts/**/*'],
+  },
 };
 
 export default nextConfig;

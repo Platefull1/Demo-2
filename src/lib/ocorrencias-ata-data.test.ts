@@ -2,16 +2,21 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ATRASO_NAO_INFORMADO,
+  avisoPainelAta,
   buildLojaResumo,
   buildRedeResumo,
   countByCategoria,
   destaquesDaAta,
   formatNomePessoa,
+  motoboysPainel,
   nomeEmpresaAta,
+  ordenarCategoriasPainel,
+  quebraCategoriaDetalhe,
   rankMotoboys,
   somaAtrasos,
   totalOcorrenciasTexto,
   variacaoLabel,
+  variacaoPainel,
   type OcorrenciaAtaRow,
 } from './ocorrencias-ata-data';
 import { monthBoundsSP, saoPauloYmd } from './ocorrencias-period';
@@ -163,5 +168,118 @@ describe('contagens da ata', () => {
     assert.equal(ahu?.total, 5);
     assert.equal(portao?.valores.PEDIDO_ATRASADO, null);
     assert.equal(rede.rankingLojas[0]!.lojaId, 'ahu');
+  });
+});
+
+describe('dados do painel da ata (PDF)', () => {
+  it('categorias: atrasado primeiro, demais por quantidade, Outros por último', () => {
+    const resumo = buildLojaResumo({
+      loja: { id: 'ahu', nome: 'CALENZANO AHÚ' },
+      items: [
+        row({ id: '1', categorias: ['QUALIDADE'] }),
+        row({ id: '2', categorias: ['QUALIDADE'] }),
+        row({ id: '3', categorias: ['OUTROS'] }),
+        row({ id: '4', categorias: ['FALTOU_BEBIDA'] }),
+        row({ id: '5', categorias: ['OUTROS'] }),
+        row({ id: '6', categorias: ['OUTROS'] }),
+      ],
+      atraso: 2,
+      prevItems: null,
+      prevAtraso: null,
+      temDadosAnterior: false,
+    });
+    const labels = ordenarCategoriasPainel(resumo.resumo).map((r) => r.categoria);
+    assert.equal(labels[0], 'PEDIDO_ATRASADO');
+    assert.equal(labels[labels.length - 1], 'OUTROS');
+    assert.ok(labels.indexOf('QUALIDADE') < labels.indexOf('FALTOU_BEBIDA'));
+  });
+
+  it('top 6 motoboys e rótulo do resto', () => {
+    const items = Array.from({ length: 8 }, (_, i) =>
+      row({
+        id: String(i),
+        motoboyId: `m${i}`,
+        motoboyNome: `Motoboy ${i}`,
+        categorias: ['QUALIDADE'],
+      }),
+    );
+    items.push(row({ id: 'x1', motoboyId: 'm0', motoboyNome: 'Motoboy 0' }));
+    items.push(row({ id: 'x2', motoboyId: 'm1', motoboyNome: 'Motoboy 1' }));
+    const ranked = rankMotoboys(items);
+    const painel = motoboysPainel(ranked);
+    assert.equal(painel.visiveis.length, 6);
+    assert.equal(painel.restoLabel, '+ 2 motoboys com 1 ocorrência');
+
+    const misturado = motoboysPainel([
+      ...ranked.slice(0, 6),
+      { ...ranked[0]!, motoboyId: 'extra1', total: 3 },
+      { ...ranked[1]!, motoboyId: 'extra2', total: 1 },
+    ]);
+    assert.equal(misturado.restoLabel, '+ 2 motoboys');
+
+    assert.equal(motoboysPainel([]).vazio, true);
+    assert.equal(quebraCategoriaDetalhe({ QUALIDADE: 2, FALTOU_BEBIDA: 1 }), 'Problema com qualidade 2 · Faltou bebida 1');
+  });
+
+  it('aviso correto em cada caso', () => {
+    assert.equal(
+      avisoPainelAta({
+        mesNome: 'Outubro',
+        atrasosNaoInformados: true,
+        temDadosAnterior: true,
+      }),
+      'o número de pedidos atrasados de Outubro ainda não foi informado.',
+    );
+    assert.equal(
+      avisoPainelAta({
+        mesNome: 'Outubro',
+        atrasosNaoInformados: false,
+        temDadosAnterior: false,
+      }),
+      'comparação com o mês anterior disponível a partir do próximo mês.',
+    );
+    assert.equal(
+      avisoPainelAta({
+        mesNome: 'Outubro',
+        atrasosNaoInformados: true,
+        temDadosAnterior: false,
+      }),
+      'o número de pedidos atrasados de Outubro ainda não foi informado e a comparação com o mês anterior estará disponível a partir do próximo mês.',
+    );
+    assert.equal(
+      avisoPainelAta({
+        mesNome: 'Outubro',
+        atrasosNaoInformados: true,
+        temDadosAnterior: true,
+        lojasSemAtraso: ['Portão', 'Uberaba'],
+      }),
+      'o número de pedidos atrasados de Outubro ainda não foi informado em Portão, Uberaba.',
+    );
+    assert.equal(
+      avisoPainelAta({
+        mesNome: 'Outubro',
+        atrasosNaoInformados: false,
+        temDadosAnterior: true,
+      }),
+      null,
+    );
+  });
+
+  it('variação absoluta do painel', () => {
+    assert.deepEqual(variacaoPainel(10, 6, true, 'setembro'), {
+      tom: 'up',
+      delta: 4,
+      cabecalho: '▲ 4 vs. setembro',
+      indicador: '+4',
+    });
+    assert.deepEqual(variacaoPainel(3, 5, true, 'setembro'), {
+      tom: 'down',
+      delta: -2,
+      cabecalho: '▼ 2 vs. setembro',
+      indicador: '−2',
+    });
+    assert.equal(variacaoPainel(4, 4, true, 'setembro').indicador, '=');
+    assert.equal(variacaoPainel(4, 4, true, 'setembro').cabecalho, 'estável');
+    assert.equal(variacaoPainel(4, null, false, 'setembro').tom, 'none');
   });
 });

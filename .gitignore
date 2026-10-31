@@ -32,6 +32,8 @@ tokens/
 # TypeScript build info
 tsconfig.tsbuildinfo
 
+tmp/
+
 scripts/.unidades-vendidas-checkpoint.json
 scripts/.unidades-vendidas-parcial.json
 scripts/.unidades-vendidas-itens-checkpoint.json

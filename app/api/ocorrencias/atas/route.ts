@@ -18,11 +18,16 @@ import {
   generateOcorrenciaAtaRedeDocx,
 } from '@/lib/ocorrencias-ata-docx';
 import {
+  generateOcorrenciaAtaLojaPdf,
+  generateOcorrenciaAtaRedePdf,
+} from '@/lib/ocorrencias-ata-pdf';
+import {
   ataOcorrenciaFilename,
   ataOcorrenciaPath,
   ataOcorrenciaZipPath,
   createAtaOcorrenciaSignedUrl,
   uploadAtaOcorrenciaDocx,
+  uploadAtaOcorrenciaPdf,
   uploadAtaOcorrenciaZip,
 } from '@/lib/ocorrencias-ata-storage';
 import { createZipStore } from '@/lib/ocorrencias-zip';
@@ -156,7 +161,7 @@ export async function POST(request: NextRequest) {
     const atraso = atual.atrasos.find((a) => a.lojaId === loja.id)?.quantidade ?? null;
     const prevItems = anterior.items.filter((i) => i.lojaId === loja.id);
     const prevAtraso = anterior.atrasos.find((a) => a.lojaId === loja.id)?.quantidade ?? null;
-    const bytes = await generateOcorrenciaAtaLojaDocx({
+    const common = {
       empresa,
       ano,
       mes,
@@ -166,11 +171,19 @@ export async function POST(request: NextRequest) {
       prevItems: temAnterior ? prevItems : null,
       prevAtraso: temAnterior ? prevAtraso : null,
       temDadosAnterior: temAnterior,
-    });
+    };
+    const [pdf, docx] = await Promise.all([
+      generateOcorrenciaAtaLojaPdf(common),
+      generateOcorrenciaAtaLojaDocx(common),
+    ]);
     const slug = lojaSlugAta(loja.nome);
-    const filePath = ataOcorrenciaPath(ctx.userId, ano, mes, slug);
-    const uploaded = await uploadAtaOcorrenciaDocx(filePath, bytes);
+    const filePath = ataOcorrenciaPath(ctx.userId, ano, mes, slug, 'pdf');
+    const uploaded = await uploadAtaOcorrenciaPdf(filePath, pdf);
     if ('error' in uploaded) return { error: uploaded.error };
+    await uploadAtaOcorrenciaDocx(
+      ataOcorrenciaPath(ctx.userId, ano, mes, slug, 'docx'),
+      docx,
+    );
     const row = await saveAta({
       companyId: ctx.userId,
       ano,
@@ -182,13 +195,13 @@ export async function POST(request: NextRequest) {
     return {
       id: row.id,
       escopo: loja.id,
-      filename: ataOcorrenciaFilename(slug, ano, mes),
-      bytes,
+      filename: ataOcorrenciaFilename(slug, ano, mes, 'pdf'),
+      bytes: pdf,
     };
   }
 
   if (escopo === ESCOPO_REDE) {
-    const bytes = await generateOcorrenciaAtaRedeDocx({
+    const commonRede = {
       empresa,
       ano,
       mes,
@@ -198,12 +211,20 @@ export async function POST(request: NextRequest) {
       prevItems: temAnterior ? anterior.items : null,
       prevAtrasos: temAnterior ? anterior.atrasos : null,
       temDadosAnterior: temAnterior,
-    });
-    const filePath = ataOcorrenciaPath(ctx.userId, ano, mes, 'rede');
-    const uploaded = await uploadAtaOcorrenciaDocx(filePath, bytes);
+    };
+    const [pdf, docx] = await Promise.all([
+      generateOcorrenciaAtaRedePdf(commonRede),
+      generateOcorrenciaAtaRedeDocx(commonRede),
+    ]);
+    const filePath = ataOcorrenciaPath(ctx.userId, ano, mes, 'rede', 'pdf');
+    const uploaded = await uploadAtaOcorrenciaPdf(filePath, pdf);
     if ('error' in uploaded) {
       return NextResponse.json({ error: uploaded.error }, { status: 502 });
     }
+    await uploadAtaOcorrenciaDocx(
+      ataOcorrenciaPath(ctx.userId, ano, mes, 'rede', 'docx'),
+      docx,
+    );
     const row = await saveAta({
       companyId: ctx.userId,
       ano,
@@ -212,7 +233,14 @@ export async function POST(request: NextRequest) {
       filePath,
       geradaPorId: ctx.stackUserId,
     });
-    return NextResponse.json({ ok: true, ids: [row.id], atas: [{ id: row.id, escopo: ESCOPO_REDE }] });
+    const previewUrl = await createAtaOcorrenciaSignedUrl(filePath, TTL);
+    return NextResponse.json({
+      ok: true,
+      ids: [row.id],
+      atas: [{ id: row.id, escopo: ESCOPO_REDE }],
+      previewUrl,
+      filename: ataOcorrenciaFilename('rede', ano, mes, 'pdf'),
+    });
   }
 
   if (escopo === ESCOPO_TODAS_LOJAS) {
@@ -260,9 +288,17 @@ export async function POST(request: NextRequest) {
   if ('error' in r) {
     return NextResponse.json({ error: r.error }, { status: 502 });
   }
+  const previewUrl = await createAtaOcorrenciaSignedUrl(
+    ataOcorrenciaPath(ctx.userId, ano, mes, lojaSlugAta(
+      atual.lojas.find((l) => l.id === escopo)?.nome ?? 'loja',
+    ), 'pdf'),
+    TTL,
+  );
   return NextResponse.json({
     ok: true,
     ids: [r.id],
     atas: [{ id: r.id, escopo }],
+    previewUrl,
+    filename: r.filename,
   });
 }

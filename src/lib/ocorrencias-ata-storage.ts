@@ -14,14 +14,17 @@ function getSupabase(): SupabaseClient | null {
   return supabaseAdmin;
 }
 
+export type AtaArquivoExt = 'pdf' | 'docx';
+
 export function ataOcorrenciaPath(
   companyId: string,
   ano: number,
   mes: number,
   slug: string,
+  ext: AtaArquivoExt = 'pdf',
 ): string {
   const ym = `${ano}-${String(mes).padStart(2, '0')}`;
-  return `${companyId}/${ym}/${slug}.docx`;
+  return `${companyId}/${ym}/${slug}.${ext}`;
 }
 
 export function ataOcorrenciaZipPath(
@@ -37,14 +40,24 @@ export function ataOcorrenciaFilename(
   slug: string,
   ano: number,
   mes: number,
+  ext: AtaArquivoExt = 'pdf',
 ): string {
   const ym = `${ano}-${String(mes).padStart(2, '0')}`;
-  return `ata-ocorrencias-${slug}-${ym}.docx`;
+  return `ata-ocorrencias-${slug}-${ym}.${ext}`;
 }
 
-export async function uploadAtaOcorrenciaDocx(
+export function ataOcorrenciaExtFromPath(path: string): AtaArquivoExt {
+  return path.toLowerCase().endsWith('.pdf') ? 'pdf' : 'docx';
+}
+
+export function ataOcorrenciaSiblingPath(path: string, ext: AtaArquivoExt): string {
+  return path.replace(/\.(pdf|docx)$/i, `.${ext}`);
+}
+
+export async function uploadAtaOcorrenciaArquivo(
   path: string,
   bytes: Buffer | Uint8Array,
+  contentType: string,
 ): Promise<{ path: string } | { error: string }> {
   const supabase = getSupabase();
   if (!supabase) {
@@ -57,8 +70,7 @@ export async function uploadAtaOcorrenciaDocx(
   const { error } = await supabase.storage
     .from(ATAS_OCORRENCIAS_BUCKET)
     .upload(path, bytes, {
-      contentType:
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      contentType,
       upsert: true,
     });
 
@@ -66,6 +78,24 @@ export async function uploadAtaOcorrenciaDocx(
     return { error: mensagemBucket(error.message) };
   }
   return { path };
+}
+
+export async function uploadAtaOcorrenciaPdf(
+  path: string,
+  bytes: Buffer | Uint8Array,
+): Promise<{ path: string } | { error: string }> {
+  return uploadAtaOcorrenciaArquivo(path, bytes, 'application/pdf');
+}
+
+export async function uploadAtaOcorrenciaDocx(
+  path: string,
+  bytes: Buffer | Uint8Array,
+): Promise<{ path: string } | { error: string }> {
+  return uploadAtaOcorrenciaArquivo(
+    path,
+    bytes,
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  );
 }
 
 export async function uploadAtaOcorrenciaZip(

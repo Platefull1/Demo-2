@@ -55,11 +55,13 @@ function qtdCell(v: number | null) {
   return v === null ? 'não informado' : String(v);
 }
 
-async function baixarPorId(id: string) {
-  const res = await fetch(`/api/ocorrencias/atas/${id}/download`);
+async function baixarPorId(id: string, formato?: 'pdf' | 'docx') {
+  const qs = formato ? `?formato=${formato}` : '';
+  const res = await fetch(`/api/ocorrencias/atas/${id}/download${qs}`);
   const json = await res.json().catch(() => ({}));
   if (!res.ok || !json.url) throw new Error(json.error || 'Falha no download');
   window.location.href = json.url;
+  return json.url as string;
 }
 
 export function OcorrenciasAtasTab({
@@ -84,6 +86,7 @@ export function OcorrenciasAtasTab({
   const [carregando, setCarregando] = useState(true);
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -110,7 +113,7 @@ export function OcorrenciasAtasTab({
     void carregar();
   }, [carregar]);
 
-  async function gerar(escopo: string) {
+  async function gerar(escopo: string, opts?: { baixar?: 'pdf' | 'docx' | 'zip' }) {
     setGerando(true);
     setErro(null);
     try {
@@ -121,10 +124,15 @@ export function OcorrenciasAtasTab({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Não foi possível gerar a ata');
-      if (json.zipUrl) {
+      if (json.zipUrl && opts?.baixar === 'zip') {
         window.location.href = json.zipUrl;
       } else if (json.ids?.[0]) {
-        await baixarPorId(json.ids[0]);
+        if (json.previewUrl) setPreviewUrl(json.previewUrl);
+        if (opts?.baixar === 'docx') {
+          await baixarPorId(json.ids[0], 'docx');
+        } else if (opts?.baixar === 'pdf') {
+          await baixarPorId(json.ids[0], 'pdf');
+        }
       }
       await carregar();
     } catch (e) {
@@ -132,6 +140,20 @@ export function OcorrenciasAtasTab({
     } finally {
       setGerando(false);
     }
+  }
+
+  async function baixarDocxEscopo() {
+    const existente = historico.find((h) => h.escopo === lojaEscopo);
+    if (existente) {
+      setErro(null);
+      try {
+        await baixarPorId(existente.id, 'docx');
+      } catch (e) {
+        setErro(e instanceof Error ? e.message : 'Não foi possível baixar o .docx');
+      }
+      return;
+    }
+    await gerar(lojaEscopo, { baixar: 'docx' });
   }
 
   const resumoFoco: ResumoCat[] =
@@ -204,41 +226,52 @@ export function OcorrenciasAtasTab({
         <p className="text-sm text-warning">{previa.avisoFotos}</p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-3">
         <Button
           type="button"
           size="sm"
           disabled={gerando}
-          onClick={() => void gerar(ESCOPO_REDE)}
+          onClick={() => void gerar(lojaEscopo, { baixar: 'pdf' })}
         >
-          Gerar ata da rede
+          Gerar ata (PDF)
         </Button>
+        <button
+          type="button"
+          disabled={gerando}
+          onClick={() => void baixarDocxEscopo()}
+          className="text-xs text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
+        >
+          Baixar .docx editável
+        </button>
         <Button
           type="button"
           variant="outline"
           size="sm"
           disabled={gerando}
-          onClick={() => void gerar(ESCOPO_TODAS_LOJAS)}
+          onClick={() => void gerar(ESCOPO_TODAS_LOJAS, { baixar: 'zip' })}
         >
-          Gerar ata por loja (zip)
+          Gerar atas por loja (zip)
         </Button>
-        {lojaEscopo !== ESCOPO_REDE && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={gerando}
-            onClick={() => void gerar(lojaEscopo)}
-          >
-            Gerar ata desta loja
-          </Button>
-        )}
       </div>
 
       {erro && (
         <p className="text-sm text-destructive" role="alert">
           {erro}
         </p>
+      )}
+
+      {previewUrl && (
+        <div className="rounded-xl border border-border overflow-hidden bg-card">
+          <div className="px-4 py-3 border-b border-border">
+            <h2 className="text-base font-semibold">Prévia da ata</h2>
+            <p className="text-sm text-muted-foreground">PDF gerado neste mês</p>
+          </div>
+          <iframe
+            title="Prévia da ata em PDF"
+            src={previewUrl}
+            className="w-full h-[640px] bg-background"
+          />
+        </div>
       )}
 
       {carregando ? (
@@ -349,16 +382,25 @@ export function OcorrenciasAtasTab({
                     {formatOcorrenciaDateTime(h.geradaEm)}
                   </TableCell>
                   <TableCell className="text-right py-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8"
-                      onClick={() => void baixarPorId(h.id)}
-                    >
-                      <Download className="size-3.5" />
-                      Baixar
-                    </Button>
+                    <div className="flex items-center justify-end gap-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => void baixarPorId(h.id, 'pdf')}
+                      >
+                        <Download className="size-3.5" />
+                        Baixar ata (PDF)
+                      </Button>
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
+                        onClick={() => void baixarPorId(h.id, 'docx')}
+                      >
+                        .docx
+                      </button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

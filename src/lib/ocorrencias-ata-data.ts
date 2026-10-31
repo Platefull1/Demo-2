@@ -119,6 +119,7 @@ export type ResumoCategoria = {
   quantidade: number | null;
   quantidadeLabel: string;
   variacao: string;
+  anterior: number | null;
 };
 
 export function resumoCategorias(opts: {
@@ -142,6 +143,7 @@ export function resumoCategorias(opts: {
       quantidade,
       quantidadeLabel: quantidadeLabel(quantidade, isAtraso),
       variacao: variacaoLabel(quantidade, anterior),
+      anterior,
     };
   });
 }
@@ -449,4 +451,114 @@ export function totalOcorrenciasTexto(
   }
   const at = rotuloContagem(atrasos, 'pedido atrasado', 'pedidos atrasados');
   return `Total: ${ocorrencias + atrasos} — ${ocorrencias} ${oc} + ${atrasos} ${at}.`;
+}
+
+export const TOP_MOTOBOYS_ATA = 6;
+
+/** Pedido atrasado primeiro; demais por quantidade DESC; Outros sempre por último. */
+export function ordenarCategoriasPainel(resumo: ResumoCategoria[]): ResumoCategoria[] {
+  const atrasado = resumo.filter((r) => r.categoria === 'PEDIDO_ATRASADO');
+  const outros = resumo.filter((r) => r.categoria === 'OUTROS');
+  const meio = resumo
+    .filter((r) => r.categoria !== 'PEDIDO_ATRASADO' && r.categoria !== 'OUTROS')
+    .sort((a, b) => {
+      const qa = a.quantidade ?? 0;
+      const qb = b.quantidade ?? 0;
+      if (qb !== qa) return qb - qa;
+      return a.label.localeCompare(b.label, 'pt-BR');
+    });
+  return [...atrasado, ...meio, ...outros];
+}
+
+export function motoboysPainel(motoboys: MotoboyAtaRow[]): {
+  visiveis: MotoboyAtaRow[];
+  restoLabel: string | null;
+  vazio: boolean;
+} {
+  const visiveis = motoboys.slice(0, TOP_MOTOBOYS_ATA);
+  const resto = motoboys.slice(TOP_MOTOBOYS_ATA);
+  let restoLabel: string | null = null;
+  if (resto.length > 0) {
+    const todosUm = resto.every((m) => m.total === 1);
+    const n = resto.length;
+    const moto = n === 1 ? 'motoboy' : 'motoboys';
+    restoLabel = todosUm ? `+ ${n} ${moto} com 1 ocorrência` : `+ ${n} ${moto}`;
+  }
+  return { visiveis, restoLabel, vazio: motoboys.length === 0 };
+}
+
+export function quebraCategoriaDetalhe(porCategoria: Record<string, number>): string {
+  return Object.entries(porCategoria)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => {
+      if (b[1] !== a[1]) return b[1] - a[1];
+      return categoriaLabel(a[0]).localeCompare(categoriaLabel(b[0]), 'pt-BR');
+    })
+    .map(([c, n]) => `${categoriaLabel(c)} ${n}`)
+    .join(' · ');
+}
+
+export type TomVariacao = 'up' | 'down' | 'flat' | 'none';
+
+export function variacaoPainel(
+  atual: number | null,
+  anterior: number | null,
+  temDadosAnterior: boolean,
+  mesAnteriorNome?: string,
+): {
+  tom: TomVariacao;
+  delta: number | null;
+  cabecalho: string;
+  indicador: string;
+} {
+  if (!temDadosAnterior || anterior === null || atual === null) {
+    return { tom: 'none', delta: null, cabecalho: '', indicador: '' };
+  }
+  const delta = atual - anterior;
+  const mes = mesAnteriorNome ?? 'mês anterior';
+  if (delta === 0) {
+    return { tom: 'flat', delta: 0, cabecalho: 'estável', indicador: '=' };
+  }
+  if (delta > 0) {
+    return {
+      tom: 'up',
+      delta,
+      cabecalho: `▲ ${delta} vs. ${mes}`,
+      indicador: `+${delta}`,
+    };
+  }
+  return {
+    tom: 'down',
+    delta,
+    cabecalho: `▼ ${Math.abs(delta)} vs. ${mes}`,
+    indicador: `−${Math.abs(delta)}`,
+  };
+}
+
+export function avisoPainelAta(opts: {
+  mesNome: string;
+  atrasosNaoInformados: boolean;
+  temDadosAnterior: boolean;
+  lojasSemAtraso?: string[];
+}): string | null {
+  const parts: string[] = [];
+  if (opts.atrasosNaoInformados) {
+    if (opts.lojasSemAtraso?.length) {
+      parts.push(
+        `o número de pedidos atrasados de ${opts.mesNome} ainda não foi informado em ${opts.lojasSemAtraso.join(', ')}.`,
+      );
+    } else {
+      parts.push(
+        `o número de pedidos atrasados de ${opts.mesNome} ainda não foi informado.`,
+      );
+    }
+  }
+  if (!opts.temDadosAnterior) {
+    parts.push(
+      'comparação com o mês anterior disponível a partir do próximo mês.',
+    );
+  }
+  if (parts.length === 0) return null;
+  if (parts.length === 1) return parts[0]!;
+  return `${parts[0]!.replace(/\.$/, '')} e a comparação com o mês anterior estará disponível a partir do próximo mês.`;
 }
