@@ -93,6 +93,8 @@ model User {
   bonificacaoTrimestres  BonificacaoTrimestre[]
   tiposAvaliacao         TipoAvaliacao[]
   ocorrencias            Ocorrencia[]   @relation("OcorrenciaUser")
+  ocorrenciaAtrasosMensais OcorrenciaAtrasoMensal[] @relation("OcorrenciaAtrasoMensalCompany")
+  ocorrenciaAtas         OcorrenciaAta[] @relation("OcorrenciaAtaCompany")
 
   // CMV Real / NF-e
   cmvRealInsumoConfigs   CmvRealInsumoConfig[]
@@ -918,6 +920,7 @@ model RhLoja {
   taxas                 RhTaxaLoja[]
   riders                DeliveryRider[]
   ocorrencias           Ocorrencia[]   @relation("OcorrenciaLoja")
+  ocorrenciaAtrasosMensais OcorrenciaAtrasoMensal[] @relation("OcorrenciaAtrasoMensalLoja")
 
   @@index([userId])
   @@map("rh_lojas")
@@ -2550,11 +2553,52 @@ model Ocorrencia {
   criadoPorUserId     String
   /// Chave de idempotência (retry/duplo clique). Null = envio sem chave.
   idempotencyKey      String?
+  /// Destaque na ata mensal (só quem tem ver_ocorrencias marca).
+  destaqueAta         Boolean          @default(false)
+  destaqueAtaPorId    String?
+  destaqueAtaEm       DateTime?
   createdAt           DateTime         @default(now())
   updatedAt           DateTime         @updatedAt
 
   @@unique([userId, idempotencyKey])
   @@index([userId, createdAt])
   @@index([userId, lojaId, createdAt])
+  @@index([userId, destaqueAta])
   @@map("ocorrencias")
+}
+
+/// Número manual de pedidos atrasados por loja e mês civil (SP).
+model OcorrenciaAtrasoMensal {
+  id              String   @id @default(cuid())
+  companyId       String
+  company         User     @relation("OcorrenciaAtrasoMensalCompany", fields: [companyId], references: [id], onDelete: Cascade)
+  lojaId          String
+  loja            RhLoja   @relation("OcorrenciaAtrasoMensalLoja", fields: [lojaId], references: [id])
+  ano             Int
+  mes             Int
+  quantidade      Int
+  atualizadoPorId String
+  updatedAt       DateTime @updatedAt
+
+  @@unique([companyId, lojaId, ano, mes])
+  @@index([companyId, ano, mes])
+  @@map("ocorrencia_atrasos_mensais")
+}
+
+/// Ata Word gerada (rede ou loja) — bucket privado atas-ocorrencias.
+model OcorrenciaAta {
+  id          String   @id @default(cuid())
+  companyId   String
+  company     User     @relation("OcorrenciaAtaCompany", fields: [companyId], references: [id], onDelete: Cascade)
+  ano         Int
+  mes         Int
+  /// "REDE" ou id da loja
+  escopo      String
+  filePath    String
+  geradaPorId String
+  geradaEm    DateTime @default(now())
+
+  @@unique([companyId, ano, mes, escopo])
+  @@index([companyId, ano, mes])
+  @@map("ocorrencia_atas")
 }

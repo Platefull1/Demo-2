@@ -4,6 +4,8 @@ export const POST_OCORRENCIA_LIMIT = 30;
 export const POST_OCORRENCIA_WINDOW_MS = 60_000;
 export const OPCOES_LIMIT = 60;
 export const OPCOES_WINDOW_MS = 60_000;
+export const ATA_GEN_LIMIT = 10;
+export const ATA_GEN_WINDOW_MS = 60_000;
 
 /** Best-effort in-memory. Em serverless o limite é por instância. */
 export function rateLimitAllow(

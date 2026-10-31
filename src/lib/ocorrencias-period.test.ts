@@ -2,6 +2,10 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   currentMonthBoundsSP,
+  monthBoundsSP,
+  monthYearLabelSP,
+  previousMonth,
+  monthsOverlappingRange,
   spDayStart,
   spDayEnd,
   saoPauloYmd,
@@ -21,6 +25,15 @@ describe('período America/Sao_Paulo', () => {
 
     const nov = currentMonthBoundsSP(new Date('2026-11-01T00:30:00.000-03:00'));
     assert.equal(created >= nov.start, false);
+
+    const oct = monthBoundsSP(2026, 10);
+    assert.equal(created >= oct.start && created <= oct.end, true);
+    assert.equal(monthYearLabelSP(2026, 10), 'Outubro/2026');
+    assert.deepEqual(previousMonth(2026, 1), { ano: 2025, mes: 12 });
+    assert.deepEqual(
+      monthsOverlappingRange(oct.start, oct.end),
+      [{ ano: 2026, mes: 10 }],
+    );
   });
 
   it('virada de dia: 00:00 SP pertence ao dia novo', () => {

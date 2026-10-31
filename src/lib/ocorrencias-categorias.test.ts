@@ -11,11 +11,16 @@ describe('resolverCategorias', () => {
   });
 
   it('chips sem OUTROS e descrição opcional', () => {
-    const ok = resolverCategorias(['PEDIDO_ATRASADO', 'FALTOU_BEBIDA'], '');
+    const ok = resolverCategorias(['PEDIDO_ERRADO', 'FALTOU_BEBIDA'], '');
     assert.deepEqual(ok, {
       ok: true,
-      categorias: ['PEDIDO_ATRASADO', 'FALTOU_BEBIDA'],
+      categorias: ['PEDIDO_ERRADO', 'FALTOU_BEBIDA'],
     });
+  });
+
+  it('rejeita PEDIDO_ATRASADO no registro', () => {
+    const fail = resolverCategorias(['PEDIDO_ATRASADO'], 'descrição longa suficiente');
+    assert.equal(fail.ok, false);
   });
 
   it('rejeita OUTROS misturado com chips', () => {

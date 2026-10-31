@@ -61,18 +61,25 @@ describe('ocorrenciaBodySchema', () => {
 
   it('chips tornam descrição opcional; OUTROS misturado falha', () => {
     const ok = ocorrenciaBodySchema.safeParse(
-      base({ categorias: ['PEDIDO_ATRASADO'], descricao: '' }),
+      base({ categorias: ['PEDIDO_ERRADO'], descricao: '' }),
     );
     assert.equal(ok.success, true);
 
     const fail = ocorrenciaBodySchema.safeParse(
-      base({ categorias: ['PEDIDO_ATRASADO', 'OUTROS'], descricao: 'ok demais' }),
+      base({ categorias: ['PEDIDO_ERRADO', 'OUTROS'], descricao: 'ok demais' }),
     );
     assert.equal(fail.success, false);
   });
 
   it('descrição só espaços conta como vazia', () => {
     const r = ocorrenciaBodySchema.safeParse(base({ descricao: '          ' }));
+    assert.equal(r.success, false);
+  });
+
+  it('rejeita PEDIDO_ATRASADO no POST', () => {
+    const r = ocorrenciaBodySchema.safeParse(
+      base({ categorias: ['PEDIDO_ATRASADO'], descricao: 'atrasou bastante' }),
+    );
     assert.equal(r.success, false);
   });
 

@@ -63,6 +63,13 @@ describe('matriz de permissões — APIs ocorrências', () => {
     assert.equal(apiAccess(p, 'GET', '/api/ocorrencias'), 403);
     assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/abc'), 403);
     assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/abc/foto'), 403);
+    assert.equal(apiAccess(p, 'PATCH', '/api/ocorrencias/abc/destaque'), 403);
+    assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/atrasos'), 403);
+    assert.equal(apiAccess(p, 'PUT', '/api/ocorrencias/atrasos'), 403);
+    assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/atas'), 403);
+    assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/atas/previa'), 403);
+    assert.equal(apiAccess(p, 'POST', '/api/ocorrencias/atas'), 403);
+    assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/atas/xyz/download'), 403);
     assert.equal(apiAccess(p, 'GET', '/api/rh/funcionarios'), 403);
     assert.equal(apiAccess(p, 'GET', '/api/rh/motoboys'), 403);
   });
@@ -73,6 +80,11 @@ describe('matriz de permissões — APIs ocorrências', () => {
     assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/abc'), 200);
     assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/abc/foto'), 200);
     assert.equal(apiAccess(p, 'POST', '/api/ocorrencias'), 403);
+    assert.equal(apiAccess(p, 'PATCH', '/api/ocorrencias/abc/destaque'), 200);
+    assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/atrasos'), 200);
+    assert.equal(apiAccess(p, 'PUT', '/api/ocorrencias/atrasos'), 200);
+    assert.equal(apiAccess(p, 'GET', '/api/ocorrencias/atas'), 200);
+    assert.equal(apiAccess(p, 'POST', '/api/ocorrencias/atas'), 200);
     assert.equal(apiAccess(p, 'GET', '/api/rh/funcionarios'), 403);
   });
 
@@ -101,6 +113,18 @@ describe('matriz de permissões — APIs ocorrências', () => {
         resourceTenantId: OTHER_TENANT,
       }),
       200,
+    );
+    assert.equal(
+      apiAccess(p, 'PATCH', '/api/ocorrencias/id-calenzano/destaque', {
+        resourceTenantId: CALENZANO_TENANT,
+      }),
+      404,
+    );
+    assert.equal(
+      apiAccess(p, 'GET', '/api/ocorrencias/atas/id-calenzano/download', {
+        resourceTenantId: CALENZANO_TENANT,
+      }),
+      404,
     );
   });
 

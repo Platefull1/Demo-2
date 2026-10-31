@@ -1,5 +1,5 @@
+/** Chips do formulário /ocorrencias/nova — sem pedido atrasado (número manual). */
 export const CATEGORIA_CHIP_VALUES = [
-  'PEDIDO_ATRASADO',
   'PEDIDO_REVIRADO',
   'FALTOU_BEBIDA',
   'PEDIDO_ERRADO',
@@ -9,7 +9,7 @@ export const CATEGORIA_CHIP_VALUES = [
 ] as const;
 
 export type CategoriaChip = (typeof CATEGORIA_CHIP_VALUES)[number];
-export type CategoriaOcorrenciaValor = CategoriaChip | 'OUTROS';
+export type CategoriaOcorrenciaValor = CategoriaChip | 'PEDIDO_ATRASADO' | 'OUTROS';
 
 export const CATEGORIA_LABELS: Record<CategoriaOcorrenciaValor, string> = {
   PEDIDO_ATRASADO: 'Pedido atrasado',
@@ -23,6 +23,7 @@ export const CATEGORIA_LABELS: Record<CategoriaOcorrenciaValor, string> = {
 };
 
 export const TODAS_CATEGORIAS: CategoriaOcorrenciaValor[] = [
+  'PEDIDO_ATRASADO',
   ...CATEGORIA_CHIP_VALUES,
   'OUTROS',
 ];
@@ -42,6 +43,12 @@ export function resolverCategorias(
   | { ok: true; categorias: CategoriaOcorrenciaValor[] }
   | { ok: false; error: string } {
   const unique = [...new Set(enviadas)];
+  if (unique.includes('PEDIDO_ATRASADO')) {
+    return {
+      ok: false,
+      error: 'Pedido atrasado não é registrado por ocorrência. Informe o número mensal na Central.',
+    };
+  }
   const unknown = unique.filter((c) => c !== 'OUTROS' && !isChip(c));
   if (unknown.length > 0) {
     return { ok: false, error: 'Categoria inválida' };

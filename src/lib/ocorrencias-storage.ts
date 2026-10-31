@@ -68,6 +68,18 @@ export async function createOcorrenciaFotoSignedUrl(
   return data.signedUrl;
 }
 
+/** Bytes da foto no bucket (para embutir na ata). */
+export async function downloadOcorrenciaFotoBytes(
+  path: string,
+): Promise<Buffer | null> {
+  if (!path) return null;
+  const supabase = getClient();
+  if (!supabase) return null;
+  const { data, error } = await supabase.storage.from(OCORRENCIAS_BUCKET).download(path);
+  if (error || !data) return null;
+  return Buffer.from(await data.arrayBuffer());
+}
+
 /** URLs assinadas em lote para a lista (miniaturas). */
 export async function createOcorrenciaFotoSignedUrls(
   paths: string[],

@@ -40,12 +40,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   TODAS_CATEGORIAS,
   categoriaLabel,
 } from '@/lib/ocorrencias-categorias';
+import { Switch } from '@/components/ui/switch';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { AtrasosMensaisDialog } from './AtrasosMensaisDialog';
+import { OcorrenciasAtasTab } from './OcorrenciasAtasTab';
 
 interface Loja { id: string; nome: string; }
 interface Motoboy { id: string; nome: string; }
@@ -65,6 +69,7 @@ interface Ocorrencia {
   fotoUrls: string[];
   loja: { id: string; nome: string };
   motoboy: { id: string; name: string } | null;
+  destaqueAta: boolean;
 }
 
 interface ContadorLoja { lojaId: string; lojaNome: string; total: number; }
@@ -122,6 +127,11 @@ export default function OcorrenciasClient({
   const [motoboyFiltro, setMotoboyFiltro] = useState('');
   const [busca, setBusca] = useState('');
   const [categoriasFiltro, setCategoriasFiltro] = useState<string[]>([]);
+  const [soDestaques, setSoDestaques] = useState(false);
+  const [aba, setAba] = useState<'ocorrencias' | 'atas'>('ocorrencias');
+  const [atrasosOpen, setAtrasosOpen] = useState(false);
+  const [atrasosAno, setAtrasosAno] = useState<number | undefined>();
+  const [atrasosMes, setAtrasosMes] = useState<number | undefined>();
   const [page, setPage] = useState(1);
 
   const [dados, setDados] = useState<ListaResponse | null>(null);
@@ -170,6 +180,7 @@ export default function OcorrenciasClient({
     if (categoriasFiltro.length > 0) {
       params.set('categorias', categoriasFiltro.join(','));
     }
+    if (soDestaques) params.set('destaqueAta', 'true');
 
     try {
       const res = await fetch(`/api/ocorrencias?${params.toString()}`);
@@ -180,7 +191,7 @@ export default function OcorrenciasClient({
     } finally {
       setCarregando(false);
     }
-  }, [inicio, fim, lojaFiltro, motoboyFiltro, busca, categoriasFiltro, page]);
+  }, [inicio, fim, lojaFiltro, motoboyFiltro, busca, categoriasFiltro, soDestaques, page]);
 
   useEffect(() => {
     carregarDados();
@@ -192,9 +203,56 @@ export default function OcorrenciasClient({
     setMotoboyFiltro('');
     setBusca('');
     setCategoriasFiltro([]);
+    setSoDestaques(false);
     setInicio(atual.inicio);
     setFim(atual.fim);
     setPage(1);
+  }
+
+  function abrirAtrasos(ano?: number, mes?: number) {
+    if (ano && mes) {
+      setAtrasosAno(ano);
+      setAtrasosMes(mes);
+    } else {
+      const d = saoPauloYmd(new Date(`${inicio}T12:00:00-03:00`));
+      setAtrasosAno(d.year);
+      setAtrasosMes(d.month);
+    }
+    setAtrasosOpen(true);
+  }
+
+  async function toggleDestaque(oc: Ocorrencia, next: boolean) {
+    setDados((prev) =>
+      prev
+        ? {
+            ...prev,
+            ocorrencias: prev.ocorrencias.map((o) =>
+              o.id === oc.id ? { ...o, destaqueAta: next } : o,
+            ),
+          }
+        : prev,
+    );
+    setDetalhe((d) => (d && d.id === oc.id ? { ...d, destaqueAta: next } : d));
+    try {
+      const res = await fetch(`/api/ocorrencias/${oc.id}/destaque`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ destaqueAta: next }),
+      });
+      if (!res.ok) throw new Error('fail');
+    } catch {
+      setDados((prev) =>
+        prev
+          ? {
+              ...prev,
+              ocorrencias: prev.ocorrencias.map((o) =>
+                o.id === oc.id ? { ...o, destaqueAta: !next } : o,
+              ),
+            }
+          : prev,
+      );
+      setDetalhe((d) => (d && d.id === oc.id ? { ...d, destaqueAta: !next } : d));
+    }
   }
 
   async function abrirDetalhe(oc: Ocorrencia) {
@@ -229,7 +287,7 @@ export default function OcorrenciasClient({
   }
 
   const temFiltros = Boolean(
-    lojaFiltro || motoboyFiltro || busca || categoriasFiltro.length > 0,
+    lojaFiltro || motoboyFiltro || busca || categoriasFiltro.length > 0 || soDestaques,
   );
   const totaisCategoria = Object.fromEntries(
     (dados?.contadoresPorCategoria ?? []).map((c) => [c.categoria, c.total]),
@@ -264,7 +322,28 @@ export default function OcorrenciasClient({
         }
       />
 
-      {dados && (
+      <ToggleGroup
+        type="single"
+        value={aba}
+        onValueChange={(v) => {
+          if (v) setAba(v as 'ocorrencias' | 'atas');
+        }}
+        size="sm"
+        className="w-fit"
+      >
+        <ToggleGroupItem value="ocorrencias" className="text-xs px-3">
+          Ocorrências
+        </ToggleGroupItem>
+        <ToggleGroupItem value="atas" className="text-xs px-3">
+          Atas
+        </ToggleGroupItem>
+      </ToggleGroup>
+
+      {aba === 'atas' ? (
+        <OcorrenciasAtasTab onEditarAtrasos={(ano, mes) => abrirAtrasos(ano, mes)} />
+      ) : null}
+
+      {aba === 'ocorrencias' && dados && (
         <div className="space-y-6">
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-0 rounded-xl border border-border overflow-hidden bg-card">
             {kpiCells.map((c, i) => (
@@ -287,6 +366,17 @@ export default function OcorrenciasClient({
                       <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
                         {c.value}
                       </p>
+                      {c.key === 'PEDIDO_ATRASADO' && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="mt-2 h-7 text-xs"
+                          onClick={() => abrirAtrasos()}
+                        >
+                          Editar
+                        </Button>
+                      )}
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>
@@ -299,6 +389,7 @@ export default function OcorrenciasClient({
         </div>
       )}
 
+      {aba === 'ocorrencias' && (
       <div className="flex flex-wrap items-center gap-3">
         <Input
           type="date"
@@ -408,14 +499,28 @@ export default function OcorrenciasClient({
           className="w-52"
         />
 
+        <Button
+          type="button"
+          variant={soDestaques ? 'default' : 'outline'}
+          size="sm"
+          className="h-10"
+          onClick={() => {
+            setSoDestaques((v) => !v);
+            setPage(1);
+          }}
+        >
+          Só destacadas
+        </Button>
+
         {temFiltros && (
           <Button variant="ghost" size="sm" onClick={limparFiltros} className="gap-1">
             <X className="h-3.5 w-3.5" /> Limpar
           </Button>
         )}
       </div>
+      )}
 
-      {carregando ? (
+      {aba === 'ocorrencias' && (carregando ? (
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => (
             <Skeleton key={i} className="h-10 w-full rounded" />
@@ -437,6 +542,7 @@ export default function OcorrenciasClient({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border">
+                <TableHead className="text-xs w-10">Destaque</TableHead>
                 <TableHead className="text-xs">Data/Hora</TableHead>
                 <TableHead className="text-xs">Loja</TableHead>
                 <TableHead className="text-xs">Pedido Saipos</TableHead>
@@ -454,6 +560,24 @@ export default function OcorrenciasClient({
                   className="cursor-pointer hover:bg-muted/50 border-border"
                   onClick={() => abrirDetalhe(oc)}
                 >
+                  <TableCell className="py-2">
+                    <button
+                      type="button"
+                      aria-label={oc.destaqueAta ? 'Remover destaque' : 'Destacar na ata'}
+                      className="text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void toggleDestaque(oc, !oc.destaqueAta);
+                      }}
+                    >
+                      <Star
+                        className={cn(
+                          'size-4',
+                          oc.destaqueAta && 'fill-foreground text-foreground',
+                        )}
+                      />
+                    </button>
+                  </TableCell>
                   <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap py-2">
                     {formatDT(oc.createdAt)}
                   </TableCell>
@@ -544,7 +668,7 @@ export default function OcorrenciasClient({
             </div>
           )}
         </div>
-      ) : null}
+      ) : null)}
 
       <Sheet
         open={!!detalhe}
@@ -563,6 +687,17 @@ export default function OcorrenciasClient({
                   {formatDT(detalhe.createdAt)}
                 </p>
               </SheetHeader>
+
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2 mb-4">
+                <label htmlFor="destaque-ata" className="text-sm text-foreground">
+                  Destacar na ata
+                </label>
+                <Switch
+                  id="destaque-ata"
+                  checked={detalhe.destaqueAta}
+                  onCheckedChange={(v) => void toggleDestaque(detalhe, v)}
+                />
+              </div>
 
               <div className="space-y-4">
                 {detalhe.temFoto || carregandoFoto || fotoUrls.length > 0 ? (
@@ -663,6 +798,16 @@ export default function OcorrenciasClient({
           )}
         </SheetContent>
       </Sheet>
+
+      <AtrasosMensaisDialog
+        open={atrasosOpen}
+        onOpenChange={setAtrasosOpen}
+        anoInicial={atrasosAno}
+        mesInicial={atrasosMes}
+        onSaved={() => {
+          void carregarDados();
+        }}
+      />
     </div>
   );
 }

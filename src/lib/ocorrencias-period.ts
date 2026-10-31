@@ -17,17 +17,58 @@ export function saoPauloYmd(date = new Date()): {
   return { year: get('year'), month: get('month'), day: get('day') };
 }
 
-export function currentMonthBoundsSP(now = new Date()): { start: Date; end: Date } {
-  const { year, month } = saoPauloYmd(now);
-  const mm = String(month).padStart(2, '0');
-  const start = new Date(`${year}-${mm}-01T00:00:00.000${SP_OFFSET}`);
-  const nextMonth = month === 12 ? 1 : month + 1;
-  const nextYear = month === 12 ? year + 1 : year;
+export function monthBoundsSP(ano: number, mes: number): { start: Date; end: Date } {
+  const mm = String(mes).padStart(2, '0');
+  const start = new Date(`${ano}-${mm}-01T00:00:00.000${SP_OFFSET}`);
+  const nextMonth = mes === 12 ? 1 : mes + 1;
+  const nextYear = mes === 12 ? ano + 1 : ano;
   const nm = String(nextMonth).padStart(2, '0');
   const end = new Date(
     new Date(`${nextYear}-${nm}-01T00:00:00.000${SP_OFFSET}`).getTime() - 1,
   );
   return { start, end };
+}
+
+export function currentMonthBoundsSP(now = new Date()): { start: Date; end: Date } {
+  const { year, month } = saoPauloYmd(now);
+  return monthBoundsSP(year, month);
+}
+
+export function previousMonth(ano: number, mes: number): { ano: number; mes: number } {
+  if (mes <= 1) return { ano: ano - 1, mes: 12 };
+  return { ano, mes: mes - 1 };
+}
+
+export function monthYearLabelSP(ano: number, mes: number): string {
+  const d = new Date(`${ano}-${String(mes).padStart(2, '0')}-01T12:00:00.000${SP_OFFSET}`);
+  const name = new Intl.DateTimeFormat('pt-BR', {
+    month: 'long',
+    timeZone: 'America/Sao_Paulo',
+  }).format(d);
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)}/${ano}`;
+}
+
+/** Meses civis SP que intersectam o intervalo [inicio, fim]. */
+export function monthsOverlappingRange(
+  inicio: Date,
+  fim: Date,
+): { ano: number; mes: number }[] {
+  const start = saoPauloYmd(inicio);
+  const end = saoPauloYmd(fim);
+  const out: { ano: number; mes: number }[] = [];
+  let y = start.year;
+  let m = start.month;
+  while (y < end.year || (y === end.year && m <= end.month)) {
+    out.push({ ano: y, mes: m });
+    if (m === 12) {
+      m = 1;
+      y += 1;
+    } else {
+      m += 1;
+    }
+    if (out.length > 24) break;
+  }
+  return out;
 }
 
 /** Interpreta YYYY-MM-DD como início do dia em São Paulo. */

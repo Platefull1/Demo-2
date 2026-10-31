@@ -10,8 +10,10 @@ import {
   createOcorrenciaFotoSignedUrls,
 } from '@/lib/ocorrencias-storage';
 import { isLojaEscritorio } from '@/lib/ocorrencias-lojas';
+import { displayLojaAta } from '@/lib/ocorrencias-ata-data';
 import {
   currentMonthBoundsSP,
+  monthsOverlappingRange,
   spDayStart,
   spDayEnd,
   saoPauloYmd,
@@ -136,6 +138,12 @@ export async function POST(request: NextRequest) {
   const cats = resolverCategorias(categoriasEnviadas, descricao);
   if (cats.ok === false) {
     return NextResponse.json({ error: cats.error }, { status: 400 });
+  }
+  if (cats.categorias.includes('PEDIDO_ATRASADO')) {
+    return NextResponse.json(
+      { error: 'Pedido atrasado não é registrado por ocorrência' },
+      { status: 400 },
+    );
   }
 
   const loja = await prisma.rhLoja.findFirst({
@@ -278,6 +286,8 @@ export async function GET(request: NextRequest) {
   const inicio = inicioYmd ? spDayStart(inicioYmd) : defaults.start;
   const fim = fimYmd ? spDayEnd(fimYmd) : defaults.end;
 
+  const soDestaques = searchParams.get('destaqueAta') === 'true';
+
   const where: Prisma.OcorrenciaWhereInput = {
     userId: ctx.userId,
     createdAt: { gte: inicio, lte: fim },
@@ -295,10 +305,22 @@ export async function GET(request: NextRequest) {
     ];
   }
 
-  const [total, ocorrencias, totalPorLoja, catsRows] = await Promise.all([
-    prisma.ocorrencia.count({ where }),
+  const listWhere: Prisma.OcorrenciaWhereInput = soDestaques
+    ? { ...where, destaqueAta: true }
+    : where;
+
+  const mesesAtraso = monthsOverlappingRange(inicio, fim);
+  const atrasoWhere: Prisma.OcorrenciaAtrasoMensalWhereInput = {
+    companyId: ctx.userId,
+    OR: mesesAtraso.map((m) => ({ ano: m.ano, mes: m.mes })),
+  };
+  if (lojaId) atrasoWhere.lojaId = lojaId;
+
+  const [total, ocorrencias, totalPorLoja, catsRows, atrasosRows, lojasAtivas] =
+    await Promise.all([
+    prisma.ocorrencia.count({ where: listWhere }),
     prisma.ocorrencia.findMany({
-      where,
+      where: listWhere,
       select: {
         id: true,
         numeroPedidoSaipos: true,
@@ -308,6 +330,7 @@ export async function GET(request: NextRequest) {
         descricao: true,
         fotoPath: true,
         fotoPaths: true,
+        destaqueAta: true,
         criadoPorUserId: true,
         createdAt: true,
         loja: { select: { id: true, nome: true } },
@@ -325,6 +348,16 @@ export async function GET(request: NextRequest) {
     prisma.ocorrencia.findMany({
       where,
       select: { categorias: true },
+    }),
+    mesesAtraso.length > 0
+      ? prisma.ocorrenciaAtrasoMensal.findMany({
+          where: atrasoWhere,
+          select: { lojaId: true, quantidade: true, ano: true, mes: true },
+        })
+      : Promise.resolve([]),
+    prisma.rhLoja.findMany({
+      where: { userId: ctx.userId, ativo: true },
+      select: { id: true, nome: true },
     }),
   ]);
 
@@ -363,9 +396,28 @@ export async function GET(request: NextRequest) {
   const porCategoria: Record<string, number> = {};
   for (const row of catsRows) {
     for (const c of row.categorias) {
+      if (c === 'PEDIDO_ATRASADO') continue;
       porCategoria[c] = (porCategoria[c] ?? 0) + 1;
     }
   }
+
+  const lojasOperacionais = lojasAtivas.filter((l) => !isLojaEscritorio(l.nome));
+  const lojasAtrasoAlvo = lojaId
+    ? lojasOperacionais.filter((l) => l.id === lojaId)
+    : lojasOperacionais;
+  const atrasoPorLoja = new Map<string, number>();
+  for (const row of atrasosRows) {
+    atrasoPorLoja.set(row.lojaId, (atrasoPorLoja.get(row.lojaId) ?? 0) + row.quantidade);
+  }
+  const lojasSemAtraso = lojasAtrasoAlvo
+    .filter((l) => !atrasoPorLoja.has(l.id))
+    .map((l) => displayLojaAta(l.nome));
+  const atrasosTotal = lojasAtrasoAlvo.reduce(
+    (n, l) => n + (atrasoPorLoja.get(l.id) ?? 0),
+    0,
+  );
+  porCategoria.PEDIDO_ATRASADO = atrasosTotal;
+
   const contadoresPorCategoria = Object.entries(porCategoria)
     .map(([categoria, totalCat]) => ({ categoria, total: totalCat }))
     .sort((a, b) => b.total - a.total);
@@ -389,5 +441,9 @@ export async function GET(request: NextRequest) {
     totalPages: Math.ceil(total / pageSize),
     contadoresPorLoja,
     contadoresPorCategoria,
+    atrasosManuais: {
+      total: atrasosTotal,
+      lojasSemNumero: lojasSemAtraso,
+    },
   });
 }

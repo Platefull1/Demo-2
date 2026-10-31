@@ -23,6 +23,7 @@ export async function GET(
       canalExterno: true,
       categorias: true,
       descricao: true,
+      destaqueAta: true,
       criadoPorUserId: true,
       createdAt: true,
       loja: { select: { id: true, nome: true } },

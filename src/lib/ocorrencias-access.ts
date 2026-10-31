@@ -172,8 +172,25 @@ export function apiAccess(
     return 200;
   }
 
+  const verOnly =
+    path === '/api/ocorrencias/atrasos' ||
+    path.startsWith('/api/ocorrencias/atrasos/') ||
+    path === '/api/ocorrencias/atas' ||
+    path.startsWith('/api/ocorrencias/atas/') ||
+    /^\/api\/ocorrencias\/[^/]+\/destaque$/.test(path);
+
+  if (verOnly) {
+    if (!profile.loggedIn) return 401;
+    if (!profile.canView) return 403;
+    if (opts?.resourceTenantId && opts.resourceTenantId !== profile.tenantId) {
+      return 404;
+    }
+    return 200;
+  }
+
+  const RESERVED = new Set(['opcoes', 'isolation', 'set-mode', 'atas', 'atrasos']);
   const idMatch = path.match(/^\/api\/ocorrencias\/([^/]+)(\/foto)?$/);
-  if (idMatch && m === 'GET' && idMatch[1] !== 'opcoes' && idMatch[1] !== 'isolation' && idMatch[1] !== 'set-mode') {
+  if (idMatch && m === 'GET' && !RESERVED.has(idMatch[1]!)) {
     if (!profile.loggedIn) return 401;
     if (!profile.canView) return 403;
     if (opts?.resourceTenantId && opts.resourceTenantId !== profile.tenantId) {
