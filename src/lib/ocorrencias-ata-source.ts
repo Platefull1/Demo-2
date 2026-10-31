@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { isLojaEscritorio } from '@/lib/ocorrencias-lojas';
 import { monthBoundsSP, previousMonth } from '@/lib/ocorrencias-period';
 import {
+  nomeEmpresaAta,
   type AtrasoInformado,
   type LojaAtaRef,
   type OcorrenciaAtaRow,
@@ -100,13 +101,9 @@ export async function loadAtaSource(companyId: string, ano: number, mes: number)
 
   const empresaUser = await prisma.user.findUnique({
     where: { id: companyId },
-    select: { name: true, fullName: true, email: true },
+    select: { name: true, fullName: true },
   });
-  const empresa =
-    empresaUser?.name?.trim() ||
-    empresaUser?.fullName?.trim() ||
-    empresaUser?.email?.trim() ||
-    'Empresa';
+  const empresa = nomeEmpresaAta(empresaUser);
 
   return { atual, anterior, empresa };
 }

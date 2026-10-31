@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .playwright-mcp/
+.cursor-tmp-atas/
 
 .env
 .env.local

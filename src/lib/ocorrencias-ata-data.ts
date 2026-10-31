@@ -162,7 +162,7 @@ export function rankMotoboys(items: OcorrenciaAtaRow[]): MotoboyAtaRow[] {
     const key = `${item.motoboyId}|${item.lojaId}`;
     const row = map.get(key) ?? {
       motoboyId: item.motoboyId,
-      nome: item.motoboyNome || 'Motoboy sem cadastro',
+      nome: formatNomePessoa(item.motoboyNome || 'Motoboy sem cadastro'),
       lojaId: item.lojaId,
       lojaNome: displayLojaAta(item.lojaNome),
       total: 0,
@@ -395,4 +395,58 @@ export function canalAtaLabel(canal: string | null): string {
   if (canal === 'IFOOD') return 'iFood';
   if (canal === 'DELIVERY_DIRETO') return 'Delivery Direto';
   return '';
+}
+
+const PARTICULAS_NOME = new Set(['da', 'das', 'de', 'do', 'dos', 'e']);
+
+/** Padroniza "JOÃO DA SILVA" / "joão da silva" → "João da Silva". */
+export function formatNomePessoa(nome: string): string {
+  return nome
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part, i) => {
+      const lower = part.toLocaleLowerCase('pt-BR');
+      if (i > 0 && PARTICULAS_NOME.has(lower)) return lower;
+      return lower.charAt(0).toLocaleUpperCase('pt-BR') + lower.slice(1);
+    })
+    .join(' ');
+}
+
+function pareceEmail(valor: string): boolean {
+  return /\S+@\S+\.\S+/.test(valor);
+}
+
+/** Nome da empresa do tenant/RH. Nunca e-mail; vazio se não houver cadastro. */
+export function nomeEmpresaAta(user: {
+  name?: string | null;
+  fullName?: string | null;
+  email?: string | null;
+} | null): string {
+  for (const raw of [user?.name, user?.fullName]) {
+    const v = raw?.trim() ?? '';
+    if (v && !pareceEmail(v)) return v;
+  }
+  return '';
+}
+
+function rotuloContagem(n: number, singular: string, plural: string): string {
+  return n === 1 ? singular : plural;
+}
+
+/** Texto da seção "Total de ocorrências" (sem "(s)"). */
+export function totalOcorrenciasTexto(
+  ocorrencias: number,
+  atrasos: number | null,
+): string {
+  const oc = rotuloContagem(
+    ocorrencias,
+    'ocorrência registrada',
+    'ocorrências registradas',
+  );
+  if (atrasos === null) {
+    return `Total: ${ocorrencias} ${oc}. Pedidos atrasados: não informado.`;
+  }
+  const at = rotuloContagem(atrasos, 'pedido atrasado', 'pedidos atrasados');
+  return `Total: ${ocorrencias + atrasos} — ${ocorrencias} ${oc} + ${atrasos} ${at}.`;
 }

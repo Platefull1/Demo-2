@@ -6,8 +6,11 @@ import {
   buildRedeResumo,
   countByCategoria,
   destaquesDaAta,
+  formatNomePessoa,
+  nomeEmpresaAta,
   rankMotoboys,
   somaAtrasos,
+  totalOcorrenciasTexto,
   variacaoLabel,
   type OcorrenciaAtaRow,
 } from './ocorrencias-ata-data';
@@ -83,6 +86,40 @@ describe('contagens da ata', () => {
     assert.equal(ranked[0]!.total, 2);
     assert.equal(ranked[0]!.porCategoria.QUALIDADE, 1);
     assert.equal(ranked[0]!.porCategoria.PEDIDO_ERRADO, 1);
+  });
+
+  it('motoboys: nome padronizado em Nome Sobrenome', () => {
+    const ranked = rankMotoboys([
+      row({ motoboyId: 'm1', motoboyNome: 'JOÃO DA SILVA' }),
+      row({ id: '2', motoboyId: 'm2', motoboyNome: 'maria santos' }),
+    ]);
+    assert.equal(ranked.find((m) => m.motoboyId === 'm1')?.nome, 'João da Silva');
+    assert.equal(ranked.find((m) => m.motoboyId === 'm2')?.nome, 'Maria Santos');
+  });
+
+  it('formatNomePessoa / nomeEmpresaAta / totalOcorrenciasTexto', () => {
+    assert.equal(formatNomePessoa('JOÃO DA SILVA'), 'João da Silva');
+    assert.equal(formatNomePessoa('maria SANTOS'), 'Maria Santos');
+    assert.equal(nomeEmpresaAta({ name: 'Calenzano Pizzarias' }), 'Calenzano Pizzarias');
+    assert.equal(nomeEmpresaAta({ name: 'admin@x.com', fullName: 'Calenzano Pizzarias' }), 'Calenzano Pizzarias');
+    assert.equal(nomeEmpresaAta({ name: 'admin@x.com', fullName: null, email: 'admin@x.com' }), '');
+    assert.equal(nomeEmpresaAta({ name: null, fullName: null, email: 'a@b.com' }), '');
+    assert.equal(
+      totalOcorrenciasTexto(25, 6),
+      'Total: 31 — 25 ocorrências registradas + 6 pedidos atrasados.',
+    );
+    assert.equal(
+      totalOcorrenciasTexto(25, null),
+      'Total: 25 ocorrências registradas. Pedidos atrasados: não informado.',
+    );
+    assert.equal(
+      totalOcorrenciasTexto(1, 1),
+      'Total: 2 — 1 ocorrência registrada + 1 pedido atrasado.',
+    );
+    assert.equal(
+      totalOcorrenciasTexto(1, null),
+      'Total: 1 ocorrência registrada. Pedidos atrasados: não informado.',
+    );
   });
 
   it('destaque: só destacadas na seção; sem destaque a lista fica vazia', () => {

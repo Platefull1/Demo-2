@@ -11,9 +11,11 @@ import {
   HeadingLevel,
   ImageRun,
   Packer,
+  PageOrientation,
   Paragraph,
   Table,
   TableCell,
+  TableLayoutType,
   TableRow,
   TextRun,
   VerticalAlign,
@@ -31,14 +33,60 @@ import {
   canalAtaLabel,
   destaquesDaAta,
   displayLojaAta,
+  formatNomePessoa,
+  nomeEmpresaAta,
   quebraCategoriaLabel,
+  totalOcorrenciasTexto,
   type LojaAtaRef,
   type OcorrenciaAtaRow,
   type AtrasoInformado,
+  type MotoboyAtaRow,
 } from '@/lib/ocorrencias-ata-data';
 
 const MAX_FOTO_WIDTH_PX = 454;
 const PHOTO_CONCURRENCY = 5;
+
+/** A4 portrait 210mm × 297mm em DXA (twips). */
+export const ATA_A4_WIDTH_DXA = 11906;
+export const ATA_A4_HEIGHT_DXA = 16838;
+export const ATA_PAGE_MARGIN_DXA = 720;
+export const ATA_CONTENT_PORTRAIT_DXA = ATA_A4_WIDTH_DXA - 2 * ATA_PAGE_MARGIN_DXA; // 10466
+export const ATA_CONTENT_LANDSCAPE_DXA = ATA_A4_HEIGHT_DXA - 2 * ATA_PAGE_MARGIN_DXA; // 15398
+export const ATA_MIN_GRID_COL_DXA = 500;
+
+/** Resumo por categoria: Categoria / Quantidade / Variação. */
+export const ATA_RESUMO_COL_WIDTHS = [5466, 2500, 2500] as const;
+
+/** Motoboy / Total / Detalhe por categoria. */
+export const ATA_MOTOBOY_COL_WIDTHS = [3466, 1500, 5500] as const;
+
+/** Abaixo disso a coluna restante da matriz não cabe em retrato. */
+const ATA_MATRIZ_MIN_REST_PORTRAIT_DXA = 1000;
+
+export function divideRestanteIgual(total: number, count: number): number[] {
+  if (count <= 0) return [];
+  const base = Math.floor(total / count);
+  const extra = total - base * count;
+  return Array.from({ length: count }, (_, i) => base + (i < extra ? 1 : 0));
+}
+
+/** Primeira coluna maior; as demais iguais. Soma === contentWidth. */
+export function matrizLojaCategoriaWidths(
+  colCount: number,
+  contentWidth: number,
+): number[] {
+  if (colCount <= 1) return [contentWidth];
+  const restCount = colCount - 1;
+  const idealFirst = Math.floor((contentWidth * 2) / (2 + restCount));
+  const maxFirst = contentWidth - restCount * ATA_MIN_GRID_COL_DXA;
+  const first = Math.min(maxFirst, Math.max(ATA_MIN_GRID_COL_DXA, idealFirst));
+  return [first, ...divideRestanteIgual(contentWidth - first, restCount)];
+}
+
+export function matrizUsaPaisagem(colCount: number): boolean {
+  const portrait = matrizLojaCategoriaWidths(colCount, ATA_CONTENT_PORTRAIT_DXA);
+  return portrait.slice(1).some((w) => w < ATA_MATRIZ_MIN_REST_PORTRAIT_DXA);
+}
 
 function heading(text: string) {
   return new Paragraph({
@@ -91,11 +139,9 @@ function thinBorder() {
   return { style: BorderStyle.SINGLE, size: 4, color: 'CCCCCC' };
 }
 
-function cell(text: string, opts?: { bold?: boolean; width?: number }) {
+function cell(text: string, width: number, opts?: { bold?: boolean }) {
   return new TableCell({
-    width: opts?.width
-      ? { size: opts.width, type: WidthType.DXA }
-      : undefined,
+    width: { size: width, type: WidthType.DXA },
     borders: {
       top: thinBorder(),
       bottom: thinBorder(),
@@ -109,6 +155,36 @@ function cell(text: string, opts?: { bold?: boolean; width?: number }) {
       }),
     ],
   });
+}
+
+function ataTable(columnWidths: readonly number[], rows: TableRow[]) {
+  const size = columnWidths.reduce((a, b) => a + b, 0);
+  return new Table({
+    width: { size, type: WidthType.DXA },
+    columnWidths: [...columnWidths],
+    layout: TableLayoutType.FIXED,
+    rows,
+  });
+}
+
+function pageProperties(landscape: boolean) {
+  return {
+    page: {
+      size: {
+        width: ATA_A4_WIDTH_DXA,
+        height: ATA_A4_HEIGHT_DXA,
+        orientation: landscape
+          ? PageOrientation.LANDSCAPE
+          : PageOrientation.PORTRAIT,
+      },
+      margin: {
+        top: ATA_PAGE_MARGIN_DXA,
+        right: ATA_PAGE_MARGIN_DXA,
+        bottom: ATA_PAGE_MARGIN_DXA,
+        left: ATA_PAGE_MARGIN_DXA,
+      },
+    },
+  };
 }
 
 async function mapPool<T, R>(
@@ -130,9 +206,9 @@ async function mapPool<T, R>(
   return out;
 }
 
-async function fotoParaAta(path: string): Promise<{ data: Buffer; w: number; h: number } | null> {
-  const raw = await downloadOcorrenciaFotoBytes(path);
-  if (!raw) return null;
+async function fotoParaAtaFromBytes(
+  raw: Buffer,
+): Promise<{ data: Buffer; w: number; h: number } | null> {
   try {
     const img = sharp(raw);
     const meta = await img.metadata();
@@ -153,14 +229,21 @@ async function fotoParaAta(path: string): Promise<{ data: Buffer; w: number; h: 
 
 type FotoMap = Map<string, { data: Buffer; w: number; h: number }>;
 
-async function carregarFotos(items: OcorrenciaAtaRow[]): Promise<FotoMap> {
+export type AtaFotoBytesByPath = ReadonlyMap<string, Buffer>;
+
+async function carregarFotos(
+  items: OcorrenciaAtaRow[],
+  fotoBytesByPath?: AtaFotoBytesByPath,
+): Promise<FotoMap> {
   const paths = [...new Set(items.flatMap((i) => i.fotoPaths).filter(Boolean))];
   const map: FotoMap = new Map();
   if (paths.length === 0) return map;
-  const results = await mapPool(paths, PHOTO_CONCURRENCY, async (path) => ({
-    path,
-    foto: await fotoParaAta(path),
-  }));
+  const results = await mapPool(paths, PHOTO_CONCURRENCY, async (path) => {
+    const raw = fotoBytesByPath
+      ? (fotoBytesByPath.get(path) ?? null)
+      : await downloadOcorrenciaFotoBytes(path);
+    return { path, foto: raw ? await fotoParaAtaFromBytes(raw) : null };
+  });
   for (const r of results) {
     if (r.foto) map.set(r.path, r.foto);
   }
@@ -173,7 +256,8 @@ function cabecalho(opts: {
   periodo: string;
   geradoEm: string;
 }): Paragraph[] {
-  return [
+  const empresa = nomeEmpresaAta({ name: opts.empresa });
+  const out: Paragraph[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [
@@ -181,11 +265,17 @@ function cabecalho(opts: {
       ],
       spacing: { after: 120 },
     }),
-    new Paragraph({
-      alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: opts.empresa, size: 26, bold: true })],
-      spacing: { after: 60 },
-    }),
+  ];
+  if (empresa) {
+    out.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: empresa, size: 26, bold: true })],
+        spacing: { after: 60 },
+      }),
+    );
+  }
+  out.push(
     new Paragraph({
       alignment: AlignmentType.CENTER,
       children: [new TextRun({ text: opts.escopoLabel, size: 24 })],
@@ -203,7 +293,8 @@ function cabecalho(opts: {
       spacing: { after: 200 },
     }),
     divider(),
-  ];
+  );
+  return out;
 }
 
 function blocosDestaque(
@@ -228,7 +319,9 @@ function blocosDestaque(
     out.push(bullet(`Data/hora: ${quando}`));
     out.push(bullet(`Pedido externo: ${ext}`));
     out.push(bullet(`Categorias: ${cats}`));
-    if (d.motoboyNome) out.push(bullet(`Motoboy: ${d.motoboyNome}`));
+    if (d.motoboyNome) {
+      out.push(bullet(`Motoboy: ${formatNomePessoa(d.motoboyNome)}`));
+    }
     if (d.descricao.trim()) out.push(body(d.descricao.trim()));
     for (const path of d.fotoPaths) {
       const foto = fotos.get(path);
@@ -250,6 +343,73 @@ function blocosDestaque(
   return out;
 }
 
+function tabelaResumo(
+  rows: { label: string; quantidadeLabel: string; variacao: string }[],
+) {
+  const w = ATA_RESUMO_COL_WIDTHS;
+  return ataTable(w, [
+    new TableRow({
+      children: [
+        cell('Categoria', w[0], { bold: true }),
+        cell('Quantidade', w[1], { bold: true }),
+        cell('Variação', w[2], { bold: true }),
+      ],
+    }),
+    ...rows.map(
+      (r) =>
+        new TableRow({
+          children: [
+            cell(r.label, w[0]),
+            cell(r.quantidadeLabel, w[1]),
+            cell(r.variacao, w[2]),
+          ],
+        }),
+    ),
+  ]);
+}
+
+function motoboyLabel(m: MotoboyAtaRow, comLoja: boolean): string {
+  return comLoja ? `${m.nome} (${m.lojaNome})` : m.nome;
+}
+
+function tabelaMotoboys(motoboys: MotoboyAtaRow[], comLoja: boolean) {
+  const w = ATA_MOTOBOY_COL_WIDTHS;
+  return ataTable(w, [
+    new TableRow({
+      children: [
+        cell('Motoboy', w[0], { bold: true }),
+        cell('Total', w[1], { bold: true }),
+        cell('Detalhe por categoria', w[2], { bold: true }),
+      ],
+    }),
+    ...motoboys.map(
+      (m) =>
+        new TableRow({
+          children: [
+            cell(motoboyLabel(m, comLoja), w[0]),
+            cell(String(m.total), w[1]),
+            cell(quebraCategoriaLabel(m.porCategoria) || '—', w[2]),
+          ],
+        }),
+    ),
+  ]);
+}
+
+function secaoMotoboys(
+  motoboys: MotoboyAtaRow[],
+  titulo: string,
+  comLoja: boolean,
+): (Paragraph | Table)[] {
+  const out: (Paragraph | Table)[] = [divider(), heading(titulo)];
+  if (motoboys.length === 0) {
+    out.push(muted('Nenhum motoboy citado nas ocorrências do período.'));
+    return out;
+  }
+  out.push(muted('Pedidos atrasados não entram nesta contagem.'));
+  out.push(tabelaMotoboys(motoboys, comLoja));
+  return out;
+}
+
 export async function generateOcorrenciaAtaLojaDocx(opts: {
   empresa: string;
   ano: number;
@@ -260,6 +420,7 @@ export async function generateOcorrenciaAtaLojaDocx(opts: {
   prevItems: OcorrenciaAtaRow[] | null;
   prevAtraso: number | null;
   temDadosAnterior: boolean;
+  fotoBytesByPath?: AtaFotoBytesByPath;
 }): Promise<Buffer> {
   const periodo = monthYearLabelSP(opts.ano, opts.mes);
   const geradoEm = new Intl.DateTimeFormat('pt-BR', {
@@ -279,7 +440,7 @@ export async function generateOcorrenciaAtaLojaDocx(opts: {
   });
 
   const destaques = destaquesDaAta(opts.items);
-  const fotos = await carregarFotos(destaques);
+  const fotos = await carregarFotos(destaques, opts.fotoBytesByPath);
 
   const children: (Paragraph | Table)[] = [
     ...cabecalho({
@@ -289,68 +450,66 @@ export async function generateOcorrenciaAtaLojaDocx(opts: {
       geradoEm,
     }),
     heading('1. Resumo por categoria'),
+    tabelaResumo(resumo.resumo),
+    divider(),
+    heading('2. Total de ocorrências'),
+    muted(totalOcorrenciasTexto(resumo.ocorrencias, resumo.atrasos)),
+    ...secaoMotoboys(resumo.motoboys, '3. Motoboys citados', false),
+    ...blocosDestaque(destaques, fotos, '4. Ocorrências em destaque'),
   ];
 
-  children.push(
-    new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      rows: [
-        new TableRow({
-          children: [
-            cell('Categoria', { bold: true }),
-            cell('Quantidade', { bold: true }),
-            cell('Variação', { bold: true }),
-          ],
-        }),
-        ...resumo.resumo.map(
-          (r) =>
-            new TableRow({
-              children: [
-                cell(r.label),
-                cell(r.quantidadeLabel),
-                cell(r.variacao),
-              ],
-            }),
-        ),
-      ],
-    }),
-  );
-
-  children.push(divider());
-  children.push(heading('2. Total de ocorrências'));
-  const atrasoTxt =
-    resumo.atrasos === null
-      ? ATRASO_NAO_INFORMADO
-      : String(resumo.atrasos);
-  children.push(
-    muted(
-      `${resumo.ocorrencias} ocorrência(s) registradas + ${atrasoTxt} pedido(s) atrasado(s) = ${resumo.atrasos === null ? `${resumo.ocorrencias} + não informado` : String(resumo.total)}.`,
-    ),
-  );
-
-  children.push(divider());
-  children.push(heading('3. Motoboys citados'));
-  if (resumo.motoboys.length === 0) {
-    children.push(muted('Nenhum motoboy citado nas ocorrências do período.'));
-  } else {
-    children.push(muted(`${resumo.motoboys.length} motoboy(s) citado(s). Pedidos atrasados não entram.`));
-    for (const m of resumo.motoboys) {
-      const quebra = quebraCategoriaLabel(m.porCategoria);
-      children.push(bullet(`${m.nome}: ${m.total}${quebra ? ` — ${quebra}` : ''}`));
-    }
-  }
-
-  children.push(...blocosDestaque(destaques, fotos, '4. Ocorrências em destaque'));
-
   const doc = new Document({
-    sections: [
-      {
-        properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } },
-        children,
-      },
-    ],
+    sections: [{ properties: pageProperties(false), children }],
   });
   return Buffer.from(await Packer.toBuffer(doc));
+}
+
+function tabelaMatrizRede(
+  rede: ReturnType<typeof buildRedeResumo>,
+  widths: number[],
+) {
+  const headerCells = [
+    cell('Loja', widths[0]!, { bold: true }),
+    ...TODAS_CATEGORIAS.map((c, i) =>
+      cell(categoriaLabel(c), widths[i + 1]!, { bold: true }),
+    ),
+    cell('Total', widths[widths.length - 1]!, { bold: true }),
+  ];
+  const bodyRows = rede.matriz.lojas.map(
+    (l) =>
+      new TableRow({
+        children: [
+          cell(l.lojaNome, widths[0]!),
+          ...TODAS_CATEGORIAS.map((c, i) =>
+            cell(
+              c === 'PEDIDO_ATRASADO' && l.valores[c] === null
+                ? ATRASO_NAO_INFORMADO
+                : String(l.valores[c] ?? 0),
+              widths[i + 1]!,
+            ),
+          ),
+          cell(String(l.total), widths[widths.length - 1]!, { bold: true }),
+        ],
+      }),
+  );
+  const footer = new TableRow({
+    children: [
+      cell('Total', widths[0]!, { bold: true }),
+      ...TODAS_CATEGORIAS.map((c, i) =>
+        cell(
+          rede.matriz.totaisColuna[c] === null
+            ? ATRASO_NAO_INFORMADO
+            : String(rede.matriz.totaisColuna[c] ?? 0),
+          widths[i + 1]!,
+          { bold: true },
+        ),
+      ),
+      cell(String(rede.matriz.totalGeral), widths[widths.length - 1]!, {
+        bold: true,
+      }),
+    ],
+  });
+  return ataTable(widths, [new TableRow({ children: headerCells }), ...bodyRows, footer]);
 }
 
 export async function generateOcorrenciaAtaRedeDocx(opts: {
@@ -363,6 +522,7 @@ export async function generateOcorrenciaAtaRedeDocx(opts: {
   prevItems: OcorrenciaAtaRow[] | null;
   prevAtrasos: AtrasoInformado[] | null;
   temDadosAnterior: boolean;
+  fotoBytesByPath?: AtaFotoBytesByPath;
 }): Promise<Buffer> {
   const periodo = monthYearLabelSP(opts.ano, opts.mes);
   const geradoEm = new Intl.DateTimeFormat('pt-BR', {
@@ -374,9 +534,16 @@ export async function generateOcorrenciaAtaRedeDocx(opts: {
 
   const rede = buildRedeResumo(opts);
   const destaques = rede.destaquesPorLoja.flatMap((g) => g.items);
-  const fotos = await carregarFotos(destaques);
+  const fotos = await carregarFotos(destaques, opts.fotoBytesByPath);
 
-  const children: (Paragraph | Table)[] = [
+  const colCount = 1 + TODAS_CATEGORIAS.length + 1;
+  const landscape = matrizUsaPaisagem(colCount);
+  const contentW = landscape
+    ? ATA_CONTENT_LANDSCAPE_DXA
+    : ATA_CONTENT_PORTRAIT_DXA;
+  const matrizWidths = matrizLojaCategoriaWidths(colCount, contentW);
+
+  const before: (Paragraph | Table)[] = [
     ...cabecalho({
       empresa: opts.empresa,
       escopoLabel: 'Rede',
@@ -384,119 +551,49 @@ export async function generateOcorrenciaAtaRedeDocx(opts: {
       geradoEm,
     }),
     heading('1. Resumo consolidado por categoria'),
-    new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      rows: [
-        new TableRow({
-          children: [
-            cell('Categoria', { bold: true }),
-            cell('Quantidade', { bold: true }),
-            cell('Variação', { bold: true }),
-          ],
-        }),
-        ...rede.resumo.map(
-          (r) =>
-            new TableRow({
-              children: [
-                cell(r.label),
-                cell(r.quantidadeLabel),
-                cell(r.variacao),
-              ],
-            }),
-        ),
-      ],
-    }),
-    divider(),
+    tabelaResumo(rede.resumo),
+  ];
+
+  const matrixBlocks: (Paragraph | Table)[] = [
     heading('2. Loja × categoria'),
+    tabelaMatrizRede(rede, matrizWidths),
   ];
 
-  const headerCells = [
-    cell('Loja', { bold: true }),
-    ...TODAS_CATEGORIAS.map((c) => cell(categoriaLabel(c), { bold: true })),
-    cell('Total', { bold: true }),
-  ];
-  const bodyRows = rede.matriz.lojas.map(
-    (l) =>
-      new TableRow({
-        children: [
-          cell(l.lojaNome),
-          ...TODAS_CATEGORIAS.map((c) =>
-            cell(
-              c === 'PEDIDO_ATRASADO' && l.valores[c] === null
-                ? ATRASO_NAO_INFORMADO
-                : String(l.valores[c] ?? 0),
-            ),
-          ),
-          cell(String(l.total), { bold: true }),
-        ],
-      }),
-  );
-  const footer = new TableRow({
-    children: [
-      cell('Total', { bold: true }),
-      ...TODAS_CATEGORIAS.map((c) =>
-        cell(
-          rede.matriz.totaisColuna[c] === null
-            ? ATRASO_NAO_INFORMADO
-            : String(rede.matriz.totaisColuna[c] ?? 0),
-          { bold: true },
-        ),
-      ),
-      cell(String(rede.matriz.totalGeral), { bold: true }),
-    ],
-  });
-  children.push(
-    new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      rows: [new TableRow({ children: headerCells }), ...bodyRows, footer],
-    }),
-  );
-
-  children.push(divider());
-  children.push(heading('3. Total por loja'));
-  for (const r of rede.rankingLojas) {
-    const atrasosTxt =
-      r.atrasos === null ? ATRASO_NAO_INFORMADO : String(r.atrasos);
-    children.push(
-      bullet(
+  const after: (Paragraph | Table)[] = [
+    divider(),
+    heading('3. Total por loja'),
+    ...rede.rankingLojas.map((r) => {
+      const atrasosTxt =
+        r.atrasos === null ? ATRASO_NAO_INFORMADO : String(r.atrasos);
+      return bullet(
         `${r.lojaNome}: ${r.total} (ocorrências ${r.ocorrencias} + atrasos ${atrasosTxt})`,
-      ),
-    );
-  }
-
-  children.push(divider());
-  children.push(heading('4. Motoboys citados na rede'));
-  if (rede.motoboys.length === 0) {
-    children.push(muted('Nenhum motoboy citado nas ocorrências do período.'));
-  } else {
-    children.push(muted('Pedidos atrasados não entram nesta contagem.'));
-    for (const m of rede.motoboys) {
-      const quebra = quebraCategoriaLabel(m.porCategoria);
-      children.push(
-        bullet(
-          `${m.nome} · ${m.lojaNome}: ${m.total}${quebra ? ` — ${quebra}` : ''}`,
-        ),
       );
-    }
-  }
+    }),
+    ...secaoMotoboys(rede.motoboys, '4. Motoboys citados na rede', true),
+  ];
 
   if (rede.destaquesPorLoja.length > 0) {
-    children.push(divider());
-    children.push(heading('5. Ocorrências em destaque'));
+    after.push(divider(), heading('5. Ocorrências em destaque'));
     for (const grupo of rede.destaquesPorLoja) {
-      children.push(subheading(grupo.lojaNome));
-      children.push(...blocosDestaque(grupo.items, fotos));
+      after.push(subheading(grupo.lojaNome));
+      after.push(...blocosDestaque(grupo.items, fotos));
     }
   }
 
-  const doc = new Document({
-    sections: [
-      {
-        properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } },
-        children,
-      },
-    ],
-  });
+  const sections = landscape
+    ? [
+        { properties: pageProperties(false), children: [...before, divider()] },
+        { properties: pageProperties(true), children: matrixBlocks },
+        { properties: pageProperties(false), children: after },
+      ]
+    : [
+        {
+          properties: pageProperties(false),
+          children: [...before, divider(), ...matrixBlocks, ...after],
+        },
+      ];
+
+  const doc = new Document({ sections });
   return Buffer.from(await Packer.toBuffer(doc));
 }
 
