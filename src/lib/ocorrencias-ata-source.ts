@@ -7,7 +7,7 @@ import {
   type LojaAtaRef,
   type OcorrenciaAtaRow,
 } from '@/lib/ocorrencias-ata-data';
-import { ocorrenciaFotoPaths } from '@/lib/ocorrencias-foto';
+import { fotosDoDestaque, ocorrenciaFotoPaths } from '@/lib/ocorrencias-foto';
 
 export type AtaSourceMes = {
   lojas: LojaAtaRef[];
@@ -40,6 +40,7 @@ async function loadMes(
         categorias: true,
         motoboyId: true,
         destaqueAta: true,
+        destaqueFotoPaths: true,
         createdAt: true,
         numeroPedidoSaipos: true,
         numeroPedidoExterno: true,
@@ -76,7 +77,12 @@ async function loadMes(
       numeroPedidoExterno: o.numeroPedidoExterno,
       canalExterno: o.canalExterno,
       descricao: o.descricao,
-      fotoPaths: ocorrenciaFotoPaths(o.fotoPath, o.fotoPaths),
+      fotoPaths: o.destaqueAta
+        ? fotosDoDestaque(
+            ocorrenciaFotoPaths(o.fotoPath, o.fotoPaths),
+            o.destaqueFotoPaths,
+          )
+        : ocorrenciaFotoPaths(o.fotoPath, o.fotoPaths),
     }));
 
   const atrasos: AtrasoInformado[] = lojas.map((l) => ({

@@ -3,6 +3,10 @@ import { ESCOPO_REDE, ESCOPO_TODAS_LOJAS } from '@/lib/ocorrencias-ata-data';
 
 export const destaqueBodySchema = z.object({
   destaqueAta: z.boolean(),
+  destaqueFotoPaths: z
+    .array(z.string().trim().min(1).max(256))
+    .max(5)
+    .optional(),
 });
 
 export const atrasosQuerySchema = z.object({

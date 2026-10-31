@@ -92,3 +92,13 @@ export function ocorrenciaFotoPaths(
   if (fotoPaths && fotoPaths.length > 0) return fotoPaths;
   return fotoPath ? [fotoPath] : [];
 }
+
+/** Fotos do destaque: só as escolhidas, se ainda existirem na ocorrência. */
+export function fotosDoDestaque(
+  todas: string[],
+  selecionadas?: string[] | null,
+): string[] {
+  if (!selecionadas || selecionadas.length === 0) return todas;
+  const permitidas = new Set(todas);
+  return selecionadas.filter((p) => permitidas.has(p));
+}

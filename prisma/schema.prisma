@@ -2555,6 +2555,8 @@ model Ocorrencia {
   idempotencyKey      String?
   /// Destaque na ata mensal (só quem tem ver_ocorrencias marca).
   destaqueAta         Boolean          @default(false)
+  /// Fotos escolhidas para a ata. Vazio = todas (registros antigos).
+  destaqueFotoPaths   String[]         @default([])
   destaqueAtaPorId    String?
   destaqueAtaEm       DateTime?
   createdAt           DateTime         @default(now())

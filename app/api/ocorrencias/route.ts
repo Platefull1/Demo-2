@@ -331,6 +331,7 @@ export async function GET(request: NextRequest) {
         fotoPath: true,
         fotoPaths: true,
         destaqueAta: true,
+        destaqueFotoPaths: true,
         criadoPorUserId: true,
         createdAt: true,
         loja: { select: { id: true, nome: true } },
@@ -424,15 +425,17 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     ocorrencias: ocorrencias.map(({ fotoPath, fotoPaths, ...oc }) => {
-      const urls = ocorrenciaFotoPaths(fotoPath, fotoPaths)
+      const paths = ocorrenciaFotoPaths(fotoPath, fotoPaths);
+      const urls = paths
         .map((p) => fotoUrls[p])
         .filter((u): u is string => Boolean(u));
       return {
         ...oc,
         criadoPorNome: criadorMap[oc.criadoPorUserId] || '—',
-        temFoto: urls.length > 0 || Boolean(fotoPath) || (fotoPaths?.length ?? 0) > 0,
+        temFoto: urls.length > 0 || paths.length > 0,
         fotoUrl: urls[0] || null,
         fotoUrls: urls,
+        fotoPaths: paths,
       };
     }),
     total,

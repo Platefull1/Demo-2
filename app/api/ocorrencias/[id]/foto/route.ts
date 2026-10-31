@@ -50,7 +50,7 @@ export async function GET(
   }
 
   return NextResponse.json(
-    { url, urls: urls.length > 0 ? urls : [url] },
+    { url, urls: urls.length > 0 ? urls : [url], paths },
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }

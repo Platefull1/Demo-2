@@ -52,6 +52,7 @@ import { Toggle } from '@/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { AtrasosMensaisDialog } from './AtrasosMensaisDialog';
+import { DestaqueFotosDialog, type FotoDestaque } from './DestaqueFotosDialog';
 import { OcorrenciasAtasTab } from './OcorrenciasAtasTab';
 
 interface Loja { id: string; nome: string; }
@@ -70,6 +71,8 @@ interface Ocorrencia {
   temFoto: boolean;
   fotoUrl: string | null;
   fotoUrls: string[];
+  fotoPaths: string[];
+  destaqueFotoPaths: string[];
   loja: { id: string; nome: string };
   motoboy: { id: string; name: string } | null;
   destaqueAta: boolean;
@@ -158,6 +161,10 @@ export default function OcorrenciasClient({
   const [detalhe, setDetalhe] = useState<Ocorrencia | null>(null);
   const [fotoUrls, setFotoUrls] = useState<string[]>([]);
   const [fotoAtiva, setFotoAtiva] = useState(0);
+  const [destaquePicker, setDestaquePicker] = useState<Ocorrencia | null>(null);
+  const [destaqueFotos, setDestaqueFotos] = useState<FotoDestaque[]>([]);
+  const [destaqueErro, setDestaqueErro] = useState<string | null>(null);
+  const [salvandoDestaque, setSalvandoDestaque] = useState(false);
   const [carregandoFoto, setCarregandoFoto] = useState(false);
 
   useEffect(() => {
@@ -235,38 +242,97 @@ export default function OcorrenciasClient({
     setAtrasosOpen(true);
   }
 
-  async function toggleDestaque(oc: Ocorrencia, next: boolean) {
+  function aplicarDestaqueLocal(
+    ocId: string,
+    destaqueAta: boolean,
+    destaqueFotoPaths: string[],
+  ) {
+    const patch = { destaqueAta, destaqueFotoPaths };
     setDados((prev) =>
       prev
         ? {
             ...prev,
             ocorrencias: prev.ocorrencias.map((o) =>
-              o.id === oc.id ? { ...o, destaqueAta: next } : o,
+              o.id === ocId ? { ...o, ...patch } : o,
             ),
           }
         : prev,
     );
-    setDetalhe((d) => (d && d.id === oc.id ? { ...d, destaqueAta: next } : d));
+    setDetalhe((d) => (d && d.id === ocId ? { ...d, ...patch } : d));
+  }
+
+  async function salvarDestaque(
+    oc: Ocorrencia,
+    destaqueAta: boolean,
+    destaqueFotoPaths: string[],
+  ) {
+    const anterior = {
+      destaqueAta: oc.destaqueAta,
+      destaqueFotoPaths: oc.destaqueFotoPaths ?? [],
+    };
+    aplicarDestaqueLocal(oc.id, destaqueAta, destaqueFotoPaths);
+    setSalvandoDestaque(true);
+    setDestaqueErro(null);
     try {
       const res = await fetch(`/api/ocorrencias/${oc.id}/destaque`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ destaqueAta: next }),
+        body: JSON.stringify({ destaqueAta, destaqueFotoPaths }),
       });
-      if (!res.ok) throw new Error('fail');
-    } catch {
-      setDados((prev) =>
-        prev
-          ? {
-              ...prev,
-              ocorrencias: prev.ocorrencias.map((o) =>
-                o.id === oc.id ? { ...o, destaqueAta: !next } : o,
-              ),
-            }
-          : prev,
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json.error || 'Não foi possível atualizar o destaque.');
+      }
+      setDestaquePicker(null);
+    } catch (e) {
+      aplicarDestaqueLocal(oc.id, anterior.destaqueAta, anterior.destaqueFotoPaths);
+      setDestaqueErro(
+        e instanceof Error ? e.message : 'Não foi possível atualizar o destaque.',
       );
-      setDetalhe((d) => (d && d.id === oc.id ? { ...d, destaqueAta: !next } : d));
+    } finally {
+      setSalvandoDestaque(false);
     }
+  }
+
+  async function carregarFotosDestaque(oc: Ocorrencia): Promise<FotoDestaque[]> {
+    const paths = oc.fotoPaths ?? [];
+    const urls = oc.fotoUrls ?? [];
+    if (paths.length > 0 && urls.length === paths.length) {
+      return paths.map((path, i) => ({ path, url: urls[i] ?? '' })).filter((f) => f.url);
+    }
+    const res = await fetch(`/api/ocorrencias/${oc.id}/foto`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const fetchedPaths: string[] = data.paths ?? paths;
+    const fetchedUrls: string[] = data.urls?.length
+      ? data.urls
+      : data.url
+        ? [data.url]
+        : [];
+    return fetchedPaths
+      .map((path, i) => ({ path, url: fetchedUrls[i] ?? '' }))
+      .filter((f) => f.path && f.url);
+  }
+
+  async function iniciarDestaque(oc: Ocorrencia, next: boolean) {
+    if (!next) {
+      void salvarDestaque(oc, false, []);
+      return;
+    }
+    const qtd = oc.fotoPaths?.length ?? oc.fotoUrls?.length ?? 0;
+    if (qtd > 1) {
+      setDestaqueErro(null);
+      setDestaquePicker(oc);
+      setDestaqueFotos([]);
+      try {
+        const fotos = await carregarFotosDestaque(oc);
+        setDestaqueFotos(fotos);
+      } catch {
+        setDestaqueErro('Não foi possível carregar as fotos.');
+      }
+      return;
+    }
+    void salvarDestaque(oc, true, oc.fotoPaths ?? []);
   }
 
   async function abrirDetalhe(oc: Ocorrencia) {
@@ -654,7 +720,7 @@ export default function OcorrenciasClient({
                           aria-label={oc.destaqueAta ? 'Remover destaque' : 'Destacar na ata'}
                           onClick={(e) => {
                             e.stopPropagation();
-                            void toggleDestaque(oc, !oc.destaqueAta);
+                            void iniciarDestaque(oc, !oc.destaqueAta);
                           }}
                         >
                           <Star
@@ -785,13 +851,26 @@ export default function OcorrenciasClient({
               </SheetHeader>
 
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2 mb-4">
-                <label htmlFor="destaque-ata" className="text-sm text-foreground">
-                  Destacar na ata
-                </label>
+                <div className="min-w-0">
+                  <label htmlFor="destaque-ata" className="text-sm text-foreground">
+                    Destacar na ata
+                  </label>
+                  {detalhe.destaqueAta && (detalhe.fotoPaths?.length ?? 0) > 1 ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto px-0"
+                      onClick={() => void iniciarDestaque(detalhe, true)}
+                    >
+                      Alterar fotos
+                    </Button>
+                  ) : null}
+                </div>
                 <Switch
                   id="destaque-ata"
                   checked={detalhe.destaqueAta}
-                  onCheckedChange={(v) => void toggleDestaque(detalhe, v)}
+                  onCheckedChange={(v) => void iniciarDestaque(detalhe, v)}
                 />
               </div>
 
@@ -814,21 +893,35 @@ export default function OcorrenciasClient({
                     </div>
                     {fotoUrls.length > 1 && (
                       <div className="flex gap-2 overflow-x-auto">
-                        {fotoUrls.map((url, i) => (
-                          <button
-                            key={`${url}-${i}`}
-                            type="button"
-                            onClick={() => setFotoAtiva(i)}
-                            className={cn(
-                              'h-14 w-14 shrink-0 rounded-lg overflow-hidden border',
-                              i === fotoAtiva ? 'border-primary' : 'border-border',
-                            )}
-                            aria-label={`Ver foto ${i + 1}`}
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={url} alt="" className="h-full w-full object-cover" />
-                          </button>
-                        ))}
+                        {fotoUrls.map((url, i) => {
+                          const path = detalhe.fotoPaths?.[i];
+                          const noDestaque =
+                            detalhe.destaqueAta &&
+                            path &&
+                            (detalhe.destaqueFotoPaths?.length
+                              ? detalhe.destaqueFotoPaths.includes(path)
+                              : true);
+                          return (
+                            <Button
+                              key={`${url}-${i}`}
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setFotoAtiva(i)}
+                              className={cn(
+                                'relative h-14 w-14 shrink-0 overflow-hidden rounded-lg p-0',
+                                i === fotoAtiva ? 'border-primary' : 'border-border',
+                              )}
+                              aria-label={`Ver foto ${i + 1}`}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={url} alt="" className="h-full w-full object-cover" />
+                              {noDestaque ? (
+                                <Star className="absolute bottom-1 right-1 size-3 fill-primary text-primary" />
+                              ) : null}
+                            </Button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -894,6 +987,23 @@ export default function OcorrenciasClient({
           )}
         </SheetContent>
       </Sheet>
+
+      <DestaqueFotosDialog
+        open={!!destaquePicker}
+        onOpenChange={(open) => {
+          if (!open) setDestaquePicker(null);
+        }}
+        fotos={destaqueFotos}
+        selecionadasInicial={
+          destaquePicker?.destaqueAta ? (destaquePicker.destaqueFotoPaths ?? []) : []
+        }
+        salvando={salvandoDestaque}
+        erro={destaqueErro}
+        confirmLabel={destaquePicker?.destaqueAta ? 'Salvar' : 'Destacar'}
+        onConfirm={(paths) => {
+          if (destaquePicker) void salvarDestaque(destaquePicker, true, paths);
+        }}
+      />
 
       <AtrasosMensaisDialog
         open={atrasosOpen}
