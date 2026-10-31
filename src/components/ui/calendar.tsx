@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { format } from "date-fns"
+import { ptBR } from "date-fns/locale"
 import {
   ChevronDownIcon,
   ChevronLeftIcon,
@@ -10,6 +12,8 @@ import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
+
+const WEEKDAYS = ["D", "S", "T", "Q", "Q", "S", "S"] as const
 
 function Calendar({
   className,
@@ -34,10 +38,17 @@ function Calendar({
         String.raw`rtl:**:[.rdp-button\_previous>svg]:rotate-180`,
         className
       )}
+      locale={ptBR}
+      weekStartsOn={0}
       captionLayout={captionLayout}
       formatters={{
+        formatWeekdayName: (date) => WEEKDAYS[date.getDay()] ?? "",
+        formatCaption: (date) => {
+          const s = format(date, "MMMM 'de' yyyy", { locale: ptBR })
+          return s.charAt(0).toUpperCase() + s.slice(1)
+        },
         formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+          format(date, "LLL", { locale: ptBR }).replace(".", ""),
         ...formatters,
       }}
       classNames={{
@@ -104,17 +115,20 @@ function Calendar({
           defaultClassNames.day
         ),
         range_start: cn(
-          "rounded-l-md bg-accent",
+          "rounded-l-md bg-primary/15",
           defaultClassNames.range_start
         ),
-        range_middle: cn("rounded-none", defaultClassNames.range_middle),
-        range_end: cn("rounded-r-md bg-accent", defaultClassNames.range_end),
+        range_middle: cn(
+          "rounded-none bg-primary/15",
+          defaultClassNames.range_middle
+        ),
+        range_end: cn("rounded-r-md bg-primary/15", defaultClassNames.range_end),
         today: cn(
-          "bg-accent text-accent-foreground rounded-md data-[selected=true]:rounded-none",
+          "rounded-md ring-1 ring-primary/40 data-[selected=true]:rounded-none",
           defaultClassNames.today
         ),
         outside: cn(
-          "text-muted-foreground aria-selected:text-muted-foreground",
+          "text-muted-foreground/50 aria-selected:text-muted-foreground",
           defaultClassNames.outside
         ),
         disabled: cn(

@@ -40,14 +40,17 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Check, ChevronLeft, ChevronRight, Star, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Pencil, Plus, Search, Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   TODAS_CATEGORIAS,
   categoriaLabel,
 } from '@/lib/ocorrencias-categorias';
+import { displayLojaAta, formatNomePessoa } from '@/lib/ocorrencias-ata-data';
 import { Switch } from '@/components/ui/switch';
+import { Toggle } from '@/components/ui/toggle';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { DateRangePicker } from '@/components/ui/date-range-picker';
 import { AtrasosMensaisDialog } from './AtrasosMensaisDialog';
 import { OcorrenciasAtasTab } from './OcorrenciasAtasTab';
 
@@ -83,6 +86,7 @@ interface ListaResponse {
   totalPages: number;
   contadoresPorLoja: ContadorLoja[];
   contadoresPorCategoria: ContadorCategoria[];
+  atrasosManuais?: { total: number; lojasSemNumero: string[] };
 }
 
 function canalLabel(canal: string | null) {
@@ -105,14 +109,24 @@ function mesAtualYmd() {
   };
 }
 
-function kpiBorder(index: number, total: number) {
+function kpiBorder(index: number, total: number, colsXl: 4 | 5) {
   const last = index === total - 1;
   return cn(
-    index % 2 === 0 && !last && 'border-r border-border',
-    index < 2 && total > 2 && 'border-b border-border xl:border-b-0',
-    !last && 'xl:border-r',
-    last && 'xl:border-r-0',
+    'border-border',
+    index % 2 === 0 && !last && 'border-r',
+    index < total - (total % 2 === 0 ? 2 : 1) && 'border-b',
+    colsXl === 5 && 'lg:border-b-0',
+    colsXl === 4 && 'xl:border-b-0',
+    !last && (colsXl === 5 ? 'lg:border-r' : 'xl:border-r'),
+    last && (colsXl === 5 ? 'lg:border-r-0' : 'xl:border-r-0'),
   );
+}
+
+function nomeExibicaoUsuario(nome: string): string {
+  const t = nome.trim();
+  if (!t || t === '—') return '—';
+  if (/\S+@\S+\.\S+/.test(t)) return t.split('@')[0] || t;
+  return formatNomePessoa(t);
 }
 
 export default function OcorrenciasClient({
@@ -286,8 +300,15 @@ export default function OcorrenciasClient({
     setCarregandoFoto(false);
   }
 
+  const padraoAtual = mesAtualYmd();
   const temFiltros = Boolean(
-    lojaFiltro || motoboyFiltro || busca || categoriasFiltro.length > 0 || soDestaques,
+    lojaFiltro ||
+      motoboyFiltro ||
+      busca ||
+      categoriasFiltro.length > 0 ||
+      soDestaques ||
+      inicio !== padraoAtual.inicio ||
+      fim !== padraoAtual.fim,
   );
   const totaisCategoria = Object.fromEntries(
     (dados?.contadoresPorCategoria ?? []).map((c) => [c.categoria, c.total]),
@@ -309,6 +330,7 @@ export default function OcorrenciasClient({
     : [];
 
   return (
+    <TooltipProvider>
     <div className="px-6 py-6 md:px-8 space-y-6">
       <PageHeader
         title="Central de Ocorrências"
@@ -316,7 +338,10 @@ export default function OcorrenciasClient({
         actions={
           canRegister ? (
             <Button asChild>
-              <Link href="/ocorrencias/nova">Registrar ocorrência</Link>
+              <Link href="/ocorrencias/nova">
+                <Plus className="size-4" />
+                Registrar ocorrência
+              </Link>
             </Button>
           ) : undefined
         }
@@ -340,121 +365,178 @@ export default function OcorrenciasClient({
       </ToggleGroup>
 
       {aba === 'atas' ? (
-        <OcorrenciasAtasTab onEditarAtrasos={(ano, mes) => abrirAtrasos(ano, mes)} />
+        <OcorrenciasAtasTab
+          onEditarAtrasos={(ano, mes) => abrirAtrasos(ano, mes)}
+          onIrParaOcorrencias={() => setAba('ocorrencias')}
+        />
       ) : null}
 
       {aba === 'ocorrencias' && dados && (
         <div className="space-y-6">
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-0 rounded-xl border border-border overflow-hidden bg-card">
-            {kpiCells.map((c, i) => (
-              <div key={c.key} className={cn('p-4', kpiBorder(i, kpiCells.length))}>
-                <p className="text-sm text-muted-foreground truncate">{c.label}</p>
-                <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
-                  {c.value}
-                </p>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-0 rounded-xl border border-border overflow-hidden bg-card">
+            {kpiCells.map((c, i) => {
+              const selected = c.key !== 'total' && lojaFiltro === c.key;
+              const isTotal = c.key === 'total';
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => {
+                    if (isTotal) {
+                      setLojaFiltro('');
+                    } else {
+                      setLojaFiltro(lojaFiltro === c.key ? '' : c.key);
+                    }
+                    setPage(1);
+                  }}
+                  className={cn(
+                    'p-4 text-left',
+                    kpiBorder(i, kpiCells.length, 5),
+                    selected && 'bg-accent',
+                  )}
+                >
+                  <p className="text-xs text-muted-foreground truncate">
+                    {isTotal ? c.label : displayLojaAta(c.label)}
+                  </p>
+                  <p
+                    className={cn(
+                      'text-3xl font-semibold tabular-nums mt-1',
+                      isTotal ? 'text-primary' : 'text-foreground',
+                    )}
+                  >
+                    {c.value}
+                  </p>
+                </button>
+              );
+            })}
           </div>
 
-          <TooltipProvider>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-0 rounded-xl border border-border overflow-hidden bg-card">
-              {kpiCategorias.map((c, i) => (
-                <Tooltip key={c.key}>
-                  <TooltipTrigger asChild>
-                    <div className={cn('p-4', kpiBorder(i, kpiCategorias.length))}>
-                      <p className="text-sm text-muted-foreground truncate">{c.label}</p>
-                      <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
-                        {c.value}
-                      </p>
-                      {c.key === 'PEDIDO_ATRASADO' && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="mt-2 h-7 text-xs"
-                          onClick={() => abrirAtrasos()}
-                        >
-                          Editar
-                        </Button>
+              {kpiCategorias.map((c, i) => {
+                const selected = categoriasFiltro.length === 1 && categoriasFiltro[0] === c.key;
+                const atrasoNaoInf =
+                  c.key === 'PEDIDO_ATRASADO' &&
+                  lojas.length > 0 &&
+                  (dados.atrasosManuais?.lojasSemNumero.length ?? 0) >= lojas.length;
+                return (
+                  <div
+                    key={c.key}
+                    className={cn(
+                      'relative p-4',
+                      kpiBorder(i, kpiCategorias.length, 4),
+                      selected && 'bg-accent',
+                    )}
+                  >
+                    {c.key === 'PEDIDO_ATRASADO' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute top-2 right-2 size-8"
+                            aria-label="Informar atrasos"
+                            onClick={() => abrirAtrasos()}
+                          >
+                            <Pencil className="size-4 text-muted-foreground" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Informar atrasos</TooltipContent>
+                      </Tooltip>
+                    )}
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => {
+                        setCategoriasFiltro((prev) =>
+                          prev.length === 1 && prev[0] === c.key ? [] : [c.key],
+                        );
+                        setPage(1);
+                      }}
+                    >
+                      <p className="text-xs text-muted-foreground truncate pr-8">{c.label}</p>
+                      {atrasoNaoInf ? (
+                        <>
+                          <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">—</p>
+                          <p className="text-xs text-muted-foreground mt-1">não informado</p>
+                        </>
+                      ) : (
+                        <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
+                          {c.value}
+                        </p>
                       )}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Uma ocorrência com 2 categorias conta em ambas
-                  </TooltipContent>
-                </Tooltip>
-              ))}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
-          </TooltipProvider>
         </div>
       )}
 
       {aba === 'ocorrencias' && (
-      <div className="flex flex-wrap items-center gap-3">
-        <Input
-          type="date"
-          value={inicio}
-          onChange={(e) => {
-            setInicio(e.target.value);
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangePicker
+          aria-label="Período"
+          value={{ from: inicio, to: fim }}
+          onChange={(range) => {
+            if (!range) {
+              const atual = mesAtualYmd();
+              setInicio(atual.inicio);
+              setFim(atual.fim);
+            } else {
+              setInicio(range.from);
+              setFim(range.to);
+            }
             setPage(1);
           }}
-          className="w-auto"
-        />
-        <span className="text-muted-foreground text-sm">até</span>
-        <Input
-          type="date"
-          value={fim}
-          onChange={(e) => {
-            setFim(e.target.value);
-            setPage(1);
-          }}
-          className="w-auto"
         />
 
         <Select
-          value={lojaFiltro}
+          value={lojaFiltro || 'todas'}
           onValueChange={(v) => {
             setLojaFiltro(v === 'todas' ? '' : v);
             setMotoboyFiltro('');
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Todas as lojas" />
+          <SelectTrigger className="h-9 w-40">
+            <SelectValue placeholder="Loja" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="todas">Todas as lojas</SelectItem>
             {lojas.map((l) => (
-              <SelectItem key={l.id} value={l.id}>{l.nome}</SelectItem>
+              <SelectItem key={l.id} value={l.id}>{displayLojaAta(l.nome)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Select
-          value={motoboyFiltro}
+          value={motoboyFiltro || 'todos'}
           onValueChange={(v) => {
             setMotoboyFiltro(v === 'todos' ? '' : v);
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Todos os motoboys" />
+          <SelectTrigger className="h-9 w-44">
+            <SelectValue placeholder="Motoboy" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="todos">Todos os motoboys</SelectItem>
             {motoboys.map((m) => (
-              <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>
+              <SelectItem key={m.id} value={m.id}>{formatNomePessoa(m.nome)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
 
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className="h-10 w-44 justify-between font-normal">
+            <Button variant="outline" className="h-9 w-44 justify-between font-normal">
               <span className="truncate">
                 {categoriasFiltro.length === 0
                   ? 'Categorias'
-                  : `${categoriasFiltro.length} categoria${categoriasFiltro.length > 1 ? 's' : ''}`}
+                  : categoriasFiltro.length === 1
+                    ? categoriaLabel(categoriasFiltro[0]!)
+                    : `${categoriasFiltro.length} categorias`}
               </span>
             </Button>
           </PopoverTrigger>
@@ -462,59 +544,60 @@ export default function OcorrenciasClient({
             {TODAS_CATEGORIAS.map((c) => {
               const sel = categoriasFiltro.includes(c);
               return (
-                <button
+                <Button
                   key={c}
                   type="button"
+                  variant="ghost"
+                  className="h-8 w-full justify-start font-normal"
                   onClick={() => {
                     setCategoriasFiltro((prev) =>
                       prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c],
                     );
                     setPage(1);
                   }}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm',
-                    sel ? 'bg-accent text-foreground' : 'text-foreground hover:bg-muted',
-                  )}
                 >
                   <Check
                     className={cn(
-                      'h-3.5 w-3.5 text-muted-foreground',
+                      'size-4 text-muted-foreground',
                       sel ? 'opacity-100' : 'opacity-0',
                     )}
                   />
                   {categoriaLabel(c)}
-                </button>
+                </Button>
               );
             })}
           </PopoverContent>
         </Popover>
 
-        <Input
-          placeholder="Buscar por nº pedido…"
-          value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setPage(1);
-          }}
-          className="w-52"
-        />
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar nº do pedido"
+            value={busca}
+            onChange={(e) => {
+              setBusca(e.target.value);
+              setPage(1);
+            }}
+            className="h-9 w-52 pl-8"
+          />
+        </div>
 
-        <Button
-          type="button"
-          variant={soDestaques ? 'default' : 'outline'}
-          size="sm"
-          className="h-10"
-          onClick={() => {
-            setSoDestaques((v) => !v);
+        <Toggle
+          pressed={soDestaques}
+          onPressedChange={(v) => {
+            setSoDestaques(v);
             setPage(1);
           }}
+          aria-label="Só destacadas"
+          className="h-9 px-3 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
         >
+          <Star className={cn('size-4', soDestaques && 'fill-current')} />
           Só destacadas
-        </Button>
+        </Toggle>
 
         {temFiltros && (
-          <Button variant="ghost" size="sm" onClick={limparFiltros} className="gap-1">
-            <X className="h-3.5 w-3.5" /> Limpar
+          <Button variant="ghost" size="sm" onClick={limparFiltros}>
+            <X className="size-4" /> Limpar filtros
           </Button>
         )}
       </div>
@@ -561,27 +644,38 @@ export default function OcorrenciasClient({
                   onClick={() => abrirDetalhe(oc)}
                 >
                   <TableCell className="py-2">
-                    <button
-                      type="button"
-                      aria-label={oc.destaqueAta ? 'Remover destaque' : 'Destacar na ata'}
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        void toggleDestaque(oc, !oc.destaqueAta);
-                      }}
-                    >
-                      <Star
-                        className={cn(
-                          'size-4',
-                          oc.destaqueAta && 'fill-foreground text-foreground',
-                        )}
-                      />
-                    </button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-8"
+                          aria-label={oc.destaqueAta ? 'Remover destaque' : 'Destacar na ata'}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void toggleDestaque(oc, !oc.destaqueAta);
+                          }}
+                        >
+                          <Star
+                            className={cn(
+                              'size-4',
+                              oc.destaqueAta
+                                ? 'fill-primary text-primary'
+                                : 'text-muted-foreground',
+                            )}
+                          />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {oc.destaqueAta ? 'Remover destaque' : 'Destacar na ata'}
+                      </TooltipContent>
+                    </Tooltip>
                   </TableCell>
                   <TableCell className="text-xs text-muted-foreground tabular-nums whitespace-nowrap py-2">
                     {formatDT(oc.createdAt)}
                   </TableCell>
-                  <TableCell className="text-sm py-2">{oc.loja.nome}</TableCell>
+                  <TableCell className="text-sm py-2">{displayLojaAta(oc.loja.nome)}</TableCell>
                   <TableCell className="text-sm tabular-nums text-foreground py-2">
                     {oc.numeroPedidoSaipos}
                   </TableCell>
@@ -611,12 +705,14 @@ export default function OcorrenciasClient({
                     </div>
                   </TableCell>
                   <TableCell className="text-sm py-2">
-                    {oc.motoboy?.name || (
+                    {oc.motoboy?.name ? (
+                      formatNomePessoa(oc.motoboy.name)
+                    ) : (
                       <span className="text-muted-foreground text-xs">—</span>
                     )}
                   </TableCell>
                   <TableCell className="text-sm py-2 max-w-[160px] truncate">
-                    {oc.criadoPorNome}
+                    {nomeExibicaoUsuario(oc.criadoPorNome)}
                   </TableCell>
                   <TableCell className="py-2">
                     {oc.fotoUrl ? (
@@ -763,12 +859,12 @@ export default function OcorrenciasClient({
                   {detalhe.motoboy && (
                     <div className="flex justify-between gap-4">
                       <dt className="text-muted-foreground shrink-0">Motoboy</dt>
-                      <dd className="text-foreground">{detalhe.motoboy.name}</dd>
+                      <dd className="text-foreground">{formatNomePessoa(detalhe.motoboy.name)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground shrink-0">Quem registrou</dt>
-                    <dd className="text-foreground">{detalhe.criadoPorNome}</dd>
+                    <dd className="text-foreground">{nomeExibicaoUsuario(detalhe.criadoPorNome)}</dd>
                   </div>
                 </dl>
 
@@ -809,5 +905,6 @@ export default function OcorrenciasClient({
         }}
       />
     </div>
+    </TooltipProvider>
   );
 }

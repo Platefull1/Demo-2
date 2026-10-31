@@ -96,6 +96,32 @@ Padrão da dashboard iFood (`IfoodKPICards`):
 - Revisão de muitos itens → mestre-detalhe.
 - Sem texto de seção centralizado (`text-center` em headers de bloco). Alinhar à esquerda.
 
+# Botões (obrigatório)
+Usar **sempre** `<Button>` de `src/components/ui/button.tsx`. Proibido `<button>` estilizado na mão, link com cara de botão ou classe avulsa no lugar do Button.
+
+| Variante | Quando usar |
+|----------|-------------|
+| `default` | Ação principal da tela/área. **No máximo 1 primário por área visível.** Verde cheio, texto `primary-foreground`. |
+| `outline` | Apoio (Exportar, Informar atrasos, Limpar filtros, DatePicker). Fundo transparente, borda sutil. |
+| `ghost` | Toolbar, ícones, ações de tabela. Sem borda. |
+| `destructive` | Só excluir/remover. |
+| `link` | Só dentro de texto corrido. |
+
+Tamanhos: `sm` (h-8), `default` (h-9), `icon` (size-9). Mesmo `rounded-md`. Ícone lucide à esquerda, `size-4`, `gap-2`.
+Requisição em andamento: `loading` no Button (spinner no lugar do ícone, `disabled`, sem mudar a largura).
+3+ ações relacionadas → `DropdownMenu` com chevron, não enfileirar botões.
+
+# Calendário e datas (obrigatório)
+Usar **somente**:
+- `DatePicker` — uma data (`yyyy-MM-dd`)
+- `DateRangePicker` — intervalo (`{ from, to }` em `yyyy-MM-dd`)
+- `MonthPicker` — mês (`yyyy-MM`)
+
+Todos em `src/components/ui/`. Base: `Calendar` (react-day-picker v9, locale pt-BR, semana no domingo, dias "D S T Q Q S S", fuso America/Sao_Paulo).
+**Proibido** `input type="date|month|datetime-local"` e `<select>` nativo.
+Trafegar string civil `yyyy-MM-dd` (nunca `Date` em UTC). Exibição `dd/MM/yyyy`; mês por extenso "Outubro de 2026".
+Cores pelos tokens: selecionado `primary`, hoje anel `ring-primary/40`, range `bg-primary/15`.
+
 # Componentes
 - UI base: `src/components/ui/*` (shadcn). Não recriar Button, Input, Select, Badge, Table.
 - Layout compartilhado: `AppShell`, `PageHeader`, `StoreCombobox` (e futuros PageHeader/Toolbar/DataTable/EmptyState alinhados a este padrão).

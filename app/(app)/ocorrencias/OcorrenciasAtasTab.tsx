@@ -11,10 +11,27 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { formatOcorrenciaDateTime, monthYearLabelSP, saoPauloYmd } from '@/lib/ocorrencias-period';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { MonthPicker } from '@/components/ui/month-picker';
+import { formatOcorrenciaDateTime, saoPauloYmd } from '@/lib/ocorrencias-period';
 import { categoriaLabel, TODAS_CATEGORIAS } from '@/lib/ocorrencias-categorias';
 import { ESCOPO_REDE, ESCOPO_TODAS_LOJAS } from '@/lib/ocorrencias-ata-data';
-import { Download } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Download, FileDown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type ResumoCat = {
   categoria: string;
@@ -52,7 +69,19 @@ type HistoricoItem = {
 };
 
 function qtdCell(v: number | null) {
-  return v === null ? 'não informado' : String(v);
+  return v === null ? '—' : String(v);
+}
+
+function variacaoVisual(v: string): { text: string; className: string } {
+  if (!v || v === '—') return { text: '—', className: 'text-muted-foreground' };
+  if (v === 'estável') return { text: '=', className: 'text-muted-foreground' };
+  if (v.startsWith('+') || v === '(novo)') {
+    return { text: `▲ ${v}`, className: 'text-destructive' };
+  }
+  if (v.startsWith('-') || v === '(resolvido)') {
+    return { text: `▼ ${v}`, className: 'text-success' };
+  }
+  return { text: v, className: 'text-muted-foreground' };
 }
 
 async function baixarPorId(id: string, formato?: 'pdf' | 'docx') {
@@ -66,8 +95,10 @@ async function baixarPorId(id: string, formato?: 'pdf' | 'docx') {
 
 export function OcorrenciasAtasTab({
   onEditarAtrasos,
+  onIrParaOcorrencias,
 }: {
   onEditarAtrasos: (ano: number, mes: number) => void;
+  onIrParaOcorrencias?: () => void;
 }) {
   const hoje = saoPauloYmd();
   const [ano, setAno] = useState(hoje.year);
@@ -156,61 +187,99 @@ export function OcorrenciasAtasTab({
     await gerar(lojaEscopo, { baixar: 'docx' });
   }
 
+  function gerarPrincipal() {
+    if (lojaEscopo === ESCOPO_TODAS_LOJAS) {
+      void gerar(ESCOPO_TODAS_LOJAS, { baixar: 'zip' });
+      return;
+    }
+    void gerar(lojaEscopo, { baixar: 'pdf' });
+  }
+
   const resumoFoco: ResumoCat[] =
     lojaEscopo === ESCOPO_REDE || lojaEscopo === ESCOPO_TODAS_LOJAS
       ? (previa?.rede.resumo ?? [])
       : (previa?.lojas.find((l) => l.lojaId === lojaEscopo)?.resumo ?? []);
 
+  const totalMes =
+    lojaEscopo === ESCOPO_REDE || lojaEscopo === ESCOPO_TODAS_LOJAS
+      ? (previa?.rede.matriz.totalGeral ?? 0)
+      : (previa?.lojas.find((l) => l.lojaId === lojaEscopo)?.total ?? 0);
+
+  const lojasCount = previa?.lojasOpcoes.length ?? 0;
+  const atrasosInformados = lojasCount - (previa?.lojasSemAtraso.length ?? 0);
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-3">
-        <select
+      <div className="flex flex-wrap items-center gap-2">
+        <MonthPicker
           aria-label="Mês da ata"
-          value={mes}
-          onChange={(e) => setMes(Number(e.target.value))}
-          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-        >
-          {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-            <option key={m} value={m}>
-              {new Date(2026, m - 1, 1).toLocaleString('pt-BR', { month: 'long' })}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Ano da ata"
-          value={ano}
-          onChange={(e) => setAno(Number(e.target.value))}
-          className="h-8 rounded-md border border-input bg-background px-2 text-sm"
-        >
-          {Array.from({ length: 6 }, (_, i) => hoje.year - 2 + i).map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        <select
-          aria-label="Escopo da ata"
-          value={lojaEscopo}
-          onChange={(e) => setLojaEscopo(e.target.value)}
-          className="h-8 rounded-md border border-input bg-background px-2 text-sm min-w-[160px]"
-        >
-          <option value={ESCOPO_REDE}>Rede</option>
-          {(previa?.lojasOpcoes ?? []).map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.nome}
-            </option>
-          ))}
-        </select>
-        <p className="text-sm text-muted-foreground">
-          {monthYearLabelSP(ano, mes)}
-        </p>
+          value={`${ano}-${String(mes).padStart(2, '0')}`}
+          onChange={(ym) => {
+            const [y, m] = ym.split('-').map(Number);
+            setAno(y || hoje.year);
+            setMes(m || hoje.month);
+          }}
+        />
+        <Select value={lojaEscopo} onValueChange={setLojaEscopo}>
+          <SelectTrigger className="h-9 w-48" aria-label="Escopo da ata">
+            <SelectValue placeholder="Escopo" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ESCOPO_REDE}>Rede</SelectItem>
+            {(previa?.lojasOpcoes ?? []).map((l) => (
+              <SelectItem key={l.id} value={l.id}>
+                {l.nome}
+              </SelectItem>
+            ))}
+            <SelectSeparator />
+            <SelectItem value={ESCOPO_TODAS_LOJAS}>Todas as lojas (.zip)</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <div className="ml-auto inline-flex">
+          <Button
+            type="button"
+            className="rounded-r-none"
+            disabled={gerando}
+            loading={gerando}
+            onClick={gerarPrincipal}
+          >
+            <FileDown className="size-4" />
+            {lojaEscopo === ESCOPO_TODAS_LOJAS ? 'Gerar atas (.zip)' : 'Gerar ata'}
+          </Button>
+          {lojaEscopo !== ESCOPO_TODAS_LOJAS && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  className="rounded-l-none border-l border-primary-foreground/20 px-2"
+                  disabled={gerando}
+                  aria-label="Mais opções de ata"
+                >
+                  <ChevronDown className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={gerarPrincipal}>
+                  Baixar PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => void baixarDocxEscopo()}>
+                  Baixar .docx editável
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       </div>
 
       {previa?.lojasSemAtraso.length ? (
-        <div className="rounded-lg border border-border bg-card px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-foreground">
-            Atrasos não informados: {previa.lojasSemAtraso.join(', ')}
-          </p>
+        <Alert variant="warning" className="flex flex-wrap items-center justify-between gap-3 [&>svg]:static">
+          <div className="flex items-start gap-2">
+            <AlertTriangle className="size-4 shrink-0 text-warning" />
+            <AlertDescription className="text-foreground">
+              Atrasos não informados: {previa.lojasSemAtraso.join(', ')}
+            </AlertDescription>
+          </div>
           <Button
             type="button"
             variant="outline"
@@ -219,40 +288,12 @@ export function OcorrenciasAtasTab({
           >
             Informar atrasos
           </Button>
-        </div>
+        </Alert>
       ) : null}
 
       {previa?.avisoFotos && (
         <p className="text-sm text-warning">{previa.avisoFotos}</p>
       )}
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="button"
-          size="sm"
-          disabled={gerando}
-          onClick={() => void gerar(lojaEscopo, { baixar: 'pdf' })}
-        >
-          Gerar ata (PDF)
-        </Button>
-        <button
-          type="button"
-          disabled={gerando}
-          onClick={() => void baixarDocxEscopo()}
-          className="text-xs text-muted-foreground underline-offset-4 hover:underline disabled:opacity-50"
-        >
-          Baixar .docx editável
-        </button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={gerando}
-          onClick={() => void gerar(ESCOPO_TODAS_LOJAS, { baixar: 'zip' })}
-        >
-          Gerar atas por loja (zip)
-        </Button>
-      </div>
 
       {erro && (
         <p className="text-sm text-destructive" role="alert">
@@ -282,12 +323,45 @@ export function OcorrenciasAtasTab({
         </div>
       ) : previa ? (
         <div className="space-y-6">
+          <div className="grid grid-cols-3 gap-0 rounded-xl border border-border overflow-hidden bg-card">
+            {[
+              { label: 'Total do mês', value: String(totalMes) },
+              { label: 'Destaques', value: String(previa.destaquesCount) },
+              {
+                label: 'Atrasos informados',
+                value: lojasCount ? `${atrasosInformados}/${lojasCount}` : '—',
+              },
+            ].map((k, i) => (
+              <div
+                key={k.label}
+                className={cn('p-4', i < 2 && 'border-r border-border')}
+              >
+                <p className="text-xs text-muted-foreground">{k.label}</p>
+                <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
+                  {k.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {previa.destaquesCount === 0 && (
+            <p className="text-xs text-muted-foreground">
+              Nenhuma ocorrência em destaque — marque com ☆ na aba{' '}
+              <Button
+                type="button"
+                variant="link"
+                className="h-auto p-0 text-xs"
+                onClick={() => onIrParaOcorrencias?.()}
+              >
+                Ocorrências
+              </Button>
+              .
+            </p>
+          )}
+
           <div className="rounded-xl border border-border overflow-hidden bg-card">
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-base font-semibold">Prévia — {previa.periodo}</h2>
-              <p className="text-sm text-muted-foreground">
-                {previa.destaquesCount} ocorrência(s) em destaque
-              </p>
             </div>
             <Table>
               <TableHeader>
@@ -298,17 +372,20 @@ export function OcorrenciasAtasTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {resumoFoco.map((r) => (
-                  <TableRow key={r.categoria} className="hover:bg-transparent">
-                    <TableCell className="text-sm py-2">{r.label}</TableCell>
-                    <TableCell className="text-sm tabular-nums text-right py-2">
-                      {r.quantidadeLabel}
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground text-right py-2">
-                      {r.variacao}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {resumoFoco.map((r) => {
+                  const v = variacaoVisual(r.variacao);
+                  return (
+                    <TableRow key={r.categoria} className="hover:bg-transparent">
+                      <TableCell className="text-sm py-2">{r.label}</TableCell>
+                      <TableCell className="text-sm tabular-nums text-right py-2">
+                        {r.quantidadeLabel === 'não informado' ? '—' : r.quantidadeLabel}
+                      </TableCell>
+                      <TableCell className={cn('text-xs text-right py-2 tabular-nums', v.className)}>
+                        {v.text}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -320,7 +397,7 @@ export function OcorrenciasAtasTab({
                 <h2 className="text-base font-semibold">Loja × categoria</h2>
               </div>
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-card z-10">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="text-xs">Loja</TableHead>
                     {TODAS_CATEGORIAS.map((c) => (
@@ -345,6 +422,17 @@ export function OcorrenciasAtasTab({
                       </TableCell>
                     </TableRow>
                   ))}
+                  <TableRow className="hover:bg-transparent bg-muted/40">
+                    <TableCell className="text-sm font-semibold py-2">Total</TableCell>
+                    {TODAS_CATEGORIAS.map((c) => (
+                      <TableCell key={c} className="text-sm font-semibold tabular-nums text-right py-2">
+                        {qtdCell(previa.rede.matriz.totaisColuna[c] ?? null)}
+                      </TableCell>
+                    ))}
+                    <TableCell className="text-sm font-semibold tabular-nums text-right py-2">
+                      {previa.rede.matriz.totalGeral}
+                    </TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             </div>
@@ -367,6 +455,7 @@ export function OcorrenciasAtasTab({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
+                <TableHead className="text-xs">Mês</TableHead>
                 <TableHead className="text-xs">Escopo</TableHead>
                 <TableHead className="text-xs">Gerada por</TableHead>
                 <TableHead className="text-xs">Data/hora</TableHead>
@@ -376,31 +465,25 @@ export function OcorrenciasAtasTab({
             <TableBody>
               {historico.map((h) => (
                 <TableRow key={h.id} className="hover:bg-transparent">
+                  <TableCell className="text-sm py-2 tabular-nums">
+                    {String(mes).padStart(2, '0')}/{ano}
+                  </TableCell>
                   <TableCell className="text-sm py-2">{h.escopoLabel}</TableCell>
                   <TableCell className="text-sm py-2">{h.geradaPorNome}</TableCell>
                   <TableCell className="text-xs text-muted-foreground tabular-nums py-2">
                     {formatOcorrenciaDateTime(h.geradaEm)}
                   </TableCell>
                   <TableCell className="text-right py-2">
-                    <div className="flex items-center justify-end gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8"
-                        onClick={() => void baixarPorId(h.id, 'pdf')}
-                      >
-                        <Download className="size-3.5" />
-                        Baixar ata (PDF)
-                      </Button>
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                        onClick={() => void baixarPorId(h.id, 'docx')}
-                      >
-                        .docx
-                      </button>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8"
+                      aria-label="Baixar ata (PDF)"
+                      onClick={() => void baixarPorId(h.id, 'pdf')}
+                    >
+                      <Download className="size-4 text-muted-foreground" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
