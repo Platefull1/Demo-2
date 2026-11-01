@@ -4,6 +4,7 @@ import {
   canAccessLojaNome,
   filterByLojaAccess,
   getLojasDoUsuario,
+  lojasParaSelecao,
   singleStoreSlug,
   storeSlugFromLojaNome,
   type CmvRealTenant,
@@ -83,6 +84,43 @@ describe('getLojasDoUsuario / canAccessLojaNome', () => {
     assert.deepEqual(
       filterByLojaAccess(rows, t).map((r) => r.id),
       ['1'],
+    );
+  });
+});
+
+describe('lojasParaSelecao — contagem sem /api/rh/lojas', () => {
+  it('gerente Ahú: uma opção mesmo sem cadastro RH', () => {
+    assert.deepEqual(
+      lojasParaSelecao({ allowedStoreSlugs: ['ahu'] }),
+      [{ slug: 'ahu', nome: 'Ahú' }],
+    );
+  });
+
+  it('usa o nome do cadastro RH quando o slug bate', () => {
+    assert.deepEqual(
+      lojasParaSelecao({
+        allowedStoreSlugs: ['ahu'],
+        rhLojas: [{ nome: 'CALENZANO AHÚ' }, { nome: 'CALENZANO PORTÃO' }],
+      }),
+      [{ slug: 'ahu', nome: 'CALENZANO AHÚ' }],
+    );
+  });
+
+  it('gerente sem loja: lista vazia', () => {
+    assert.deepEqual(
+      lojasParaSelecao({
+        allowedStoreSlugs: [],
+        lojaNaoConfigurada: true,
+      }),
+      [],
+    );
+  });
+
+  it('escritório / admin: as quatro lojas canônicas', () => {
+    const lojas = lojasParaSelecao({ allowedStoreSlugs: null });
+    assert.deepEqual(
+      lojas.map((l) => l.slug),
+      ['ahu', 'pilarzinho', 'portao', 'uberaba'],
     );
   });
 });

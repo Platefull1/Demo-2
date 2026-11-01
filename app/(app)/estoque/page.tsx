@@ -6,15 +6,12 @@ import { useStockSession } from '../../estoque/hooks/useStockSession';
 import { useProdutosEstoque, construirSessoes } from '../../estoque/hooks/useProdutosEstoque';
 import { useEstoqueConfig } from '../../estoque/hooks/useEstoqueConfig';
 import { HomeScreen } from '../../estoque/components/HomeScreen';
-import { storeSlugFromLojaNome } from '@/lib/store-access';
-
-interface Loja {
-  id: string;
-  nome: string;
-}
+import { Button } from '@/components/ui/button';
+import type { LojaSelecao } from '@/lib/store-access';
 
 interface EstoqueAccess {
   allowedStoreSlugs: string[] | null;
+  lojas: LojaSelecao[];
   lojaTravada: boolean;
   lojaNaoConfigurada: boolean;
   singleStoreSlug: string | null;
@@ -23,8 +20,6 @@ interface EstoqueAccess {
 export default function EstoqueVisaoGeralPage() {
   const router = useRouter();
   const [showLojaModal, setShowLojaModal] = useState(false);
-  const [lojas, setLojas] = useState<Loja[]>([]);
-  const [loadingLojas, setLoadingLojas] = useState(false);
   const [access, setAccess] = useState<EstoqueAccess | null>(null);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
@@ -51,6 +46,7 @@ export default function EstoqueVisaoGeralPage() {
         if (cancelled) return;
         setAccess({
           allowedStoreSlugs: data.allowedStoreSlugs ?? null,
+          lojas: Array.isArray(data.lojas) ? data.lojas : [],
           lojaTravada: Boolean(data.lojaTravada),
           lojaNaoConfigurada: Boolean(data.lojaNaoConfigurada),
           singleStoreSlug: data.singleStoreSlug ?? null,
@@ -63,18 +59,6 @@ export default function EstoqueVisaoGeralPage() {
       cancelled = true;
     };
   }, []);
-
-  const filtrarLojasPermitidas = useCallback(
-    (todas: Loja[]): Loja[] => {
-      if (!access || access.allowedStoreSlugs === null) return todas;
-      const allowed = new Set(access.allowedStoreSlugs);
-      return todas.filter((loja) => {
-        const slug = storeSlugFromLojaNome(loja.nome);
-        return slug != null && allowed.has(slug);
-      });
-    },
-    [access],
-  );
 
   const handleIniciarComLoja = useCallback(
     async (lojaNome?: string) => {
@@ -121,30 +105,18 @@ export default function EstoqueVisaoGeralPage() {
       return;
     }
 
-    setLoadingLojas(true);
-    try {
-      const res = await fetch('/api/rh/lojas');
-      const todas: Loja[] = res.ok ? await res.json() : [];
-      const permitidas = filtrarLojasPermitidas(todas);
-
-      if (access?.singleStoreSlug) {
-        const unica =
-          permitidas.find(
-            (l) => storeSlugFromLojaNome(l.nome) === access.singleStoreSlug,
-          ) ?? permitidas[0];
-        if (unica) {
-          await handleIniciarComLoja(unica.nome);
-          return;
-        }
-      }
-
-      setLojas(permitidas);
-      setShowLojaModal(true);
-    } catch {
-      setStartError('Não foi possível carregar as lojas.');
-    } finally {
-      setLoadingLojas(false);
+    const opcoes = access?.lojas ?? [];
+    if (opcoes.length === 1) {
+      await handleIniciarComLoja(opcoes[0]!.nome);
+      return;
     }
+    if (opcoes.length === 0) {
+      setStartError(
+        'Nenhuma loja permitida para o seu usuário. Peça ao administrador para conferir o perfil no RH.',
+      );
+      return;
+    }
+    setShowLojaModal(true);
   };
 
   const handleRetomar = async (sessionId: string) => {
@@ -180,6 +152,8 @@ export default function EstoqueVisaoGeralPage() {
     );
   }
 
+  const lojasModal = access?.lojas ?? [];
+
   return (
     <div className="relative">
       {(accessError || startError) && (
@@ -200,21 +174,17 @@ export default function EstoqueVisaoGeralPage() {
               </p>
             </div>
             <div className="p-3 space-y-1.5 max-h-72 overflow-y-auto">
-              {loadingLojas ? (
-                <div className="flex items-center justify-center py-6 gap-2 text-muted-foreground text-sm">
-                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                  Carregando lojas…
-                </div>
-              ) : lojas.length > 0 ? (
-                lojas.map((loja) => (
-                  <button
-                    key={loja.id}
+              {lojasModal.length > 0 ? (
+                lojasModal.map((loja) => (
+                  <Button
+                    key={loja.slug}
                     type="button"
+                    variant="ghost"
                     onClick={() => handleIniciarComLoja(loja.nome)}
-                    className="w-full text-left px-4 py-3 rounded-xl bg-muted hover:bg-accent border border-transparent text-foreground text-sm font-medium transition-all"
+                    className="h-auto w-full justify-start px-4 py-3 text-sm font-medium text-foreground"
                   >
                     {loja.nome}
-                  </button>
+                  </Button>
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground text-left py-4 px-1">
@@ -223,13 +193,14 @@ export default function EstoqueVisaoGeralPage() {
               )}
             </div>
             <div className="px-3 pb-3 pt-1 border-t border-border">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                className="w-full text-muted-foreground"
                 onClick={() => setShowLojaModal(false)}
-                className="w-full py-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         </div>

@@ -7,7 +7,11 @@
  */
 
 import type { CmvRealTenant } from '@/lib/nfe/tenant';
-import { storeSlugFromLojaNome } from '@/lib/nfe/lojas';
+import {
+  CMV_STORE_SLUGS,
+  storeLabel,
+  storeSlugFromLojaNome,
+} from '@/lib/nfe/lojas';
 
 export type { CmvRealTenant } from '@/lib/nfe/tenant';
 export {
@@ -18,6 +22,36 @@ export {
   CMV_STORE_LABELS,
   normalizarLojaNome,
 } from '@/lib/nfe/lojas';
+
+export type LojaSelecao = { slug: string; nome: string };
+
+/**
+ * Lojas para iniciar contagem. Não depende de /api/rh/lojas (módulo RH).
+ * Nome do cadastro RH quando o slug bate; senão o rótulo canônico (Ahú…).
+ */
+export function lojasParaSelecao(opts: {
+  allowedStoreSlugs: string[] | null;
+  lojaNaoConfigurada?: boolean;
+  rhLojas?: { nome: string }[];
+}): LojaSelecao[] {
+  if (opts.lojaNaoConfigurada) return [];
+
+  const rhBySlug = new Map<string, string>();
+  for (const l of opts.rhLojas ?? []) {
+    const slug = storeSlugFromLojaNome(l.nome);
+    if (slug && !rhBySlug.has(slug)) rhBySlug.set(slug, l.nome);
+  }
+
+  const slugs =
+    opts.allowedStoreSlugs === null
+      ? [...CMV_STORE_SLUGS]
+      : opts.allowedStoreSlugs.filter(Boolean);
+
+  return slugs.map((slug) => ({
+    slug,
+    nome: rhBySlug.get(slug) ?? storeLabel(slug),
+  }));
+}
 
 /**
  * Lojas permitidas do tenant.

@@ -1,8 +1,13 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { getEstoqueTenantContext } from '@/lib/estoque-tenant';
-import { getLojasDoUsuario, singleStoreSlug } from '@/lib/store-access';
+import {
+  getLojasDoUsuario,
+  lojasParaSelecao,
+  singleStoreSlug,
+} from '@/lib/store-access';
 
 /**
  * GET /api/estoque/access
@@ -18,11 +23,23 @@ export async function GET() {
   const { store } = ctx;
   const allowedStoreSlugs = getLojasDoUsuario(store);
 
+  const rhLojas = await prisma.rhLoja.findMany({
+    where: { userId: store.tenantUserId },
+    select: { nome: true },
+  });
+
+  const lojas = lojasParaSelecao({
+    allowedStoreSlugs,
+    lojaNaoConfigurada: store.lojaNaoConfigurada,
+    rhLojas,
+  });
+
   return NextResponse.json({
     ok: true,
     isAdmin: store.isAdmin,
     tenantUserId: store.tenantUserId,
     allowedStoreSlugs,
+    lojas,
     lojaTravada: allowedStoreSlugs !== null && allowedStoreSlugs.length === 1,
     lojaNaoConfigurada: store.lojaNaoConfigurada,
     singleStoreSlug: singleStoreSlug(store),
