@@ -203,6 +203,6 @@ export const config = {
     '/dashboard/:path*',
     '/rider/:path*',
     '/rh/usuarios/:path*',
-    '/((?!_next/static|_next/image|favicon|public|icons).*)',
+    '/((?!_next/static|_next/image|favicon|public|icons|.*\\.(?:png|jpe?g|gif|webp|svg|ico|woff2)).*)',
   ],
 };

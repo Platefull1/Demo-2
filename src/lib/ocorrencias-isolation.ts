@@ -20,8 +20,14 @@ const ALLOWED_PREFIXES = [
   '/_next',
 ];
 
+/** Logo, favicon e demais arquivos de /public — o isolamento não pode bloqueá-los. */
+export function isPublicStaticAsset(pathname: string): boolean {
+  return /\.(?:png|jpe?g|gif|webp|svg|ico|woff2?|ttf)$/i.test(pathname);
+}
+
 export function isOcorrenciasAllowedPath(pathname: string): boolean {
   if (pathname === '/') return true;
+  if (isPublicStaticAsset(pathname)) return true;
   return ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 

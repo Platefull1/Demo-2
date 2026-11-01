@@ -25,6 +25,11 @@ describe('isOcorrenciasAllowedPath', () => {
     assert.equal(isOcorrenciasAllowedPath('/api/auth/refresh'), true);
     assert.equal(isOcorrenciasAllowedPath('/_next/data/build/ocorrencias/nova.json'), true);
     assert.equal(isOcorrenciasAllowedPath('/'), true);
+    assert.equal(
+      isOcorrenciasAllowedPath('/platefull_logo_white_transparent_v2.png'),
+      true,
+    );
+    assert.equal(isOcorrenciasAllowedPath('/favicon.svg'), true);
   });
 
   it('bloqueia páginas e APIs de outros módulos', () => {
