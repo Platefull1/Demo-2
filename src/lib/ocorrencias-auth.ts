@@ -10,6 +10,8 @@ import { NextResponse } from 'next/server';
 import { stackServerApp } from '@/stack';
 import { syncStackAuthUser } from '@/lib/stack-auth-sync';
 import { prisma } from '@/lib/prisma';
+import { isOcorrenciasOnlyTools } from '@/lib/auth/tool-access';
+import { P } from '@/lib/rh-permissions';
 import { SystemTool } from '@/types/admin';
 
 export interface OcorrenciasContext {
@@ -77,6 +79,44 @@ export async function resolveOcorrenciasTenant(
   return { tenantUserId: dbUserId, isTenantOwner: hasLojas };
 }
 
+/** Tag RH `ocorrencias.registrar` no membro ativo (mesmo tenant ou pendente já vinculado). */
+export async function memberHasRegistrarOcorrenciaTag(
+  stackUserId: string,
+): Promise<boolean> {
+  const membership = await prisma.rhTeamMember.findFirst({
+    where: { stackUserId, isActive: true },
+    select: {
+      permissions: { select: { permission: true } },
+    },
+  });
+  return (
+    membership?.permissions.some((p) => p.permission === P.OCORRENCIAS_REGISTRAR) ===
+    true
+  );
+}
+
+/** Liga/desliga a ferramenta de sistema a partir da tag do membro. */
+export async function syncRegistrarOcorrenciasTool(
+  stackUserId: string | null | undefined,
+  enabled: boolean,
+): Promise<void> {
+  if (!stackUserId) return;
+  await prisma.userToolPermission.upsert({
+    where: {
+      stackUserId_tool: {
+        stackUserId,
+        tool: SystemTool.REGISTRAR_OCORRENCIAS,
+      },
+    },
+    update: { isEnabled: enabled },
+    create: {
+      stackUserId,
+      tool: SystemTool.REGISTRAR_OCORRENCIAS,
+      isEnabled: enabled,
+    },
+  });
+}
+
 /** Dono das lojas / equipe. Usado no isolamento; não concede ferramenta. */
 export async function isOcorrenciasTenantAdmin(
   stackUserId: string,
@@ -134,7 +174,12 @@ export async function getOcorrenciasContext(): Promise<OcorrenciasContext | null
     }),
   ]);
 
-  const canRegister = regPerm?.isEnabled === true;
+  const hasRhRegistrarTag = await memberHasRegistrarOcorrenciaTag(stackUser.id);
+  if (hasRhRegistrarTag && regPerm?.isEnabled !== true) {
+    await syncRegistrarOcorrenciasTool(stackUser.id, true);
+  }
+
+  const canRegister = regPerm?.isEnabled === true || hasRhRegistrarTag;
   const canView = verPerm?.isEnabled === true;
 
   if (!canRegister && !canView) return null;
@@ -190,26 +235,46 @@ export async function requireOcorrenciasContext(
 }
 
 /**
- * Só REGISTRAR_OCORRENCIAS (sem VER e sem qualquer outra ferramenta).
- * Admin da empresa nunca entra neste modo.
+ * Dono da equipe (tem membros). Não usa "tem loja no próprio User" —
+ * membro novo com loja espelhada não pode virar admin e cair no painel.
+ */
+export async function isOcorrenciasTeamOwner(stackUserId: string): Promise<boolean> {
+  const su = await prisma.stackUser.findUnique({
+    where: { id: stackUserId },
+    select: { userId: true },
+  });
+  if (!su?.userId) return false;
+  const ownsTeam =
+    (await prisma.rhTeamMember.count({
+      where: { tenantUserId: su.userId, isActive: true },
+    })) > 0;
+  return ownsTeam;
+}
+
+/**
+ * Só registra ocorrência (sem VER). Admin da empresa nunca entra neste modo.
+ * Membro novo com a tag registrar (+ RH do convite) vê a mesma tela dos antigos.
  */
 export async function isOcorrenciasOnlyUser(): Promise<boolean> {
   const stackUser = await stackServerApp.getUser({ or: 'return-null' });
   if (!stackUser) return false;
 
-  if (await isOcorrenciasTenantAdmin(stackUser.id)) return false;
+  if (await isOcorrenciasTeamOwner(stackUser.id)) return false;
 
-  const allPerms = await prisma.userToolPermission.findMany({
-    where: { stackUserId: stackUser.id, isEnabled: true },
-    select: { tool: true },
-  });
-
-  if (allPerms.length === 0) return false;
+  const [allPerms, hasRhRegistrarTag] = await Promise.all([
+    prisma.userToolPermission.findMany({
+      where: { stackUserId: stackUser.id, isEnabled: true },
+      select: { tool: true },
+    }),
+    memberHasRegistrarOcorrenciaTag(stackUser.id),
+  ]);
 
   const tools = allPerms.map((p) => p.tool);
-  return (
-    tools.includes(SystemTool.REGISTRAR_OCORRENCIAS) &&
-    !tools.includes(SystemTool.VER_OCORRENCIAS) &&
-    tools.every((t) => t === SystemTool.REGISTRAR_OCORRENCIAS)
-  );
+  if (hasRhRegistrarTag && !tools.includes(SystemTool.REGISTRAR_OCORRENCIAS)) {
+    tools.push(SystemTool.REGISTRAR_OCORRENCIAS);
+  }
+
+  if (tools.length === 0) return false;
+
+  return isOcorrenciasOnlyTools(tools);
 }

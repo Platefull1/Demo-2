@@ -12,9 +12,9 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // Se o usuário já está autenticado, redirecionar para o dashboard
+    // Continuar decide: só-ocorrências → /ocorrencias/nova; demais → dashboard
     if (user) {
-      router.push('/dashboard');
+      router.push('/auth/continuar');
     }
   }, [user, router]);
 

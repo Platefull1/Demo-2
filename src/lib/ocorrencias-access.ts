@@ -11,7 +11,7 @@ export interface OcorrenciasProfile {
   tenantId: string;
   canRegister: boolean;
   canView: boolean;
-  /** Só REGISTRAR_OCORRENCIAS, sem VER e sem outras ferramentas. */
+  /** Só REGISTRAR_OCORRENCIAS (sem VER). RH extra do convite não tira deste modo. */
   isOcorrenciasOnly: boolean;
   isTenantOwner: boolean;
   hasCoreRh: boolean;

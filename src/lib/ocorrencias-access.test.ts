@@ -24,6 +24,7 @@ describe('matriz de permissões — páginas', () => {
     assert.equal(pageAccess(p, '/ocorrencias/nova'), 'ok');
     assert.equal(pageAccess(p, '/ocorrencias'), 'redirect-nova');
     assert.equal(pageAccess(p, '/dashboard'), 'redirect-nova');
+    assert.equal(pageAccess(p, '/'), 'redirect-nova');
     assert.equal(pageAccess(p, '/rh'), 'redirect-nova');
   });
 

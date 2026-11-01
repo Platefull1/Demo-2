@@ -24,7 +24,7 @@ describe('isOcorrenciasAllowedPath', () => {
     assert.equal(isOcorrenciasAllowedPath('/api/auth/stack-sync'), true);
     assert.equal(isOcorrenciasAllowedPath('/api/auth/refresh'), true);
     assert.equal(isOcorrenciasAllowedPath('/_next/data/build/ocorrencias/nova.json'), true);
-    assert.equal(isOcorrenciasAllowedPath('/'), true);
+    assert.equal(isOcorrenciasAllowedPath('/'), false);
     assert.equal(
       isOcorrenciasAllowedPath('/platefull_logo_white_transparent_v2.png'),
       true,

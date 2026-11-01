@@ -31,6 +31,9 @@ export const P = {
 
   // Gestão de usuários — apenas Admin (nunca concedida a RH)
   USERS_MANAGE:         'users.manage',
+
+  // Central de Ocorrências — não entra no default do convite
+  OCORRENCIAS_REGISTRAR: 'ocorrencias.registrar',
 } as const;
 
 export type RhPermissionKey = typeof P[keyof typeof P];
@@ -49,10 +52,15 @@ export const CMV_REAL_PERMISSIONS: RhPermissionKey[] = [
 
 export const CMV_REAL_PERMISSION_SET = new Set<string>(CMV_REAL_PERMISSIONS);
 
-/** Permissões do módulo RH (folha, motoboys, lojas). Não inclui CMV Real. */
+export const OCORRENCIAS_PERMISSIONS: RhPermissionKey[] = [P.OCORRENCIAS_REGISTRAR];
+export const OCORRENCIAS_PERMISSION_SET = new Set<string>(OCORRENCIAS_PERMISSIONS);
+
+/** Permissões do módulo RH (folha, motoboys, lojas). Não inclui CMV Real nem ocorrências. */
 export const CORE_RH_PERMISSIONS: RhPermissionKey[] = (
   Object.values(P) as RhPermissionKey[]
-).filter((p) => !CMV_REAL_PERMISSION_SET.has(p));
+).filter(
+  (p) => !CMV_REAL_PERMISSION_SET.has(p) && !OCORRENCIAS_PERMISSION_SET.has(p),
+);
 
 // Permissões que NUNCA podem ser concedidas a um membro RH
 export const ADMIN_ONLY_PERMISSIONS = new Set<string>([P.USERS_MANAGE]);
@@ -63,7 +71,12 @@ export const ADMIN_ONLY_PERMISSIONS = new Set<string>([P.USERS_MANAGE]);
  */
 export const DEFAULT_MEMBER_PERMISSIONS: RhPermissionKey[] = (
   Object.values(P) as RhPermissionKey[]
-).filter((p) => !ADMIN_ONLY_PERMISSIONS.has(p) && !CMV_REAL_PERMISSION_SET.has(p));
+).filter(
+  (p) =>
+    !ADMIN_ONLY_PERMISSIONS.has(p) &&
+    !CMV_REAL_PERMISSION_SET.has(p) &&
+    !OCORRENCIAS_PERMISSION_SET.has(p),
+);
 
 // ─── Rótulos legíveis ─────────────────────────────────────────────────────────
 
@@ -89,6 +102,7 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'cmv_real.reabrir':           'Reabrir mês fechado',
   'cmv_real.config':            'Configurações CMV Real',
   'users.manage':         'Gerenciar usuários de RH',
+  'ocorrencias.registrar': 'Registrar ocorrência',
 };
 
 // ─── Grupos de permissões para a UI de toggles ────────────────────────────────
@@ -124,6 +138,10 @@ export const PERMISSION_GROUPS: Array<{
   {
     label: 'CMV Real',
     permissions: CMV_REAL_PERMISSIONS,
+  },
+  {
+    label: 'Ocorrências',
+    permissions: OCORRENCIAS_PERMISSIONS,
   },
 ];
 

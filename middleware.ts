@@ -58,7 +58,12 @@ async function resolveOcorrenciasOnly(request: NextRequest): Promise<{
       request.cookies.get(OCORRENCIAS_ONLY_COOKIE)?.value,
       fp,
     );
-    if (cached !== null) {
+    const path = request.nextUrl.pathname;
+    const revalidateHome =
+      path === '/' ||
+      path.startsWith('/dashboard') ||
+      path.startsWith('/auth/continuar');
+    if (cached !== null && !revalidateHome) {
       return { only: cached, tokenToSet: null };
     }
   }

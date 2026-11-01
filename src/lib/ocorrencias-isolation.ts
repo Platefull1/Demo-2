@@ -26,7 +26,7 @@ export function isPublicStaticAsset(pathname: string): boolean {
 }
 
 export function isOcorrenciasAllowedPath(pathname: string): boolean {
-  if (pathname === '/') return true;
+  // `/` não entra: a home pública manda autenticado para /dashboard.
   if (isPublicStaticAsset(pathname)) return true;
   return ALLOWED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }

@@ -11,6 +11,7 @@ import {
   isValidStoreSlug,
   type RhMemberPerfil,
 } from '@/lib/rh-permissions';
+import { syncRegistrarOcorrenciasTool } from '@/lib/ocorrencias-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -179,6 +180,10 @@ export async function POST(
     await prisma.rhPermission.deleteMany({
       where: { memberId: id, permission: body.permission },
     });
+  }
+
+  if (body.permission === P.OCORRENCIAS_REGISTRAR) {
+    await syncRegistrarOcorrenciasTool(member.stackUserId, Boolean(body.active));
   }
 
   return NextResponse.json({ ok: true, permission: body.permission, active: body.active });
