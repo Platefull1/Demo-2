@@ -1,77 +1,133 @@
 # Handoff — CMV Ahú, outubro/2026
 
-Branch: `fix/cmv-ahu-outubro`. Sem merge na `main` e sem deploy. A tela em produção ainda roda o código antigo.
+A branch `fix/cmv-ahu-outubro` entra na `main` e sobe para a Vercel. A tela de fechamento de Ahú/outubro ainda não foi aberta depois desse deploy, então os 27 custos da Parte 3 continuam só na simulação até essa abertura.
 
-## Números atuais
+`/cmv-real` cai em Revisão e não grava custo. O recálculo roda no GET de `/api/cmv-real/fechamento`, quando a aba Fechamento carrega a loja e o mês. A aba abre em Ahú no mês corrente. Novembro/2026 está aberto e não tem estoque final, então essa primeira carga não grava nada. O que grava é **Ahú, Outubro de 2026**.
 
-- CMV de matéria-prima, sem descontar refeição: **R$ 185.735,65**
-- Planilha (célula oficial de MP): **R$ 192.479,77**
-- Diferença restante: **R$ 6.744,12**
-- Na tela de produção, as refeições ainda são descontadas (R$ 5.055,74), então o card mostra **R$ 180.679,91** até o deploy desta branch.
-- Bebidas: **R$ 28.569,58** antes e depois. A regra de bonificação não alterou bebidas porque não foi para o ar.
+## Números
 
-## O que já foi gravado no banco de produção
+Planilha oficial de matéria-prima: **R$ 192.479,77**.
 
-Só a Parte 1 e o desperdício, na loja Ahú, competência 2026-10, fechamento aberto. Nenhuma quantidade de contagem já feita foi alterada.
+Antes de abrir o fechamento de outubro (refeição já fora da conta, custos da Parte 3 ainda não gravados):
 
-- Unta forma (NF 4317733 e 4321079): vínculo com amaciante removido. Sem produto novo. Os dois lançamentos saíram do CMV (R$ 371,92).
-- Linguiça Blumenau: incluída no catálogo de matéria-prima. Saldo de outubro gravado com a contagem de 18,627 kg e o custo da última compra (R$ 33,90/kg).
-- Recheio de morango: produto criado em matéria-prima. NF 111221 (5,025 kg, R$ 119,95) movida do morango fresco. Estoque inicial de setembro: 17,66 kg / R$ 418,68. Estoque final de outubro: 19,91 kg, custo da nota (R$ 23,87/kg).
-- Kit Kat: NF 6250608 (R$ 168,47) movida do creme Kit Kat para o biscoito Kit Kat. Efeito líquido zero no CMV total.
-- Desperdício: dez lançamentos tipo Desperdício em 31/10/2026, observação "Desperdício planilha outubro 2026", soma R$ 1.046,67 (catupiry 12 kg / R$ 294,48; cream cheese 4,5 / 135,36; farinha 50 / 129; presunto 6 / 99; bacon 4,5 / 85,37; mussarela 2 / 56,34; morango 5 / 172,28; filé 2 / 30,06; abacaxi 0,8 / 29,44; ovos 1,62 / 15,34).
+- Matéria-prima: **R$ 187.313,42**
+- Embalagens: **R$ 24.204,14**
+- Bebidas: **R$ 28.569,58**
 
-CMV de MP depois de cada gravação: 186.304,92 → unta 185.933,00 → linguiça 186.838,90 → recheio 186.782,32 → Kit Kat 186.782,32 → desperdício 185.735,65.
+Depois de abrir Ahú/outubro, o esperado na tela:
 
-Correção anterior, já no banco e fora desta branch: seis custos de embalagem que estavam divididos por 50 foram regravados pelo preço da última nota, sem mudar quantidade. CMV de embalagens ficou em R$ 24.204,14. Não reverter.
+- CMV MP: **R$ 186.741,96** (sem desconto de refeição)
+- CMV Embalagens: **R$ 24.204,14**
+- CMV Bebidas: **R$ 28.569,58**
+- CMV Total: **R$ 239.515,68**
+- Quadro "Refeições internas": mostra o custo (R$ 5.055,74 no levantamento) e não abate de nenhum CMV
 
-## O que está só no código desta branch
+A diferença da matéria-prima para a planilha passa a **R$ 5.737,81**. Os R$ 571,46 a mais em relação aos R$ 5.166,35 de antes da abertura são o efeito dos 27 custos (o estoque final fica mais caro e o CMV cai).
 
-Não está em produção.
+## O que já está no banco
 
-- Parte 2: o custo das refeições internas deixa de ser abatido de qualquer CMV. O quadro da tela continua informativo. Sobe junto com a Parte 3, quando ela for liberada.
-- Parte 3: mês aberto recalcula o custo do saldo final (última compra da loja, depois do grupo, depois teórico). Custo manual e mês fechado não entram. Bonificação (CFOP 5.910 e 6.910) e troca marcada à mão entram na quantidade e no valor da compra, mas não definem o custo. Variação acima de 50% para cima ou para baixo não grava: vira pendência "custo fora do padrão" no CMV Real, com produto, custo atual, custo novo e nota. Etiqueta Bonificação/Troca na nota e no lançamento, com marca manual.
-- Contagem: ao concluir, item em branco pede "zero" ou "não contado". Campo vazio não vira zero, inclusive no somar. Contagens antigas não foram regravadas.
+Produção, Ahú, outubro aberto. Quantidade de contagem já feita não foi alterada.
 
-## Decisões pendentes
+- Parte 1 e desperdício: unta forma fora do CMV (R$ 371,92), linguiça Blumenau no catálogo (18,627 kg, R$ 33,90/kg), recheio de morango criado, Kit Kat da NF 6250608 no biscoito, desperdício de 31/10 no valor de R$ 1.046,67. Embalagens corrigidas antes desta branch: CMV R$ 24.204,14. Não reverter.
+- Bacon, NF 180098: fator 1 (1 kg). Continua bonificação (CFOP 5.910) e não define o custo. O valor da compra segue R$ 33,95.
+- Coca lata, NF 9677430: marca manual de bonificação. O custo do saldo permanece o da NF 9677431, R$ 3,3894.
+- Morango: custo manual R$ 57,1429 (NF 732). Manjericão: custo manual R$ 116,2667 (NF 732, kg do XML). A Parte 3 não sobrescreve custo manual.
+- NF 8949813 (MJ Hortifruti, 10/10) aprovada. A linha "embalagem plástica" (50 UN, R$ 53,50) está ignorada. Entraram R$ 1.999,25 de compra. O CMV de matéria-prima subiu exatamente esse valor.
+- Chocolate preto, Diehl, caixa `ean:0742832375306|CX`: mapeamento em **10,1**. A NF 6324 (30/09) não foi alterada.
+- Chocolate branco, Diehl, caixa `ean:0742832375283|CX`: mapeamento corrigido de 1,01 para **10,1**. As notas de outubro em caixa já estavam em 10,1 (Portão 6343, Uberaba 6417 e 6520, Pilarzinho 6418 e 6521, Ahú 6522, 6641 e 6735). Nenhuma delas foi regravada. O CMV não muda por causa desse fator.
 
-Não gravar nem fazer deploy antes de confirmação.
+A bisnaga avulsa (Portão, NF 12955, unidade, 1,01 kg) continua com fator 1,01.
 
-- Bacon, NF 180098 (27/10, 1 PT, fator 20, R$ 33,95). Descrição: `BACON CUBOS BARRIGA BEM MAIS 20X1 RF 520`. Unidade comercial PT, quantidade 1, valor líquido R$ 33,95. O XML importado não tem unidade nem quantidade tributável. O fator 20 não é o peso do pacote. CFOP 5.910: é bonificação, então não deve virar o custo do saldo. O fator continua 20 até alguém informar o peso em kg.
-- Troca: nenhum CFOP foi definido como troca. Bonificação automática é só 5.910 e 6.910. CFOPs vistos em todas as lojas, com exemplo: 5.102 (compra, linguiça), 5.401 (Coca, inclusive a NF 9677430), 5.403, sem CFOP (hortifruti), 6.102, 5.101, 5.405, 6.106, 5.910 (bonificação), 5.656 (gás), 1.410, 5.949, 1.949, 6.108, 2.202, 6.101, 6.105, 1.101, 5.908, 6.910 (bonificação), 1.909, 1.662, 6.404, 1.202.
-- Coca lata, NF 9677430: R$ 1,0192/lata é bonificação na operação, mas o CFOP gravado é 5.401, não 5.910. A trava de 50% segura o custo. Marcar a linha à mão se a regra for valer para ela.
-- Manjericão, NF 732: unidade KG, quantidade 0,75, R$ 87,20, fator 1. Os R$ 116,27/kg são o preço da própria nota, não um fator errado. A trava segura porque o saldo está em R$ 49.
-- NF 8949813 (MJ Hortifruti, 10/10): não aprovada. Sugestões a partir das notas 724, 728, 732 e 735, ainda sem gravar. Tomate caixa: 2 CX, R$ 394, fator atual 1; sugestão fator 20 para fechar 40 kg a R$ 9,85/kg, igual à NF 728. Manjericão 2 UN / R$ 21,80 → fator 0,1 (R$ 109/kg, igual à 728). Morango 4 CX / R$ 180 → fator 1 (R$ 45/kg, igual à 728). Brócolis 3 UN / R$ 17,10 → fator 0,3833. Rúcula 3 UN / R$ 12,30 → fator 0,1833. Escarola 4 UN / R$ 13,20 → fator 0,0775 (a 735 tem o mesmo valor em outro peso). Tempero 3 UN / R$ 17,40 → fator 0,4. Cebola 2 CX / R$ 244 → fator 18. Cebola 03/10, 1 CX / R$ 127 → fator 18, igual à 724. Tomate cereja 03/10, 2 BDJ / R$ 14,30 → fator 0,25. Ovo caixa 2 CX / R$ 364 → fator 19,4. Ovo 2 CX / R$ 374 → fator 19,44. Sem par nas notas aprovadas: tomate cereja bandeja, ovo bandeja e embalagem plástica.
-- Milho, NF 2147782: não alterar. A loja ainda confirma se cada UN é uma caixa com 6 latas de 1,7 kg (fator 10,2).
-- Recontar, sem mudar quantidade: filé (0 contra 131,42 kg), carne em isca (0 contra 32,42 kg), chocolate branco, parmesão, milho e cebola crocante.
+## O que o deploy passa a fazer
 
-## Pendências de custo se a Parte 3 subir
+- Parte 2: refeição interna deixa de ser abatida. O quadro da tela continua informativo.
+- Parte 3: mês aberto, com quantidade final positiva e origem diferente de manual, grava a última compra (loja, depois grupo, depois outra loja, depois teórico). Variação acima de 50% não grava e vira pendência "custo fora do padrão". Bonificação, troca manual e devolução não definem o custo.
+- Desempate da última compra no mesmo dia: importação mais recente (`createdAt`) e, se empatar, o maior número de nota. No chocolate branco do Ahú, a NF 6735 (importada depois) ganha da NF 111764. O custo fica R$ 19,6995.
+- CFOP de entrada (1.xxx/2.xxx) em nota de fornecedor: a linha vira compra negativa no fechamento, não define o custo, e a etiqueta é "Devolução/Troca". Lançamento antigo positivo também é subtraído na hora de montar o fechamento, uma vez só.
 
-Simulação, nada gravado. Efeito é a mudança no valor do estoque final. O que passa de 50% fica pendente.
+## Custos que a abertura de Ahú/outubro grava
 
-| Produto | Atual | Novo | Nota | Efeito | Situação |
-|---|---:|---:|---|---:|---|
-| Tomate | 9,80 | 13,3791 | 732 | −445,77 | grava |
-| Morango | 23,8706 | 57,1429 | 732 | −336,05 | pendência |
-| Costela | 55,90 | 59,90 | 111764 | −119,51 | grava |
-| Coca lata | 3,3894 | 1,0192 | 9677430 | +109,03 | pendência (CFOP 5.401) |
-| Farinha de trigo | 2,58 | 2,78 | 111764 | −108,00 | grava |
-| Manjericão | 49,00 | 116,2667 | 732 | −85,43 | pendência |
-| Chocolate branco | 19,6995 | 20,9429 | 111764 | −83,79 | grava |
-| Cebola crocante | 39,00 | 34,00 | 728 | +52,50 | grava |
-| Cereja | 52,95 | 46,1364 | 4317733 | +31,00 | grava |
-| Biscoito Kit Kat | 95,1807 | 84,5733 | 6250608 | +14,87 | grava |
-| Escarola | 10,80 | 9,90 | 732 | +14,76 | grava |
-| Pimentão verde | 9,80 | 12,00 | 732 | −12,98 | grava |
-| Açúcar | 3,10 | 2,90 | 111764 | +11,20 | grava |
-| Cebola | 6,70 | 6,50 | 732 | +10,56 | grava |
-| Brócolis | 17,00 | 18,24 | 732 | −10,09 | grava |
+Simulação, ainda não conferida no banco depois da abertura. Efeito é a mudança no CMV. Soma **−R$ 571,46**. Nenhuma linha do Ahú estourou 50%.
 
-A soma do que gravaria sozinho é cerca de −R$ 649 no CMV. Bacon não entra nessa lista: a NF 180098 é CFOP 5.910.
+| Produto | Atual | Novo | Nota | Efeito |
+|---|---:|---:|---|---:|
+| Tomate | 9,80 | 13,3791 | 732 | −445,77 |
+| Costela | 55,90 | 59,90 | 111764 | −119,51 |
+| Farinha de trigo | 2,58 | 2,78 | 111764 | −108,00 |
+| Cebola crocante | 39,00 | 34,00 | 728 | +52,50 |
+| Cereja | 52,95 | 46,1364 | 4317733 | +31,00 |
+| Biscoito Kit Kat | 95,1807 | 84,5733 | 6250608 | +14,87 |
+| Escarola | 10,80 | 9,90 | 732 | +14,76 |
+| Pimentão verde | 9,80 | 12,00 | 732 | −12,98 |
+| Açúcar | 3,10 | 2,90 | 111764 | +11,20 |
+| Cebola | 6,70 | 6,50 | 732 | +10,56 |
+| Brócolis | 17,00 | 18,24 | 732 | −10,09 |
+| Óleo | 7,7667 | 8,3222 | 111764 | −7,00 |
+| Rúcula | 24,00 | 21,9048 | 732 | +6,66 |
+| Tempero completo | 12,50 | 14,75 | 735 | −6,30 |
+| Atum lata | 59,8095 | 60,1498 | 1764874 | −5,63 |
+| Linguiça calabresa | 18,55 | 18,65 | 111764 | −3,56 |
+| Vinagre | 2,10 | 1,89 | 111764 | +2,84 |
+| Figo em calda | 29,975 | 29,75 | 111764 | +2,79 |
+| Coco ralado | 31,99 | 30,90 | 111764 | +2,09 |
+| Bolacha Negresco | 40,95 | 41,36 | 2147772 | −1,85 |
+| Tomate cereja | 25,80 | 25,4118 | 732 | +1,41 |
+| Ameixa | 34,00 | 34,50 | 735 | −0,78 |
+| Banana | 3,10 | 3,15 | 732 | −0,55 |
+| Creme culinário | 8,8217 | 8,865 | 1758152 (Uberaba) | −0,13 |
+| Presunto | 16,5001 | 16,50 | 111764 | +0,01 |
+| Queijo gorgonzola | 48,9004 | 48,9013 | 111764 | 0 |
+| Linguiça Blumenau | 33,8998 | 33,90 | 40959 | 0 |
 
-## Diferença restante contra a planilha
+Creme culinário vem do grupo (Uberaba). O restante é última compra do Ahú. Gorgonzola e linguiça Blumenau são regravados no mesmo valor.
 
-Os R$ 6.744,12 se separam assim, nas linhas de R$ 50 ou mais. Linguiça, recheio, amaciante e creme Kit Kat fecharam dentro de R$ 20.
+Pilarzinho, Portão e Uberaba não têm estoque final de outubro. Abrir o fechamento dessas lojas não grava custo e não cria pendência de 50%.
 
-- Contagem a recontar: filé R$ 3.777,72; carne em isca R$ 1.359,63; chocolate branco R$ 418,38; parmesão R$ 320,33; milho R$ 319,30; cebola crocante R$ 317,66.
-- Compra sem nota aprovada no sistema: tomate R$ 3.520,46; chocolate preto R$ 1.519,09; ovos R$ 1.498,40; cebola R$ 1.441,95; morango R$ 1.095,42; batata palha R$ 407,33; manjericão R$ 395,40; brócolis R$ 208,24; rúcula R$ 159,60; tomate cereja R$ 136,48; fermento R$ 126,52; creme Galak R$ 118,89; banana R$ 114,82; escarola R$ 113,82; orégano R$ 104,98; pimentão verde R$ 104,01; tempero R$ 51,30.
-- Método (média da planilha contra última compra) ou preço digitado diferente da nota: mussarela R$ 455,42; calabresa R$ 224,89; catupiry R$ 187,66; atum R$ 133,47 (planilha abaixo das notas); cheddar R$ 115,79; carne moída R$ 101,53; bacon R$ 88,94 (fator 20 ainda na quantidade); biscoito Kit Kat R$ 81,66 (nota R$ 168,47, planilha R$ 161,16); cream cheese R$ 60,82; farinha R$ 57,59; costela R$ 53,98.
+## Pendências
+
+Ainda sem decisão. Não alterar quantidade nem a planilha até a loja confirmar.
+
+### Qual contagem vale
+
+O sinal é planilha menos sistema: negativo significa que o CMV do sistema está mais alto. Soma destas seis linhas: **−R$ 6.513,02**.
+
+| Produto | No app, outubro | Na planilha | Diferença no CMV |
+|---|---|---|---:|
+| Filé de peito sem osso | 0 kg, custo pendente (setembro tinha 116 kg a R$ 14,2702) | 131,42 kg | −3.777,72 |
+| Carne em isca | 0 kg, custo pendente (setembro tinha 18,5 kg a R$ 41,8021) | 32,42 kg | −1.359,63 |
+| Chocolate branco | 67,39 kg a R$ 19,6995 (NF 6735) | contagem da planilha ainda não escolhida | −418,38 |
+| Parmesão | 31,6 kg a R$ 32 | contagem da planilha ainda não escolhida | −320,33 |
+| Milho | 181,05 kg a R$ 12 | contagem da planilha ainda não escolhida | −319,30 |
+| Cebola crocante | 10,5 kg; o custo vai a R$ 34 (NF 728) quando o fechamento abrir | contagem da planilha ainda não escolhida | −317,66 |
+
+### Compras sem nota na planilha
+
+Cerca de **R$ 7.598** ainda estão na planilha e não têm nota aprovada no sistema, depois de tirar o chocolate preto e de lançar a NF 8949813. Confirmar com a loja quais compras existem de fato.
+
+### Correções da planilha
+
+- Chocolate preto, NF 6324, R$ 1.625,60 na 1ª semana de outubro. A nota é de 30/09 e esse chocolate já estava no estoque final de setembro. É contagem dupla da planilha. A nota não entra no CMV de outubro.
+- NF 38137 de embalagem lançada na 3ª semana.
+- Separador de R$ 50,40.
+
+### Bebidas
+
+CMV de bebidas no sistema: **R$ 28.569,58**. Diferença de **R$ 1.642,96** para a planilha, ainda não investigada.
+
+### Venda do mês
+
+Platefull **R$ 696.735,14**. Planilha **R$ 688.341,78**.
+
+### Devoluções do Pilarzinho
+
+Confirmar com a loja. Hoje entram como compra positiva, R$ 610,63. Com o código novo, o fechamento do Pilarzinho subtrai o mesmo valor: o CMV cai R$ 1.221,26 (matéria-prima −R$ 1.118,56, bebidas −R$ 102,70). Isso só acontece quando o fechamento do Pilarzinho for montado.
+
+| Nota | Data | Produto | Valor |
+|---|---|---|---:|
+| 6236067 | 02/10 | Creme Kit Kat | 168,69 |
+| 6236067 | 02/10 | Azeitona verde | 110,95 |
+| 6258650 | 16/10 | Creme Kit Kat | 168,69 |
+| 6258650 | 16/10 | Azeitona verde | 110,95 |
+| 741496 | 21/10 | Sprite 2 L zero | 51,35 |
+
+Não há nota normal desses produtos no mesmo dia. A reposição do creme e da azeitona, no mesmo valor, é a NF 6250396 de 14/10. O Sprite tem a NF 9644900 em 20/10 (24 un, R$ 205,60) e a NF 9632442 em 15/10 (6 un, R$ 51,39).
