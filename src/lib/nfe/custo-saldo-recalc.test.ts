@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  compararUltimaCompra,
   custoSaldoEntraNoRecalculo,
   variacaoCustoBloqueada,
 } from './importar-saldo-custo-resolve';
@@ -76,6 +77,36 @@ describe('custo do saldo final', () => {
     assert.equal(variacaoCustoBloqueada(9.8, 13.3791), false);
     assert.equal(variacaoCustoBloqueada(6.7, 6.5), false);
     assert.equal(variacaoCustoBloqueada(null, 13), false);
+  });
+
+  it('desempate: criação mais recente e, depois, o maior número da nota', () => {
+    const dia = new Date('2026-10-26T03:00:00.000Z');
+    const antiga = {
+      dataEntrada: dia,
+      createdAt: new Date('2026-10-26T12:00:00.000Z'),
+      numero: '6735',
+    };
+    const recente = {
+      dataEntrada: dia,
+      createdAt: new Date('2026-10-27T12:00:00.000Z'),
+      numero: '111764',
+    };
+    const mesmoInstante = {
+      dataEntrada: dia,
+      createdAt: recente.createdAt,
+      numero: '6735',
+    };
+    const ordenadas = [antiga, recente].sort(compararUltimaCompra);
+    assert.equal(ordenadas[0].numero, '111764');
+    const porNumero = [mesmoInstante, recente].sort(compararUltimaCompra);
+    assert.equal(porNumero[0].numero, '111764');
+    const diaSeguinte = {
+      dataEntrada: new Date('2026-10-27T03:00:00.000Z'),
+      createdAt: new Date('2026-10-20T12:00:00.000Z'),
+      numero: '1',
+    };
+    const porEntrada = [recente, diaSeguinte].sort(compararUltimaCompra);
+    assert.equal(porEntrada[0].numero, '1');
   });
 
   it('sem o gatilho, custo positivo antigo permanece', () => {

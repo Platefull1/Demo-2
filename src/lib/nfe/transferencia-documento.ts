@@ -5,6 +5,7 @@
 
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { quantidadeEValorDeCompra, cfopDevolucao } from './bonificacao';
 import { competenciaFromDataEntrada } from './dates';
 import { CMV_STORE_SLUGS, competenciaAnterior, type CmvStoreSlug } from './lojas';
 import {
@@ -98,7 +99,12 @@ export async function buscarCustoTransferencia(params: {
         competencia: params.competencia,
         tipo: { in: ['COMPRA_NFE', 'COMPRA_MANUAL', 'TRANSFERENCIA_ENTRADA'] },
       },
-      select: { quantidade: true, valorTotal: true },
+      select: {
+        tipo: true,
+        quantidade: true,
+        valorTotal: true,
+        nfeItem: { select: { cfop: true } },
+      },
     }),
     prisma.cmvSaldoEstoque.findUnique({
       where: {
@@ -111,7 +117,7 @@ export async function buscarCustoTransferencia(params: {
       },
       select: { custoMedio: true, qtdFinal: true },
     }),
-    prisma.cmvLancamento.findFirst({
+    prisma.cmvLancamento.findMany({
       where: {
         userId: params.userId,
         estoqueInsumoId: params.estoqueInsumoId,
@@ -120,15 +126,28 @@ export async function buscarCustoTransferencia(params: {
         valorTotal: { gt: 0 },
       },
       orderBy: { data: 'desc' },
-      select: { quantidade: true, valorTotal: true },
+      take: 20,
+      select: {
+        quantidade: true,
+        valorTotal: true,
+        nfeItem: { select: { cfop: true } },
+      },
     }),
   ]);
 
   // Custo médio ponderado atual: (saldoIni + entradas do período) / total qtd
   const saldoIniQtd = saldoIni ? n(saldoIni.qtdFinal) : 0;
   const saldoIniVal = saldoIni ? saldoIniQtd * n(saldoIni.custoMedio ?? 0) : 0;
-  const entradasQtd = lancamentosOrigem.reduce((s, l) => s + n(l.quantidade), 0);
-  const entradasVal = lancamentosOrigem.reduce((s, l) => s + n(l.valorTotal), 0);
+  const entradasQtd = lancamentosOrigem.reduce((s, l) => {
+    const q = n(l.quantidade);
+    if (l.tipo !== 'COMPRA_NFE') return s + q;
+    return s + quantidadeEValorDeCompra({ quantidade: q, valor: 0, cfop: l.nfeItem?.cfop }).quantidade;
+  }, 0);
+  const entradasVal = lancamentosOrigem.reduce((s, l) => {
+    const v = n(l.valorTotal);
+    if (l.tipo !== 'COMPRA_NFE') return s + v;
+    return s + quantidadeEValorDeCompra({ quantidade: 0, valor: v, cfop: l.nfeItem?.cfop }).valor;
+  }, 0);
   const totalQtd = saldoIniQtd + entradasQtd;
   const totalVal = saldoIniVal + entradasVal;
   const custoMedioAtual = totalQtd > 0 ? totalVal / totalQtd : null;
@@ -138,10 +157,11 @@ export async function buscarCustoTransferencia(params: {
     ultimoCustoOrigem: custoMedioAtual,
     custoEstoqueInicialOrigem:
       saldoIni?.custoMedio != null ? n(saldoIni.custoMedio) : null,
-    ultimoCustoQualquerLoja:
-      ultimoQualquer && n(ultimoQualquer.quantidade) > 0
-        ? n(ultimoQualquer.valorTotal) / n(ultimoQualquer.quantidade)
-        : null,
+    ultimoCustoQualquerLoja: (() => {
+      const compra = ultimoQualquer.find((l) => !cfopDevolucao(l.nfeItem?.cfop));
+      if (!compra || !(n(compra.quantidade) > 0)) return null;
+      return n(compra.valorTotal) / n(compra.quantidade);
+    })(),
     custoInformado: params.custoInformado,
   });
 }

@@ -5,6 +5,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { requireCmvRealAccess, resolveCmvRealStoreFilter } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
+import { etiquetaNatureza, naturezaDoItem } from '@/lib/nfe/bonificacao';
 import { competenciaFromDataEntrada } from '@/lib/nfe/dates';
 import { CMV_STORE_SLUGS } from '@/lib/nfe/lojas';
 
@@ -36,6 +37,7 @@ export async function GET(req: NextRequest) {
     where,
     orderBy: { data: 'desc' },
     take: 200,
+    include: { nfeItem: { select: { cfop: true, alertas: true } } },
   });
 
   return NextResponse.json({
@@ -57,7 +59,11 @@ export async function GET(req: NextRequest) {
       valorTotal: Number(l.valorTotal),
       lojaOrigem: l.lojaOrigem,
       lojaDestino: l.lojaDestino,
-      observacao: l.observacao,
+      observacao:
+        l.observacao ||
+        etiquetaNatureza(
+          naturezaDoItem({ cfop: l.nfeItem?.cfop, alertas: l.nfeItem?.alertas }),
+        ),
       nfeItemId: l.nfeItemId,
     })),
   });

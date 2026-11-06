@@ -16,6 +16,32 @@ export type CompraHit = {
   dataEntrada: Date;
 };
 
+export type CompraOrdenavel = {
+  dataEntrada: Date;
+  createdAt: Date;
+  numero: string;
+};
+
+export function numeroNota(numero: string): number {
+  const n = Number(String(numero).replace(/\D/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
+/**
+ * Mais recente primeiro. Empate na data de entrada: criação/importação,
+ * depois o maior número de nota.
+ * Retorno negativo quando `a` deve vir antes de `b`.
+ */
+export function compararUltimaCompra(a: CompraOrdenavel, b: CompraOrdenavel): number {
+  const entrada = b.dataEntrada.getTime() - a.dataEntrada.getTime();
+  if (entrada !== 0) return entrada;
+  const criada = b.createdAt.getTime() - a.createdAt.getTime();
+  if (criada !== 0) return criada;
+  const num = numeroNota(b.numero) - numeroNota(a.numero);
+  if (num !== 0) return num;
+  return String(b.numero).localeCompare(String(a.numero), 'pt-BR');
+}
+
 export type CustoResolvido = {
   custoMedio: number | null;
   custoOrigem: CustoOrigemSaldo | null;

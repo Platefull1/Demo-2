@@ -13,6 +13,7 @@ import { listarAbas } from './importar-catalogo';
 import { ignorarNoCustoDoSaldo } from './bonificacao';
 import {
   custoSaldoEntraNoRecalculo,
+  compararUltimaCompra,
   resolverUmCusto,
   variacaoCustoBloqueada,
   type CompraHit,
@@ -146,11 +147,19 @@ async function buscarUltimasComprasAprovadas(params: {
           numero: true,
           storeSlug: true,
           dataEntrada: true,
+          createdAt: true,
         },
       },
     },
-    orderBy: { nota: { dataEntrada: 'desc' } },
   });
+
+  type Hit = CompraHit & { createdAt: Date };
+  const melhor = (atual: Hit | undefined, novo: Hit): Hit => {
+    if (!atual) return novo;
+    return compararUltimaCompra(novo, atual) < 0 ? novo : atual;
+  };
+  const melhorLoja = new Map<string, Hit>();
+  const melhorGrupo = new Map<string, Hit>();
 
   for (const it of itens) {
     if (!it.estoqueInsumoId) continue;
@@ -160,22 +169,21 @@ async function buscarUltimasComprasAprovadas(params: {
     if (!(q > 0) || !(v > 0)) continue;
     const custo = v / q;
     if (!(custo > 0) || !Number.isFinite(custo)) continue;
-    const hit: CompraHit = {
+    const hit: Hit = {
       custo,
       storeSlug: it.nota.storeSlug,
       numero: it.nota.numero,
       dataEntrada: it.nota.dataEntrada,
+      createdAt: it.nota.createdAt,
     };
-    if (!qualquerLoja.has(it.estoqueInsumoId)) {
-      qualquerLoja.set(it.estoqueInsumoId, hit);
-    }
-    if (
-      it.nota.storeSlug === params.storeSlug &&
-      !mesmaLoja.has(it.estoqueInsumoId)
-    ) {
-      mesmaLoja.set(it.estoqueInsumoId, hit);
+    melhorGrupo.set(it.estoqueInsumoId, melhor(melhorGrupo.get(it.estoqueInsumoId), hit));
+    if (it.nota.storeSlug === params.storeSlug) {
+      melhorLoja.set(it.estoqueInsumoId, melhor(melhorLoja.get(it.estoqueInsumoId), hit));
     }
   }
+
+  for (const [id, hit] of melhorLoja) mesmaLoja.set(id, hit);
+  for (const [id, hit] of melhorGrupo) qualquerLoja.set(id, hit);
 
   return { mesmaLoja, qualquerLoja };
 }

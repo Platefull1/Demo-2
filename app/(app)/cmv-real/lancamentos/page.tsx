@@ -182,7 +182,8 @@ export default function CmvRealLancamentosPage() {
           <span className="block max-w-[240px] truncate text-foreground">
             {produtoNome(row.original.estoqueInsumoId)}
             {row.original.observacao === 'Bonificação' ||
-            row.original.observacao === 'Troca'
+            row.original.observacao === 'Troca' ||
+            row.original.observacao === 'Devolução/Troca'
               ? ` · ${row.original.observacao}`
               : ''}
           </span>
@@ -383,7 +384,9 @@ export default function CmvRealLancamentosPage() {
             </div>
             <p className="text-xs text-muted-foreground truncate mt-0.5">
               {produtoNome(l.estoqueInsumoId)}
-              {l.observacao === 'Bonificação' || l.observacao === 'Troca'
+              {l.observacao === 'Bonificação' ||
+              l.observacao === 'Troca' ||
+              l.observacao === 'Devolução/Troca'
                 ? ` · ${l.observacao}`
                 : ''}
             </p>

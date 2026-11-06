@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { etiquetaNatureza, naturezaDoItem } from './bonificacao';
+import { valoresLancamentoCompra } from './bonificacao';
 import { storeSlugFromCnpj } from './lojas';
 
 /**
@@ -48,6 +48,17 @@ export async function gerarLancamentosAprovacao(params: {
       continue;
     }
 
+    const valores = valoresLancamentoCompra({
+      quantidade: Number(item.quantidadeConvertida),
+      valor: Number(item.valorLiquido),
+      cfop: item.cfop,
+      alertas: item.alertas,
+      transferencia: isTransfer,
+    });
+    const observacao = isTransfer
+      ? `NF-e transferência Saipos #${nota.saiposTransferenciaId}`
+      : valores.observacao;
+
     try {
       await prisma.cmvLancamento.create({
         data: {
@@ -57,16 +68,12 @@ export async function gerarLancamentosAprovacao(params: {
           data: params.dataEntrada,
           tipo: isTransfer ? 'TRANSFERENCIA_ENTRADA' : 'COMPRA_NFE',
           estoqueInsumoId: item.estoqueInsumoId,
-          quantidade: item.quantidadeConvertida,
+          quantidade: valores.quantidade,
           unidade: item.unidadeConvertida,
-          valorTotal: item.valorLiquido,
+          valorTotal: valores.valor,
           nfeItemId: item.id,
           lojaOrigem: isTransfer ? lojaOrigem : null,
-          observacao: isTransfer
-            ? `NF-e transferência Saipos #${nota.saiposTransferenciaId}`
-            : etiquetaNatureza(
-                naturezaDoItem({ cfop: item.cfop, alertas: item.alertas }),
-              ),
+          observacao,
         },
       });
       created++;
@@ -78,10 +85,11 @@ export async function gerarLancamentosAprovacao(params: {
         await prisma.cmvLancamento.update({
           where: { nfeItemId: item.id },
           data: {
-            quantidade: item.quantidadeConvertida,
+            quantidade: valores.quantidade,
             unidade: item.unidadeConvertida,
-            valorTotal: item.valorLiquido,
+            valorTotal: valores.valor,
             estoqueInsumoId: item.estoqueInsumoId,
+            observacao,
           },
         });
         continue;

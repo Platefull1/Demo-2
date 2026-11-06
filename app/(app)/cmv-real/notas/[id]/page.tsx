@@ -918,8 +918,16 @@ function CmvRealNotaDetalhePageInner() {
       <header className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground flex flex-wrap items-center gap-2">
               NF {nota.numero}
+              {nota.itens.some(
+                (it) =>
+                  etiquetaNatureza(
+                    naturezaDoItem({ cfop: it.cfop, alertas: it.alertas }),
+                  ) === 'Devolução/Troca',
+              ) ? (
+                <Badge variant="outline">Devolução/Troca</Badge>
+              ) : null}
             </h2>
             <p className="text-xs text-muted-foreground mt-0.5">
               {storeLabel(nota.storeSlug)} ·{' '}

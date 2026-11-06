@@ -7,6 +7,7 @@
 
 import { prisma } from '@/lib/prisma';
 import { calcularCustoRefeicoes, cmvMpDeConsumo } from '@/lib/cmv-real/refeicoes';
+import { quantidadeEValorDeCompra } from './bonificacao';
 import { semanaFromDataEntrada } from './dates';
 import { preencherCustosPendentesFechamento } from './importar-saldo';
 import { competenciaAnterior, storeLabel } from './lojas';
@@ -202,6 +203,7 @@ export async function montarFechamento(params: {
         storeSlug: params.storeSlug,
         competencia: params.competencia,
       },
+      include: { nfeItem: { select: { cfop: true } } },
     }),
   ]);
 
@@ -274,11 +276,16 @@ export async function montarFechamento(params: {
       const q = n(l.quantidade);
       const v = n(l.valorTotal);
       if (l.tipo === 'COMPRA_NFE' || l.tipo === 'COMPRA_MANUAL') {
-        comprasQtd += q;
-        comprasValor += v;
+        const compra = quantidadeEValorDeCompra({
+          quantidade: q,
+          valor: v,
+          cfop: l.tipo === 'COMPRA_NFE' ? l.nfeItem?.cfop : null,
+        });
+        comprasQtd += compra.quantidade;
+        comprasValor += compra.valor;
         const sem = semanaFromDataEntrada(l.data);
-        comprasPorSemana[sem].qtd += q;
-        comprasPorSemana[sem].valor += v;
+        comprasPorSemana[sem].qtd += compra.quantidade;
+        comprasPorSemana[sem].valor += compra.valor;
       } else if (l.tipo === 'TRANSFERENCIA_SAIDA') {
         transfEnviadaQtd += q;
         transfEnviadaValor += v;
