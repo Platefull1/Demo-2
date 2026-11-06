@@ -385,9 +385,18 @@ export async function resolverCustosSaldo(params: {
   });
 }
 
+export type CustoForaDoPadrao = {
+  estoqueInsumoId: string;
+  nome: string;
+  custoAtual: number;
+  custoNovo: number;
+  detalhe: string | null;
+};
+
 /**
  * Preenche custo faltante no fechamento (produto com qtd e sem custo).
  * Persiste no CmvSaldoEstoque correspondente.
+ * Variação acima de 50% não grava e volta em `bloqueados`.
  */
 export async function preencherCustosPendentesFechamento(params: {
   tenantUserId: string;
@@ -405,7 +414,7 @@ export async function preencherCustosPendentesFechamento(params: {
     custoMedio: number | null;
     custoOrigem: string | null;
   }>;
-}): Promise<number> {
+}): Promise<{ atualizados: number; bloqueados: CustoForaDoPadrao[] }> {
   const fechamento = await prisma.cmvFechamento.findUnique({
     where: {
       userId_storeSlug_competencia: {
@@ -509,14 +518,6 @@ export async function preencherCustosPendentesFechamento(params: {
   }
   return { atualizados: updated, bloqueados };
 }
-
-export type CustoForaDoPadrao = {
-  estoqueInsumoId: string;
-  nome: string;
-  custoAtual: number;
-  custoNovo: number;
-  detalhe: string | null;
-};
 
 export function contadoresPreviewSaldo(itens: PreviewSaldoItem[]) {
   const porSecao = {
