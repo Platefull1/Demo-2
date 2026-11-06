@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   classificarRefeicao,
   calcularCustoRefeicoes,
+  cmvMpDeConsumo,
   valorVendaParaMes,
   normalizeText,
 } from './refeicoes';
@@ -135,7 +136,7 @@ describe('valorVendaParaMes', () => {
 });
 
 describe('calcularCustoRefeicoes', () => {
-  it('abate com %CMV bruto (sem circularidade)', () => {
+  it('custo = itens × (consumo MP ÷ venda) e não reduz o CMV', () => {
     const r = calcularCustoRefeicoes({
       consumoMp: 100_000,
       vendaMes: 500_000,
@@ -152,9 +153,18 @@ describe('calcularCustoRefeicoes', () => {
       custoSeg
     );
     assert.equal(r.custoTotal, Math.round((custoSeg + custoSoc) * 100) / 100);
-    assert.equal(
-      r.consumoMpLiquido,
-      Math.round((100_000 - r.custoTotal) * 100) / 100
-    );
+    assert.equal(cmvMpDeConsumo(100_000, r.custoTotal), 100_000);
+    assert.equal(cmvMpDeConsumo(100_000, 0), 100_000);
+  });
+
+  it('venda vazia zera o percentual e o custo, sem quebrar', () => {
+    const r = calcularCustoRefeicoes({
+      consumoMp: 100_000,
+      vendaMes: 0,
+      refeicoes: [{ categoria: 'LOJA', valorItens: 80 }],
+    });
+    assert.equal(r.pctCmvMpBruto, 0);
+    assert.equal(r.custoTotal, 0);
+    assert.equal(cmvMpDeConsumo(100_000, r.custoTotal), 100_000);
   });
 });

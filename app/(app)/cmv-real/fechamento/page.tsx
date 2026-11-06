@@ -196,7 +196,6 @@ export default function CmvRealFechamentoPage() {
     vendaMes: number | null;
     pctCmvMpBruto?: number | null;
     custoRefeicoes?: number;
-    consumoMpLiquido?: number | null;
     cmvMp?: ResumoSecao;
     cmvEmbalagens?: ResumoSecao;
     cmvBebidas?: ResumoSecao;

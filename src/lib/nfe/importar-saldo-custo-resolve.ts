@@ -43,6 +43,39 @@ function detalheCompra(hit: CompraHit): string {
  * 5) CMV teórico
  * 6) pendente
  */
+/**
+ * O saldo entra no recálculo quando o mês está aberto, a quantidade é positiva
+ * e o custo não foi informado à mão.
+ * Custo vazio ou pendente entra sempre. Custo positivo só entra com
+ * `recalcularExistentes` (fechamento aberto, nota aprovada/editada ou contagem).
+ */
+/** Variação acima de 50% para cima ou para baixo não grava sozinha. */
+export function variacaoCustoBloqueada(
+  atual: number | null,
+  novo: number,
+): boolean {
+  if (atual == null || !(atual > 0) || !(novo > 0)) return false;
+  return Math.abs(novo - atual) / atual > 0.5;
+}
+
+export function custoSaldoEntraNoRecalculo(params: {
+  fechamentoFechado: boolean;
+  qtd: number;
+  custoOrigem: string | null;
+  custoMedio: number | null;
+  recalcularExistentes: boolean;
+}): boolean {
+  if (params.fechamentoFechado) return false;
+  if (!(params.qtd > 0)) return false;
+  if (params.custoOrigem === 'MANUAL') return false;
+  const vazio =
+    params.custoOrigem === 'PENDENTE' ||
+    params.custoMedio == null ||
+    !(params.custoMedio > 0);
+  if (vazio) return true;
+  return params.recalcularExistentes;
+}
+
 export function resolverUmCusto(params: {
   nomeProduto: string;
   custoRecalculado?: number | null;

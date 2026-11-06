@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { etiquetaNatureza, naturezaDoItem } from './bonificacao';
 import { storeSlugFromCnpj } from './lojas';
 
 /**
@@ -63,7 +64,9 @@ export async function gerarLancamentosAprovacao(params: {
           lojaOrigem: isTransfer ? lojaOrigem : null,
           observacao: isTransfer
             ? `NF-e transferência Saipos #${nota.saiposTransferenciaId}`
-            : null,
+            : etiquetaNatureza(
+                naturezaDoItem({ cfop: item.cfop, alertas: item.alertas }),
+              ),
         },
       });
       created++;
@@ -72,11 +75,31 @@ export async function gerarLancamentosAprovacao(params: {
         err instanceof Prisma.PrismaClientKnownRequestError &&
         err.code === 'P2002'
       ) {
+        await prisma.cmvLancamento.update({
+          where: { nfeItemId: item.id },
+          data: {
+            quantidade: item.quantidadeConvertida,
+            unidade: item.unidadeConvertida,
+            valorTotal: item.valorLiquido,
+            estoqueInsumoId: item.estoqueInsumoId,
+          },
+        });
         continue;
       }
       throw err;
     }
   }
+
+  const ids = nota.itens
+    .map((it) => it.estoqueInsumoId)
+    .filter((id): id is string => !!id);
+  await recalcularCustosDosProdutos({
+    userId: params.userId,
+    storeSlug: params.storeSlug,
+    competencia: params.competencia,
+    estoqueInsumoIds: ids,
+  });
+
   return created;
 }
 
@@ -176,5 +199,56 @@ export async function reabrirNotaSePermitido(params: {
     }),
   ]);
 
+  const itensNota = await prisma.nfeItem.findMany({
+    where: { notaId: params.notaId },
+    select: { estoqueInsumoId: true },
+  });
+  await recalcularCustosDosProdutos({
+    userId: params.userId,
+    storeSlug: params.storeSlug,
+    competencia: params.competencia,
+    estoqueInsumoIds: itensNota
+      .map((it) => it.estoqueInsumoId)
+      .filter((id): id is string => !!id),
+  });
+
   return { ok: true, itensPendentes: itens.count };
+}
+
+async function recalcularCustosDosProdutos(params: {
+  userId: string;
+  storeSlug: string;
+  competencia: string;
+  estoqueInsumoIds: string[];
+}): Promise<void> {
+  if (params.estoqueInsumoIds.length === 0) return;
+  const { preencherCustosPendentesFechamento } = await import('./importar-saldo');
+  const [saldos, nomes] = await Promise.all([
+    prisma.cmvSaldoEstoque.findMany({
+      where: {
+        userId: params.userId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+        estoqueInsumoId: { in: params.estoqueInsumoIds },
+      },
+    }),
+    prisma.estoqueInsumo.findMany({
+      where: { id: { in: params.estoqueInsumoIds } },
+      select: { id: true, nome: true },
+    }),
+  ]);
+  const nomePorId = new Map(nomes.map((n) => [n.id, n.nome]));
+  await preencherCustosPendentesFechamento({
+    tenantUserId: params.userId,
+    storeSlug: params.storeSlug,
+    competenciaSaldo: params.competencia,
+    recalcularExistentes: true,
+    itens: saldos.map((s) => ({
+      estoqueInsumoId: s.estoqueInsumoId,
+      nome: nomePorId.get(s.estoqueInsumoId) || s.estoqueInsumoId,
+      qtd: Number(s.qtdFinal),
+      custoMedio: s.custoMedio != null ? Number(s.custoMedio) : null,
+      custoOrigem: s.custoOrigem,
+    })),
+  });
 }

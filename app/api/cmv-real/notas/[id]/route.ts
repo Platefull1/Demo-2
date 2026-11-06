@@ -126,6 +126,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
         sugestoes: it.sugestoes,
         estoqueInsumoId: it.estoqueInsumoId,
         alertas: it.alertas,
+        cfop: it.cfop,
         ncm: it.ncm,
       })),
     },
@@ -151,7 +152,35 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     fatorConversao?: number;
     criarMapeamento?: boolean;
     motivo?: string;
+    natureza?: 'BONIFICACAO' | 'TROCA' | 'NORMAL';
   };
+
+  if (body.action === 'marcar_natureza') {
+    const { tenant, error } = await requireCmvRealAccess(
+      P.CMV_REAL_REVISAR_APROVAR,
+    );
+    if (error) return error;
+    const natureza = body.natureza;
+    if (!body.itemId || (natureza !== 'BONIFICACAO' && natureza !== 'TROCA' && natureza !== 'NORMAL')) {
+      return NextResponse.json({ error: 'Item ou marca inválida' }, { status: 400 });
+    }
+    const item = await prisma.nfeItem.findFirst({
+      where: { id: body.itemId, notaId: id, nota: { userId: tenant.tenantUserId } },
+    });
+    if (!item) return NextResponse.json({ error: 'Item não encontrado' }, { status: 404 });
+    const { alertasComMarca, etiquetaNatureza } = await import('@/lib/nfe/bonificacao');
+    const marca = natureza === 'NORMAL' ? null : natureza;
+    const alertas = alertasComMarca(item.alertas, marca);
+    await prisma.nfeItem.update({
+      where: { id: item.id },
+      data: { alertas },
+    });
+    await prisma.cmvLancamento.updateMany({
+      where: { nfeItemId: item.id, tipo: 'COMPRA_NFE' },
+      data: { observacao: etiquetaNatureza(marca) },
+    });
+    return NextResponse.json({ ok: true, alertas });
+  }
 
   if (body.action === 'fornecedor_fora_cmv') {
     const { tenant, error } = await requireCmvRealAccess(

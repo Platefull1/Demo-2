@@ -229,6 +229,39 @@ export async function aplicarContagemComoSaldo(params: {
     gravados++;
   }
 
+  const { preencherCustosPendentesFechamento } = await import('./importar-saldo');
+  const idsAplicados = params.contagem.itens
+    .map((it) => bySlug.get(it.insumoSlug))
+    .filter((id): id is string => !!id && ativos.has(id));
+  const [saldos, nomes] = await Promise.all([
+    prisma.cmvSaldoEstoque.findMany({
+      where: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+        estoqueInsumoId: { in: idsAplicados },
+      },
+    }),
+    prisma.estoqueInsumo.findMany({
+      where: { id: { in: idsAplicados } },
+      select: { id: true, nome: true },
+    }),
+  ]);
+  const nomePorId = new Map(nomes.map((n) => [n.id, n.nome]));
+  await preencherCustosPendentesFechamento({
+    tenantUserId: params.tenantUserId,
+    storeSlug: params.storeSlug,
+    competenciaSaldo: params.competencia,
+    recalcularExistentes: true,
+    itens: saldos.map((s) => ({
+      estoqueInsumoId: s.estoqueInsumoId,
+      nome: nomePorId.get(s.estoqueInsumoId) || s.estoqueInsumoId,
+      qtd: Number(s.qtdFinal),
+      custoMedio: s.custoMedio != null ? Number(s.custoMedio) : null,
+      custoOrigem: s.custoOrigem,
+    })),
+  });
+
   await prisma.cmvFechamento.upsert({
     where: {
       userId_storeSlug_competencia: {

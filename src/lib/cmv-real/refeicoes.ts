@@ -240,8 +240,8 @@ export function resumirRefeicoesPorCategoria(
 }
 
 /**
- * %CMV MP bruto = consumoMP / vendaMes
- * custo refeição = valorItens * pct
+ * %CMV MP = consumoMP / vendaMes.
+ * O custo da refeição é só informativo: não reduz o CMV.
  */
 export function calcularCustoRefeicoes(params: {
   consumoMp: number;
@@ -256,7 +256,6 @@ export function calcularCustoRefeicoes(params: {
     custo: number;
   }>;
   custoTotal: number;
-  consumoMpLiquido: number;
 } {
   const pct =
     params.vendaMes > 0 ? params.consumoMp / params.vendaMes : 0;
@@ -272,6 +271,10 @@ export function calcularCustoRefeicoes(params: {
     pctCmvMpBruto: pct,
     porCategoria,
     custoTotal,
-    consumoMpLiquido: Math.round((params.consumoMp - custoTotal) * 100) / 100,
   };
+}
+
+/** CMV de MP exibido = consumo de MP. O custo das refeições não entra. */
+export function cmvMpDeConsumo(consumoMp: number, _custoRefeicoes = 0): number {
+  return Math.round(consumoMp * 100) / 100;
 }

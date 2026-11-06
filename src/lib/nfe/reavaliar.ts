@@ -4,6 +4,7 @@
  */
 
 import { Prisma, PrismaClient, type NfeNotaStatus } from '@prisma/client';
+import { preservarMarcasManuais } from './bonificacao';
 import { competenciaFromDataEntrada } from './dates';
 import { itemEstaPronto } from './item-pronto';
 import {
@@ -366,6 +367,11 @@ function decisaoFromOut(out: PipelineResult): ReavaliarDecisao {
   return 'EM_REVISAO';
 }
 
+function mesclarMarcas(alertas: unknown, marcas: string[] | undefined): string[] {
+  const novos = Array.isArray(alertas) ? alertas.map(String) : [];
+  return [...new Set([...novos, ...(marcas ?? [])])];
+}
+
 async function aplicarNota(
   prisma: PrismaClient,
   userId: string,
@@ -378,6 +384,13 @@ async function aplicarNota(
   out: PipelineResult,
   statusFinal: NfeNotaStatus,
 ): Promise<void> {
+  const anteriores = await prisma.nfeItem.findMany({
+    where: { notaId: nota.id },
+    select: { saiposItemId: true, alertas: true },
+  });
+  const marcas = new Map(
+    anteriores.map((it) => [it.saiposItemId, preservarMarcasManuais(it.alertas)]),
+  );
   await prisma.$transaction(async (tx) => {
     for (const it of out.itens) {
       await tx.nfeItem.updateMany({
@@ -400,7 +413,7 @@ async function aplicarNota(
           sugestaoInsumoId: it.sugestaoInsumoId,
           sugestaoScore: it.sugestaoScore,
           sugestoes: it.sugestoes,
-          alertas: it.alertas,
+          alertas: mesclarMarcas(it.alertas, marcas.get(it.saiposItemId)),
         },
       });
     }

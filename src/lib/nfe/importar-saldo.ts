@@ -10,8 +10,11 @@ import {
   type EstoqueCatalogoItem,
 } from '@/lib/estoque/catalogo';
 import { listarAbas } from './importar-catalogo';
+import { ignorarNoCustoDoSaldo } from './bonificacao';
 import {
+  custoSaldoEntraNoRecalculo,
   resolverUmCusto,
+  variacaoCustoBloqueada,
   type CompraHit,
   type CustoResolvido,
 } from './importar-saldo-custo-resolve';
@@ -136,6 +139,8 @@ async function buscarUltimasComprasAprovadas(params: {
       estoqueInsumoId: true,
       valorLiquido: true,
       quantidadeConvertida: true,
+      cfop: true,
+      alertas: true,
       nota: {
         select: {
           numero: true,
@@ -149,6 +154,7 @@ async function buscarUltimasComprasAprovadas(params: {
 
   for (const it of itens) {
     if (!it.estoqueInsumoId) continue;
+    if (ignorarNoCustoDoSaldo({ cfop: it.cfop, alertas: it.alertas })) continue;
     const q = Number(it.quantidadeConvertida);
     const v = Number(it.valorLiquido);
     if (!(q > 0) || !(v > 0)) continue;
@@ -379,6 +385,11 @@ export async function preencherCustosPendentesFechamento(params: {
   tenantUserId: string;
   storeSlug: string;
   competenciaSaldo: string;
+  /**
+   * true no fechamento aberto, na aprovação/edição de nota e na contagem:
+   * refaz também custo positivo que não seja MANUAL.
+   */
+  recalcularExistentes?: boolean;
   itens: Array<{
     estoqueInsumoId: string;
     nome: string;
@@ -387,14 +398,27 @@ export async function preencherCustosPendentesFechamento(params: {
     custoOrigem: string | null;
   }>;
 }): Promise<number> {
-  const precisa = params.itens.filter(
-    (i) =>
-      i.qtd > 0 &&
-      (i.custoOrigem === 'PENDENTE' ||
-        i.custoMedio == null ||
-        !(Number(i.custoMedio) > 0)),
+  const fechamento = await prisma.cmvFechamento.findUnique({
+    where: {
+      userId_storeSlug_competencia: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competenciaSaldo,
+      },
+    },
+    select: { status: true },
+  });
+  const fechamentoFechado = fechamento?.status === 'FECHADO';
+  const precisa = params.itens.filter((i) =>
+    custoSaldoEntraNoRecalculo({
+      fechamentoFechado,
+      qtd: i.qtd,
+      custoOrigem: i.custoOrigem,
+      custoMedio: i.custoMedio,
+      recalcularExistentes: params.recalcularExistentes === true,
+    }),
   );
-  if (!precisa.length) return 0;
+  if (!precisa.length) return { atualizados: 0, bloqueados: [] as CustoForaDoPadrao[] };
 
   const ids = precisa.map((i) => i.estoqueInsumoId);
   const fim = fimCompetenciaUtc(params.competenciaSaldo);
@@ -420,6 +444,7 @@ export async function preencherCustosPendentesFechamento(params: {
   ]);
 
   let updated = 0;
+  const bloqueados: CustoForaDoPadrao[] = [];
   for (const it of precisa) {
     const resolved = resolverUmCusto({
       nomeProduto: it.nome,
@@ -430,6 +455,19 @@ export async function preencherCustosPendentesFechamento(params: {
       outraLoja,
       cmvTeorico,
     });
+    if (
+      resolved.custoMedio != null &&
+      variacaoCustoBloqueada(it.custoMedio, resolved.custoMedio)
+    ) {
+      bloqueados.push({
+        estoqueInsumoId: it.estoqueInsumoId,
+        nome: it.nome,
+        custoAtual: it.custoMedio ?? 0,
+        custoNovo: resolved.custoMedio,
+        detalhe: resolved.custoOrigemDetalhe,
+      });
+      continue;
+    }
     if (resolved.custoMedio == null || resolved.custoOrigem === 'PENDENTE') {
       // marca pendente se ainda sem custo
       await prisma.cmvSaldoEstoque.updateMany({
@@ -461,8 +499,16 @@ export async function preencherCustosPendentesFechamento(params: {
     });
     updated += r.count;
   }
-  return updated;
+  return { atualizados: updated, bloqueados };
 }
+
+export type CustoForaDoPadrao = {
+  estoqueInsumoId: string;
+  nome: string;
+  custoAtual: number;
+  custoNovo: number;
+  detalhe: string | null;
+};
 
 export function contadoresPreviewSaldo(itens: PreviewSaldoItem[]) {
   const porSecao = {

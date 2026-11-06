@@ -4,6 +4,9 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Check, Ban, Unlock } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { etiquetaNatureza, naturezaDoItem } from '@/lib/nfe/bonificacao';
 import {
   notasListHref,
   parseNotasListFilters,
@@ -52,6 +55,7 @@ type Item = {
   sugestoes: Sugestao[] | unknown;
   estoqueInsumoId: string | null;
   alertas: string[];
+  cfop: string | null;
 };
 
 type ProdutoOpt = {
@@ -468,6 +472,71 @@ function CmvRealNotaDetalhePageInner() {
             <p className="text-sm text-foreground font-medium leading-snug mt-0.5">
               {it.descricao}
             </p>
+            {(() => {
+              const etiqueta = etiquetaNatureza(
+                naturezaDoItem({ cfop: it.cfop, alertas: it.alertas }),
+              );
+              if (!etiqueta && !canRevisar) return null;
+              return (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  {etiqueta ? <Badge variant="outline">{etiqueta}</Badge> : null}
+                  {canRevisar ? (
+                    <>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void post({
+                            action: 'marcar_natureza',
+                            itemId: it.id,
+                            natureza: 'BONIFICACAO',
+                          })
+                            .then(() => load())
+                            .catch((e) => setMsg(e.message))
+                        }
+                      >
+                        Bonificação
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          void post({
+                            action: 'marcar_natureza',
+                            itemId: it.id,
+                            natureza: 'TROCA',
+                          })
+                            .then(() => load())
+                            .catch((e) => setMsg(e.message))
+                        }
+                      >
+                        Troca
+                      </Button>
+                      {etiqueta ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            void post({
+                              action: 'marcar_natureza',
+                              itemId: it.id,
+                              natureza: 'NORMAL',
+                            })
+                              .then(() => load())
+                              .catch((e) => setMsg(e.message))
+                          }
+                        >
+                          Compra normal
+                        </Button>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              );
+            })()}
           </div>
           <div className="text-right shrink-0 text-xs text-muted-foreground">
             <div>

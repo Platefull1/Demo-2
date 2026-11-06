@@ -4,6 +4,7 @@ import { useState, useRef } from 'react';
 import { AlertTriangle, MessageSquare, X, Check, Plus, Pencil } from 'lucide-react';
 import type { StockItem } from '../types';
 import { formatQtd } from '../utils';
+import { somarQuantidadeContada } from '@/lib/estoque/contagem-branco';
 
 const FARDO_OPCOES_BEBIDAS = [
   { size: 1, label: 'un' },
@@ -77,22 +78,19 @@ export function StockItemRow({ item, categoriaId, onQuantidade, onObservacao }: 
   };
 
   const handleAdicionar = () => {
-    const num = parseFloat(addValue.replace(',', '.'));
-    if (isNaN(num) || num < 0) return;
-    // Fardo: multiplica diretamente em unidades
-    if (contarEmFardo) {
-      const novoTotal = (item.quantidadeContada ?? 0) + num * fardoSize;
-      onQuantidade(categoriaId, item.insumoId, novoTotal);
-    } else if (contarEmKg) {
-      // Embalagem aberta: digita diretamente em kg
-      const novoTotal = parseFloat(((item.quantidadeContada ?? 0) + num).toFixed(3));
-      onQuantidade(categoriaId, item.insumoId, novoTotal);
-    } else {
+    const convertido = (num: number) => {
+      if (contarEmFardo) return num * fardoSize;
+      if (contarEmKg) return num;
       const qtdBase = modoUnidade ? num * kgPorUn : num;
-      const qtdAdicionada = puroUnidade ? num : qtdBase;
-      const novoTotal = parseFloat(((item.quantidadeContada ?? 0) + qtdAdicionada).toFixed(3));
-      onQuantidade(categoriaId, item.insumoId, novoTotal);
-    }
+      return puroUnidade ? num : qtdBase;
+    };
+    const novoTotal = somarQuantidadeContada(
+      item.quantidadeContada,
+      addValue,
+      convertido,
+    );
+    if (novoTotal == null) return;
+    onQuantidade(categoriaId, item.insumoId, novoTotal);
     setAddValue('');
     setTimeout(() => inputRef.current?.focus(), 50);
   };

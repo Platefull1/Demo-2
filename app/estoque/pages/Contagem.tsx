@@ -8,6 +8,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { SessionAccordion } from '../components/SessionAccordion';
 import { StockItemRow } from '../components/StockItemRow';
 import { formatQtd } from '../utils';
+import { Button } from '@/components/ui/button';
 
 interface ContagemProps {
   session: StockSession;
@@ -62,7 +63,10 @@ export function Contagem({
   );
   const [showRevisao, setShowRevisao] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [itensFaltandoGlobal, setItensFaltandoGlobal] = useState<{ categoria: string; nome: string }[]>([]);
+  const [itensFaltandoGlobal, setItensFaltandoGlobal] = useState<
+    { categoriaId: string; insumoId: string; categoria: string; nome: string }[]
+  >([]);
+  const [naoContados, setNaoContados] = useState<Set<string>>(new Set());
 
   const isSearching = searchTerm.trim().length > 0;
   const searchResults = isSearching
@@ -113,8 +117,13 @@ export function Contagem({
   const handleAbrirRevisao = () => {
     const faltando = session.sessoes.flatMap(cat =>
       cat.itens
-        .filter(i => i.quantidadeContada === null)
-        .map(i => ({ categoria: cat.nome, nome: i.nome })),
+        .filter(i => i.quantidadeContada === null && !naoContados.has(`${cat.id}:${i.insumoId}`))
+        .map(i => ({
+          categoriaId: cat.id,
+          insumoId: i.insumoId,
+          categoria: cat.nome,
+          nome: i.nome,
+        })),
     );
     if (faltando.length > 0) {
       setItensFaltandoGlobal(faltando);
@@ -226,30 +235,68 @@ export function Contagem({
                   <h3 className="text-base font-semibold text-white">
                     {itensFaltandoGlobal.length} {itensFaltandoGlobal.length === 1 ? 'item não preenchido' : 'itens não preenchidos'}
                   </h3>
-                  <p className="text-xs text-gray-500 mt-0.5">Todos os itens precisam ser preenchidos</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Escolha zero ou não contado. Vazio não vira zero.</p>
                 </div>
               </div>
               <button onClick={() => setItensFaltandoGlobal([])} className="text-gray-600 hover:text-white transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <ul className="space-y-1.5 max-h-64 overflow-y-auto mb-5">
-              {itensFaltandoGlobal.map((item, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0 mt-1.5" />
-                  <span>
+            <ul className="space-y-3 max-h-80 overflow-y-auto mb-5">
+              {itensFaltandoGlobal.map((item) => (
+                <li key={`${item.categoriaId}:${item.insumoId}`} className="space-y-2">
+                  <p className="text-sm text-gray-300">
                     <span className="text-gray-500 text-xs">{item.categoria} · </span>
-                    <span className="text-gray-300">{item.nome}</span>
-                  </span>
+                    {item.nome}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        onQuantidade(item.categoriaId, item.insumoId, 0);
+                        setItensFaltandoGlobal((prev) =>
+                          prev.filter(
+                            (p) =>
+                              !(p.categoriaId === item.categoriaId && p.insumoId === item.insumoId),
+                          ),
+                        );
+                      }}
+                    >
+                      Zero
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNaoContados((prev) => {
+                          const next = new Set(prev);
+                          next.add(`${item.categoriaId}:${item.insumoId}`);
+                          return next;
+                        });
+                        setItensFaltandoGlobal((prev) =>
+                          prev.filter(
+                            (p) =>
+                              !(p.categoriaId === item.categoriaId && p.insumoId === item.insumoId),
+                          ),
+                        );
+                      }}
+                    >
+                      Não contado
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
-            <button
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
               onClick={() => setItensFaltandoGlobal([])}
-              className="w-full py-2.5 rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-colors"
             >
-              Voltar e preencher
-            </button>
+              Voltar
+            </Button>
           </div>
         </div>
       )}
