@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { parseChaveAcesso } from '@/lib/nfe/chave-acesso';
 import {
   requireCmvRealAccess,
   resolveCmvRealStoreFilter,
@@ -18,7 +19,82 @@ function mesBounds(ano: number, mes: number): { start: Date; end: Date } {
   return { start, end };
 }
 
-/** GET /api/cmv-real/notas?status=&storeSlug=&mes=&ano= */
+const notaInclude = {
+  fornecedor: {
+    select: {
+      id: true,
+      razaoSocial: true,
+      nomeFantasia: true,
+      cnpj: true,
+      ignorarCmv: true,
+    },
+  },
+  itens: {
+    select: {
+      id: true,
+      status: true,
+      estoqueInsumoId: true,
+      fatorConversao: true,
+      quantidadeConvertida: true,
+    },
+  },
+} as const;
+
+function mapNotaRow(
+  n: {
+    id: string;
+    numero: string;
+    chaveAcesso: string;
+    storeSlug: string;
+    status: string;
+    dataEntrada: Date;
+    valorTotal: { toString(): string } | number;
+    competencia: string;
+    fornecedor: {
+      id: string;
+      razaoSocial: string;
+      nomeFantasia: string | null;
+      cnpj: string;
+      ignorarCmv: boolean;
+    };
+    itens: Array<{
+      id: string;
+      status: string;
+      estoqueInsumoId: string | null;
+      fatorConversao: unknown;
+      quantidadeConvertida: unknown;
+    }>;
+    aprovacaoAutomatica: boolean;
+    aprovadaComAlerta: boolean;
+  },
+  itemEstaPronto: (i: {
+    status: string;
+    estoqueInsumoId: string | null;
+    fatorConversao: unknown;
+    quantidadeConvertida: unknown;
+  }) => boolean,
+) {
+  const itensProntos = n.itens.filter((i) => itemEstaPronto(i)).length;
+  return {
+    id: n.id,
+    numero: n.numero,
+    chaveAcesso: n.chaveAcesso,
+    storeSlug: n.storeSlug,
+    status: n.status,
+    dataEntrada: n.dataEntrada,
+    valorTotal: Number(n.valorTotal),
+    competencia: n.competencia,
+    fornecedor: n.fornecedor,
+    itensTotal: n.itens.length,
+    itensProntos,
+    itensSugeridos: n.itens.filter((i) => i.status === 'SUGERIDO').length,
+    itensSemMap: n.itens.filter((i) => i.status === 'SEM_MAPEAMENTO').length,
+    aprovacaoAutomatica: n.aprovacaoAutomatica,
+    aprovadaComAlerta: n.aprovadaComAlerta,
+  };
+}
+
+/** GET /api/cmv-real/notas?status=&storeSlug=&mes=&ano=&chave= */
 export async function GET(req: NextRequest) {
   const { tenant, error } = await requireCmvRealAccess(P.CMV_REAL_VISUALIZAR);
   if (error) return error;
@@ -28,6 +104,7 @@ export async function GET(req: NextRequest) {
   const storeOverride = sp.get('storeSlug');
   const mesParam = Number(sp.get('mes'));
   const anoParam = Number(sp.get('ano'));
+  const chaveParsed = parseChaveAcesso(sp.get('chave') || '');
 
   const storeFilter = resolveCmvRealStoreFilter(
     tenant,
@@ -46,6 +123,47 @@ export async function GET(req: NextRequest) {
 
   if (storeFilter !== null && storeFilter.length === 0) {
     return NextResponse.json(emptyMeta);
+  }
+
+  const { getRhContext } = await import('@/lib/rh-auth');
+  const ctx = await getRhContext();
+  const canRevisar =
+    tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_REVISAR_APROVAR) ?? false);
+  const canMapeamentoEditar =
+    tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_EDITAR) ?? false);
+
+  const { itemEstaPronto } = await import('@/lib/nfe/item-pronto');
+
+  // Lookup por chave do DANFE (pistola): ignora mês/status, respeita loja.
+  if (chaveParsed) {
+    const whereChave: Record<string, unknown> = {
+      userId: tenant.tenantUserId,
+      OR: [
+        { chaveAcesso: chaveParsed.chave },
+        { chaveAcesso: { contains: chaveParsed.chave } },
+      ],
+    };
+    if (storeFilter !== null) {
+      whereChave.storeSlug = { in: storeFilter };
+    }
+
+    const notas = await prisma.nfeNota.findMany({
+      where: whereChave,
+      include: notaInclude,
+      orderBy: { dataEntrada: 'desc' },
+      take: 5,
+    });
+
+    return NextResponse.json({
+      ok: true,
+      lookup: 'chave',
+      allowedStoreSlugs: tenant.allowedStoreSlugs,
+      lojaTravada: !tenant.isAdmin && tenant.allowedStoreSlugs != null,
+      canRevisar,
+      canMapeamentoEditar,
+      counts: { EM_REVISAO: 0, APROVADA: 0, IGNORADA: 0 },
+      notas: notas.map((n) => mapNotaRow(n, itemEstaPronto)),
+    });
   }
 
   const baseWhere: Record<string, unknown> = {
@@ -71,26 +189,7 @@ export async function GET(req: NextRequest) {
   const [notas, grouped] = await Promise.all([
     prisma.nfeNota.findMany({
       where,
-      include: {
-        fornecedor: {
-          select: {
-            id: true,
-            razaoSocial: true,
-            nomeFantasia: true,
-            cnpj: true,
-            ignorarCmv: true,
-          },
-        },
-        itens: {
-          select: {
-            id: true,
-            status: true,
-            estoqueInsumoId: true,
-            fatorConversao: true,
-            quantidadeConvertida: true,
-          },
-        },
-      },
+      include: notaInclude,
       orderBy: { dataEntrada: 'desc' },
       take: 100,
     }),
@@ -100,8 +199,6 @@ export async function GET(req: NextRequest) {
       _count: { _all: true },
     }),
   ]);
-
-  const { itemEstaPronto } = await import('@/lib/nfe/item-pronto');
 
   const counts = {
     EM_REVISAO: 0,
@@ -115,13 +212,6 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const { getRhContext } = await import('@/lib/rh-auth');
-  const ctx = await getRhContext();
-  const canRevisar =
-    tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_REVISAR_APROVAR) ?? false);
-  const canMapeamentoEditar =
-    tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_EDITAR) ?? false);
-
   return NextResponse.json({
     ok: true,
     allowedStoreSlugs: tenant.allowedStoreSlugs,
@@ -129,24 +219,6 @@ export async function GET(req: NextRequest) {
     canRevisar,
     canMapeamentoEditar,
     counts,
-    notas: notas.map((n) => {
-      const itensProntos = n.itens.filter((i) => itemEstaPronto(i)).length;
-      return {
-        id: n.id,
-        numero: n.numero,
-        storeSlug: n.storeSlug,
-        status: n.status,
-        dataEntrada: n.dataEntrada,
-        valorTotal: Number(n.valorTotal),
-        competencia: n.competencia,
-        fornecedor: n.fornecedor,
-        itensTotal: n.itens.length,
-        itensProntos,
-        itensSugeridos: n.itens.filter((i) => i.status === 'SUGERIDO').length,
-        itensSemMap: n.itens.filter((i) => i.status === 'SEM_MAPEAMENTO').length,
-        aprovacaoAutomatica: n.aprovacaoAutomatica,
-        aprovadaComAlerta: n.aprovadaComAlerta,
-      };
-    }),
+    notas: notas.map((n) => mapNotaRow(n, itemEstaPronto)),
   });
 }

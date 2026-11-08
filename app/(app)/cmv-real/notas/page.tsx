@@ -23,6 +23,11 @@ import {
 } from '@/components/ui/select';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import {
+  digitsOnly,
+  parseChaveAcesso,
+  sameNfNumero,
+} from '@/lib/nfe/chave-acesso';
+import {
   buildNotasListQuery,
   parseNotasListFilters,
 } from '@/lib/nfe/notas-list-query';
@@ -32,6 +37,7 @@ import { cn } from '@/lib/utils';
 type NotaRow = {
   id: string;
   numero: string;
+  chaveAcesso?: string;
   storeSlug: string;
   status: string;
   dataEntrada: string;
@@ -48,6 +54,27 @@ type NotaRow = {
   aprovacaoAutomatica?: boolean;
   aprovadaComAlerta?: boolean;
 };
+
+function notaMatchesSearch(n: NotaRow, raw: string): boolean {
+  const q = raw.trim().toLowerCase();
+  if (!q) return true;
+
+  const forn = fornecedorNome(n).toLowerCase();
+  if (n.numero.toLowerCase().includes(q) || forn.includes(q)) return true;
+
+  const qDigits = digitsOnly(q);
+  if (!qDigits) return false;
+
+  const chave = digitsOnly(n.chaveAcesso || '');
+  if (chave && chave.includes(qDigits)) return true;
+
+  const parsed = parseChaveAcesso(q);
+  if (parsed && sameNfNumero(n.numero, parsed.numero)) return true;
+
+  if (qDigits.length >= 4 && digitsOnly(n.numero).includes(qDigits)) return true;
+
+  return false;
+}
 
 type TabStatus = 'EM_REVISAO' | 'APROVADA' | 'IGNORADA';
 
@@ -156,6 +183,7 @@ function CmvRealNotasPageInner() {
   const [msg, setMsg] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
   const [soComAlerta, setSoComAlerta] = useState(false);
 
   const anos = [agora.getFullYear(), agora.getFullYear() - 1, agora.getFullYear() - 2];
@@ -234,17 +262,82 @@ function CmvRealNotasPageInner() {
       ? allowed
       : ['ahu', 'pilarzinho', 'portao', 'uberaba'];
 
+  const openNota = useCallback(
+    (n: Pick<NotaRow, 'id' | 'status' | 'storeSlug'>) => {
+      const tabStatus = STATUS_TABS.some((t) => t.status === n.status)
+        ? (n.status as TabStatus)
+        : status;
+      const qs = buildNotasListQuery({
+        status: tabStatus,
+        storeSlug: storeSlug || n.storeSlug,
+        mes,
+        ano,
+      });
+      router.push(qs ? `/cmv-real/notas/${n.id}?${qs}` : `/cmv-real/notas/${n.id}`);
+    },
+    [router, status, storeSlug, mes, ano],
+  );
+
+  const lookupChave = useCallback(
+    async (raw: string) => {
+      const parsed = parseChaveAcesso(raw);
+      if (!parsed) return;
+
+      const local = notas.filter(
+        (n) => digitsOnly(n.chaveAcesso || '') === parsed.chave,
+      );
+      if (local.length === 1) {
+        openNota(local[0]);
+        return;
+      }
+      if (local.length > 1) {
+        setSearch(parsed.chave);
+        setMsg(
+          `Encontradas ${local.length} notas com esta chave na lista atual — escolha uma.`,
+        );
+        return;
+      }
+
+      setLookingUp(true);
+      setMsg(null);
+      try {
+        const res = await fetch(
+          `/api/cmv-real/notas?chave=${encodeURIComponent(parsed.chave)}`,
+          { cache: 'no-store' },
+        );
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Erro na busca');
+        const found = (data.notas || []) as NotaRow[];
+        if (found.length === 1) {
+          openNota(found[0]);
+          return;
+        }
+        if (found.length > 1) {
+          setNotas(found);
+          setSearch(parsed.chave);
+          setMsg(
+            `Encontradas ${found.length} notas com esta chave — escolha uma.`,
+          );
+          return;
+        }
+        setSearch(parsed.chave);
+        setMsg('Nenhuma nota encontrada com esta chave de acesso.');
+      } catch (e) {
+        setMsg(e instanceof Error ? e.message : 'Erro na busca');
+      } finally {
+        setLookingUp(false);
+      }
+    },
+    [notas, openNota],
+  );
+
   const filtered = useMemo(() => {
     let list = notas;
     if (status === 'APROVADA' && soComAlerta) {
       list = list.filter((n) => n.aprovadaComAlerta);
     }
-    const q = search.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter((n) => {
-      const forn = fornecedorNome(n).toLowerCase();
-      return n.numero.toLowerCase().includes(q) || forn.includes(q);
-    });
+    if (!search.trim()) return list;
+    return list.filter((n) => notaMatchesSearch(n, search));
   }, [notas, search, status, soComAlerta]);
 
   const columns = useMemo<ColumnDef<NotaRow, unknown>[]>(
@@ -429,14 +522,30 @@ function CmvRealNotasPageInner() {
         </ToggleGroup>
 
         <div className="flex flex-wrap items-center gap-2 lg:justify-end">
-          <div className="relative w-full sm:w-[200px]">
+          <div className="relative w-full sm:w-[240px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground pointer-events-none" />
             <Input
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="NF ou fornecedor"
+              onChange={(e) => {
+                setSearch(e.target.value);
+                if (msg) setMsg(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
+                if (lookingUp) return;
+                // currentTarget: pistola digita rápido; estado React pode atrasar
+                void lookupChave(e.currentTarget.value);
+              }}
+              placeholder="NF, fornecedor ou código"
               className="h-8 pl-8 text-sm"
+              disabled={lookingUp}
+              aria-busy={lookingUp}
+              title="Digite NF/fornecedor ou escaneie a chave de 44 dígitos do DANFE"
             />
+            {lookingUp ? (
+              <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 size-3.5 animate-spin text-muted-foreground" />
+            ) : null}
           </div>
           {status === 'APROVADA' && (
             <Button
