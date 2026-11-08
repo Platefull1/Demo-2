@@ -409,7 +409,7 @@ function CmvRealNotaDetalhePageInner() {
       const res = await fetch(`/api/cmv-real/notas?${qs}`, { cache: 'no-store' });
       const data = await res.json();
       if (!res.ok) {
-        router.push(backHref);
+        router.replace(backHref);
         return;
       }
       const ids = (data.notas as Array<{ id: string }> | undefined)?.map(
@@ -426,16 +426,17 @@ function CmvRealNotaDetalhePageInner() {
           mes: f.mes,
           ano: f.ano,
         });
-        router.push(
+        // replace: não empilha notas aprovadas no histórico (voltar → lista)
+        router.replace(
           detailQs
             ? `/cmv-real/notas/${nextId}?${detailQs}`
             : `/cmv-real/notas/${nextId}`,
         );
       } else {
-        router.push(backHref);
+        router.replace(backHref);
       }
     } catch {
-      router.push(backHref);
+      router.replace(backHref);
     }
   }, [backHref, id, router, searchParams]);
 
@@ -620,7 +621,11 @@ function CmvRealNotaDetalhePageInner() {
   if (!nota) {
     return (
       <div className="space-y-3">
-        <Link href={backHref} className="text-sm text-muted-foreground flex items-center gap-1">
+        <Link
+          href={backHref}
+          replace
+          className="text-sm text-muted-foreground flex items-center gap-1"
+        >
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
         <p className="text-sm text-warning">{msg || 'Nota não encontrada'}</p>
@@ -1135,6 +1140,7 @@ function CmvRealNotaDetalhePageInner() {
     <div className="space-y-4">
       <Link
         href={backHref}
+        replace
         className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-muted-foreground"
       >
         <ArrowLeft className="w-3.5 h-3.5" /> Notas
