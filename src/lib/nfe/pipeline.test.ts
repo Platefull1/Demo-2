@@ -127,7 +127,7 @@ describe('FCP-ST rateio (nota real 9584301)', () => {
       }),
     );
     assert.ok(!out.alertas.includes('TOTAL_DIVERGENTE'));
-    assert.equal(out.status, 'APROVADA');
+    assert.equal(out.status, 'EM_REVISAO');
   });
 });
 
@@ -458,8 +458,8 @@ describe('pipeline decisões', () => {
       }),
     );
     assert.equal(out.itens[0].status, 'MAPEADO');
-    assert.equal(out.status, 'APROVADA');
-    assert.equal(out.gerarLancamentos, true);
+    assert.equal(out.status, 'EM_REVISAO');
+    assert.equal(out.gerarLancamentos, false);
   });
 
   it('EAN+uCom: CX e UN não compartilham fator', () => {
@@ -531,7 +531,7 @@ describe('pipeline decisões', () => {
       }),
     );
     assert.equal(out.itens[0].status, 'MAPEADO');
-    assert.equal(out.status, 'APROVADA');
+    assert.equal(out.status, 'EM_REVISAO');
   });
 
   it('sugestão por similaridade sem aplicar', () => {
@@ -618,9 +618,9 @@ describe('pipeline decisões', () => {
       }),
     );
     assert.ok(out.itens[0].alertas.includes('CUSTO_FORA_DO_PADRAO'));
-    // Alertas não bloqueiam por padrão (alertasQueBloqueiam vazio)
-    assert.equal(out.status, 'APROVADA');
-    assert.equal(out.aprovadaComAlerta, true);
+    // Pipeline nunca auto-aprova — fica em revisão com alerta no item
+    assert.equal(out.status, 'EM_REVISAO');
+    assert.equal(out.aprovadaComAlerta, false);
   });
 
   it('alerta em alertasQueBloqueiam impede auto-aprovação', () => {
@@ -688,7 +688,7 @@ describe('pipeline decisões', () => {
     assert.equal(r3.problemasNovos.length, 1);
   });
 
-  it('transferência entre lojas → APROVADA com alerta (não bloqueia por padrão)', () => {
+  it('transferência entre lojas → EM_REVISAO com alerta (sem auto-aprovação)', () => {
     const out = processarNota(
       baseInput({
         saiposTransferenciaId: 999,
@@ -705,8 +705,8 @@ describe('pipeline decisões', () => {
       }),
     );
     assert.ok(out.alertas.includes('TRANSFERENCIA_ENTRE_LOJAS'));
-    assert.equal(out.status, 'APROVADA');
-    assert.equal(out.aprovadaComAlerta, true);
+    assert.equal(out.status, 'EM_REVISAO');
+    assert.equal(out.aprovadaComAlerta, false);
   });
 });
 

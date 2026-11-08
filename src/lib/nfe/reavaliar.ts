@@ -1,5 +1,6 @@
 /**
- * Reavaliação de notas CMV Real (itens prontos → auto-aprovação).
+ * Reavaliação de notas CMV Real (atualiza itens / IGNORADA / ANTERIOR_CMV_REAL).
+ * Não auto-aprova — aprovação é só humana (aprovar_nota / salvar_e_aprovar).
  * Suporta dry-run (simulação) e apply idempotente.
  */
 
@@ -116,11 +117,12 @@ async function ensureNfeConfig(prisma: PrismaClient, userId: string) {
     where: { userId },
     create: {
       userId,
-      autoAprovar: true,
+      autoAprovar: false,
       alertasQueBloqueiam: [],
       inicioCmvReal: '2026-10',
     },
-    update: {},
+    // Aprovação só é humana (Daiane / revisar_aprovar) — nunca reativa auto.
+    update: { autoAprovar: false },
   });
 }
 
@@ -418,40 +420,37 @@ async function aplicarNota(
       });
     }
 
-    const aprovada = statusFinal === 'APROVADA';
+    // Nunca grava APROVADA aqui — só aprovação humana (aprovar-manual).
+    const statusGravar: NfeNotaStatus =
+      statusFinal === 'APROVADA'
+        ? 'EM_REVISAO'
+        : statusFinal === 'IGNORADA'
+          ? 'IGNORADA'
+          : statusFinal === 'ANTERIOR_CMV_REAL'
+            ? 'ANTERIOR_CMV_REAL'
+            : 'EM_REVISAO';
+
     await tx.nfeNota.update({
       where: { id: nota.id },
       data: {
-        status: statusFinal,
+        status: statusGravar,
         tentativas: out.tentativas,
         ultimoErro: out.ultimoErro,
         alertas: out.alertas,
         somaItensLiquido: decimal(out.somaItensLiquido),
-        aprovadaEm: aprovada ? new Date() : null,
+        aprovadaEm: null,
         aprovadaPorId: null,
-        aprovacaoAutomatica: aprovada,
-        aprovadaComAlerta: aprovada ? out.aprovadaComAlerta : false,
-        aprovacaoRegra: aprovada
-          ? out.aprovacaoRegra
-          : statusFinal === 'IGNORADA'
+        aprovacaoAutomatica: false,
+        aprovadaComAlerta: false,
+        aprovacaoRegra:
+          statusGravar === 'IGNORADA'
             ? out.aprovacaoRegra
-            : statusFinal === 'ANTERIOR_CMV_REAL'
+            : statusGravar === 'ANTERIOR_CMV_REAL'
               ? 'anterior_cmv_real'
               : null,
       },
     });
   });
-
-  if (out.gerarLancamentos && statusFinal === 'APROVADA') {
-    const { gerarLancamentosAprovacao } = await import('./approve');
-    await gerarLancamentosAprovacao({
-      userId,
-      notaId: nota.id,
-      storeSlug: nota.storeSlug,
-      competencia: nota.competencia || competenciaFromDataEntrada(nota.dataEntrada),
-      dataEntrada: nota.dataEntrada,
-    });
-  }
 }
 
 /**
@@ -471,30 +470,22 @@ export async function reavaliarNotasCmvReal(params: {
   try {
   if (!dryRun) {
     await ensureNfeConfig(prisma, userId);
-    await prisma.nfeConfig.update({
-      where: { userId },
-      data: {
-        autoAprovar: true,
-        alertasQueBloqueiam: [],
-      },
-    });
   }
 
   const ctx = await loadReavaliarContext(prisma, userId, {
-    forceAutoAprovar: dryRun
-      ? (params.simularAutoAprovar ?? true)
-      : true,
+    // Apply: nunca auto-aprova. Dry-run ainda pode simular com simularAutoAprovar.
+    forceAutoAprovar: dryRun ? (params.simularAutoAprovar ?? false) : false,
   });
 
   if (!dryRun) {
     const cfg = await prisma.nfeConfig.findUnique({ where: { userId } });
-    ctx.pipelineConfig.autoAprovar = cfg?.autoAprovar ?? true;
+    ctx.pipelineConfig.autoAprovar = false;
     ctx.pipelineConfig.alertasQueBloqueiam = parseAlertasQueBloqueiam(
       cfg?.alertasQueBloqueiam,
     );
     ctx.inicioCmvReal = cfg?.inicioCmvReal || '2026-10';
   } else {
-    ctx.pipelineConfig.autoAprovar = params.simularAutoAprovar ?? true;
+    ctx.pipelineConfig.autoAprovar = params.simularAutoAprovar ?? false;
     ctx.pipelineConfig.alertasQueBloqueiam = [];
     ctx.inicioCmvReal = ctx.inicioCmvReal || '2026-10';
   }
@@ -635,12 +626,9 @@ export async function reavaliarNotasCmvReal(params: {
     bump(totais, decisao);
 
     if (!dryRun) {
+      // Nunca promove a APROVADA no reavaliar — só humano aprova.
       const statusFinal: NfeNotaStatus =
-        out.status === 'APROVADA'
-          ? 'APROVADA'
-          : out.status === 'IGNORADA'
-            ? 'IGNORADA'
-            : 'EM_REVISAO';
+        out.status === 'IGNORADA' ? 'IGNORADA' : 'EM_REVISAO';
       await aplicarNota(prisma, userId, nota, out, statusFinal);
     }
   }
@@ -660,7 +648,8 @@ export async function reavaliarNotasCmvReal(params: {
   }
 }
 
-/** Reavalia uma nota (e opcionalmente outras EM_REVISAO do mesmo fornecedor). */
+/** Reavalia uma nota (e opcionalmente outras EM_REVISAO do mesmo fornecedor).
+ * Não aprova automaticamente — só atualiza itens / IGNORADA. */
 export async function reavaliarNotaAposMapeamento(params: {
   userId: string;
   notaId: string;
@@ -669,19 +658,11 @@ export async function reavaliarNotaAposMapeamento(params: {
   const prisma = getPrisma();
   try {
     await ensureNfeConfig(prisma, params.userId);
-    const cfg = await prisma.nfeConfig.findUnique({
-      where: { userId: params.userId },
-    });
-    if (cfg && !cfg.autoAprovar) {
-      await prisma.nfeConfig.update({
-        where: { userId: params.userId },
-        data: { autoAprovar: true },
-      });
-    }
 
     const ctx = await loadReavaliarContext(prisma, params.userId, {
-      forceAutoAprovar: true,
+      forceAutoAprovar: false,
     });
+    ctx.pipelineConfig.autoAprovar = false;
 
     const where = {
       userId: params.userId,
@@ -704,22 +685,16 @@ export async function reavaliarNotaAposMapeamento(params: {
       },
     });
 
-    let aprovadas = 0;
     for (const nota of notas) {
       const key = `${nota.storeSlug}|${nota.competencia}`;
       const mesFechado = ctx.fechamentosFechados.has(key);
       const out = processarNotaDb(nota, ctx, mesFechado);
       const statusFinal: NfeNotaStatus =
-        out.status === 'APROVADA'
-          ? 'APROVADA'
-          : out.status === 'IGNORADA'
-            ? 'IGNORADA'
-            : 'EM_REVISAO';
+        out.status === 'IGNORADA' ? 'IGNORADA' : 'EM_REVISAO';
       await aplicarNota(prisma, params.userId, nota, out, statusFinal);
-      if (statusFinal === 'APROVADA') aprovadas++;
     }
 
-    return { notas: notas.length, aprovadas };
+    return { notas: notas.length, aprovadas: 0 };
   } finally {
     await prisma.$disconnect();
   }

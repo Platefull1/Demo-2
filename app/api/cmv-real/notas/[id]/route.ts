@@ -5,10 +5,10 @@ import { prisma } from '@/lib/prisma';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 import {
-  gerarLancamentosAprovacao,
   reabrirNotaSePermitido,
   voltarMapeadosParaPendentes,
 } from '@/lib/nfe/approve';
+import { salvarEAprovarNota } from '@/lib/nfe/aprovar-manual';
 import { Prisma } from '@prisma/client';
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -140,6 +140,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
  *  - ignorar_item { itemId }
  *  - fornecedor_fora_cmv
  *  - aprovar_nota
+ *  - salvar_e_aprovar { itens: [{ itemId, estoqueInsumoId, fatorConversao, criarMapeamento? }] }
  *  - reabrir_nota
  *  - itens_para_revisao (MAPEADO → pendente, p/ corrigir fator)
  */
@@ -153,6 +154,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     criarMapeamento?: boolean;
     motivo?: string;
     natureza?: 'BONIFICACAO' | 'TROCA' | 'NORMAL';
+    itens?: Array<{
+      itemId: string;
+      estoqueInsumoId: string;
+      fatorConversao: number;
+      criarMapeamento?: boolean;
+    }>;
   };
 
   if (body.action === 'marcar_natureza') {
@@ -376,50 +383,68 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     });
   }
 
-  if (body.action === 'aprovar_nota') {
-    const { tenant, error } = await requireCmvRealAccess(
+  if (body.action === 'aprovar_nota' || body.action === 'salvar_e_aprovar') {
+    const { tenant, ctx, error } = await requireCmvRealAccess(
       P.CMV_REAL_REVISAR_APROVAR,
     );
     if (error) return error;
 
-    const nota = await prisma.nfeNota.findFirst({
-      where: { id, userId: tenant.tenantUserId },
-      include: { itens: true },
-    });
-    if (!nota) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
+    const isEnter = body.action === 'salvar_e_aprovar';
+    const itens = isEnter
+      ? Array.isArray(body.itens)
+        ? body.itens.filter(
+            (it) =>
+              it &&
+              typeof it.itemId === 'string' &&
+              typeof it.estoqueInsumoId === 'string' &&
+              typeof it.fatorConversao === 'number',
+          )
+        : []
+      : [];
 
-    if (nota.status === 'APROVADA') {
-      return NextResponse.json({ error: 'Nota já aprovada' }, { status: 400 });
+    if (isEnter && (!Array.isArray(body.itens) || body.itens.length === 0)) {
+      // Enter pode aprovar só com o que já está MAPEADO no banco (itens = []).
+      // Aceita array vazio; rejeita só se `itens` vier inválido (não-array).
+      if (body.itens != null && !Array.isArray(body.itens)) {
+        return NextResponse.json(
+          { error: 'itens deve ser um array' },
+          { status: 400 },
+        );
+      }
     }
 
-    const pendentes = nota.itens.filter(
-      (i) => i.status === 'SUGERIDO' || i.status === 'SEM_MAPEAMENTO',
-    );
-    if (pendentes.length > 0) {
+    const canCreateMap =
+      tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_CRIAR) ?? false);
+
+    const result = await salvarEAprovarNota({
+      tenantUserId: tenant.tenantUserId,
+      actorUserId: tenant.actorUserId,
+      userIds: tenant.userIds,
+      allowedStoreSlugs: tenant.allowedStoreSlugs,
+      isAdmin: tenant.isAdmin,
+      notaId: id,
+      itens,
+      canCreateMap,
+      aprovacaoRegra: isEnter ? 'manual_enter' : 'manual',
+    });
+
+    if (!result.ok) {
       return NextResponse.json(
-        { error: `${pendentes.length} item(ns) ainda pendente(s)` },
-        { status: 400 },
+        {
+          error: result.error,
+          pendentes: result.pendentes,
+        },
+        { status: result.status },
       );
     }
 
-    await prisma.nfeNota.update({
-      where: { id: nota.id },
-      data: {
-        status: 'APROVADA',
-        aprovadaEm: new Date(),
-        aprovadaPorId: tenant.actorUserId,
-      },
+    return NextResponse.json({
+      ok: true,
+      lancamentos: result.lancamentos,
+      numero: result.numero,
+      itensPropagados: result.itensPropagados,
+      aprovacaoRegra: isEnter ? 'manual_enter' : 'manual',
     });
-
-    const n = await gerarLancamentosAprovacao({
-      userId: tenant.tenantUserId,
-      notaId: nota.id,
-      storeSlug: nota.storeSlug,
-      competencia: nota.competencia,
-      dataEntrada: nota.dataEntrada,
-    });
-
-    return NextResponse.json({ ok: true, lancamentos: n });
   }
 
   if (body.action === 'reabrir_nota') {

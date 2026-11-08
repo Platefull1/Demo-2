@@ -30,7 +30,13 @@ describe('nomeProdutoParaInterpretacao', () => {
 });
 
 describe('parseFatorBr', () => {
-  it('aceita 1,005 e 1.005 como 1.005', () => {
+  it('vírgula é sempre decimal; ponto só milhar com vírgula', () => {
+    assert.equal(parseFatorBr('1,250'), 1.25);
+    assert.equal(parseFatorBr('0,350'), 0.35);
+    assert.equal(parseFatorBr('1.250'), 1.25);
+    assert.equal(parseFatorBr('1,25'), 1.25);
+    assert.equal(parseFatorBr('12,5'), 12.5);
+    assert.equal(parseFatorBr('1.250,5'), 1250.5);
     assert.equal(parseFatorBr('1,005'), 1.005);
     assert.equal(parseFatorBr('1.005'), 1.005);
   });

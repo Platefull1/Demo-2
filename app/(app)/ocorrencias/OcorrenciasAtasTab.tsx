@@ -84,12 +84,45 @@ function variacaoVisual(v: string): { text: string; className: string } {
   return { text: v, className: 'text-muted-foreground' };
 }
 
-async function baixarPorId(id: string, formato?: 'pdf' | 'docx') {
+function abrirNovaGuia(): Window | null {
+  const tab = window.open('about:blank', '_blank');
+  if (tab) {
+    try {
+      tab.document.title = 'Gerando ata…';
+    } catch {
+      // cross-origin / bloqueio de escrita
+    }
+  }
+  return tab;
+}
+
+function enviarParaGuia(url: string, tab?: Window | null) {
+  if (tab && !tab.closed) {
+    tab.location.replace(url);
+    return;
+  }
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+async function baixarPorId(
+  id: string,
+  formato?: 'pdf' | 'docx',
+  tab?: Window | null,
+) {
   const qs = formato ? `?formato=${formato}` : '';
   const res = await fetch(`/api/ocorrencias/atas/${id}/download${qs}`);
   const json = await res.json().catch(() => ({}));
-  if (!res.ok || !json.url) throw new Error(json.error || 'Falha no download');
-  window.location.href = json.url;
+  if (!res.ok || !json.url) {
+    tab?.close();
+    throw new Error(json.error || 'Falha no download');
+  }
+  enviarParaGuia(json.url as string, tab);
   return json.url as string;
 }
 
@@ -117,7 +150,6 @@ export function OcorrenciasAtasTab({
   const [carregando, setCarregando] = useState(true);
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -144,9 +176,13 @@ export function OcorrenciasAtasTab({
     void carregar();
   }, [carregar]);
 
-  async function gerar(escopo: string, opts?: { baixar?: 'pdf' | 'docx' | 'zip' }) {
+  async function gerar(
+    escopo: string,
+    opts?: { baixar?: 'pdf' | 'docx' | 'zip'; tab?: Window | null },
+  ) {
     setGerando(true);
     setErro(null);
+    const tab = opts?.tab ?? (opts?.baixar ? abrirNovaGuia() : null);
     try {
       const res = await fetch('/api/ocorrencias/atas', {
         method: 'POST',
@@ -156,17 +192,21 @@ export function OcorrenciasAtasTab({
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || 'Não foi possível gerar a ata');
       if (json.zipUrl && opts?.baixar === 'zip') {
-        window.location.href = json.zipUrl;
+        enviarParaGuia(json.zipUrl, tab);
       } else if (json.ids?.[0]) {
-        if (json.previewUrl) setPreviewUrl(json.previewUrl);
         if (opts?.baixar === 'docx') {
-          await baixarPorId(json.ids[0], 'docx');
+          await baixarPorId(json.ids[0], 'docx', tab);
         } else if (opts?.baixar === 'pdf') {
-          await baixarPorId(json.ids[0], 'pdf');
+          await baixarPorId(json.ids[0], 'pdf', tab);
+        } else {
+          tab?.close();
         }
+      } else {
+        tab?.close();
       }
       await carregar();
     } catch (e) {
+      tab?.close();
       setErro(e instanceof Error ? e.message : 'Não foi possível gerar a ata');
     } finally {
       setGerando(false);
@@ -174,25 +214,27 @@ export function OcorrenciasAtasTab({
   }
 
   async function baixarDocxEscopo() {
+    const tab = abrirNovaGuia();
     const existente = historico.find((h) => h.escopo === lojaEscopo);
     if (existente) {
       setErro(null);
       try {
-        await baixarPorId(existente.id, 'docx');
+        await baixarPorId(existente.id, 'docx', tab);
       } catch (e) {
         setErro(e instanceof Error ? e.message : 'Não foi possível baixar o .docx');
       }
       return;
     }
-    await gerar(lojaEscopo, { baixar: 'docx' });
+    await gerar(lojaEscopo, { baixar: 'docx', tab });
   }
 
   function gerarPrincipal() {
+    const tab = abrirNovaGuia();
     if (lojaEscopo === ESCOPO_TODAS_LOJAS) {
-      void gerar(ESCOPO_TODAS_LOJAS, { baixar: 'zip' });
+      void gerar(ESCOPO_TODAS_LOJAS, { baixar: 'zip', tab });
       return;
     }
-    void gerar(lojaEscopo, { baixar: 'pdf' });
+    void gerar(lojaEscopo, { baixar: 'pdf', tab });
   }
 
   const resumoFoco: ResumoCat[] =
@@ -299,20 +341,6 @@ export function OcorrenciasAtasTab({
         <p className="text-sm text-destructive" role="alert">
           {erro}
         </p>
-      )}
-
-      {previewUrl && (
-        <div className="rounded-xl border border-border overflow-hidden bg-card">
-          <div className="px-4 py-3 border-b border-border">
-            <h2 className="text-base font-semibold">Prévia da ata</h2>
-            <p className="text-sm text-muted-foreground">PDF gerado neste mês</p>
-          </div>
-          <iframe
-            title="Prévia da ata em PDF"
-            src={previewUrl}
-            className="w-full h-[640px] bg-background"
-          />
-        </div>
       )}
 
       {carregando ? (
@@ -480,7 +508,14 @@ export function OcorrenciasAtasTab({
                       size="icon"
                       className="size-8"
                       aria-label="Baixar ata (PDF)"
-                      onClick={() => void baixarPorId(h.id, 'pdf')}
+                      onClick={() => {
+                        const tab = abrirNovaGuia();
+                        void baixarPorId(h.id, 'pdf', tab).catch((e) => {
+                          setErro(
+                            e instanceof Error ? e.message : 'Não foi possível baixar a ata',
+                          );
+                        });
+                      }}
                     >
                       <Download className="size-4 text-muted-foreground" />
                     </Button>

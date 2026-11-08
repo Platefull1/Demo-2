@@ -68,13 +68,14 @@ async function main() {
   }
 
   const pipelineConfig = defaultPipelineConfig({
-    autoAprovar: nfeConfig?.autoAprovar ?? false,
+    autoAprovar: false,
     toleranciaTotalReais: Number(nfeConfig?.toleranciaTotalReais ?? 1),
     toleranciaTotalPercent: Number(nfeConfig?.toleranciaTotalPercent ?? 0.5),
     limiteVariacaoCustoPercent: Number(nfeConfig?.limiteVariacaoCustoPercent ?? 30),
     maxTentativas: nfeConfig?.maxTentativas ?? 3,
   });
 
+  // Só EM_REVISAO / ERRO — nunca toca notas já APROVADA.
   const notas = await prisma.nfeNota.findMany({
     where: { userId: OWNER, status: { in: ['EM_REVISAO', 'ERRO_PROCESSAMENTO'] } },
     include: { itens: true, fornecedor: true },
@@ -160,15 +161,22 @@ async function main() {
           },
         });
       }
+      // Nunca grava APROVADA; no máximo EM_REVISAO (ou IGNORADA do pipeline).
+      const statusFinal =
+        out.status === 'IGNORADA'
+          ? 'IGNORADA'
+          : nota.status === 'APROVADA'
+            ? 'APROVADA'
+            : 'EM_REVISAO';
       await tx.nfeNota.update({
         where: { id: nota.id },
         data: {
-          status: out.status,
+          status: statusFinal,
           tentativas: out.tentativas,
           ultimoErro: out.ultimoErro,
           alertas: out.alertas,
           somaItensLiquido: decimal(out.somaItensLiquido),
-          aprovadaEm: out.status === 'APROVADA' ? new Date() : undefined,
+          aprovacaoAutomatica: false,
           // competencia unchanged
           competencia: nota.competencia || competenciaFromDataEntrada(nota.dataEntrada),
         },

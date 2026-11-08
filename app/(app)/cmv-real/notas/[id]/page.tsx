@@ -1,6 +1,13 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Loader2, Check, Ban, Unlock } from 'lucide-react';
@@ -8,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { etiquetaNatureza, naturezaDoItem } from '@/lib/nfe/bonificacao';
 import {
+  buildNotasListQuery,
   notasListHref,
   parseNotasListFilters,
 } from '@/lib/nfe/notas-list-query';
@@ -124,6 +132,8 @@ function CmvRealNotaDetalhePageInner() {
   const [produtos, setProdutos] = useState<ProdutoOpt[]>([]);
 
   const [draft, setDraft] = useState<Record<string, DraftItem>>({});
+  const savingRef = useRef<string | null>(null);
+  const aprovarEnterLock = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -261,7 +271,13 @@ function CmvRealNotaDetalhePageInner() {
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Falha');
+    if (!res.ok) {
+      const err = new Error(data.error || 'Falha') as Error & {
+        pendentes?: Array<{ itemId: string; descricao: string; motivo: string }>;
+      };
+      if (Array.isArray(data.pendentes)) err.pendentes = data.pendentes;
+      throw err;
+    }
     return data;
   };
 
@@ -344,17 +360,220 @@ function CmvRealNotaDetalhePageInner() {
     }
   };
 
+  const fatorDraftDoItem = useCallback(
+    (itemId: string): number | null => {
+      const d = draft[itemId];
+      const it = nota?.itens.find((x) => x.id === itemId);
+      if (!d || !it) return null;
+      const pesoOuFator = parseFator(d.fator);
+      if (pesoOuFator == null) return null;
+      const prod = d.produtoId ? produtoById.get(d.produtoId) : undefined;
+      const interp = interpretarRevisaoItem({
+        descricao: it.descricao,
+        quantidade: it.quantidade,
+        unidadeComercial: it.unidadeComercial,
+        unidadeCmv: prod?.unidade || 'KG',
+        valorItem: it.valorLiquido ?? it.valorBruto,
+        secao: prod?.secao,
+      });
+      return fatorEfetivoDaEntrada(pesoOuFator, interp);
+    },
+    [draft, nota, produtoById],
+  );
+
+  const focusCampoPendente = (itemId: string, campo: 'produto' | 'fator') => {
+    requestAnimationFrame(() => {
+      const el = document.querySelector(
+        `[data-revisao-item="${itemId}"][data-revisao-campo="${campo}"]`,
+      ) as HTMLElement | null;
+      el?.focus();
+      if (el && 'select' in el && typeof (el as HTMLInputElement).select === 'function') {
+        try {
+          (el as HTMLInputElement).select();
+        } catch {
+          /* ignore */
+        }
+      }
+    });
+  };
+
+  const irParaProximaEmRevisao = useCallback(async () => {
+    const f = parseNotasListFilters(searchParams);
+    const qs = buildNotasListQuery({
+      status: 'EM_REVISAO',
+      storeSlug: f.storeSlug || undefined,
+      mes: f.mes,
+      ano: f.ano,
+    });
+    try {
+      const res = await fetch(`/api/cmv-real/notas?${qs}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) {
+        router.push(backHref);
+        return;
+      }
+      const ids = (data.notas as Array<{ id: string }> | undefined)?.map(
+        (n) => n.id,
+      ) ?? [];
+      const idx = ids.indexOf(id);
+      const nextId =
+        (idx >= 0 ? ids.slice(idx + 1).find((x) => x !== id) : undefined) ??
+        ids.find((x) => x !== id);
+      if (nextId) {
+        const detailQs = buildNotasListQuery({
+          status: 'EM_REVISAO',
+          storeSlug: f.storeSlug || undefined,
+          mes: f.mes,
+          ano: f.ano,
+        });
+        router.push(
+          detailQs
+            ? `/cmv-real/notas/${nextId}?${detailQs}`
+            : `/cmv-real/notas/${nextId}`,
+        );
+      } else {
+        router.push(backHref);
+      }
+    } catch {
+      router.push(backHref);
+    }
+  }, [backHref, id, router, searchParams]);
+
   const aprovar = async () => {
+    if (savingRef.current || aprovarEnterLock.current) return;
     setSaving('aprovar');
+    savingRef.current = 'aprovar';
     setMsg(null);
     try {
       await post({ action: 'aprovar_nota' });
-      router.push(backHref);
+      setMsg(`Nota ${nota?.numero ?? ''} aprovada`.trim());
+      await irParaProximaEmRevisao();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
       setSaving(null);
+      savingRef.current = null;
     }
   };
+
+  const aprovarComEnter = useCallback(async () => {
+    if (!nota || nota.status !== 'EM_REVISAO' || !canRevisar) return;
+    if (savingRef.current || aprovarEnterLock.current) return;
+    aprovarEnterLock.current = true;
+    setSaving('aprovar');
+    savingRef.current = 'aprovar';
+    setMsg(null);
+
+    const pendentesAgora = nota.itens.filter(
+      (i) => i.status === 'SUGERIDO' || i.status === 'SEM_MAPEAMENTO',
+    );
+    const faltando: Array<{ itemId: string; motivo: string; campo: 'produto' | 'fator' }> =
+      [];
+    const itensPayload: Array<{
+      itemId: string;
+      estoqueInsumoId: string;
+      fatorConversao: number;
+      criarMapeamento?: boolean;
+    }> = [];
+
+    for (const it of pendentesAgora) {
+      const d = draft[it.id];
+      if (!d?.produtoId) {
+        faltando.push({
+          itemId: it.id,
+          motivo: `${it.descricao}: sem produto`,
+          campo: 'produto',
+        });
+        continue;
+      }
+      const fator = fatorDraftDoItem(it.id);
+      if (fator == null) {
+        faltando.push({
+          itemId: it.id,
+          motivo: `${it.descricao}: conversão pendente`,
+          campo: 'fator',
+        });
+        continue;
+      }
+      itensPayload.push({
+        itemId: it.id,
+        estoqueInsumoId: d.produtoId,
+        fatorConversao: fator,
+        criarMapeamento: d.criarMap && canMapeamentoCriar,
+      });
+    }
+
+    if (faltando.length > 0) {
+      setMsg(
+        `Não aprovada — falta: ${faltando.map((f) => f.motivo).join('; ')}`,
+      );
+      focusCampoPendente(faltando[0].itemId, faltando[0].campo);
+      setSaving(null);
+      savingRef.current = null;
+      aprovarEnterLock.current = false;
+      return;
+    }
+
+    try {
+      const data = await post({
+        action: 'salvar_e_aprovar',
+        itens: itensPayload,
+      });
+      const numero = (data.numero as string) || nota.numero;
+      setMsg(`Nota ${numero} aprovada`);
+      await irParaProximaEmRevisao();
+    } catch (e) {
+      const err = e as Error & { pendentes?: Array<{ itemId: string; motivo: string }> };
+      setMsg(err.message || 'Erro');
+      const first = err.pendentes?.[0];
+      if (first?.itemId) {
+        focusCampoPendente(first.itemId, 'fator');
+      }
+      setSaving(null);
+      savingRef.current = null;
+      aprovarEnterLock.current = false;
+    }
+  }, [
+    canMapeamentoCriar,
+    canRevisar,
+    draft,
+    fatorDraftDoItem,
+    irParaProximaEmRevisao,
+    nota,
+  ]);
+
+  useEffect(() => {
+    savingRef.current = saving;
+  }, [saving]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      if (e.repeat) return; // Enter segurado
+      if (!canRevisar || nota?.status !== 'EM_REVISAO') return;
+      if (savingRef.current || aprovarEnterLock.current) return;
+
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const tag = target.tagName;
+      if (tag === 'TEXTAREA') return;
+      if (tag === 'SELECT') return;
+      if (target.isContentEditable) return;
+      // Select/autocomplete aberto (Radix ou listbox nativo)
+      if (
+        document.querySelector('[role="listbox"]') ||
+        document.querySelector('[data-radix-popper-content-wrapper]') ||
+        target.closest('[role="combobox"][aria-expanded="true"]')
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+      void aprovarComEnter();
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [aprovarComEnter, canRevisar, nota?.status]);
 
   const reabrir = async () => {
     if (
@@ -613,6 +832,8 @@ function CmvRealNotaDetalhePageInner() {
                         <input
                           type="radio"
                           name={`prod-${it.id}`}
+                          data-revisao-item={it.id}
+                          data-revisao-campo="produto"
                           checked={d.produtoId === s.id}
                           onChange={() => {
                             const novo = produtoById.get(s.id);
@@ -686,6 +907,8 @@ function CmvRealNotaDetalhePageInner() {
               {(d.outro || sugs.length === 0) && (
                 <select
                   value={d.produtoId}
+                  data-revisao-item={it.id}
+                  data-revisao-campo="produto"
                   onChange={(e) =>
                     setDraft((p) => ({
                       ...p,
@@ -791,6 +1014,8 @@ function CmvRealNotaDetalhePageInner() {
                       type="text"
                       inputMode="decimal"
                       autoComplete="off"
+                      data-revisao-item={it.id}
+                      data-revisao-campo="fator"
                       value={d.fator}
                       onChange={(e) =>
                         setDraft((p) => ({
@@ -1021,19 +1246,26 @@ function CmvRealNotaDetalhePageInner() {
         </button>
       )}
 
-      {canRevisar && pendentes.length === 0 && nota.status === 'EM_REVISAO' && (
-        <button
-          type="button"
-          disabled={saving === 'aprovar'}
-          onClick={() => void aprovar()}
-          className="w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-3 sticky bottom-4 shadow-lg"
-        >
-          {saving === 'aprovar' ? (
-            <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-          ) : (
-            'Aprovar nota'
-          )}
-        </button>
+      {canRevisar && nota.status === 'EM_REVISAO' && (
+        <div className="sticky bottom-4 space-y-1.5">
+          {pendentes.length === 0 ? (
+            <button
+              type="button"
+              disabled={saving === 'aprovar'}
+              onClick={() => void aprovar()}
+              className="w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-3 shadow-lg"
+            >
+              {saving === 'aprovar' ? (
+                <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+              ) : (
+                'Aprovar nota'
+              )}
+            </button>
+          ) : null}
+          <p className="text-xs text-muted-foreground text-center">
+            Enter para aprovar
+          </p>
+        </div>
       )}
     </div>
   );

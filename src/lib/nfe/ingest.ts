@@ -4,7 +4,6 @@
 
 import { Prisma, type NfeNotaStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { gerarLancamentosAprovacao } from './approve';
 import { competenciaFromDataEntrada } from './dates';
 import {
   normalizarCnpj,
@@ -182,7 +181,8 @@ async function loadContext(tenantUserId: string) {
     : [];
 
   const pipelineConfig: PipelineConfig = defaultPipelineConfig({
-    autoAprovar: nfeConfig?.autoAprovar ?? false,
+    // Aprovação NF-e é só manual (revisar_aprovar) — sync nunca auto-aprova.
+    autoAprovar: false,
     toleranciaTotalReais: Number(nfeConfig?.toleranciaTotalReais ?? 1),
     toleranciaTotalPercent: Number(nfeConfig?.toleranciaTotalPercent ?? 0.5),
     limiteVariacaoCustoPercent: Number(nfeConfig?.limiteVariacaoCustoPercent ?? 30),
@@ -359,8 +359,9 @@ async function aplicarPipelineNaNota(
       });
     }
 
-    const statusFinal = statusOverride ?? out.status;
-    const aprovada = statusFinal === 'APROVADA';
+    // Hard guard: ingest nunca aprova — só humano (aprovar_nota / salvar_e_aprovar).
+    let statusFinal = statusOverride ?? out.status;
+    if (statusFinal === 'APROVADA') statusFinal = 'EM_REVISAO';
     await tx.nfeNota.update({
       where: { id: nota.id },
       data: {
@@ -369,13 +370,12 @@ async function aplicarPipelineNaNota(
         ultimoErro: out.ultimoErro,
         alertas: out.alertas,
         somaItensLiquido: decimal(out.somaItensLiquido),
-        aprovadaEm: aprovada ? new Date() : null,
+        aprovadaEm: null,
         aprovadaPorId: null,
-        aprovacaoAutomatica: aprovada,
-        aprovadaComAlerta: aprovada ? out.aprovadaComAlerta : false,
-        aprovacaoRegra: aprovada
-          ? out.aprovacaoRegra
-          : statusFinal === 'ANTERIOR_CMV_REAL'
+        aprovacaoAutomatica: false,
+        aprovadaComAlerta: false,
+        aprovacaoRegra:
+          statusFinal === 'ANTERIOR_CMV_REAL'
             ? 'anterior_cmv_real'
             : statusFinal === 'IGNORADA'
               ? out.aprovacaoRegra
@@ -384,17 +384,8 @@ async function aplicarPipelineNaNota(
     });
   });
 
-  const statusFinal = statusOverride ?? out.status;
-  if (out.gerarLancamentos && statusFinal === 'APROVADA') {
-    await gerarLancamentosAprovacao({
-      userId,
-      notaId: nota.id,
-      storeSlug: nota.storeSlug,
-      competencia: nota.competencia,
-      dataEntrada: nota.dataEntrada,
-    });
-  }
-
+  let statusFinal = statusOverride ?? out.status;
+  if (statusFinal === 'APROVADA') statusFinal = 'EM_REVISAO';
   return statusFinal;
 }
 

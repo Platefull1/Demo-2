@@ -462,7 +462,6 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
 
   const alertasItens = itensOut.flatMap((i) => i.alertas);
   const todosAlertas = [...alertasNota, ...alertasItens];
-  const temAlertas = todosAlertas.length > 0;
   const bloqueadores = todosAlertas.filter((a) =>
     cfg.alertasQueBloqueiam.includes(a),
   );
@@ -503,27 +502,8 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     };
   }
 
-  const podeAuto =
-    cfg.autoAprovar &&
-    todosProntos &&
-    temMapeadoPronto &&
-    bloqueadores.length === 0;
-
-  if (podeAuto) {
-    return {
-      status: 'APROVADA',
-      alertas: alertasNota,
-      itens: itensOut,
-      somaItensLiquido: somaLiquido,
-      tentativas,
-      ultimoErro: null,
-      problemasNovos: [],
-      gerarLancamentos: true,
-      aprovadaComAlerta: temAlertas,
-      aprovacaoRegra: 'itens_prontos',
-      motivoRevisao: null,
-    };
-  }
+  // Auto-aprovação removida: itens prontos ficam EM_REVISAO até ação humana.
+  void cfg.autoAprovar;
 
   let motivoRevisao: string;
   if (!todosProntos) {
@@ -533,10 +513,8 @@ function processarNotaInner(input: PipelineNotaInput, tentativas: number): Pipel
     motivoRevisao = 'todos os itens IGNORADO (sem MAPEADO)';
   } else if (bloqueadores.length > 0) {
     motivoRevisao = `alertas que bloqueiam: ${bloqueadores.join(', ')}`;
-  } else if (!cfg.autoAprovar) {
-    motivoRevisao = 'autoAprovar desligado';
   } else {
-    motivoRevisao = 'EM_REVISAO';
+    motivoRevisao = 'aguardando aprovação manual';
   }
 
   return {

@@ -6,8 +6,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { loadCatalogoEstoqueForUserId } from '@/lib/estoque/catalogo';
-import { gerarLancamentosAprovacao } from './approve';
-import { competenciaFromDataEntrada } from './dates';
 import {
   defaultPipelineConfig,
   processarNota,
@@ -127,7 +125,8 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
   }
 
   const pipelineConfig = defaultPipelineConfig({
-    autoAprovar: nfeConfig?.autoAprovar ?? false,
+    // Aprovação NF-e é só manual — reprocessar nunca auto-aprova.
+    autoAprovar: false,
     toleranciaTotalReais: Number(nfeConfig?.toleranciaTotalReais ?? 1),
     toleranciaTotalPercent: Number(nfeConfig?.toleranciaTotalPercent ?? 0.5),
     limiteVariacaoCustoPercent: Number(nfeConfig?.limiteVariacaoCustoPercent ?? 30),
@@ -220,29 +219,27 @@ export async function reprocessarNotasEmRevisao(tenantUserId: string): Promise<{
           },
         });
       }
+      // Nunca auto-aprova no reprocessar — só humano promove a APROVADA.
+      const statusFinal =
+        out.status === 'APROVADA'
+          ? 'EM_REVISAO'
+          : out.status === 'IGNORADA'
+            ? 'IGNORADA'
+            : 'EM_REVISAO';
       await tx.nfeNota.update({
         where: { id: nota.id },
         data: {
-          status: out.status,
+          status: statusFinal,
           tentativas: out.tentativas,
           ultimoErro: out.ultimoErro,
           alertas: out.alertas,
           somaItensLiquido: decimal(out.somaItensLiquido),
-          aprovadaEm: out.status === 'APROVADA' ? new Date() : undefined,
+          aprovacaoAutomatica: false,
         },
       });
     });
 
-    if (out.gerarLancamentos) {
-      await gerarLancamentosAprovacao({
-        userId,
-        notaId: nota.id,
-        storeSlug: nota.storeSlug,
-        competencia: nota.competencia || competenciaFromDataEntrada(nota.dataEntrada),
-        dataEntrada: nota.dataEntrada,
-      });
-      aprovadas++;
-    } else if (out.status === 'EM_REVISAO') {
+    if (out.status === 'EM_REVISAO' || out.status === 'APROVADA') {
       aindaEmRevisao++;
     }
   }

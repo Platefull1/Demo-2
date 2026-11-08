@@ -164,8 +164,10 @@ function calcularInternas(
 }
 
 /**
- * Parse de fator com formato brasileiro.
- * "1,005" e "1.005" → 1.005 quando há 3 casas após o separador e valor < 100.
+ * Parse de fator/peso no campo de revisão.
+ * - Vírgula é SEMPRE separador decimal ("1,250" → 1.25).
+ * - Ponto só é milhar quando vem junto com vírgula ("1.250,5" → 1250.5).
+ * - Só ponto: decimal JS ("1.250" → 1.25).
  */
 export function parseFatorBr(raw: string): number | null {
   const s = String(raw || '').trim().replace(/\s/g, '');
@@ -179,23 +181,15 @@ export function parseFatorBr(raw: string): number | null {
     const lastComma = s.lastIndexOf(',');
     const lastDot = s.lastIndexOf('.');
     if (lastComma > lastDot) {
+      // BR: 1.250,5 → 1250.5
       n = Number(s.replace(/\./g, '').replace(',', '.'));
     } else {
+      // US raro: 1,250.5 → 1250.5
       n = Number(s.replace(/,/g, ''));
     }
   } else if (hasComma) {
-    const parts = s.split(',');
-    if (parts.length === 2 && parts[1].length === 3) {
-      const asDec = Number(`${parts[0]}.${parts[1]}`);
-      if (Number.isFinite(asDec) && asDec > 0 && asDec < 100) return asDec;
-    }
     n = Number(s.replace(',', '.'));
   } else if (hasDot) {
-    const parts = s.split('.');
-    if (parts.length === 2 && parts[1].length === 3) {
-      const asDec = Number(s);
-      if (Number.isFinite(asDec) && asDec > 0 && asDec < 100) return asDec;
-    }
     n = Number(s);
   } else {
     n = Number(s);
