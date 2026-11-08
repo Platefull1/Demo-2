@@ -7,10 +7,18 @@ import {
 import {
   classificarRefeicao,
   parseRefeicaoRegras,
-  parseVendaMesConfig,
-  valorVendaParaMes,
   type SaiposSaleLike,
 } from '@/lib/cmv-real/refeicoes';
+import {
+  buildVendaMesDetalhe,
+  calcularVendaLiquida,
+  parseVendaMesDetalhe,
+  resolveVendaLiquidaConfig,
+  vendaMesEfetiva,
+  type SaiposSaleVendaLike,
+  type VendaMesDetalhe,
+} from '@/lib/cmv-real/venda-liquida';
+import { notificarFormasPagamentoDesconhecidas } from '@/lib/nfe/notificar';
 
 function decimal(n: number): Prisma.Decimal {
   return new Prisma.Decimal(n);
@@ -28,11 +36,17 @@ export async function syncRefeicoesSaipos(params: {
   tenantUserId: string;
   storeSlug: string;
   competencia: string;
+  /** Actor para WhatsApp (formas desconhecidas). Default = tenant. */
+  actorUserId?: string;
+  /** Se false, não grava vendaMes/detalhe no fechamento (só refeições). Default true. */
+  persistVenda?: boolean;
 }): Promise<{
   upserted: number;
   removedOrIgnored: number;
   vendaMesSaipos: number;
   totalSalesFetched: number;
+  vendaMesDetalhe: VendaMesDetalhe;
+  formasDesconhecidas: string[];
 }> {
   const fechamento = await prisma.cmvFechamento.findUnique({
     where: {
@@ -51,20 +65,25 @@ export async function syncRefeicoesSaipos(params: {
     where: { userId: params.tenantUserId },
   });
   const regras = parseRefeicaoRegras(config?.refeicaoRegras);
-  const vendaCfg = parseVendaMesConfig(config?.vendaMesConfig);
+  const vendaCfg = resolveVendaLiquidaConfig(
+    config?.vendaMesConfig,
+    process.env.CMV_LIMITE_TAXA_ENTREGA,
+  );
 
   const sales = (await fetchSalesForCompetencia({
     storeSlug: asSlug(params.storeSlug),
     competencia: params.competencia,
   })) as SaiposSaleLike[];
 
+  const calc = calcularVendaLiquida(sales as SaiposSaleVendaLike[], vendaCfg);
+  const prevDetalhe = parseVendaMesDetalhe(fechamento?.vendaMesDetalhe);
+  const detalhe = buildVendaMesDetalhe(calc, prevDetalhe?.ajusteVenda ?? null);
+  const vendaMesSaipos = vendaMesEfetiva(detalhe) ?? detalhe.vendaLiquida;
+
   const seenIds = new Set<string>();
   let upserted = 0;
-  let vendaMesSaipos = 0;
 
   for (const sale of sales) {
-    vendaMesSaipos += valorVendaParaMes(sale, { regras, config: vendaCfg });
-
     const cls = classificarRefeicao(sale, regras);
     if (!cls) continue;
 
@@ -125,11 +144,58 @@ export async function syncRefeicoesSaipos(params: {
     removedOrIgnored += 1;
   }
 
+  const persistVenda = params.persistVenda !== false;
+  if (persistVenda) {
+    const origemAtual = fechamento?.vendaMesOrigem;
+    const sobrescreverVenda = origemAtual !== 'MANUAL';
+    await prisma.cmvFechamento.upsert({
+      where: {
+        userId_storeSlug_competencia: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: params.competencia,
+        },
+      },
+      create: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+        status: 'ABERTO',
+        vendaMes: decimal(vendaMesSaipos),
+        vendaMesOrigem: 'SAIPOS',
+        vendaMesDetalhe: detalhe as unknown as Prisma.InputJsonValue,
+        ajustes: [],
+        refeicoesFuncionarios: [],
+      },
+      update: {
+        vendaMesDetalhe: detalhe as unknown as Prisma.InputJsonValue,
+        ...(sobrescreverVenda
+          ? {
+              vendaMes: decimal(vendaMesSaipos),
+              vendaMesOrigem: 'SAIPOS',
+            }
+          : {}),
+      },
+    });
+  }
+
+  if (calc.formasDesconhecidas.length > 0) {
+    void notificarFormasPagamentoDesconhecidas({
+      tenantUserId: params.tenantUserId,
+      actorUserId: params.actorUserId || params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competencia,
+      formas: calc.formasDesconhecidas,
+    });
+  }
+
   return {
     upserted,
     removedOrIgnored,
     vendaMesSaipos: Math.round(vendaMesSaipos * 100) / 100,
     totalSalesFetched: sales.length,
+    vendaMesDetalhe: detalhe,
+    formasDesconhecidas: calc.formasDesconhecidas,
   };
 }
 

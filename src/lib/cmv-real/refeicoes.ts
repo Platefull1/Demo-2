@@ -40,7 +40,10 @@ export type SaiposSaleLike = {
   customer?: { name?: string | null } | null;
   discount_coupon?: { coupon?: string | null } | null;
   delivery?: { delivery_fee?: number | string | null } | null;
-  payments?: Array<{ desc_store_payment_type?: string | null }> | null;
+  payments?: Array<{
+    desc_store_payment_type?: string | null;
+    payment_amount?: number | string | null;
+  }> | null;
   partner_sale?: unknown;
 };
 

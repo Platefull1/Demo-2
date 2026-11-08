@@ -3,7 +3,6 @@
  * Mostra status atual, aplica, lista 1–21/10.
  * npx tsx --env-file=.env scripts/sync-venda-refeicoes.ts
  */
-import { Prisma } from '@prisma/client';
 import { PrismaClient } from '@prisma/client';
 import { syncRefeicoesSaipos } from '../src/lib/cmv-real/sync-refeicoes';
 
@@ -72,31 +71,19 @@ async function main() {
       }
     }
     if (!sync) throw new Error('sync falhou');
-    console.log('sync', sync);
-
-    await prisma.cmvFechamento.upsert({
-      where: {
-        userId_storeSlug_competencia: {
-          userId: OWNER,
-          storeSlug: loja,
-          competencia: COMP,
-        },
+    console.log('sync', {
+      upserted: sync.upserted,
+      vendaMesSaipos: sync.vendaMesSaipos,
+      detalhe: {
+        bruto: sync.vendaMesDetalhe.vendaBruta,
+        taxa: sync.vendaMesDetalhe.taxaEntregaExcluida,
+        consumo: sync.vendaMesDetalhe.consumoInterno,
+        creditos: sync.vendaMesDetalhe.creditosExcluidos,
+        liquida: sync.vendaMesDetalhe.vendaLiquida,
       },
-      create: {
-        userId: OWNER,
-        storeSlug: loja,
-        competencia: COMP,
-        status: 'ABERTO',
-        vendaMes: new Prisma.Decimal(sync.vendaMesSaipos),
-        vendaMesOrigem: 'SAIPOS',
-        ajustes: [],
-        refeicoesFuncionarios: [],
-      },
-      update: {
-        vendaMes: new Prisma.Decimal(sync.vendaMesSaipos),
-        vendaMesOrigem: 'SAIPOS',
-      },
+      formasDesconhecidas: sync.formasDesconhecidas,
     });
+    // Persistência de vendaMes + vendaMesDetalhe já ocorre dentro de syncRefeicoesSaipos.
 
     const depois = await status(loja);
     console.log(`=== ${loja} DEPOIS ===`);

@@ -2363,9 +2363,11 @@ model CmvFechamento {
   storeSlug             String              @map("store_slug")
   competencia           String
   status                CmvFechamentoStatus @default(ABERTO)
-  /// Manual por padrão; campo pronto para preencher via Saipos total_pedidos depois.
+  /// Manual por padrão; espelha venda líquida (+ ajuste) quando origem SAIPOS.
   vendaMes              Decimal?            @map("venda_mes") @db.Decimal(14, 2)
   vendaMesOrigem        String?             @map("venda_mes_origem") // MANUAL | SAIPOS
+  /// Breakdown venda líquida: bruto, taxa≤LIMITE, consumo, créditos, líquida, ajusteVenda, listas.
+  vendaMesDetalhe       Json?               @map("venda_mes_detalhe")
   /// Sempre vazio no mês novo: [{id, secao, descricao, valor, criadoPorId, criadoEm}]
   ajustes               Json                @default("[]")
   refeicoesFuncionarios Json                @default("[]") @map("refeicoes_funcionarios") // [{descricao, valorVenda}]

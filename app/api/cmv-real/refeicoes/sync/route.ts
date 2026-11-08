@@ -40,8 +40,17 @@ export async function POST(req: NextRequest) {
       tenantUserId: tenant.tenantUserId,
       storeSlug,
       competencia,
+      actorUserId: tenant.actorUserId,
     });
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({
+      ok: true,
+      upserted: result.upserted,
+      removedOrIgnored: result.removedOrIgnored,
+      vendaMesSaipos: result.vendaMesSaipos,
+      totalSalesFetched: result.totalSalesFetched,
+      vendaMesDetalhe: result.vendaMesDetalhe,
+      formasDesconhecidas: result.formasDesconhecidas,
+    });
   } catch (e) {
     if (e instanceof SaiposDataApiError) {
       return NextResponse.json(

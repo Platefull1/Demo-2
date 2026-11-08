@@ -116,6 +116,33 @@ function fmtMoney(n: number) {
   });
 }
 
+/** Competência civil atual em America/Sao_Paulo (YYYY-MM). */
+function competenciaAgoraSp(): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find((p) => p.type === 'year')?.value;
+  const m = parts.find((p) => p.type === 'month')?.value;
+  return `${y}-${m}`;
+}
+
+/** Exibe calculadoEm ISO como dd/MM/yyyy HH:mm (horário de Brasília). */
+function fmtSyncSp(iso: string | undefined | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function cellNum(
   n: number,
   opts?: { decimals?: number; tone?: 'destructive' | 'success' | 'foreground' }
@@ -176,6 +203,32 @@ export default function CmvRealFechamentoPage() {
   const [vendaMes, setVendaMes] = useState('');
   const [vendaMesOrigem, setVendaMesOrigem] = useState<string | null>(null);
   const [vendaMesSaipos, setVendaMesSaipos] = useState<number | null>(null);
+  const [vendaMesDetalhe, setVendaMesDetalhe] = useState<{
+    vendaBruta: number;
+    taxaEntregaExcluida: number;
+    consumoInterno: number;
+    creditosExcluidos: number;
+    vendaLiquida: number;
+    calculadoEm?: string;
+    limiteTaxa: number;
+    taxasAcimaLimiteDistintas: number[];
+    jantasComValor: Array<{
+      idSale: string;
+      saleNumber: string | null;
+      data: string;
+      formaPagamento: string;
+      valor: number;
+    }>;
+    formasDesconhecidas: string[];
+    ajusteVenda: {
+      valor: number;
+      motivo: string;
+      criadoPorId: string;
+      criadoEm: string;
+    } | null;
+  } | null>(null);
+  const [ajusteVendaValor, setAjusteVendaValor] = useState('');
+  const [ajusteVendaMotivo, setAjusteVendaMotivo] = useState('');
   const [syncingRefeicoes, setSyncingRefeicoes] = useState(false);
   const [refeicoes, setRefeicoes] = useState<
     Array<{
@@ -264,6 +317,12 @@ export default function CmvRealFechamentoPage() {
         data.fechamento?.vendaMes != null ? String(data.fechamento.vendaMes) : ''
       );
       setVendaMesOrigem(data.fechamento?.vendaMesOrigem ?? null);
+      setVendaMesDetalhe(data.fechamento?.vendaMesDetalhe ?? null);
+      if (data.fechamento?.vendaMesDetalhe?.vendaLiquida != null) {
+        const d = data.fechamento.vendaMesDetalhe;
+        const adj = d.ajusteVenda?.valor ?? 0;
+        setVendaMesSaipos(Math.round((d.vendaLiquida + adj) * 100) / 100);
+      }
       setRefeicoes(data.refeicoesSaipos || []);
       setTotais(data.totais);
       setSecoesSemSaldoFinal(Array.isArray(data.secoesSemSaldoFinal) ? data.secoesSemSaldoFinal : []);
@@ -348,8 +407,13 @@ export default function CmvRealFechamentoPage() {
       setVendaMesSaipos(
         typeof data.vendaMesSaipos === 'number' ? data.vendaMesSaipos : null
       );
+      if (data.vendaMesDetalhe) setVendaMesDetalhe(data.vendaMesDetalhe);
+      const formas =
+        Array.isArray(data.formasDesconhecidas) && data.formasDesconhecidas.length
+          ? ` · Formas novas: ${data.formasDesconhecidas.length}`
+          : '';
       setMsg(
-        `Refeições: ${data.upserted} upsert(s). Venda Saipos calculada: ${fmtMoney(data.vendaMesSaipos ?? 0)}`
+        `Refeições: ${data.upserted} upsert(s). Venda líquida Saipos: ${fmtMoney(data.vendaMesSaipos ?? 0)}${formas}`
       );
       await load();
     } catch (e) {
@@ -360,14 +424,43 @@ export default function CmvRealFechamentoPage() {
   };
 
   const usarVendaSaipos = async () => {
-    if (vendaMesSaipos == null) return;
+    if (vendaMesSaipos == null && !vendaMesDetalhe) return;
     const ok = window.confirm(
-      `Substituir a venda do mês pelo valor da Saipos (${fmtMoney(vendaMesSaipos)})?`
+      `Substituir a venda do mês pelo valor da Saipos (${fmtMoney(vendaMesSaipos ?? 0)})?`
     );
     if (!ok) return;
     try {
-      await patch({ action: 'usar_venda_saipos', vendaMesSaipos });
+      await patch({
+        action: 'usar_venda_saipos',
+        ...(vendaMesSaipos != null ? { vendaMesSaipos } : {}),
+      });
       setMsg('Venda do mês atualizada com o valor da Saipos');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const salvarAjusteVenda = async () => {
+    try {
+      await patch({
+        action: 'set_ajuste_venda',
+        valor: Number(String(ajusteVendaValor).replace(',', '.')),
+        motivo: ajusteVendaMotivo,
+      });
+      setAjusteVendaValor('');
+      setAjusteVendaMotivo('');
+      setMsg('Ajuste de venda salva');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const limparAjusteVenda = async () => {
+    try {
+      await patch({ action: 'clear_ajuste_venda' });
+      setMsg('Ajuste de venda removido');
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -721,10 +814,145 @@ export default function CmvRealFechamentoPage() {
                 Venda do mês
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Manual e Saipos lado a lado — a Saipos só entra com confirmação.
+                Líquida Saipos = bruto − taxas {'>'} limite − consumo − créditos.
                 {vendaMesOrigem ? ` Origem atual: ${vendaMesOrigem}.` : ''}
+                {competencia === competenciaAgoraSp() &&
+                fmtSyncSp(vendaMesDetalhe?.calculadoEm)
+                  ? ` Parcial até ${fmtSyncSp(vendaMesDetalhe?.calculadoEm)}.`
+                  : ''}
               </p>
             </div>
+
+            {vendaMesDetalhe ? (
+              <div className="rounded-md border border-border overflow-hidden">
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell className="py-1.5 text-sm text-muted-foreground">
+                        Venda bruta
+                      </TableCell>
+                      <TableCell className="py-1.5 text-sm tabular-nums text-foreground text-right">
+                        {fmtMoney(vendaMesDetalhe.vendaBruta)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="py-1.5 text-sm text-muted-foreground">
+                        (−) Taxas entrega {'>'} {fmtMoney(vendaMesDetalhe.limiteTaxa)}
+                      </TableCell>
+                      <TableCell className="py-1.5 text-sm tabular-nums text-foreground text-right">
+                        {fmtMoney(vendaMesDetalhe.taxaEntregaExcluida)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="py-1.5 text-sm text-muted-foreground">
+                        (−) Consumo interno
+                      </TableCell>
+                      <TableCell className="py-1.5 text-sm tabular-nums text-foreground text-right">
+                        {fmtMoney(vendaMesDetalhe.consumoInterno)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="py-1.5 text-sm text-muted-foreground">
+                        (−) Créditos
+                      </TableCell>
+                      <TableCell className="py-1.5 text-sm tabular-nums text-foreground text-right">
+                        {fmtMoney(vendaMesDetalhe.creditosExcluidos)}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell className="py-1.5 text-sm font-semibold text-foreground">
+                        Venda líquida
+                      </TableCell>
+                      <TableCell className="py-1.5 text-sm font-semibold tabular-nums text-foreground text-right">
+                        {fmtMoney(vendaMesDetalhe.vendaLiquida)}
+                      </TableCell>
+                    </TableRow>
+                    {vendaMesDetalhe.ajusteVenda ? (
+                      <TableRow>
+                        <TableCell className="py-1.5 text-sm text-muted-foreground">
+                          (±) Ajuste — {vendaMesDetalhe.ajusteVenda.motivo}
+                        </TableCell>
+                        <TableCell className="py-1.5 text-sm tabular-nums text-foreground text-right">
+                          {fmtMoney(vendaMesDetalhe.ajusteVenda.valor)}
+                        </TableCell>
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Sincronize a Saipos para ver a abertura da venda líquida.
+              </p>
+            )}
+
+            {vendaMesDetalhe &&
+            ((vendaMesDetalhe.taxasAcimaLimiteDistintas?.length ?? 0) > 0 ||
+              vendaMesDetalhe.jantasComValor.length > 0) ? (
+              <div className="space-y-1">
+                {(vendaMesDetalhe.taxasAcimaLimiteDistintas?.length ?? 0) > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Taxas {'>'} limite:{' '}
+                    <span className="tabular-nums text-foreground">
+                      {vendaMesDetalhe.taxasAcimaLimiteDistintas
+                        .map((t) => fmtMoney(t))
+                        .join(', ')}
+                    </span>
+                  </p>
+                ) : null}
+                {vendaMesDetalhe.jantasComValor.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Jantas &gt; 0: {vendaMesDetalhe.jantasComValor.length} pedido(s) ·{' '}
+                    <span className="tabular-nums text-foreground">
+                      {fmtMoney(
+                        vendaMesDetalhe.jantasComValor.reduce((s, j) => s + j.valor, 0),
+                      )}
+                    </span>
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {canFechar && aberto && vendaMesDetalhe ? (
+              <div className="space-y-2 pt-1 border-t border-border">
+                <p className="text-xs text-muted-foreground">Ajuste manual sobre a líquida</p>
+                <div className="flex flex-wrap gap-2">
+                  <Input
+                    value={ajusteVendaValor}
+                    onChange={(e) => setAjusteVendaValor(e.target.value)}
+                    placeholder="Valor (±)"
+                    className="h-8 w-28"
+                  />
+                  <Input
+                    value={ajusteVendaMotivo}
+                    onChange={(e) => setAjusteVendaMotivo(e.target.value)}
+                    placeholder="Motivo (obrigatório)"
+                    className="h-8 flex-1 min-w-[10rem]"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    onClick={() => void salvarAjusteVenda()}
+                  >
+                    Aplicar ajuste
+                  </Button>
+                  {vendaMesDetalhe.ajusteVenda ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8"
+                      onClick={() => void limparAjusteVenda()}
+                    >
+                      Limpar
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
             <div className="space-y-1.5">
               <label className="text-xs text-muted-foreground">Valor manual (R$)</label>
               <div className="flex gap-2">
@@ -754,7 +982,7 @@ export default function CmvRealFechamentoPage() {
                   {vendaMesSaipos != null ? fmtMoney(vendaMesSaipos) : '— (sincronize)'}
                 </span>
               </p>
-              {canFechar && aberto && vendaMesSaipos != null && (
+              {canFechar && aberto && (vendaMesSaipos != null || vendaMesDetalhe) && (
                 <Button
                   type="button"
                   variant="outline"

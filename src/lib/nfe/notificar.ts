@@ -104,3 +104,97 @@ export async function notificarProblemasIngest(params: {
     console.error('[nfe.notificar] Erro (ignorado pelo ingest):', err);
   }
 }
+
+/**
+ * Alerta WhatsApp quando o sync de venda líquida encontra formas de pagamento
+ * fora das listas conhecidas (jantas / créditos / extras).
+ * Erros de envio são logados e NUNCA derrubam o sync.
+ */
+export async function notificarFormasPagamentoDesconhecidas(params: {
+  tenantUserId: string;
+  actorUserId: string;
+  storeSlug: string;
+  competencia: string;
+  formas: string[];
+}): Promise<void> {
+  if (!params.formas.length) return;
+
+  try {
+    const config = await prisma.nfeConfig.findUnique({
+      where: { userId: params.tenantUserId },
+    });
+    if (!config?.sessionSlot || !config.destinoPadrao) {
+      console.info(
+        '[nfe.notificar] Sem NfeConfig — pulando WhatsApp (formas desconhecidas)',
+        { qtd: params.formas.length, storeSlug: params.storeSlug },
+      );
+      return;
+    }
+
+    const lista = params.formas.slice(0, 20).join(', ');
+    const extra =
+      params.formas.length > 20 ? ` (+${params.formas.length - 20})` : '';
+    const message =
+      `⚠️ CMV Real — formas de pagamento desconhecidas\n` +
+      `Loja: ${params.storeSlug} · ${params.competencia}\n` +
+      `${lista}${extra}\n` +
+      `https://platefull.com.br/cmv-real/fechamento?loja=${params.storeSlug}&competencia=${params.competencia}`;
+
+    const tenant: CmvRealTenant = {
+      tenantUserId: params.tenantUserId,
+      actorUserId: params.actorUserId,
+      isAdmin: false,
+      userIds: [params.tenantUserId],
+      allowedStoreSlugs: null,
+      lojaNaoConfigurada: false,
+      perfil: null,
+      memberId: null,
+    };
+
+    const bot = await findCmvRealWhatsAppBot(tenant, config.sessionSlot);
+    if (!bot) {
+      console.warn('[nfe.notificar] Sessão WhatsApp não encontrada (formas)', {
+        slot: config.sessionSlot,
+      });
+      return;
+    }
+
+    const result = await callWhatsAppVpsSession(
+      bot.userId,
+      config.sessionSlot,
+      'send',
+      {
+        body: {
+          to: config.destinoPadrao,
+          message,
+          slot: config.sessionSlot,
+        },
+        timeoutMs: 60_000,
+      },
+    );
+
+    const vpsResult =
+      !result.ok && result.status === 404
+        ? await callWhatsAppVps('relatorios', 'send', bot.userId, {
+            search: `slot=${config.sessionSlot}`,
+            body: {
+              to: config.destinoPadrao,
+              message,
+              slot: config.sessionSlot,
+            },
+            timeoutMs: 60_000,
+          })
+        : result;
+
+    if (!vpsResult.ok || vpsResult.data.success === false) {
+      console.warn('[nfe.notificar] Falha WhatsApp (formas)', vpsResult.data);
+    } else {
+      console.info('[nfe.notificar] Formas desconhecidas enviadas', {
+        storeSlug: params.storeSlug,
+        qtd: params.formas.length,
+      });
+    }
+  } catch (err) {
+    console.error('[nfe.notificar] Erro formas desconhecidas (ignorado):', err);
+  }
+}

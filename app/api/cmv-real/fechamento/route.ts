@@ -14,6 +14,12 @@ import {
 } from '@/lib/nfe/fechamento';
 import { CMV_STORE_SLUGS, competenciaAnterior, storeLabel } from '@/lib/nfe/lojas';
 import { exportarFechamentoXlsx } from '@/lib/nfe/exportar-fechamento';
+import {
+  parseVendaMesDetalhe,
+  vendaMesEfetiva,
+  type AjusteVendaMes,
+  type VendaMesDetalhe,
+} from '@/lib/cmv-real/venda-liquida';
 import { randomUUID } from 'crypto';
 
 function decimal(n: number): Prisma.Decimal {
@@ -93,6 +99,7 @@ export async function GET(req: NextRequest) {
           ? Number(data.fechamento.vendaMes)
           : null,
       vendaMesOrigem: data.fechamento.vendaMesOrigem,
+      vendaMesDetalhe: parseVendaMesDetalhe(data.fechamento.vendaMesDetalhe),
       ajustes: parseAjustes(data.fechamento.ajustes),
       /** Legado JSON no fechamento — preferir `refeicoesSaipos` */
       refeicoes: parseRefeicoes(data.fechamento.refeicoesFuncionarios),
@@ -113,7 +120,9 @@ export async function GET(req: NextRequest) {
  * PATCH /api/cmv-real/fechamento
  * body.action:
  *  - set_venda { storeSlug, competencia, vendaMes }
- *  - usar_venda_saipos { storeSlug, competencia, vendaMesSaipos }
+ *  - usar_venda_saipos { storeSlug, competencia, vendaMesSaipos? }
+ *  - set_ajuste_venda { storeSlug, competencia, valor, motivo } — ajuste sobre líquida Saipos
+ *  - clear_ajuste_venda { storeSlug, competencia }
  *  - add_ajuste { storeSlug, competencia, secao, descricao, valor }
  *  - remove_ajuste { storeSlug, competencia, ajusteId }
  *  - set_refeicoes { storeSlug, competencia, refeicoes }
@@ -127,6 +136,7 @@ export async function PATCH(req: NextRequest) {
     competencia?: string;
     vendaMes?: number | null;
     vendaMesSaipos?: number;
+    motivo?: string;
     secao?: AjusteFechamento['secao'];
     descricao?: string;
     valor?: number;
@@ -197,16 +207,26 @@ export async function PATCH(req: NextRequest) {
     if (fechamento.status === 'FECHADO') {
       return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
     }
-    if (body.vendaMesSaipos == null || !Number.isFinite(Number(body.vendaMesSaipos))) {
+    const detalhe = parseVendaMesDetalhe(fechamento.vendaMesDetalhe);
+    let valor: number | null = null;
+    if (detalhe) {
+      valor = vendaMesEfetiva(detalhe);
+    } else if (
+      body.vendaMesSaipos != null &&
+      Number.isFinite(Number(body.vendaMesSaipos))
+    ) {
+      valor = Number(body.vendaMesSaipos);
+    }
+    if (valor == null) {
       return NextResponse.json(
-        { error: 'vendaMesSaipos obrigatório' },
-        { status: 400 }
+        { error: 'Sincronize a Saipos antes (sem vendaMesDetalhe)' },
+        { status: 400 },
       );
     }
     fechamento = await prisma.cmvFechamento.update({
       where: { id: fechamento.id },
       data: {
-        vendaMes: decimal(Number(body.vendaMesSaipos)),
+        vendaMes: decimal(valor),
         vendaMesOrigem: 'SAIPOS',
       },
     });
@@ -214,6 +234,77 @@ export async function PATCH(req: NextRequest) {
       ok: true,
       vendaMes: Number(fechamento.vendaMes),
       vendaMesOrigem: fechamento.vendaMesOrigem,
+      vendaMesDetalhe: parseVendaMesDetalhe(fechamento.vendaMesDetalhe),
+    });
+  }
+
+  if (body.action === 'set_ajuste_venda') {
+    if (fechamento.status === 'FECHADO') {
+      return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
+    }
+    const detalhe = parseVendaMesDetalhe(fechamento.vendaMesDetalhe);
+    if (!detalhe) {
+      return NextResponse.json(
+        { error: 'Sincronize a Saipos antes de ajustar a venda' },
+        { status: 400 },
+      );
+    }
+    if (body.valor == null || !Number.isFinite(Number(body.valor))) {
+      return NextResponse.json({ error: 'valor obrigatório' }, { status: 400 });
+    }
+    const motivo = String(body.motivo || '').trim();
+    if (!motivo) {
+      return NextResponse.json(
+        { error: 'motivo obrigatório para ajuste de venda' },
+        { status: 400 },
+      );
+    }
+    const ajusteVenda: AjusteVendaMes = {
+      valor: Number(body.valor),
+      motivo,
+      criadoPorId: tenant.actorUserId,
+      criadoEm: new Date().toISOString(),
+    };
+    const next: VendaMesDetalhe = { ...detalhe, ajusteVenda };
+    const efetiva = vendaMesEfetiva(next)!;
+    fechamento = await prisma.cmvFechamento.update({
+      where: { id: fechamento.id },
+      data: {
+        vendaMesDetalhe: next as unknown as Prisma.InputJsonValue,
+        vendaMes: decimal(efetiva),
+        vendaMesOrigem: 'SAIPOS',
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      vendaMes: Number(fechamento.vendaMes),
+      vendaMesOrigem: fechamento.vendaMesOrigem,
+      vendaMesDetalhe: parseVendaMesDetalhe(fechamento.vendaMesDetalhe),
+    });
+  }
+
+  if (body.action === 'clear_ajuste_venda') {
+    if (fechamento.status === 'FECHADO') {
+      return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
+    }
+    const detalhe = parseVendaMesDetalhe(fechamento.vendaMesDetalhe);
+    if (!detalhe) {
+      return NextResponse.json({ ok: true, vendaMesDetalhe: null });
+    }
+    const next: VendaMesDetalhe = { ...detalhe, ajusteVenda: null };
+    fechamento = await prisma.cmvFechamento.update({
+      where: { id: fechamento.id },
+      data: {
+        vendaMesDetalhe: next as unknown as Prisma.InputJsonValue,
+        vendaMes: decimal(next.vendaLiquida),
+        vendaMesOrigem: 'SAIPOS',
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      vendaMes: Number(fechamento.vendaMes),
+      vendaMesOrigem: fechamento.vendaMesOrigem,
+      vendaMesDetalhe: parseVendaMesDetalhe(fechamento.vendaMesDetalhe),
     });
   }
 
