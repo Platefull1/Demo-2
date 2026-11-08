@@ -428,7 +428,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       aprovacaoRegra: isEnter ? 'manual_enter' : 'manual',
     });
 
-    if (!result.ok) {
+    if (result.ok === false) {
       return NextResponse.json(
         {
           error: result.error,
