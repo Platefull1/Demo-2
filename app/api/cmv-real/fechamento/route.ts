@@ -58,13 +58,17 @@ export async function GET(req: NextRequest) {
     const buf = exportarFechamentoXlsx({
       storeSlug,
       competencia,
+      status: data.fechamento.status,
       linhas: data.linhas,
       vendaMes: data.totais.vendaMes,
+      vendaMesDetalhe: parseVendaMesDetalhe(data.fechamento.vendaMesDetalhe),
       ajustes: parseAjustes(data.fechamento.ajustes),
       cmvMp: data.totais.cmvMp,
       cmvEmbalagens: data.totais.cmvEmbalagens,
       cmvBebidas: data.totais.cmvBebidas,
       cmvTotal: data.totais.cmvTotal,
+      semEstoqueFinal: data.totais.semEstoqueFinal,
+      pendencias: data.pendencias,
       transferencias: data.transferencias,
     });
     const filename = `cmv-${storeSlug}-${competencia}.xlsx`;
