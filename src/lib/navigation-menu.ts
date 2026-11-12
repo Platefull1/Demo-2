@@ -168,7 +168,7 @@ export function buildNavSections(input: {
     financeiro.push({
       id: 'cmv-real',
       label: 'CMV Real',
-      href: '/cmv-real/notas',
+      href: '/cmv-real/fechamento',
       icon: 'Receipt',
       match: { prefix: ['/cmv-real'] },
     });
