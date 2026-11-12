@@ -38,7 +38,7 @@ function CmvRealLayoutInner({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex items-center justify-center px-6 py-20">
         <div className="max-w-sm space-y-2">
-          <p className="text-base font-semibold text-warning">Loja não configurada</p>
+          <p className="text-base font-semibold text-foreground">Loja não configurada</p>
           <p className="text-sm text-muted-foreground">
             Peça ao administrador para definir a loja deste usuário em RH → Usuários.
           </p>

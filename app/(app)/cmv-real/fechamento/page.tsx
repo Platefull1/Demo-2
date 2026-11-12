@@ -2,11 +2,24 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ChevronDown, ChevronRight, Download, Lock, RefreshCw, Unlock } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import {
+  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  Lock,
+  RefreshCw,
+  Unlock,
+} from 'lucide-react';
+import {
+  DismissibleNoticeBox,
+  DismissibleNoticeChip,
+  useDismissibleNotice,
+} from '@/components/cmv-real/DismissibleNotice';
 import { AnimatedNumber } from '@/components/ui/animated-number';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { fingerprintMessages } from '@/lib/cmv-real/dismiss-storage';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { MonthPicker } from '@/components/ui/month-picker';
@@ -545,6 +558,34 @@ export default function CmvRealFechamentoPage() {
 
   const aberto = status === 'ABERTO';
 
+  const pendenciasFingerprint = useMemo(
+    () => fingerprintMessages(pendencias.map((p) => p.mensagem)),
+    [pendencias]
+  );
+  const parcialFingerprint = useMemo(
+    () =>
+      fingerprintMessages([
+        String(Boolean(totais?.semEstoqueFinal)),
+        ...secoesSemSaldoFinal,
+      ]),
+    [totais?.semEstoqueFinal, secoesSemSaldoFinal]
+  );
+
+  const pendenciasNotice = useDismissibleNotice({
+    kind: 'pendencias',
+    storeSlug,
+    competencia,
+    fingerprint: pendenciasFingerprint,
+    enabled: pendencias.length > 0,
+  });
+  const parcialNotice = useDismissibleNotice({
+    kind: 'cmv-parcial',
+    storeSlug,
+    competencia,
+    fingerprint: parcialFingerprint,
+    enabled: Boolean(totais?.semEstoqueFinal),
+  });
+
   const kpiVenda =
     totais?.vendaMes != null
       ? totais.vendaMes
@@ -589,12 +630,24 @@ export default function CmvRealFechamentoPage() {
               className={cn(
                 'border-transparent font-normal',
                 aberto
-                  ? 'bg-warning/15 text-warning'
+                  ? 'bg-muted text-muted-foreground'
                   : 'bg-success/15 text-success'
               )}
             >
               {aberto ? 'Aberto' : 'Fechado'}
             </Badge>
+            {pendenciasNotice.dismissed && (
+              <DismissibleNoticeChip
+                label={`Pendências (${pendencias.length})`}
+                onClick={pendenciasNotice.reopen}
+              />
+            )}
+            {parcialNotice.dismissed && (
+              <DismissibleNoticeChip
+                label="Aviso de CMV parcial"
+                onClick={parcialNotice.reopen}
+              />
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" asChild>
@@ -637,48 +690,46 @@ export default function CmvRealFechamentoPage() {
           </div>
         </div>
 
-        {pendencias.length > 0 && (
-          <Alert variant="warning" className="py-3 px-4">
-            <AlertTitle className="text-sm text-warning">
-              Pendências (não bloqueiam)
-            </AlertTitle>
-            <AlertDescription className="text-xs space-y-0.5 mt-1">
-              {pendencias.map((p, i) => (
-                <p key={`${p.tipo || 'p'}-${i}`}>
-                  •{' '}
-                  {p.href ? (
-                    <Link
-                      href={p.href}
-                      className="underline underline-offset-2 text-foreground hover:text-primary"
-                    >
-                      {p.mensagem}
-                    </Link>
-                  ) : (
-                    p.mensagem
-                  )}
-                </p>
-              ))}
-            </AlertDescription>
-          </Alert>
+        {pendenciasNotice.open && (
+          <DismissibleNoticeBox
+            title="Pendências (não bloqueiam)"
+            onDismiss={pendenciasNotice.dismiss}
+          >
+            {pendencias.map((p, i) => (
+              <p key={`${p.tipo || 'p'}-${i}`}>
+                •{' '}
+                {p.href ? (
+                  <Link
+                    href={p.href}
+                    className="underline underline-offset-2 text-foreground hover:text-primary"
+                  >
+                    {p.mensagem}
+                  </Link>
+                ) : (
+                  p.mensagem
+                )}
+              </p>
+            ))}
+          </DismissibleNoticeBox>
         )}
 
         {msg ? (
-          <p className="text-sm text-warning" role="alert">
+          <p className="text-sm text-destructive" role="alert">
             {msg}
           </p>
         ) : null}
 
-        {displayTotais?.semEstoqueFinal && (
-          <Alert variant="warning" className="py-3 px-4">
-            <AlertTitle className="text-sm text-warning">
-              CMV parcial — sem estoque final, não comparável
-            </AlertTitle>
-            <AlertDescription className="text-xs text-muted-foreground mt-1">
+        {parcialNotice.open && (
+          <DismissibleNoticeBox
+            title="CMV parcial — sem estoque final, não comparável"
+            onDismiss={parcialNotice.dismiss}
+          >
+            <p>
               O valor dos cards inclui o estoque inicial como se tivesse sido
               consumido. Use o ritmo (compras ÷ venda) ao lado de cada seção
               para comparar com a planilha.
-            </AlertDescription>
-          </Alert>
+            </p>
+          </DismissibleNoticeBox>
         )}
 
         {/* Resumo CMV por seção (espelha a planilha) */}
@@ -775,7 +826,8 @@ export default function CmvRealFechamentoPage() {
                       )}
                     </p>
                     {semSaldoFim && (
-                      <p className="text-xs text-warning mt-1">
+                      <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                        <AlertTriangle className="size-3 shrink-0" aria-hidden />
                         parcial: sem contagem final
                       </p>
                     )}
@@ -942,7 +994,7 @@ export default function CmvRealFechamentoPage() {
                     <Button
                       type="button"
                       size="sm"
-                      variant="ghost"
+                      variant="outline"
                       className="h-8"
                       onClick={() => void limparAjusteVenda()}
                     >
@@ -1183,7 +1235,7 @@ export default function CmvRealFechamentoPage() {
                                 {canFechar && aberto && (
                                   <Button
                                     type="button"
-                                    variant="ghost"
+                                    variant="outline"
                                     size="sm"
                                     className="h-7 text-xs"
                                     onClick={(e) => {
@@ -1248,7 +1300,7 @@ export default function CmvRealFechamentoPage() {
                   value={storeOverrideContagem || undefined}
                   onValueChange={setStoreOverrideContagem}
                 >
-                  <SelectTrigger className="h-9 text-sm border-warning/40">
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Associar à loja…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1343,7 +1395,7 @@ export default function CmvRealFechamentoPage() {
                         <td className="sticky left-0 z-10 bg-background px-2 py-1.5 text-foreground border-r border-border max-w-[200px]">
                           <div className="truncate">{l.nome}</div>
                           {iniPendente || fimPendente ? (
-                            <div className="text-xs text-warning">
+                            <div className="text-xs text-muted-foreground">
                               Custo pendente
                             </div>
                           ) : origemHint ? (
