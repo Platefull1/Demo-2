@@ -3,17 +3,16 @@
  * Estilos alinhados à identidade Platefull (verde / tinta / muted).
  */
 
-import * as XLSXImport from 'xlsx-js-style';
+import { createRequire } from 'node:module';
+import type { CellObject, WorkSheet } from 'xlsx-js-style';
 import type { VendaMesDetalhe } from '@/lib/cmv-real/venda-liquida';
 import type { LinhaFechamento, PendenciaFechamento } from './fechamento';
 import { storeLabel } from './lojas';
 import type { TransferenciaResumo } from './transferencia-documento';
 
-/** Interop CJS/ESM do xlsx-js-style (tsx --test vs Next). */
-const XLSX =
-  (XLSXImport as { utils?: unknown }).utils != null
-    ? XLSXImport
-    : ((XLSXImport as { default: typeof XLSXImport }).default ?? XLSXImport);
+/** CJS via createRequire — interop estável em Next e tsx --test. */
+const require = createRequire(import.meta.url);
+const XLSX = require('xlsx-js-style') as typeof import('xlsx-js-style');
 
 const STATUS_XLSX: Record<string, string> = {
   AGUARDANDO_ENTRADA: 'Aguardando entrada',
@@ -159,7 +158,7 @@ function geradoEmSp(): string {
 }
 
 function setCell(
-  ws: XLSX.WorkSheet,
+  ws: WorkSheet,
   r: number,
   c: number,
   value: Cell,
@@ -167,7 +166,7 @@ function setCell(
 ) {
   const ref = XLSX.utils.encode_cell({ r, c });
   const isNum = typeof value === 'number' && Number.isFinite(value);
-  const cell: XLSX.CellObject = {
+  const cell: CellObject = {
     v: value == null ? '' : value,
     t: isNum ? 'n' : 's',
   };
@@ -175,8 +174,8 @@ function setCell(
   ws[ref] = cell;
 }
 
-function applyPrint(ws: XLSX.WorkSheet, repeatRowsUntil: number) {
-  (ws as XLSX.WorkSheet & { '!pageSetup'?: object; '!printHeader'?: number[] })[
+function applyPrint(ws: WorkSheet, repeatRowsUntil: number) {
+  (ws as WorkSheet & { '!pageSetup'?: object; '!printHeader'?: number[] })[
     '!pageSetup'
   ] = {
     orientation: 'landscape',
@@ -186,7 +185,7 @@ function applyPrint(ws: XLSX.WorkSheet, repeatRowsUntil: number) {
     paperSize: 9,
   };
   // Título / cabeçalho repetido no topo ao imprimir
-  (ws as XLSX.WorkSheet & { '!printHeader'?: number[] })['!printHeader'] = [
+  (ws as WorkSheet & { '!printHeader'?: number[] })['!printHeader'] = [
     1,
     Math.max(1, repeatRowsUntil),
   ];
@@ -257,8 +256,8 @@ function buildResumoSheet(params: {
   semEstoqueFinal: boolean;
   pendencias: PendenciaFechamento[];
   atencaoCount: number;
-}): XLSX.WorkSheet {
-  const ws: XLSX.WorkSheet = {};
+}): WorkSheet {
+  const ws: WorkSheet = {};
   const loja = storeLabel(params.storeSlug);
   const compLabel = competenciaPorExtenso(params.competencia);
   const statusLabel = params.status === 'FECHADO' ? 'Fechado' : 'Aberto';
@@ -425,8 +424,8 @@ function buildResumoSheet(params: {
   return ws;
 }
 
-function buildConsumoSheet(linhas: LinhaFechamento[]): XLSX.WorkSheet {
-  const ws: XLSX.WorkSheet = {};
+function buildConsumoSheet(linhas: LinhaFechamento[]): WorkSheet {
+  const ws: WorkSheet = {};
   let r = 0;
   setCell(ws, r++, 0, 'CMV Real — Consumo', TITLE_STYLE);
   setCell(
@@ -537,8 +536,8 @@ function buildConsumoSheet(linhas: LinhaFechamento[]): XLSX.WorkSheet {
   return ws;
 }
 
-function buildAtencaoSheet(rows: AtencaoRow[]): XLSX.WorkSheet {
-  const ws: XLSX.WorkSheet = {};
+function buildAtencaoSheet(rows: AtencaoRow[]): WorkSheet {
+  const ws: WorkSheet = {};
   let r = 0;
   setCell(ws, r++, 0, 'CMV Real — Atenção', TITLE_STYLE);
   setCell(
@@ -596,8 +595,8 @@ function buildAtencaoSheet(rows: AtencaoRow[]): XLSX.WorkSheet {
 
 function buildTransferenciasSheet(
   transferencias: TransferenciaResumo[],
-): XLSX.WorkSheet {
-  const ws: XLSX.WorkSheet = {};
+): WorkSheet {
+  const ws: WorkSheet = {};
   let r = 0;
   setCell(ws, r++, 0, 'CMV Real — Transferências', TITLE_STYLE);
   setCell(ws, r++, 0, 'Movimentos entre lojas no mês', SUBTITLE_STYLE);
