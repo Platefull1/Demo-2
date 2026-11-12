@@ -129,10 +129,10 @@ export function OrfaosCatalogoBlock({
   if (!open) return null;
 
   return (
-    <Alert variant="warning" className="py-3 px-4 space-y-3">
+    <Alert variant="info" className="py-3 px-4 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <AlertTitle className="text-sm text-warning">
+          <AlertTitle className="text-sm text-foreground">
             Fora do catálogo CMV Real
           </AlertTitle>
           <AlertDescription className="text-xs text-muted-foreground mt-1">
@@ -270,7 +270,7 @@ export function OrfaosCatalogoBlock({
       )}
 
       {msg ? (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       ) : null}

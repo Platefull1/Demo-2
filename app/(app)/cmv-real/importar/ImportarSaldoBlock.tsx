@@ -425,7 +425,7 @@ export function ImportarSaldoBlock() {
         </div>
       )}
       {msg && (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       )}
@@ -507,7 +507,7 @@ export function ImportarSaldoBlock() {
                       className={cn(
                         'border-t border-border',
                         perdido && 'bg-destructive/10 text-destructive',
-                        foraCatalogo && !perdido && 'bg-warning/10'
+                        foraCatalogo && !perdido && 'bg-muted'
                       )}
                     >
                       <td className="py-1.5 px-2 text-muted-foreground">
@@ -559,12 +559,12 @@ export function ImportarSaldoBlock() {
                             : '–'}
                         </div>
                         {i.custoOrigemDetalhe ? (
-                          <div className="truncate text-[11px] opacity-80">
+                          <div className="truncate text-xs opacity-80">
                             {i.custoOrigemDetalhe}
                           </div>
                         ) : null}
                         {i.custoAntigo ? (
-                          <div className="text-[11px] text-warning">
+                          <div className="text-xs text-muted-foreground">
                             Custo antigo (&gt;3 meses)
                           </div>
                         ) : null}
@@ -575,7 +575,7 @@ export function ImportarSaldoBlock() {
                           perdido
                             ? 'text-destructive font-medium'
                             : foraCatalogo
-                              ? 'text-warning font-medium'
+                              ? 'text-foreground font-medium'
                               : 'text-muted-foreground'
                         )}
                       >

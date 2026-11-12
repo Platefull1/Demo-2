@@ -324,7 +324,7 @@ export default function CmvRealProdutosPage() {
       </div>
 
       {msg ? (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       ) : null}

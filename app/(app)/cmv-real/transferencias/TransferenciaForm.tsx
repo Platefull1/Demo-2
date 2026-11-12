@@ -7,6 +7,13 @@ import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -311,41 +318,51 @@ export function TransferenciaForm({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Loja de origem</Label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
-                value={lojaOrigem}
+              <Select
+                value={lojaOrigem || undefined}
                 disabled={isEdicao}
-                onChange={(e) => {
-                  setLojaOrigem(e.target.value);
-                  if (e.target.value === lojaDestino) setLojaDestino('');
-                  // Limpa custos ao trocar origem
+                onValueChange={(v) => {
+                  setLojaOrigem(v);
+                  if (v === lojaDestino) setLojaDestino('');
                   setItens((prev) =>
-                    prev.map((it) => ({ ...it, custoUnitario: '', custoOrigem: null })),
+                    prev.map((it) => ({
+                      ...it,
+                      custoUnitario: '',
+                      custoOrigem: null,
+                    })),
                   );
                 }}
               >
-                {lojasOpts.map((s) => (
-                  <option key={s} value={s}>
-                    {CMV_STORE_LABELS[s] || s}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-10 w-full text-sm">
+                  <SelectValue placeholder="Origem" />
+                </SelectTrigger>
+                <SelectContent>
+                  {lojasOpts.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {CMV_STORE_LABELS[s] || s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Loja de destino</Label>
-              <select
-                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm disabled:opacity-50"
-                value={lojaDestino}
+              <Select
+                value={lojaDestino || undefined}
                 disabled={isEdicao}
-                onChange={(e) => setLojaDestino(e.target.value)}
+                onValueChange={setLojaDestino}
               >
-                <option value="">Escolher…</option>
-                {outras.map((s) => (
-                  <option key={s} value={s}>
-                    {CMV_STORE_LABELS[s] || s}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="h-10 w-full text-sm">
+                  <SelectValue placeholder="Escolher…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {outras.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {CMV_STORE_LABELS[s] || s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -399,14 +416,18 @@ export function TransferenciaForm({
               <div key={it.key} className="rounded-md border border-border p-3 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-sm font-medium text-foreground">{it.nome}</p>
-                  <button
+                  <Button
                     type="button"
-                    className="text-muted-foreground hover:text-destructive p-1"
-                    onClick={() => setItens((prev) => prev.filter((x) => x.key !== it.key))}
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 shrink-0 text-muted-foreground"
+                    onClick={() =>
+                      setItens((prev) => prev.filter((x) => x.key !== it.key))
+                    }
                     aria-label="Remover item"
                   >
                     <Trash2 className="size-4" />
-                  </button>
+                  </Button>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -451,7 +472,7 @@ export function TransferenciaForm({
                 ) : it.custoOrigem === 'CUSTO_MANUAL' ? (
                   <p className="text-xs text-muted-foreground">Custo manual</p>
                 ) : (
-                  <p className="text-xs text-warning">Preencha o custo — sem histórico</p>
+                  <p className="text-xs text-muted-foreground">Preencha o custo — sem histórico</p>
                 )}
               </div>
             ))}
@@ -482,8 +503,8 @@ export function TransferenciaForm({
 
           {msg && (
             <p className="text-sm text-destructive" role="alert">
-              {msg}
-            </p>
+          {msg}
+        </p>
           )}
 
           <Button

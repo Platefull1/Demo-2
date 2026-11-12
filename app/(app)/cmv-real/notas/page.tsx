@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { MonthPicker } from '@/components/ui/month-picker';
 import {
   Select,
   SelectContent,
@@ -186,8 +187,6 @@ function CmvRealNotasPageInner() {
   const [lookingUp, setLookingUp] = useState(false);
   const [soComAlerta, setSoComAlerta] = useState(false);
 
-  const anos = [agora.getFullYear(), agora.getFullYear() - 1, agora.getFullYear() - 2];
-
   const listQuery = useMemo(
     () => buildNotasListQuery({ status, storeSlug, mes, ano }),
     [status, storeSlug, mes, ano],
@@ -353,7 +352,7 @@ function CmvRealNotasPageInner() {
               {n.status === 'APROVADA' && n.aprovacaoAutomatica && (
                 <Badge
                   variant="outline"
-                  className="border-primary/40 text-accent-foreground bg-accent font-normal text-[10px] px-1.5 py-0"
+                  className="border-primary/40 text-accent-foreground bg-accent font-normal text-xs px-1.5 py-0"
                   title="Aprovada automaticamente"
                 >
                   Auto
@@ -362,7 +361,7 @@ function CmvRealNotasPageInner() {
               {n.status === 'APROVADA' && n.aprovadaComAlerta && (
                 <Badge
                   variant="outline"
-                  className="border-warning/40 text-warning font-normal text-[10px] px-1.5 py-0"
+                  className="border-border text-muted-foreground font-normal text-xs px-1.5 py-0"
                   title="Aprovada com alerta"
                 >
                   Com alerta
@@ -582,41 +581,42 @@ function CmvRealNotasPageInner() {
               ))}
             </SelectContent>
           </Select>
-          <Select
-            value={String(mes)}
-            onValueChange={(v) => setFilters({ mes: Number(v) })}
-          >
-            <SelectTrigger className="h-8 w-[120px] text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {MESES.map((m, i) => (
-                <SelectItem key={m} value={String(i + 1)}>
-                  {m}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select
-            value={String(ano)}
-            onValueChange={(v) => setFilters({ ano: Number(v) })}
-          >
-            <SelectTrigger className="h-8 w-[88px] text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {anos.map((a) => (
-                <SelectItem key={a} value={String(a)}>
-                  {a}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <MonthPicker
+            value={`${ano}-${String(mes).padStart(2, '0')}`}
+            onChange={(v) => {
+              const [y, m] = v.split('-').map(Number);
+              if (y && m) setFilters({ ano: y, mes: m });
+            }}
+          />
+          {(search ||
+            soComAlerta ||
+            storeSlug ||
+            mes !== filterDefaults.mes ||
+            ano !== filterDefaults.ano) && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              onClick={() => {
+                setSearch('');
+                setSoComAlerta(false);
+                setMsg(null);
+                setFilters({
+                  storeSlug: '',
+                  mes: filterDefaults.mes,
+                  ano: filterDefaults.ano,
+                });
+              }}
+            >
+              Limpar
+            </Button>
+          )}
         </div>
       </div>
 
       {msg ? (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       ) : null}

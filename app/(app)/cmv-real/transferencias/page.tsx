@@ -10,6 +10,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { MonthPicker } from '@/components/ui/month-picker';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -314,19 +321,25 @@ export default function CmvRealTransferenciasPage() {
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <select
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[140px]"
-            value={storeSlug}
+          <Select
+            value={storeSlug || '__all__'}
             disabled={lojaTravada && lojasOpts.length <= 1}
-            onChange={(e) => setStoreSlug(e.target.value)}
+            onValueChange={(v) => setStoreSlug(v === '__all__' ? '' : v)}
           >
-            {!lojaTravada ? <option value="">Todas as lojas</option> : null}
-            {lojasOpts.map((s) => (
-              <option key={s} value={s}>
-                {CMV_STORE_LABELS[s] || s}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-8 w-[160px] text-sm">
+              <SelectValue placeholder="Loja" />
+            </SelectTrigger>
+            <SelectContent>
+              {!lojaTravada ? (
+                <SelectItem value="__all__">Todas as lojas</SelectItem>
+              ) : null}
+              {lojasOpts.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {CMV_STORE_LABELS[s] || s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <MonthPicker
             value={competencia}
             onChange={setCompetencia}
@@ -354,7 +367,7 @@ export default function CmvRealTransferenciasPage() {
       ) : null}
 
       {msg ? (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       ) : null}

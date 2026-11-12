@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type ColumnDef } from '@tanstack/react-table';
-import { Loader2, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { DataTable } from '@/components/layout/DataTable';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -259,11 +260,12 @@ export default function CmvRealLancamentosPage() {
         <Button
           type="button"
           size="sm"
+          variant={showForm ? 'outline' : 'default'}
           onClick={() => setShowForm((v) => !v)}
           className="shrink-0"
         >
           <Plus className="size-4" />
-          Novo lançamento
+          {showForm ? 'Fechar formulário' : 'Novo lançamento'}
         </Button>
       </div>
 
@@ -281,71 +283,92 @@ export default function CmvRealLancamentosPage() {
       {showForm && (
         <div className="rounded-md border border-border bg-card p-4 space-y-3 max-w-xl">
           <p className="text-base font-semibold text-foreground">Novo lançamento</p>
-          <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger className="h-9 w-full text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {TIPOS.map((t) => (
-                <SelectItem key={t.value} value={t.value}>
-                  {t.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <DatePicker
-            value={data}
-            onChange={(v) => {
-              if (v) setData(v);
-            }}
-          />
-          <Select value={produtoId || undefined} onValueChange={setProdutoId}>
-            <SelectTrigger className="h-9 w-full text-sm">
-              <SelectValue placeholder="Produto…" />
-            </SelectTrigger>
-            <SelectContent>
-              {produtos.map((p) => (
-                <SelectItem key={p.estoqueInsumoId} value={p.estoqueInsumoId}>
-                  {p.nome} ({p.unidade})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              inputMode="decimal"
-              placeholder="Qtd"
-              value={quantidade}
-              onChange={(e) => setQuantidade(e.target.value)}
-              className="h-9"
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Tipo</Label>
+            <Select value={tipo} onValueChange={setTipo}>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIPOS.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Data</Label>
+            <DatePicker
+              value={data}
+              onChange={(v) => {
+                if (v) setData(v);
+              }}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Produto</Label>
+            <Select value={produtoId || undefined} onValueChange={setProdutoId}>
+              <SelectTrigger className="h-9 w-full text-sm">
+                <SelectValue placeholder="Produto…" />
+              </SelectTrigger>
+              <SelectContent>
+                {produtos.map((p) => (
+                  <SelectItem key={p.estoqueInsumoId} value={p.estoqueInsumoId}>
+                    {p.nome} ({p.unidade})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Quantidade</Label>
+              <Input
+                inputMode="decimal"
+                placeholder="0"
+                value={quantidade}
+                onChange={(e) => setQuantidade(e.target.value)}
+                className="h-9"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Valor (R$)</Label>
+              <Input
+                inputMode="decimal"
+                placeholder="0,00"
+                value={valorTotal}
+                onChange={(e) => setValorTotal(e.target.value)}
+                className="h-9"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Observação (opcional)
+            </Label>
             <Input
-              inputMode="decimal"
-              placeholder="Valor R$"
-              value={valorTotal}
-              onChange={(e) => setValorTotal(e.target.value)}
+              placeholder="Ex.: troca, avaria…"
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
               className="h-9"
             />
           </div>
-          <Input
-            placeholder="Observação (opcional)"
-            value={observacao}
-            onChange={(e) => setObservacao(e.target.value)}
-            className="h-9"
-          />
           <Button
             type="button"
-            disabled={saving || !produtoId}
+            disabled={!produtoId}
+            loading={saving}
             onClick={() => void salvar()}
             className="w-full"
           >
-            {saving ? <Loader2 className="size-4 animate-spin" /> : 'Salvar'}
+            Salvar
           </Button>
         </div>
       )}
 
       {msg ? (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       ) : null}
@@ -390,7 +413,7 @@ export default function CmvRealLancamentosPage() {
                 ? ` · ${l.observacao}`
                 : ''}
             </p>
-            <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+            <p className="text-xs text-foreground mt-1 tabular-nums">
               {formatQuantidadeBr(l.quantidade)} · {formatValor(l.valorTotal)}
               {l.lojaDestino &&
                 ` → ${CMV_STORE_LABELS[l.lojaDestino] || l.lojaDestino}`}

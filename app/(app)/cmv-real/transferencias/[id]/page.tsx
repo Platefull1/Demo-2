@@ -283,7 +283,7 @@ export default function TransferenciaDetalhePage() {
       ) : null}
 
       {msg ? (
-        <p className="text-sm text-warning" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
       ) : null}
@@ -332,7 +332,7 @@ export default function TransferenciaDetalhePage() {
                   className="grid grid-cols-2 border-b border-border last:border-b-0"
                 >
                   <div
-                    className={`p-4 border-r border-border ${ln.divergente ? 'bg-warning/10' : ''}`}
+                    className={`p-4 border-r border-border ${ln.divergente ? 'bg-muted' : ''}`}
                   >
                     <p className="text-sm font-medium text-foreground">
                       {meta?.nome || ln.estoqueInsumoId}
@@ -346,7 +346,7 @@ export default function TransferenciaDetalhePage() {
                       {ln.qtdSaida > 0 ? brl(ln.valorSaida) : ''}
                     </p>
                   </div>
-                  <div className={`p-4 ${ln.divergente ? 'bg-warning/10' : ''}`}>
+                  <div className={`p-4 ${ln.divergente ? 'bg-muted' : ''}`}>
                     <p className="text-sm font-medium text-foreground">
                       {meta?.nome || ln.estoqueInsumoId}
                     </p>

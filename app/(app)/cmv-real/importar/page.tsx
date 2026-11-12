@@ -391,7 +391,7 @@ export default function CmvRealImportarPage() {
               <> · {resumo.catalogoEstoqueSize} produtos no estoque</>
             )}
             {counts.pendentes > 0 && (
-              <span className="text-warning">
+              <span className="text-muted-foreground">
                 {' '}
                 · {counts.pendentes} sugestão(ões) aguardando decisão
               </span>
@@ -399,9 +399,9 @@ export default function CmvRealImportarPage() {
           </p>
         )}
         {msg && (
-          <p className="text-sm text-warning" role="alert">
-            {msg}
-          </p>
+          <p className="text-sm text-destructive" role="alert">
+          {msg}
+        </p>
         )}
 
         {rows && (
@@ -422,7 +422,7 @@ export default function CmvRealImportarPage() {
                       key={`${r.linha}-${r.nome}`}
                       className={
                         r.action === null
-                          ? 'border-t border-border bg-warning/5'
+                          ? 'border-t border-border bg-muted/50'
                           : 'border-t border-border'
                       }
                     >
@@ -441,7 +441,7 @@ export default function CmvRealImportarPage() {
                             r.status === 'casado'
                               ? 'text-success'
                               : r.status === 'sugerido'
-                                ? 'text-warning'
+                                ? 'text-muted-foreground'
                                 : 'text-destructive'
                           }
                         >
@@ -485,7 +485,7 @@ export default function CmvRealImportarPage() {
                               }}
                               className={`w-full bg-background border rounded-md px-2 py-1.5 ${
                                 r.action === null
-                                  ? 'border-warning/50'
+                                  ? 'border-border'
                                   : 'border-border'
                               }`}
                             >

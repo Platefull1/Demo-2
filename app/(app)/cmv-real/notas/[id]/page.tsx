@@ -10,9 +10,16 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Loader2, Check, Ban, Unlock } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Loader2, Check, Ban, Unlock } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { etiquetaNatureza, naturezaDoItem } from '@/lib/nfe/bonificacao';
 import {
   buildNotasListQuery,
@@ -94,7 +101,7 @@ function parseFator(raw: string): number | null {
 function statusBadgeClass(status: string): string {
   if (status === 'APROVADA') return 'bg-success/15 text-success border-success/30';
   if (status === 'IGNORADA') return 'bg-muted text-muted-foreground border-border';
-  return 'bg-warning/15 text-warning border-warning/30';
+  return 'bg-muted text-muted-foreground border-border';
 }
 
 function CmvRealNotaDetalhePageInner() {
@@ -628,7 +635,7 @@ function CmvRealNotaDetalhePageInner() {
         >
           <ArrowLeft className="w-4 h-4" /> Voltar
         </Link>
-        <p className="text-sm text-warning">{msg || 'Nota não encontrada'}</p>
+        <p className="text-sm text-destructive">{msg || 'Nota não encontrada'}</p>
       </div>
     );
   }
@@ -692,7 +699,7 @@ function CmvRealNotaDetalhePageInner() {
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="text-[11px] text-muted-foreground">Item {it.numeroItem}</p>
+            <p className="text-xs text-muted-foreground">Item {it.numeroItem}</p>
             <p className="text-sm text-foreground font-medium leading-snug mt-0.5">
               {it.descricao}
             </p>
@@ -787,37 +794,35 @@ function CmvRealNotaDetalhePageInner() {
         </div>
 
         {(ambiguo || suspeito) && (
-          <div
-            className={`rounded-lg px-2.5 py-2 text-xs ${
-              ambiguo
-                ? 'bg-warning/15 border border-warning/40 text-warning'
-                : 'bg-warning/15 border border-warning/40 text-warning'
-            }`}
-          >
-            {ambiguo && (
-              <p className="font-medium">
-                {textoAlertaAmbiguoRevisao(
-                  it.unidadeComercial,
-                  interp.unidadeNaoConfiavel,
-                )}
-              </p>
-            )}
-            {suspeito && (
-              <p className={ambiguo ? 'mt-1.5' : ''}>
-                Custo fora da faixa esperada — confira o valor digitado.
-              </p>
-            )}
+          <div className="rounded-md border border-border bg-muted px-2.5 py-2 text-xs text-muted-foreground flex gap-2">
+            <AlertTriangle className="size-3.5 shrink-0 text-warning mt-0.5" aria-hidden />
+            <div>
+              {ambiguo && (
+                <p className="font-medium text-foreground">
+                  {textoAlertaAmbiguoRevisao(
+                    it.unidadeComercial,
+                    interp.unidadeNaoConfiavel,
+                  )}
+                </p>
+              )}
+              {suspeito && (
+                <p className={ambiguo ? 'mt-1.5' : ''}>
+                  Custo fora da faixa esperada — confira o valor digitado.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
         {editavel && canRevisar ? (
           <>
             <div className="space-y-1.5">
-              <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
                 Produto
               </p>
               {produtoGenerico && (
-                <p className="text-xs text-warning font-medium">
+                <p className="text-xs text-foreground font-medium flex items-center gap-1.5">
+                  <AlertTriangle className="size-3.5 text-warning shrink-0" aria-hidden />
                   Confira: é o mesmo produto?
                 </p>
               )}
@@ -826,10 +831,10 @@ function CmvRealNotaDetalhePageInner() {
                   {sugs.slice(0, 3).map((s, idx) => (
                     <li key={s.id}>
                       <label
-                        className={`flex items-start gap-2 rounded-lg border px-2.5 py-2 cursor-pointer ${
+                        className={`flex items-start gap-2 rounded-md border px-2.5 py-2.5 cursor-pointer min-h-11 ${
                           d.produtoId === s.id
                             ? produtoGenerico
-                              ? 'border-warning/50 bg-warning/10'
+                              ? 'border-border bg-muted'
                               : 'border-primary/40 bg-accent'
                             : 'border-border bg-background'
                         }`}
@@ -875,12 +880,12 @@ function CmvRealNotaDetalhePageInner() {
                           <span className="text-sm text-foreground block truncate">
                             {s.nome}
                             {idx === 0 && !produtoGenerico ? (
-                              <span className="text-[10px] text-muted-foreground ml-1">
+                              <span className="text-xs text-muted-foreground ml-1">
                                 (melhor)
                               </span>
                             ) : null}
                           </span>
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-xs text-muted-foreground">
                             score {(s.score * 100).toFixed(0)}%
                           </span>
                         </span>
@@ -890,49 +895,51 @@ function CmvRealNotaDetalhePageInner() {
                 </ul>
               ) : null}
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() =>
                   setDraft((p) => ({
                     ...p,
                     [it.id]: { ...d, outro: !d.outro },
                   }))
                 }
-                className={
-                  produtoGenerico
-                    ? 'text-sm font-semibold text-primary underline underline-offset-2'
-                    : 'text-[11px] text-muted-foreground underline'
-                }
               >
                 {d.outro || sugs.length === 0
                   ? 'Escolher da lista'
                   : 'Outro produto…'}
-              </button>
+              </Button>
 
               {(d.outro || sugs.length === 0) && (
-                <select
-                  value={d.produtoId}
-                  data-revisao-item={it.id}
-                  data-revisao-campo="produto"
-                  onChange={(e) =>
+                <Select
+                  value={d.produtoId || undefined}
+                  onValueChange={(v) =>
                     setDraft((p) => ({
                       ...p,
                       [it.id]: {
                         ...d,
-                        produtoId: e.target.value,
+                        produtoId: v,
                         outro: true,
                       },
                     }))
                   }
-                  className="w-full bg-background border border-border text-sm rounded-lg px-2.5 py-2"
                 >
-                  <option value="">Selecione…</option>
-                  {produtos.map((p) => (
-                    <option key={p.estoqueInsumoId} value={p.estoqueInsumoId}>
-                      {p.nome} ({p.unidade})
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger
+                    className="w-full h-9 text-sm"
+                    data-revisao-item={it.id}
+                    data-revisao-campo="produto"
+                  >
+                    <SelectValue placeholder="Selecione…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {produtos.map((p) => (
+                      <SelectItem key={p.estoqueInsumoId} value={p.estoqueInsumoId}>
+                        {p.nome} ({p.unidade})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
 
@@ -976,7 +983,7 @@ function CmvRealNotaDetalhePageInner() {
                                   {opt.label}
                                 </span>
                                 {provavel && (
-                                  <span className="text-[10px] uppercase tracking-wide text-accent-foreground bg-accent border border-primary/30 rounded px-1.5 py-0.5">
+                                  <span className="text-xs uppercase tracking-wide text-accent-foreground bg-accent border border-primary/30 rounded px-1.5 py-0.5">
                                     provável
                                   </span>
                                 )}
@@ -1034,7 +1041,7 @@ function CmvRealNotaDetalhePageInner() {
                       }
                       className={`w-full rounded-lg bg-muted pl-3 pr-10 py-2.5 text-base font-semibold text-foreground caret-foreground placeholder:text-muted-foreground ${
                         ambiguo && !usaCards
-                          ? 'border-2 border-warning'
+                          ? 'border-2 border-foreground/40'
                           : 'border border-border'
                       }`}
                     />
@@ -1102,27 +1109,24 @@ function CmvRealNotaDetalhePageInner() {
             )}
 
             <div className="flex gap-2 pt-1">
-              <button
+              <Button
                 type="button"
                 disabled={busy}
+                loading={busy}
                 onClick={() => void confirmar(it.id)}
-                className="flex-1 flex items-center justify-center gap-1.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm py-2.5 active:scale-[0.98] disabled:opacity-50"
+                className="flex-1"
               >
-                {busy ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
+                {!busy ? <Check className="size-4" /> : null}
                 Confirmar
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 disabled={busy}
                 onClick={() => void ignorar(it.id)}
-                className="rounded-lg border border-border px-3 py-2.5 text-sm text-muted-foreground active:bg-muted"
               >
                 Ignorar
-              </button>
+              </Button>
             </div>
           </>
         ) : (
@@ -1149,7 +1153,7 @@ function CmvRealNotaDetalhePageInner() {
       <header className="space-y-2">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <h2 className="text-lg font-semibold text-foreground flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold text-foreground flex flex-wrap items-center gap-2">
               NF {nota.numero}
               {nota.itens.some(
                 (it) =>
@@ -1169,7 +1173,7 @@ function CmvRealNotaDetalhePageInner() {
             </p>
           </div>
           <span
-            className={`text-[10px] font-medium border px-2 py-1 rounded ${statusBadgeClass(nota.status)}`}
+            className={`text-xs font-medium border px-2 py-1 rounded-md ${statusBadgeClass(nota.status)}`}
           >
             {notaStatusLabel(nota.status)}
           </span>
@@ -1177,30 +1181,33 @@ function CmvRealNotaDetalhePageInner() {
         <p className="text-sm text-muted-foreground">
           {nota.fornecedor.nomeFantasia || nota.fornecedor.razaoSocial}
         </p>
-        <p className="text-[11px] text-muted-foreground">{nota.fornecedor.cnpj}</p>
+        <p className="text-xs text-muted-foreground">{nota.fornecedor.cnpj}</p>
 
         {canMapeamentoEditar && !nota.fornecedor.ignorarCmv && (
-          <button
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             disabled={saving === 'fornecedor'}
+            loading={saving === 'fornecedor'}
             onClick={() => void fornecedorFora()}
-            className="w-full flex items-center justify-center gap-2 rounded-lg border border-destructive/40 bg-destructive/10 text-destructive text-sm font-medium py-2.5 active:bg-destructive/20"
+            className="w-full sm:w-auto"
           >
-            <Ban className="w-4 h-4" />
+            <Ban className="size-4" />
             Fornecedor fora do CMV
-          </button>
+          </Button>
         )}
       </header>
 
       {msg && (
-        <p className="text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg px-3 py-2">
+        <p className="text-sm text-destructive border border-border bg-muted rounded-md px-3 py-2">
           {msg}
         </p>
       )}
 
       {pendentes.length > 0 && (
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-warning">
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Pendentes ({pendentes.length})
           </h3>
           {pendentes.map((it) => renderItem(it, true))}
@@ -1220,55 +1227,47 @@ function CmvRealNotaDetalhePageInner() {
         nota.status === 'EM_REVISAO' &&
         resolvidos.some((i) => i.status === 'MAPEADO') &&
         pendentes.length === 0 && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             disabled={saving === 'itens_revisao'}
+            loading={saving === 'itens_revisao'}
             onClick={() => void itensParaRevisao()}
-            className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card text-foreground font-medium text-sm py-2.5"
+            className="w-full sm:w-auto"
           >
-            {saving === 'itens_revisao' ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              'Corrigir fatores (voltar itens para pendentes)'
-            )}
-          </button>
+            Corrigir fatores (voltar itens para pendentes)
+          </Button>
         )}
 
       {canRevisar && nota.status === 'APROVADA' && (
-        <button
-          type="button"
-          disabled={saving === 'reabrir'}
-          onClick={() => void reabrir()}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-border bg-card text-foreground font-semibold text-sm py-3 sticky bottom-4 shadow-lg"
-        >
-          {saving === 'reabrir' ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              <Unlock className="w-4 h-4 text-muted-foreground" />
-              Reabrir nota
-            </>
-          )}
-        </button>
+        <div className="sticky bottom-4 flex justify-end">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving === 'reabrir'}
+            loading={saving === 'reabrir'}
+            onClick={() => void reabrir()}
+          >
+            <Unlock className="size-4" />
+            Reabrir nota
+          </Button>
+        </div>
       )}
 
       {canRevisar && nota.status === 'EM_REVISAO' && (
         <div className="sticky bottom-4 space-y-1.5">
           {pendentes.length === 0 ? (
-            <button
+            <Button
               type="button"
               disabled={saving === 'aprovar'}
+              loading={saving === 'aprovar'}
               onClick={() => void aprovar()}
-              className="w-full rounded-xl bg-primary text-primary-foreground font-semibold text-sm py-3 shadow-lg"
+              className="w-full sm:w-auto"
             >
-              {saving === 'aprovar' ? (
-                <Loader2 className="w-4 h-4 animate-spin mx-auto" />
-              ) : (
-                'Aprovar nota'
-              )}
-            </button>
+              Aprovar nota
+            </Button>
           ) : null}
-          <p className="text-xs text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground">
             Enter para aprovar
           </p>
         </div>
