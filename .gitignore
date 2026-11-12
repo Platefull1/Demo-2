@@ -34,6 +34,10 @@ tsconfig.tsbuildinfo
 
 tmp/
 
+# Exportações CMV geradas localmente (raiz do repo)
+/cmv-*.xlsx
+/*.xlsx
+
 scripts/.unidades-vendidas-checkpoint.json
 scripts/.unidades-vendidas-parcial.json
 scripts/.unidades-vendidas-itens-checkpoint.json

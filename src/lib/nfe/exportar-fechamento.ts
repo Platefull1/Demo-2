@@ -294,15 +294,9 @@ function buildResumoSheet(params: {
   r += 1;
   const det = params.vendaMesDetalhe;
   setCell(ws, r++, 0, 'Venda do mês', SECTION_STYLE);
-  setCell(ws, r, 0, 'Venda bruta', LABEL_STYLE);
-  setCell(
-    ws,
-    r++,
-    1,
-    det?.vendaBruta ?? params.vendaMes,
-    MONEY_STYLE,
-  );
   if (det) {
+    setCell(ws, r, 0, 'Venda bruta', LABEL_STYLE);
+    setCell(ws, r++, 1, det.vendaBruta, MONEY_STYLE);
     setCell(
       ws,
       r,

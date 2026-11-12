@@ -95,6 +95,11 @@ describe('exportarFechamentoXlsx', () => {
     assert.ok(flat.some((c) => c.includes('CMV PARCIAL')));
     assert.ok(flat.some((c) => c.includes('Pontos de atenção: nenhum')));
     assert.ok(flat.some((c) => c.includes('Total dos ajustes')));
+    assert.ok(flat.some((c) => c === 'Venda bruta'));
+    assert.ok(flat.some((c) => String(c).includes('Taxas entrega')));
+    assert.ok(flat.some((c) => String(c).includes('Consumo interno')));
+    assert.ok(flat.some((c) => String(c).includes('Créditos')));
+    assert.ok(flat.some((c) => String(c).includes('Venda líquida')));
   });
 
   it('inclui aba Atenção para consumo negativo / custo pendente', () => {
