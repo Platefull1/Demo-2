@@ -32,6 +32,10 @@ function asSlug(storeSlug: string): SaiposStoreSlug {
   return s;
 }
 
+/**
+ * Sync manual (botão CMV Real) e automático (n8n → /api/cmv/vendas/sync-auto).
+ * Venda líquida + refeições; preserva ajusteVenda no upsert.
+ */
 export async function syncRefeicoesSaipos(params: {
   tenantUserId: string;
   storeSlug: string;

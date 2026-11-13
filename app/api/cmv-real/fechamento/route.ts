@@ -20,6 +20,7 @@ import {
   type AjusteVendaMes,
   type VendaMesDetalhe,
 } from '@/lib/cmv-real/venda-liquida';
+import { ultimaSyncAutoPorLoja } from '@/lib/cmv-real/sync-vendas-auto';
 import { randomUUID } from 'crypto';
 
 function decimal(n: number): Prisma.Decimal {
@@ -83,6 +84,10 @@ export async function GET(req: NextRequest) {
 
   const { getRhContext } = await import('@/lib/rh-auth');
   const ctx = await getRhContext();
+  const ultimaSyncAuto = await ultimaSyncAutoPorLoja({
+    tenantUserId: tenant.tenantUserId,
+    storeSlug,
+  });
 
   return NextResponse.json({
     ok: true,
@@ -95,6 +100,7 @@ export async function GET(req: NextRequest) {
       tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_REABRIR) ?? false),
     canLancamentos:
       tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_LANCAMENTOS) ?? false),
+    ultimaSyncAuto,
     fechamento: {
       id: data.fechamento.id,
       status: data.fechamento.status,

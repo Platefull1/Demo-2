@@ -106,6 +106,7 @@ model User {
   cmvFechamentos         CmvFechamento[]
   cmvRefeicoes           CmvRefeicao[]
   cmvTransferencias      CmvTransferencia[]
+  cmvSyncLogs            CmvSyncLog[]
   nfeConfig              NfeConfig?
 
   @@map("users")
@@ -2125,6 +2126,11 @@ enum CmvFechamentoStatus {
   FECHADO
 }
 
+enum CmvSyncStatus {
+  SUCESSO
+  FALHA
+}
+
 enum CmvTransferenciaStatus {
   AGUARDANDO_ENTRADA
   AGUARDANDO_SAIDA
@@ -2408,6 +2414,29 @@ model NfeConfig {
   updatedAt                  DateTime @updatedAt @map("updated_at")
 
   @@map("nfe_configs")
+}
+
+/// Log de sync automático (n8n) de vendas/refeições CMV Real via API de Dados Saipos.
+model CmvSyncLog {
+  id        String        @id @default(cuid())
+  userId    String        @map("user_id")
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeSlug String        @map("store_slug")
+  /// Janela pedida YYYY-MM-DD
+  de        String
+  ate       String
+  /// Competências efetivamente sincronizadas, ex. ["2026-10","2026-11"]
+  competencias Json       @default("[]")
+  status    CmvSyncStatus
+  erro      String?
+  /// Duração em ms
+  duracaoMs Int           @map("duracao_ms")
+  /// Detalhe opcional (upserts, vendaMes, etc.)
+  detalhe   Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([userId, storeSlug, createdAt])
+  @@map("cmv_sync_logs")
 }
 
 /// Refeições internas (jantas / sócio) sincronizadas da API de Dados Saipos.

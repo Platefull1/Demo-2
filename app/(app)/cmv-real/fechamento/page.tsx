@@ -156,6 +156,20 @@ function fmtSyncSp(iso: string | undefined | null): string | null {
   });
 }
 
+/** Última sync automática: dd/MM HH:mm (Brasília). */
+function fmtSyncAutoSp(iso: string | undefined | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function cellNum(
   n: number,
   opts?: { decimals?: number; tone?: 'destructive' | 'success' | 'foreground' }
@@ -242,6 +256,11 @@ export default function CmvRealFechamentoPage() {
   } | null>(null);
   const [ajusteVendaValor, setAjusteVendaValor] = useState('');
   const [ajusteVendaMotivo, setAjusteVendaMotivo] = useState('');
+  const [ultimaSyncAuto, setUltimaSyncAuto] = useState<{
+    createdAt: string;
+    status: 'SUCESSO' | 'FALHA';
+    erro: string | null;
+  } | null>(null);
   const [syncingRefeicoes, setSyncingRefeicoes] = useState(false);
   const [refeicoes, setRefeicoes] = useState<
     Array<{
@@ -331,6 +350,7 @@ export default function CmvRealFechamentoPage() {
       );
       setVendaMesOrigem(data.fechamento?.vendaMesOrigem ?? null);
       setVendaMesDetalhe(data.fechamento?.vendaMesDetalhe ?? null);
+      setUltimaSyncAuto(data.ultimaSyncAuto ?? null);
       if (data.fechamento?.vendaMesDetalhe?.vendaLiquida != null) {
         const d = data.fechamento.vendaMesDetalhe;
         const adj = d.ajusteVenda?.valor ?? 0;
@@ -873,6 +893,23 @@ export default function CmvRealFechamentoPage() {
                   ? ` Parcial até ${fmtSyncSp(vendaMesDetalhe?.calculadoEm)}.`
                   : ''}
               </p>
+              {ultimaSyncAuto && fmtSyncAutoSp(ultimaSyncAuto.createdAt) ? (
+                <p
+                  className={cn(
+                    'mt-1 flex items-center gap-1.5 text-xs',
+                    ultimaSyncAuto.status === 'FALHA'
+                      ? 'text-destructive'
+                      : 'text-muted-foreground',
+                  )}
+                  title={ultimaSyncAuto.erro ?? undefined}
+                >
+                  {ultimaSyncAuto.status === 'FALHA' ? (
+                    <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
+                  ) : null}
+                  Última sincronização automática:{' '}
+                  {fmtSyncAutoSp(ultimaSyncAuto.createdAt)}
+                </p>
+              ) : null}
             </div>
 
             {vendaMesDetalhe ? (
