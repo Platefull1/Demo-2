@@ -10,17 +10,24 @@ import { SaiposDataApiError } from '@/lib/saipos/dataApi';
 /**
  * POST /api/cmv/vendas/sync-auto
  *
- * Sync automático (n8n) — uma loja por chamada.
- * Auth: header x-api-key (ServiceApiKey), igual /api/reports/due.
+ * Auth: x-api-key (ServiceApiKey).
  *
- * Body: { lojaId: string, de?: "YYYY-MM-DD", ate?: "YYYY-MM-DD" }
- * Sem datas: dia 1 do mês → ontem (SP); dias 1–3 incluem mês anterior.
+ * Body:
+ *   { lojaId: string, competencia?: "YYYY-MM", de?: "YYYY-MM-DD", ate?: "YYYY-MM-DD" }
+ *
+ * - Sem `competencia`: mode=plan — retorna competências da janela (n8n itera loja × competência).
+ * - Com `competencia`: mode=sync — processa UMA competência.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireServiceApiKey(req);
   if (auth instanceof NextResponse) return auth;
 
-  let body: { lojaId?: unknown; de?: unknown; ate?: unknown };
+  let body: {
+    lojaId?: unknown;
+    competencia?: unknown;
+    de?: unknown;
+    ate?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
@@ -35,6 +42,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const competencia =
+    typeof body.competencia === 'string' ? body.competencia.trim() : undefined;
   const de = typeof body.de === 'string' ? body.de.trim() : undefined;
   const ate = typeof body.ate === 'string' ? body.ate.trim() : undefined;
 
@@ -42,15 +51,22 @@ export async function POST(req: NextRequest) {
     const result = await runSyncVendasAuto({
       serviceUserId: auth.userId,
       lojaId,
+      competencia,
       de,
       ate,
     });
+    if (result.mode === 'plan') {
+      return NextResponse.json(result);
+    }
     return NextResponse.json(result, {
       status: result.ok ? 200 : 502,
     });
   } catch (e) {
     const status =
-      e && typeof e === 'object' && 'status' in e && typeof (e as { status: unknown }).status === 'number'
+      e &&
+      typeof e === 'object' &&
+      'status' in e &&
+      typeof (e as { status: unknown }).status === 'number'
         ? (e as { status: number }).status
         : e instanceof SaiposDataApiError
           ? e.status && e.status >= 400 && e.status < 600

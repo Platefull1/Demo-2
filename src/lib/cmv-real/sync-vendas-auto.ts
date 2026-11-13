@@ -7,7 +7,6 @@ import { prisma } from '@/lib/prisma';
 import {
   CMV_STORE_SLUGS,
   competenciaAnterior,
-  storeSlugFromLojaNome,
   type CmvStoreSlug,
 } from '@/lib/nfe/lojas';
 import { storeLabel } from '@/lib/nfe/ui-labels';
@@ -99,7 +98,14 @@ export type LojaSyncItem = {
   nome: string;
 };
 
-/** Lojas CMV do tenant (slug = lojaId para o n8n). */
+/**
+ * Lojas CMV do tenant (slug = lojaId para o n8n).
+ *
+ * Fonte: constante `CMV_STORE_SLUGS` (ahu, pilarzinho, portao, uberaba) —
+ * mesma lista do CMV Real / fechamento. Não deriva de Store/RhLoja
+ * (abrevições tipo PLRZ/PRT/UBE não mapeiam e cortariam lojas).
+ * Respeita `allowedStoreSlugs` do tenant (gerente com escopo).
+ */
 export async function listarLojasSyncDoTenant(
   serviceUserId: string,
 ): Promise<LojaSyncItem[]> {
@@ -108,44 +114,18 @@ export async function listarLojasSyncDoTenant(
 
   const allowed = tenant.allowedStoreSlugs;
   const slugs = (
-    allowed == null ? [...CMV_STORE_SLUGS] : allowed.filter((s) =>
-      (CMV_STORE_SLUGS as readonly string[]).includes(s),
-    )
+    allowed == null
+      ? [...CMV_STORE_SLUGS]
+      : allowed.filter((s) =>
+          (CMV_STORE_SLUGS as readonly string[]).includes(s),
+        )
   ) as CmvStoreSlug[];
 
-  // Confirma que o tenant tem cadastro Store/RhLoja para a loja (dono).
-  const [stores, rh] = await Promise.all([
-    prisma.store.findMany({
-      where: { userId: tenant.tenantUserId, isActive: true },
-      select: { name: true, abbreviation: true },
-    }),
-    prisma.rhLoja.findMany({
-      where: { userId: tenant.tenantUserId },
-      select: { nome: true },
-    }),
-  ]);
-
-  const owned = new Set<string>();
-  for (const s of stores) {
-    const slug =
-      storeSlugFromLojaNome(s.name) || storeSlugFromLojaNome(s.abbreviation);
-    if (slug) owned.add(slug);
-  }
-  for (const l of rh) {
-    const slug = storeSlugFromLojaNome(l.nome);
-    if (slug) owned.add(slug);
-  }
-
-  // Se não há cadastro explícito, ainda libera os slugs CMV padrão do tenant dono
-  // (dados CMV Real já usam storeSlug livre no fechamento).
-  const useOwned = owned.size > 0;
-  return slugs
-    .filter((slug) => !useOwned || owned.has(slug))
-    .map((slug) => ({
-      lojaId: slug,
-      storeSlug: slug,
-      nome: storeLabel(slug),
-    }));
+  return slugs.map((slug) => ({
+    lojaId: slug,
+    storeSlug: slug,
+    nome: storeLabel(slug),
+  }));
 }
 
 export async function assertLojaDoTenant(
@@ -181,47 +161,12 @@ export async function assertLojaDoTenant(
   };
 }
 
-export type SyncAutoResult = {
-  ok: boolean;
-  storeSlug: string;
-  de: string;
-  ate: string;
-  competencias: string[];
-  status: 'SUCESSO' | 'FALHA';
-  erro: string | null;
-  duracaoMs: number;
-  resultados: Array<{
-    competencia: string;
-    skipped?: boolean;
-    reason?: string;
-    upserted?: number;
-    removedOrIgnored?: number;
-    vendaMesSaipos?: number;
-    totalSalesFetched?: number;
-  }>;
-  logId: string;
-};
+const COMPETENCIA_RE = /^\d{4}-\d{2}$/;
 
-/**
- * Executa sync (mesma lógica do botão manual) para cada competência da janela.
- * Upsert idempotente; ajusteVenda preservado dentro de syncRefeicoesSaipos.
- */
-export async function runSyncVendasAuto(params: {
-  serviceUserId: string;
-  lojaId: string;
+export function resolveJanelaSyncAuto(params: {
   de?: string;
   ate?: string;
-}): Promise<SyncAutoResult> {
-  const started = Date.now();
-  const ownership = await assertLojaDoTenant(params.serviceUserId, params.lojaId);
-  if (ownership.ok === false) {
-    throw Object.assign(new Error(ownership.error), { status: ownership.status });
-  }
-
-  let de: string;
-  let ate: string;
-  let competencias: string[];
-
+}): { de: string; ate: string; competencias: string[] } {
   if (params.de != null || params.ate != null) {
     if (!params.de || !params.ate) {
       throw Object.assign(new Error('Informe de e ate juntos (YYYY-MM-DD)'), {
@@ -238,110 +183,217 @@ export async function runSyncVendasAuto(params: {
         status: 400,
       });
     }
-    de = params.de;
-    ate = params.ate;
-    competencias = competenciasNoIntervalo(de, ate);
-  } else {
-    const janela = janelaPadraoSyncAuto();
-    de = janela.de;
-    ate = janela.ate;
-    competencias = janela.competencias;
+    return {
+      de: params.de,
+      ate: params.ate,
+      competencias: competenciasNoIntervalo(params.de, params.ate),
+    };
+  }
+  return janelaPadraoSyncAuto();
+}
+
+export type SyncAutoPlanResult = {
+  ok: true;
+  mode: 'plan';
+  storeSlug: string;
+  lojaId: string;
+  de: string;
+  ate: string;
+  competencias: string[];
+};
+
+export type SyncAutoSyncResult = {
+  ok: boolean;
+  mode: 'sync';
+  storeSlug: string;
+  lojaId: string;
+  de: string;
+  ate: string;
+  competencia: string;
+  competencias: string[];
+  status: 'SUCESSO' | 'FALHA';
+  erro: string | null;
+  duracaoMs: number;
+  upserted?: number;
+  removedOrIgnored?: number;
+  vendaMesSaipos?: number;
+  totalSalesFetched?: number;
+  timings?: Record<string, number>;
+  logId: string;
+};
+
+export type SyncAutoResult = SyncAutoPlanResult | SyncAutoSyncResult;
+
+/**
+ * Sem `competencia`: só planeja (lista competências da janela) — n8n itera loja × competência.
+ * Com `competencia`: sync de UMA competência (mesma lógica do botão manual).
+ */
+export async function runSyncVendasAuto(params: {
+  serviceUserId: string;
+  lojaId: string;
+  competencia?: string;
+  de?: string;
+  ate?: string;
+}): Promise<SyncAutoResult> {
+  const ownership = await assertLojaDoTenant(params.serviceUserId, params.lojaId);
+  if (ownership.ok === false) {
+    throw Object.assign(new Error(ownership.error), { status: ownership.status });
   }
 
-  if (competencias.length === 0) {
+  const janela = resolveJanelaSyncAuto({ de: params.de, ate: params.ate });
+  if (janela.competencias.length === 0) {
     throw Object.assign(new Error('Nenhuma competência na janela'), {
       status: 400,
     });
   }
 
-  const resultados: SyncAutoResult['resultados'] = [];
-  const erros: string[] = [];
-
-  for (const competencia of competencias) {
-    const fechamento = await prisma.cmvFechamento.findUnique({
-      where: {
-        userId_storeSlug_competencia: {
-          userId: ownership.tenantUserId,
-          storeSlug: ownership.storeSlug,
-          competencia,
-        },
-      },
-      select: { status: true },
-    });
-    if (fechamento?.status === 'FECHADO') {
-      resultados.push({
-        competencia,
-        skipped: true,
-        reason: 'Competência fechada',
-      });
-      continue;
-    }
-
-    try {
-      const r = await syncRefeicoesSaipos({
-        tenantUserId: ownership.tenantUserId,
-        storeSlug: ownership.storeSlug,
-        competencia,
-        actorUserId: params.serviceUserId,
-      });
-      resultados.push({
-        competencia,
-        upserted: r.upserted,
-        removedOrIgnored: r.removedOrIgnored,
-        vendaMesSaipos: r.vendaMesSaipos,
-        totalSalesFetched: r.totalSalesFetched,
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Falha no sync';
-      erros.push(`${competencia}: ${msg}`);
-      resultados.push({
-        competencia,
-        skipped: true,
-        reason: msg,
-      });
-    }
+  // --- Modo plan: n8n descobre o que iterar ---
+  if (!params.competencia) {
+    return {
+      ok: true,
+      mode: 'plan',
+      storeSlug: ownership.storeSlug,
+      lojaId: ownership.storeSlug,
+      de: janela.de,
+      ate: janela.ate,
+      competencias: janela.competencias,
+    };
   }
 
-  const onlyClosed =
-    resultados.length > 0 &&
-    resultados.every((r) => r.skipped && r.reason === 'Competência fechada');
-  const finalStatus: 'SUCESSO' | 'FALHA' =
-    erros.length > 0 ? 'FALHA' : 'SUCESSO';
+  if (!COMPETENCIA_RE.test(params.competencia)) {
+    throw Object.assign(new Error('competencia deve ser YYYY-MM'), {
+      status: 400,
+    });
+  }
 
-  const duracaoMs = Date.now() - started;
-  const erro =
-    finalStatus === 'FALHA'
-      ? erros.join('; ') || 'Falha no sync automático'
-      : onlyClosed
-        ? 'Todas as competências da janela estão fechadas'
-        : null;
+  const competencia = params.competencia;
+  const started = Date.now();
 
-  const log = await prisma.cmvSyncLog.create({
-    data: {
-      userId: ownership.tenantUserId,
-      storeSlug: ownership.storeSlug,
-      de,
-      ate,
-      competencias,
-      status: finalStatus,
-      erro,
-      duracaoMs,
-      detalhe: { resultados } as object,
+  // de/ate do log = abrangência da competência pedida (mês civil)
+  const [y, m] = competencia.split('-').map(Number);
+  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const de = `${competencia}-01`;
+  const ate = `${competencia}-${String(lastDay).padStart(2, '0')}`;
+
+  const fechamento = await prisma.cmvFechamento.findUnique({
+    where: {
+      userId_storeSlug_competencia: {
+        userId: ownership.tenantUserId,
+        storeSlug: ownership.storeSlug,
+        competencia,
+      },
     },
+    select: { status: true },
   });
 
-  return {
-    ok: finalStatus === 'SUCESSO',
-    storeSlug: ownership.storeSlug,
-    de,
-    ate,
-    competencias,
-    status: finalStatus,
-    erro,
-    duracaoMs,
-    resultados,
-    logId: log.id,
-  };
+  if (fechamento?.status === 'FECHADO') {
+    const duracaoMs = Date.now() - started;
+    const log = await prisma.cmvSyncLog.create({
+      data: {
+        userId: ownership.tenantUserId,
+        storeSlug: ownership.storeSlug,
+        de,
+        ate,
+        competencias: [competencia],
+        status: 'SUCESSO',
+        erro: 'Competência fechada',
+        duracaoMs,
+        detalhe: { skipped: true, reason: 'Competência fechada' },
+      },
+    });
+    return {
+      ok: true,
+      mode: 'sync',
+      storeSlug: ownership.storeSlug,
+      lojaId: ownership.storeSlug,
+      de,
+      ate,
+      competencia,
+      competencias: [competencia],
+      status: 'SUCESSO',
+      erro: 'Competência fechada',
+      duracaoMs,
+      logId: log.id,
+    };
+  }
+
+  try {
+    const r = await syncRefeicoesSaipos({
+      tenantUserId: ownership.tenantUserId,
+      storeSlug: ownership.storeSlug,
+      competencia,
+      actorUserId: params.serviceUserId,
+    });
+    const duracaoMs = Date.now() - started;
+    const log = await prisma.cmvSyncLog.create({
+      data: {
+        userId: ownership.tenantUserId,
+        storeSlug: ownership.storeSlug,
+        de,
+        ate,
+        competencias: [competencia],
+        status: 'SUCESSO',
+        erro: null,
+        duracaoMs,
+        detalhe: {
+          upserted: r.upserted,
+          removedOrIgnored: r.removedOrIgnored,
+          vendaMesSaipos: r.vendaMesSaipos,
+          totalSalesFetched: r.totalSalesFetched,
+          timings: r.timings,
+        },
+      },
+    });
+    return {
+      ok: true,
+      mode: 'sync',
+      storeSlug: ownership.storeSlug,
+      lojaId: ownership.storeSlug,
+      de,
+      ate,
+      competencia,
+      competencias: [competencia],
+      status: 'SUCESSO',
+      erro: null,
+      duracaoMs,
+      upserted: r.upserted,
+      removedOrIgnored: r.removedOrIgnored,
+      vendaMesSaipos: r.vendaMesSaipos,
+      totalSalesFetched: r.totalSalesFetched,
+      timings: r.timings,
+      logId: log.id,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Falha no sync';
+    const duracaoMs = Date.now() - started;
+    const log = await prisma.cmvSyncLog.create({
+      data: {
+        userId: ownership.tenantUserId,
+        storeSlug: ownership.storeSlug,
+        de,
+        ate,
+        competencias: [competencia],
+        status: 'FALHA',
+        erro: msg,
+        duracaoMs,
+        detalhe: { error: msg },
+      },
+    });
+    return {
+      ok: false,
+      mode: 'sync',
+      storeSlug: ownership.storeSlug,
+      lojaId: ownership.storeSlug,
+      de,
+      ate,
+      competencia,
+      competencias: [competencia],
+      status: 'FALHA',
+      erro: msg,
+      duracaoMs,
+      logId: log.id,
+    };
+  }
 }
 
 export async function ultimaSyncAutoPorLoja(params: {

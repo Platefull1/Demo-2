@@ -213,37 +213,84 @@ export async function fetchSalesPage(params: FetchSalesPageParams): Promise<unkn
   return [];
 }
 
+/** Máx. de GETs simultâneos por janela (paginação offset). */
+export const SAIPOS_FETCH_CONCURRENCY = 3;
+
 /**
- * Todas as vendas do período (paginação + janelas ≤ 15 dias).
+ * Páginas de uma janela ≤15d.
+ * 1ª página sozinha; demais em lotes de até `concurrency` offsets em paralelo.
+ * Janelas são processadas em série (evita estouro + throttle da Saipos).
+ */
+async function fetchSalesWindow(params: {
+  storeSlug: SaiposStoreSlug;
+  startDate: string;
+  endDate: string;
+  token?: string;
+  concurrency: number;
+}): Promise<unknown[]> {
+  const base = {
+    storeSlug: params.storeSlug,
+    startDate: params.startDate,
+    endDate: params.endDate,
+    limit: DEFAULT_LIMIT,
+    token: params.token,
+  };
+
+  const first = await fetchSalesPage({ ...base, offset: 0 });
+  if (first.length < DEFAULT_LIMIT) return first;
+
+  const all: unknown[] = [...first];
+  let offset = DEFAULT_LIMIT;
+
+  for (;;) {
+    const offsets: number[] = [];
+    for (let i = 0; i < params.concurrency; i += 1) {
+      offsets.push(offset + i * DEFAULT_LIMIT);
+    }
+    const pages = await Promise.all(
+      offsets.map((o) => fetchSalesPage({ ...base, offset: o })),
+    );
+
+    let short = false;
+    for (const page of pages) {
+      all.push(...page);
+      if (page.length < DEFAULT_LIMIT) {
+        short = true;
+        break;
+      }
+    }
+    if (short) break;
+    offset += params.concurrency * DEFAULT_LIMIT;
+  }
+
+  return all;
+}
+
+/**
+ * Todas as vendas do período.
+ * Páginas paralelizadas (até `concurrency`); janelas ≤15d em série.
+ * Sem sleep fixo de 600ms.
  */
 export async function fetchAllSales(params: {
   storeSlug: SaiposStoreSlug;
   startDate: string;
   endDate: string;
   token?: string;
+  concurrency?: number;
 }): Promise<unknown[]> {
+  const concurrency = params.concurrency ?? SAIPOS_FETCH_CONCURRENCY;
   const windows = splitShiftDateWindows(params.startDate, params.endDate);
   const all: unknown[] = [];
-
   for (const win of windows) {
-    let offset = 0;
-    for (;;) {
-      const page = await fetchSalesPage({
-        storeSlug: params.storeSlug,
-        startDate: win.start,
-        endDate: win.end,
-        limit: DEFAULT_LIMIT,
-        offset,
-        token: params.token,
-      });
-      all.push(...page);
-      if (page.length < DEFAULT_LIMIT) break;
-      offset += DEFAULT_LIMIT;
-      // Evita PGRST003 (pool timeout) em meses com muitas páginas
-      await sleep(600);
-    }
+    const chunk = await fetchSalesWindow({
+      storeSlug: params.storeSlug,
+      startDate: win.start,
+      endDate: win.end,
+      token: params.token,
+      concurrency,
+    });
+    all.push(...chunk);
   }
-
   return all;
 }
 
@@ -251,17 +298,16 @@ export async function fetchSalesForCompetencia(params: {
   storeSlug: SaiposStoreSlug;
   competencia: string;
   token?: string;
+  concurrency?: number;
 }): Promise<unknown[]> {
   const windows = monthShiftDateWindows(params.competencia);
-  const all: unknown[] = [];
-  for (const win of windows) {
-    const chunk = await fetchAllSales({
-      storeSlug: params.storeSlug,
-      startDate: win.start,
-      endDate: win.end,
-      token: params.token,
-    });
-    all.push(...chunk);
-  }
-  return all;
+  const startDate = windows[0]!.start;
+  const endDate = windows[windows.length - 1]!.end;
+  return fetchAllSales({
+    storeSlug: params.storeSlug,
+    startDate,
+    endDate,
+    token: params.token,
+    concurrency: params.concurrency,
+  });
 }

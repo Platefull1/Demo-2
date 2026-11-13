@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
@@ -7,6 +8,7 @@ import {
 import {
   classificarRefeicao,
   parseRefeicaoRegras,
+  type ClassificacaoRefeicao,
   type SaiposSaleLike,
 } from '@/lib/cmv-real/refeicoes';
 import {
@@ -32,6 +34,79 @@ function asSlug(storeSlug: string): SaiposStoreSlug {
   return s;
 }
 
+function newCuid(): string {
+  // PK: createMany/raw não aplica @default(cuid()) do Prisma
+  return `c${randomBytes(16).toString('hex')}`;
+}
+
+const UPSERT_CHUNK = 100;
+
+/**
+ * Upsert em lote (INSERT … ON CONFLICT). Não toca em `ignorada`.
+ */
+async function upsertRefeicoesLote(params: {
+  tenantUserId: string;
+  storeSlug: string;
+  competencia: string;
+  rows: ClassificacaoRefeicao[];
+}): Promise<number> {
+  if (params.rows.length === 0) return 0;
+
+  for (let i = 0; i < params.rows.length; i += UPSERT_CHUNK) {
+    const chunk = params.rows.slice(i, i + UPSERT_CHUNK);
+    const values = chunk.map((cls) => {
+      const id = newCuid();
+      const data = new Date(`${cls.data}T12:00:00.000Z`);
+      return Prisma.sql`(
+        ${id},
+        ${params.tenantUserId},
+        ${params.storeSlug},
+        ${params.competencia},
+        ${data},
+        ${cls.categoria},
+        ${cls.consumidor},
+        ${cls.formaPagamento},
+        ${cls.valorItens},
+        ${cls.saiposSaleId},
+        ${'SAIPOS'},
+        ${false},
+        NOW(),
+        NOW()
+      )`;
+    });
+
+    await prisma.$executeRaw`
+      INSERT INTO cmv_refeicoes (
+        id, user_id, store_slug, competencia, data, categoria, consumidor,
+        forma_pagamento, valor_itens, saipos_sale_id, origem, ignorada,
+        created_at, updated_at
+      )
+      VALUES ${Prisma.join(values)}
+      ON CONFLICT (user_id, store_slug, saipos_sale_id)
+      DO UPDATE SET
+        competencia = EXCLUDED.competencia,
+        data = EXCLUDED.data,
+        categoria = EXCLUDED.categoria,
+        consumidor = EXCLUDED.consumidor,
+        forma_pagamento = EXCLUDED.forma_pagamento,
+        valor_itens = EXCLUDED.valor_itens,
+        origem = EXCLUDED.origem,
+        updated_at = NOW()
+    `;
+  }
+
+  return params.rows.length;
+}
+
+export type SyncRefeicoesTimings = {
+  fetchMs: number;
+  calcMs: number;
+  upsertMs: number;
+  ignoreMs: number;
+  fechamentoMs: number;
+  totalMs: number;
+};
+
 /**
  * Sync manual (botão CMV Real) e automático (n8n → /api/cmv/vendas/sync-auto).
  * Venda líquida + refeições; preserva ajusteVenda no upsert.
@@ -51,7 +126,10 @@ export async function syncRefeicoesSaipos(params: {
   totalSalesFetched: number;
   vendaMesDetalhe: VendaMesDetalhe;
   formasDesconhecidas: string[];
+  timings: SyncRefeicoesTimings;
 }> {
+  const t0 = Date.now();
+
   const fechamento = await prisma.cmvFechamento.findUnique({
     where: {
       userId_storeSlug_competencia: {
@@ -74,82 +152,74 @@ export async function syncRefeicoesSaipos(params: {
     process.env.CMV_LIMITE_TAXA_ENTREGA,
   );
 
+  const tFetch0 = Date.now();
   const sales = (await fetchSalesForCompetencia({
     storeSlug: asSlug(params.storeSlug),
     competencia: params.competencia,
   })) as SaiposSaleLike[];
+  const fetchMs = Date.now() - tFetch0;
 
+  const tCalc0 = Date.now();
   const calc = calcularVendaLiquida(sales as SaiposSaleVendaLike[], vendaCfg);
   const prevDetalhe = parseVendaMesDetalhe(fechamento?.vendaMesDetalhe);
   const detalhe = buildVendaMesDetalhe(calc, prevDetalhe?.ajusteVenda ?? null);
   const vendaMesSaipos = vendaMesEfetiva(detalhe) ?? detalhe.vendaLiquida;
 
+  const classificados: ClassificacaoRefeicao[] = [];
   const seenIds = new Set<string>();
-  let upserted = 0;
-
   for (const sale of sales) {
     const cls = classificarRefeicao(sale, regras);
     if (!cls) continue;
-
     seenIds.add(cls.saiposSaleId);
-    await prisma.cmvRefeicao.upsert({
+    classificados.push(cls);
+  }
+  const calcMs = Date.now() - tCalc0;
+
+  const tUpsert0 = Date.now();
+  const upserted = await upsertRefeicoesLote({
+    tenantUserId: params.tenantUserId,
+    storeSlug: params.storeSlug,
+    competencia: params.competencia,
+    rows: classificados,
+  });
+  const upsertMs = Date.now() - tUpsert0;
+
+  // Pedidos SAIPOS da competência que sumiram ou foram cancelados
+  const tIgn0 = Date.now();
+  let removedOrIgnored = 0;
+  if (seenIds.size === 0) {
+    const r = await prisma.cmvRefeicao.updateMany({
       where: {
-        userId_storeSlug_saiposSaleId: {
-          userId: params.tenantUserId,
-          storeSlug: params.storeSlug,
-          saiposSaleId: cls.saiposSaleId,
-        },
-      },
-      create: {
         userId: params.tenantUserId,
         storeSlug: params.storeSlug,
         competencia: params.competencia,
-        data: new Date(`${cls.data}T12:00:00.000Z`),
-        categoria: cls.categoria,
-        consumidor: cls.consumidor,
-        formaPagamento: cls.formaPagamento,
-        valorItens: decimal(cls.valorItens),
-        saiposSaleId: cls.saiposSaleId,
         origem: 'SAIPOS',
+        saiposSaleId: { not: null },
         ignorada: false,
       },
-      update: {
-        competencia: params.competencia,
-        data: new Date(`${cls.data}T12:00:00.000Z`),
-        categoria: cls.categoria,
-        consumidor: cls.consumidor,
-        formaPagamento: cls.formaPagamento,
-        valorItens: decimal(cls.valorItens),
-        origem: 'SAIPOS',
-        // não desfazer ignorada manual do usuário
-      },
-    });
-    upserted += 1;
-  }
-
-  // Pedidos SAIPOS da competência que sumiram ou foram cancelados
-  const existentes = await prisma.cmvRefeicao.findMany({
-    where: {
-      userId: params.tenantUserId,
-      storeSlug: params.storeSlug,
-      competencia: params.competencia,
-      origem: 'SAIPOS',
-      saiposSaleId: { not: null },
-    },
-  });
-
-  let removedOrIgnored = 0;
-  for (const row of existentes) {
-    if (!row.saiposSaleId || seenIds.has(row.saiposSaleId)) continue;
-    await prisma.cmvRefeicao.update({
-      where: { id: row.id },
       data: { ignorada: true },
     });
-    removedOrIgnored += 1;
+    removedOrIgnored = r.count;
+  } else {
+    const r = await prisma.cmvRefeicao.updateMany({
+      where: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+        origem: 'SAIPOS',
+        saiposSaleId: { notIn: [...seenIds] },
+        ignorada: false,
+      },
+      data: { ignorada: true },
+    });
+    removedOrIgnored = r.count;
   }
+  const ignoreMs = Date.now() - tIgn0;
 
   const persistVenda = params.persistVenda !== false;
+  let fechamentoMs = 0;
   if (persistVenda) {
+    const tFech0 = Date.now();
     const origemAtual = fechamento?.vendaMesOrigem;
     const sobrescreverVenda = origemAtual !== 'MANUAL';
     await prisma.cmvFechamento.upsert({
@@ -181,6 +251,7 @@ export async function syncRefeicoesSaipos(params: {
           : {}),
       },
     });
+    fechamentoMs = Date.now() - tFech0;
   }
 
   if (calc.formasDesconhecidas.length > 0) {
@@ -193,6 +264,15 @@ export async function syncRefeicoesSaipos(params: {
     });
   }
 
+  const timings: SyncRefeicoesTimings = {
+    fetchMs,
+    calcMs,
+    upsertMs,
+    ignoreMs,
+    fechamentoMs,
+    totalMs: Date.now() - t0,
+  };
+
   return {
     upserted,
     removedOrIgnored,
@@ -200,6 +280,7 @@ export async function syncRefeicoesSaipos(params: {
     totalSalesFetched: sales.length,
     vendaMesDetalhe: detalhe,
     formasDesconhecidas: calc.formasDesconhecidas,
+    timings,
   };
 }
 
