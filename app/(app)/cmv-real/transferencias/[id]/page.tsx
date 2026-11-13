@@ -15,6 +15,7 @@ import {
   TransferenciaForm,
   type TransferenciaFormPrefill,
 } from '../TransferenciaForm';
+import { ResolverDivergenciaForm } from '../ResolverDivergenciaForm';
 
 type Item = {
   id: string;
@@ -35,6 +36,19 @@ type Lado = {
   itens: Item[];
 };
 
+type ResolucaoAudit = {
+  resolvidoPorId: string;
+  resolvidoEm: string;
+  motivo: string;
+  itens: Array<{
+    estoqueInsumoId: string;
+    escolha: string;
+    qtdEnviada: number;
+    qtdRecebida: number;
+    qtdFinal: number;
+  }>;
+};
+
 type Doc = {
   id: string;
   numeroDocumento: string;
@@ -45,10 +59,32 @@ type Doc = {
   status: string;
   origem: string;
   observacao: string | null;
+  resolucaoDivergencia: ResolucaoAudit | null;
   lados: Lado[];
 };
 
+type SessaoWa = {
+  id: string;
+  codigo: string;
+  estado: string;
+  gerenteOrigemNome: string | null;
+  gerenteDestinoNome: string | null;
+  confirmacaoOrigemEm: string | null;
+  recebimentoEm: string | null;
+};
+
 type Produto = { estoqueInsumoId: string; nome: string; unidade: string };
+
+function fmtDataHora(iso: string | null) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
 
 const STATUS_LABEL: Record<string, string> = {
   AGUARDANDO_ENTRADA: 'Aguardando entrada',
@@ -77,6 +113,7 @@ export default function TransferenciaDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [doc, setDoc] = useState<Doc | null>(null);
+  const [sessaoWa, setSessaoWa] = useState<SessaoWa | null>(null);
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [lojasOpts, setLojasOpts] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -95,6 +132,7 @@ export default function TransferenciaDetalhePage() {
       const dd = await resD.json();
       if (!resD.ok) throw new Error(dd.error || 'Não encontrada');
       setDoc(dd.transferencia);
+      setSessaoWa(dd.sessaoWhatsapp ?? null);
       setCompetenciaFechada(dd.competenciaFechada === true);
       setLojasOpts(Object.keys(CMV_STORE_LABELS));
       if (resP.ok) {
@@ -112,6 +150,7 @@ export default function TransferenciaDetalhePage() {
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
       setDoc(null);
+      setSessaoWa(null);
     } finally {
       setLoading(false);
     }
@@ -151,13 +190,29 @@ export default function TransferenciaDetalhePage() {
     );
   }, [doc, saida, entrada]);
 
-  const ladoFaltando: 'SAIDA' | 'ENTRADA' | null = !doc
-    ? null
-    : !saida || saida.rascunho
-      ? 'SAIDA'
-      : !entrada || entrada.rascunho
-        ? 'ENTRADA'
-        : null;
+  // WhatsApp não usa o formulário genérico de lado — divergência tem ação própria.
+  const ladoFaltando: 'SAIDA' | 'ENTRADA' | null =
+    !doc || doc.origem === 'WHATSAPP'
+      ? null
+      : !saida || saida.rascunho
+        ? 'SAIDA'
+        : !entrada || entrada.rascunho
+          ? 'ENTRADA'
+          : null;
+
+  const itensResolver = useMemo(() => {
+    if (!doc || doc.origem !== 'WHATSAPP' || doc.status !== 'DIVERGENTE') return [];
+    return linhas.map((ln) => {
+      const meta = nomes.get(ln.estoqueInsumoId);
+      return {
+        estoqueInsumoId: ln.estoqueInsumoId,
+        nome: meta?.nome || ln.estoqueInsumoId,
+        unidade: meta?.unidade || '',
+        qtdEnviada: ln.qtdSaida,
+        qtdRecebida: ln.qtdEntrada,
+      };
+    });
+  }, [doc, linhas, nomes]);
 
   const prefill: TransferenciaFormPrefill | null =
     doc && ladoFaltando
@@ -251,6 +306,11 @@ export default function TransferenciaDetalhePage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {doc.origem === 'WHATSAPP' ? (
+            <Badge variant="outline" className="text-xs font-normal">
+              WhatsApp{sessaoWa?.codigo ? ` ${sessaoWa.codigo}` : ''}
+            </Badge>
+          ) : null}
           <Badge variant="outline" className="text-xs font-normal">
             {STATUS_LABEL[doc.status] || doc.status}
           </Badge>
@@ -292,6 +352,9 @@ export default function TransferenciaDetalhePage() {
         <Alert variant="warning">
           <AlertDescription className="text-sm">
             Quantidades diferentes entre saída e entrada. Confira o lado a lado.
+            {doc.origem === 'WHATSAPP'
+              ? ' Use “Resolver divergência” abaixo — não edite o documento manualmente.'
+              : ''}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -300,10 +363,44 @@ export default function TransferenciaDetalhePage() {
         <p className="text-sm text-muted-foreground">{doc.observacao}</p>
       ) : null}
 
+      {doc.resolucaoDivergencia ? (
+        <Card className="p-4 space-y-1">
+          <p className="text-sm font-medium text-foreground">Divergência resolvida</p>
+          <p className="text-xs text-muted-foreground">
+            {fmtDataHora(doc.resolucaoDivergencia.resolvidoEm)}
+            {' · '}
+            {doc.resolucaoDivergencia.motivo}
+          </p>
+        </Card>
+      ) : null}
+
+      {doc.origem === 'WHATSAPP' && sessaoWa ? (
+        <Card className="p-4 space-y-2">
+          <p className="text-sm text-foreground">
+            Enviado (gerente origem):{' '}
+            <span className="font-medium">{sessaoWa.gerenteOrigemNome || '—'}</span>
+            <span className="text-xs text-muted-foreground">
+              {' · '}
+              {fmtDataHora(sessaoWa.confirmacaoOrigemEm)}
+            </span>
+          </p>
+          <p className="text-sm text-foreground">
+            Recebido (gerente destino):{' '}
+            <span className="font-medium">{sessaoWa.gerenteDestinoNome || '—'}</span>
+            <span className="text-xs text-muted-foreground">
+              {' · '}
+              {fmtDataHora(sessaoWa.recebimentoEm)}
+            </span>
+          </p>
+        </Card>
+      ) : null}
+
       <Card className="overflow-hidden">
         <div className="grid grid-cols-2 border-b border-border">
           <div className="p-4 border-r border-border">
-            <p className="text-base font-semibold text-foreground">Saída</p>
+            <p className="text-base font-semibold text-foreground">
+              {doc.origem === 'WHATSAPP' ? 'Enviado' : 'Saída'}
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
               {CMV_STORE_LABELS[doc.lojaOrigem] || doc.lojaOrigem}
               {saida?.rascunho ? ' · rascunho' : ''}
@@ -311,7 +408,9 @@ export default function TransferenciaDetalhePage() {
             </p>
           </div>
           <div className="p-4">
-            <p className="text-base font-semibold text-foreground">Entrada</p>
+            <p className="text-base font-semibold text-foreground">
+              {doc.origem === 'WHATSAPP' ? 'Recebido' : 'Entrada'}
+            </p>
             <p className="text-xs text-muted-foreground mt-1">
               {CMV_STORE_LABELS[doc.lojaDestino] || doc.lojaDestino}
               {entrada?.rascunho ? ' · rascunho' : ''}
@@ -373,20 +472,31 @@ export default function TransferenciaDetalhePage() {
         </div>
       </Card>
 
+      {itensResolver.length > 0 ? (
+        <ResolverDivergenciaForm
+          transferenciaId={doc.id}
+          itens={itensResolver}
+          disabled={competenciaFechada}
+          onResolved={() => void load()}
+        />
+      ) : null}
+
       <div className="grid gap-6 md:grid-cols-2">
         <LadoDetalhe titulo="Origem do custo — saída" itens={saida?.itens ?? []} />
         <LadoDetalhe titulo="Origem do custo — entrada" itens={entrada?.itens ?? []} />
       </div>
 
-      <TransferenciaForm
-        open={formOpen}
-        onOpenChange={setFormOpen}
-        produtos={produtos}
-        lojasOpts={lojasOpts.length ? lojasOpts : Object.keys(CMV_STORE_LABELS)}
-        lojaPadrao={doc.lojaOrigem}
-        prefill={prefill}
-        onSaved={load}
-      />
+      {doc.origem !== 'WHATSAPP' ? (
+        <TransferenciaForm
+          open={formOpen}
+          onOpenChange={setFormOpen}
+          produtos={produtos}
+          lojasOpts={lojasOpts.length ? lojasOpts : Object.keys(CMV_STORE_LABELS)}
+          lojaPadrao={doc.lojaOrigem}
+          prefill={prefill}
+          onSaved={load}
+        />
+      ) : null}
     </div>
   );
 }

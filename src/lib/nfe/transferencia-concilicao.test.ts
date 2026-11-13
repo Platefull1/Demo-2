@@ -230,4 +230,35 @@ describe('statusDocumento / diff', () => {
     });
     assert.equal(p[0].tipo, 'TRANSFERENCIA_DIVERGENTE');
   });
+
+  it('WhatsApp ambos rascunho com qtds diferentes → DIVERGENTE', () => {
+    const r = statusDocumento({
+      entradaRegistrada: false,
+      saidaConfirmada: false,
+      origem: 'WHATSAPP',
+      saidaRascunho: true,
+      entradaRascunho: true,
+      itensSaida: [{ estoqueInsumoId: 'a', quantidade: 2 }],
+      itensEntrada: [{ estoqueInsumoId: 'a', quantidade: 1 }],
+    });
+    assert.equal(r.status, 'DIVERGENTE');
+  });
+
+  it('WhatsApp DIVERGENTE não rotula espelho Saipos', () => {
+    const p = pendenciasDocumentoTransferencia({
+      numeroDocumento: 'T1',
+      status: 'DIVERGENTE',
+      origem: 'WHATSAPP',
+      lojaOrigemLabel: 'Ahú',
+      lojaDestinoLabel: 'Portão',
+      lados: [
+        { tipo: 'SAIDA', rascunho: true },
+        { tipo: 'ENTRADA', rascunho: true },
+      ],
+    });
+    assert.deepEqual(
+      p.map((x) => x.tipo),
+      ['TRANSFERENCIA_DIVERGENTE'],
+    );
+  });
 });

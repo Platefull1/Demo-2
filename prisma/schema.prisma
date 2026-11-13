@@ -84,6 +84,10 @@ model User {
   serviceApiKeys         ServiceApiKey[]
   /// Slot WhatsApp usado pelo scheduler de tarefas (digest/pendentes). Null = slot 1.
   tarefasSessionSlot     Int?
+  /// Sessão WhatsAppBot (id) usada para transferências entre lojas. Null = não configurado.
+  transferenciasWhatsappBotId String? @unique @map("transferencias_whatsapp_bot_id")
+  transferenciasWhatsappBot   WhatsAppBot? @relation("TransferenciasWhatsappBot", fields: [transferenciasWhatsappBotId], references: [id], onDelete: SetNull)
+  sessoesTransferencia   SessaoTransferencia[]
   whatsappMessages       WhatsAppMessage[]
   /// Reforço opcional pro prompt de IA (não é filtro rígido). Vazio = critério geral do prompt.
   palavrasChaveReclamacao String[] @default([])
@@ -266,6 +270,8 @@ model WhatsAppBot {
   qrCode          String?    @db.Text
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
+  /// Tenant(s) CMV que usam esta sessão para transferências WhatsApp.
+  transferenciasConfigUsers User[] @relation("TransferenciasWhatsappBot")
 
   @@unique([userId, slot])
   @@index([userId])
@@ -951,6 +957,8 @@ model RhFuncionario {
   cpf                   String?
   email                 String?
   telefone              String?
+  /// LID WhatsApp (só dígitos, sem "@lid") para casar remetentes que chegam como @lid.
+  whatsappLid           String?                  @map("whatsapp_lid") @db.VarChar(32)
   dataNascimento        DateTime?
   dataAdmissao          DateTime?
   cargoId               String?
@@ -1002,11 +1010,14 @@ model RhFuncionario {
   pontoRegistros          PontoRegistro[]
   fechamentoLinhas        FechamentoLinha[]
   escalasVigencia         RhEscalaVigencia[]
+  sessoesTransferenciaOrigem  SessaoTransferencia[] @relation("SessaoTransferenciaGerenteOrigem")
+  sessoesTransferenciaDestino SessaoTransferencia[] @relation("SessaoTransferenciaGerenteDestino")
 
   @@index([userId, cpf])
   @@index([userId])
   @@index([lojaId])
   @@index([cargoId])
+  @@index([whatsappLid])
   @@map("rh_funcionarios")
 }
 
@@ -2142,6 +2153,7 @@ enum CmvTransferenciaOrigem {
   SAIPOS
   NFE_LOJA
   MANUAL
+  WHATSAPP
 }
 
 enum CmvTransferenciaLadoTipo {
@@ -2464,6 +2476,57 @@ model CmvRefeicao {
   @@map("cmv_refeicoes")
 }
 
+enum SessaoTransferenciaEstado {
+  AGUARDANDO_CONFIRMACAO_ORIGEM
+  AGUARDANDO_ESCLARECIMENTO
+  AGUARDANDO_RECEBIMENTO
+  CONCLUIDA
+  DIVERGENTE
+  CANCELADA
+  EXPIRADA
+}
+
+/// Sessão de conversa WhatsApp para ordem de transferência entre lojas.
+model SessaoTransferencia {
+  id                   String                     @id @default(cuid())
+  /// Código legível sequencial por tenant (T1, T2, …)
+  codigo               String
+  tenantUserId         String                     @map("tenant_user_id")
+  tenant               User                       @relation(fields: [tenantUserId], references: [id], onDelete: Cascade)
+  lojaOrigem           String                     @map("loja_origem")
+  lojaDestino          String                     @map("loja_destino")
+  gerenteOrigemId      String                     @map("gerente_origem_id")
+  gerenteOrigem        RhFuncionario              @relation("SessaoTransferenciaGerenteOrigem", fields: [gerenteOrigemId], references: [id])
+  gerenteDestinoId     String?                    @map("gerente_destino_id")
+  gerenteDestino       RhFuncionario?             @relation("SessaoTransferenciaGerenteDestino", fields: [gerenteDestinoId], references: [id])
+  telefoneOrigem       String                     @map("telefone_origem")
+  lidOrigem            String?                    @map("lid_origem") @db.VarChar(32)
+  estado               SessaoTransferenciaEstado  @default(AGUARDANDO_CONFIRMACAO_ORIGEM)
+  /// Itens: [{ estoqueInsumoId, textoOriginal, quantidade, unidade, quantidadeRecebida?, custoUnitario?, custoOrigem?, valorTotal? }]
+  itens                Json
+  mensagemOriginal     String?                    @map("mensagem_original") @db.Text
+  cmvTransferenciaId   String?                    @unique @map("cmv_transferencia_id")
+  cmvTransferencia     CmvTransferencia?          @relation(fields: [cmvTransferenciaId], references: [id], onDelete: SetNull)
+  lembreteEnviadoEm    DateTime?                  @map("lembrete_enviado_em")
+  criadaEm             DateTime                   @default(now()) @map("criada_em")
+  confirmacaoOrigemEm  DateTime?                  @map("confirmacao_origem_em")
+  esclarecimentoEm     DateTime?                  @map("esclarecimento_em")
+  recebimentoEm        DateTime?                  @map("recebimento_em")
+  concluidaEm          DateTime?                  @map("concluida_em")
+  divergenteEm         DateTime?                  @map("divergente_em")
+  canceladaEm          DateTime?                  @map("cancelada_em")
+  expiradaEm           DateTime?                  @map("expirada_em")
+  atualizadaEm         DateTime                   @updatedAt @map("atualizada_em")
+
+  @@unique([tenantUserId, codigo])
+  @@index([tenantUserId, estado])
+  @@index([telefoneOrigem, estado])
+  @@index([lidOrigem, estado])
+  @@index([lojaOrigem, estado])
+  @@index([lojaDestino, estado])
+  @@map("sessoes_transferencia")
+}
+
 /// Documento de transferência entre lojas (saída × entrada).
 model CmvTransferencia {
   id                    String                 @id @default(cuid())
@@ -2482,6 +2545,8 @@ model CmvTransferencia {
   anexoUrl              String?                @map("anexo_url")
   anexoNome             String?                @map("anexo_nome")
   observacao            String?
+  /// Auditoria da resolução de divergência WhatsApp (quem, quando, motivo, qtds).
+  resolucaoDivergencia  Json?                  @map("resolucao_divergencia")
   criadoPorId           String?                @map("criado_por_id")
   editadoPorId          String?                @map("editado_por_id")
   editadoEm             DateTime?              @map("editado_em")
@@ -2491,6 +2556,7 @@ model CmvTransferencia {
   updatedAt             DateTime               @updatedAt @map("updated_at")
 
   lados CmvTransferenciaLado[]
+  sessaoWhatsapp SessaoTransferencia?
 
   @@unique([userId, numeroDocumento, lojaOrigem, lojaDestino])
   @@index([userId, competencia, status])

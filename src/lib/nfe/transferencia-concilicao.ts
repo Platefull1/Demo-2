@@ -289,6 +289,10 @@ export function linhasEspelho(
 /**
  * Status do documento.
  * Saída espelho (rascunho) não conta como confirmada.
+ *
+ * Exceção WhatsApp: ambos os lados em rascunho com qtds diferentes
+ * (ordem divergente aguardando resolução) → DIVERGENTE, para não
+ * “cair” em AGUARDANDO_ENTRADA se reconciliarELancar for chamado.
  */
 export function statusDocumento(input: {
   entradaRegistrada: boolean;
@@ -296,9 +300,25 @@ export function statusDocumento(input: {
   itensSaida?: ItemLado[];
   itensEntrada?: ItemLado[];
   toleranciaQtd?: number;
+  origem?: string | null;
+  saidaRascunho?: boolean;
+  entradaRascunho?: boolean;
 }): { status: CmvTransferenciaStatus; diffs: DiffItem[] } {
   const saida = input.itensSaida ?? [];
   const entrada = input.itensEntrada ?? [];
+
+  if (
+    input.origem === 'WHATSAPP' &&
+    input.saidaRascunho === true &&
+    input.entradaRascunho === true &&
+    saida.length > 0 &&
+    entrada.length > 0
+  ) {
+    const diffs = diffItens(saida, entrada, input.toleranciaQtd);
+    if (diffs.length > 0) {
+      return { status: 'DIVERGENTE', diffs };
+    }
+  }
 
   if (input.entradaRegistrada && !input.saidaConfirmada) {
     return { status: 'AGUARDANDO_SAIDA', diffs: [] };
@@ -346,23 +366,29 @@ export function pendenciasDocumentoTransferencia(doc: {
   lojaOrigemLabel: string;
   lojaDestinoLabel: string;
   lados: Array<{ tipo: string; rascunho: boolean }>;
+  /** Quando WHATSAPP + DIVERGENTE, não rotula lados rascunho como “espelho Saipos/NF”. */
+  origem?: string | null;
 }): PendenciaTransferenciaDoc[] {
   const rota = `${doc.lojaOrigemLabel} → ${doc.lojaDestinoLabel}`;
   const saida = doc.lados.find((l) => l.tipo === 'SAIDA');
   const entrada = doc.lados.find((l) => l.tipo === 'ENTRADA');
   const out: PendenciaTransferenciaDoc[] = [];
+  const whatsappDivergente =
+    doc.origem === 'WHATSAPP' && doc.status === 'DIVERGENTE';
 
-  if (saida?.rascunho) {
-    out.push({
-      tipo: 'TRANSFERENCIA_ESPELHO',
-      mensagem: `Transferência ${doc.numeroDocumento} (${rota}): saída ainda é espelho — não entra no CMV`,
-    });
-  }
-  if (entrada?.rascunho) {
-    out.push({
-      tipo: 'TRANSFERENCIA_ESPELHO',
-      mensagem: `Transferência ${doc.numeroDocumento} (${rota}): entrada ainda é espelho — não entra no CMV`,
-    });
+  if (!whatsappDivergente) {
+    if (saida?.rascunho) {
+      out.push({
+        tipo: 'TRANSFERENCIA_ESPELHO',
+        mensagem: `Transferência ${doc.numeroDocumento} (${rota}): saída ainda é espelho — não entra no CMV`,
+      });
+    }
+    if (entrada?.rascunho) {
+      out.push({
+        tipo: 'TRANSFERENCIA_ESPELHO',
+        mensagem: `Transferência ${doc.numeroDocumento} (${rota}): entrada ainda é espelho — não entra no CMV`,
+      });
+    }
   }
 
   if (doc.status === 'DIVERGENTE') {

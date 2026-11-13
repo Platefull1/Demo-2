@@ -1,13 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, Plus, Pencil, Trash2 } from 'lucide-react';
 import { DataTable } from '@/components/layout/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
 import { MonthPicker } from '@/components/ui/month-picker';
 import {
   Select,
@@ -72,6 +73,34 @@ const STATUS_LABEL: Record<string, string> = {
   DIVERGENTE: 'Divergente',
 };
 
+const SESSAO_STATUS_LABEL: Record<string, string> = {
+  AGUARDANDO_CONFIRMACAO_ORIGEM: 'Aguardando confirmação origem',
+  AGUARDANDO_ESCLARECIMENTO: 'Aguardando esclarecimento',
+  AGUARDANDO_RECEBIMENTO: 'Aguardando recebimento',
+  DIVERGENTE: 'Divergente',
+  CONCLUIDA: 'Concluída',
+  CANCELADA: 'Cancelada',
+  EXPIRADA: 'Expirada',
+};
+
+type SessaoWa = {
+  id: string;
+  codigo: string;
+  lojaOrigem: string;
+  lojaDestino: string;
+  estado: string;
+  gerenteOrigemNome: string | null;
+  cmvTransferenciaId: string | null;
+  criadaEm: string;
+};
+
+type BotOpcao = {
+  botId: string;
+  slot: number;
+  label: string;
+  isConnected: boolean;
+};
+
 const STORES = Object.keys(CMV_STORE_LABELS);
 
 function valorDoc(d: Doc) {
@@ -118,6 +147,11 @@ export default function CmvRealTransferenciasPage() {
 
   const [excluirId, setExcluirId] = useState<string | null>(null);
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
+  const [sessoesWa, setSessoesWa] = useState<SessaoWa[]>([]);
+  const [botId, setBotId] = useState<string>('');
+  const [bots, setBots] = useState<BotOpcao[]>([]);
+  const [salvandoBot, setSalvandoBot] = useState(false);
+  const [cancelandoSessaoId, setCancelandoSessaoId] = useState<string | null>(null);
 
   const lojasOpts = allowed && allowed.length > 0 ? allowed : STORES;
 
@@ -130,9 +164,15 @@ export default function CmvRealTransferenciasPage() {
     try {
       const qs = new URLSearchParams({ competencia });
       if (storeSlug) qs.set('storeSlug', storeSlug);
-      const [resT, resP] = await Promise.all([
+      const qsWa = new URLSearchParams();
+      if (storeSlug) qsWa.set('storeSlug', storeSlug);
+      const [resT, resP, resWa, resCfg] = await Promise.all([
         fetch(`/api/cmv-real/transferencias?${qs}`, { cache: 'no-store' }),
         fetch('/api/cmv-real/produtos', { cache: 'no-store' }),
+        fetch(`/api/cmv-real/transferencias/sessoes-whatsapp?${qsWa}`, {
+          cache: 'no-store',
+        }),
+        fetch('/api/cmv-real/transferencias/whatsapp-config', { cache: 'no-store' }),
       ]);
       const dt = await resT.json();
       if (!resT.ok) throw new Error(dt.error || 'Erro');
@@ -160,6 +200,15 @@ export default function CmvRealTransferenciasPage() {
             })),
         );
       }
+      if (resWa.ok) {
+        const dw = await resWa.json();
+        setSessoesWa(dw.sessoes || []);
+      }
+      if (resCfg.ok) {
+        const dc = await resCfg.json();
+        setBots(dc.sessoes || []);
+        setBotId(dc.transferenciasWhatsappBotId || '');
+      }
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {
@@ -170,6 +219,43 @@ export default function CmvRealTransferenciasPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const salvarBot = async (nextBotId: string) => {
+    setBotId(nextBotId);
+    setSalvandoBot(true);
+    try {
+      const res = await fetch('/api/cmv-real/transferencias/whatsapp-config', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botId: nextBotId || null }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Erro ao salvar sessão');
+      setBotId(d.transferenciasWhatsappBotId || '');
+      setBots(d.sessoes || []);
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro ao salvar sessão');
+    } finally {
+      setSalvandoBot(false);
+    }
+  };
+
+  const cancelarSessao = async (id: string) => {
+    setCancelandoSessaoId(id);
+    try {
+      const res = await fetch(
+        `/api/cmv-real/transferencias/sessoes-whatsapp/${id}/cancelar`,
+        { method: 'POST' },
+      );
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Erro ao cancelar');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro ao cancelar');
+    } finally {
+      setCancelandoSessaoId(null);
+    }
+  };
 
   const excluir = async (id: string) => {
     setExcluindoId(id);
@@ -268,9 +354,16 @@ export default function CmvRealTransferenciasPage() {
         id: 'status',
         header: 'Status',
         cell: ({ row }) => (
-          <Badge variant="outline" className="text-xs font-normal">
-            {STATUS_LABEL[row.original.status] || row.original.status}
-          </Badge>
+          <div className="flex flex-wrap items-center gap-1">
+            {row.original.origem === 'WHATSAPP' ? (
+              <Badge variant="outline" className="text-xs font-normal">
+                WhatsApp
+              </Badge>
+            ) : null}
+            <Badge variant="outline" className="text-xs font-normal">
+              {STATUS_LABEL[row.original.status] || row.original.status}
+            </Badge>
+          </div>
         ),
       },
       {
@@ -370,6 +463,98 @@ export default function CmvRealTransferenciasPage() {
         <p className="text-sm text-destructive" role="alert">
           {msg}
         </p>
+      ) : null}
+
+      <Card className="p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-base font-semibold text-foreground">
+              Sessão WhatsApp das transferências
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Escolha a sessão (ex.: slot 2 da conta da loja) que recebe as ordens.
+            </p>
+          </div>
+          <Select
+            value={botId || '__none__'}
+            disabled={salvandoBot || bots.length === 0}
+            onValueChange={(v) => void salvarBot(v === '__none__' ? '' : v)}
+          >
+            <SelectTrigger className="h-8 w-[240px] text-sm">
+              <SelectValue placeholder="Selecionar sessão" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Nenhuma</SelectItem>
+              {bots.map((b) => (
+                <SelectItem key={b.botId} value={b.botId}>
+                  {b.label}
+                  {b.isConnected ? '' : ' · offline'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
+
+      {sessoesWa.length > 0 ? (
+        <Card className="overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <p className="text-base font-semibold text-foreground">
+              Ordens WhatsApp pendentes
+            </p>
+          </div>
+          <ul>
+            {sessoesWa.map((s) => (
+              <li
+                key={s.id}
+                className="flex flex-col gap-2 border-b border-border last:border-b-0 p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0 space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="outline" className="text-xs font-normal">
+                      WhatsApp
+                    </Badge>
+                    <Badge variant="outline" className="text-xs font-normal">
+                      {SESSAO_STATUS_LABEL[s.estado] || s.estado}
+                    </Badge>
+                    <span className="text-sm font-medium text-foreground">
+                      {s.codigo}
+                    </span>
+                  </div>
+                  <p className="text-sm text-foreground">
+                    {CMV_STORE_LABELS[s.lojaOrigem] || s.lojaOrigem}
+                    {' → '}
+                    {CMV_STORE_LABELS[s.lojaDestino] || s.lojaDestino}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {s.gerenteOrigemNome || '—'}
+                    {' · '}
+                    {new Date(s.criadaEm).toLocaleString('pt-BR')}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {s.cmvTransferenciaId ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/cmv-real/transferencias/${s.cmvTransferenciaId}`}>
+                        Abrir documento
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive border-destructive/40"
+                    loading={cancelandoSessaoId === s.id}
+                    disabled={cancelandoSessaoId !== null}
+                    onClick={() => void cancelarSessao(s.id)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       ) : null}
 
       <DataTable

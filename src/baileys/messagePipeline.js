@@ -1,7 +1,7 @@
 /**
  * Pipeline de negócio Baileys — espelha setupMessageListener / handleIncomingMessage
  * de src/wpp/index.js, reutilizando os mesmos handlers (messageArchive, tarefa,
- * jobApplicationFlow, GPT/typing).
+ * jobApplicationFlow, GPT/typing) + transferências WhatsApp (slot configurado).
  *
  * Não altera src/wpp/**; importa módulos de negócio compartilhados.
  */
@@ -14,6 +14,11 @@ import { isIaAtivaLive } from '../wpp/iaAtivaLive.js';
 import { WhatsAppBotModel, BotSettingsModel } from '../db/models.js';
 import { sendToGPT, formatConversationHistory } from '../ai/chat.js';
 import logger from '../utils/logger.js';
+import {
+  avaliarBypassTransferencias,
+  processarMensagemTransferencia,
+} from '../transferencias/wpp/handler.js';
+import { transferenciasWppEnabled } from '../transferencias/wpp/flags.js';
 
 function extractPhoneNumber(whatsappId) {
   if (!whatsappId) return null;
@@ -45,6 +50,19 @@ function telefoneFromNormalized(message) {
   return /^\d+$/.test(from) ? from : null;
 }
 
+function lidFromMessage(message) {
+  if (String(message.from || '').endsWith('@lid')) {
+    return String(message.from).split('@')[0];
+  }
+  if (
+    message._baileys?.remoteJid &&
+    String(message._baileys.remoteJid).endsWith('@lid')
+  ) {
+    return String(message._baileys.remoteJid).split('@')[0];
+  }
+  return null;
+}
+
 /**
  * @param {object} client — shim createBaileysWppClient
  * @param {string} userId
@@ -70,7 +88,6 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
     const message = {
       ...normalized,
       _baileysRaw: raw || normalized._baileysRaw || null,
-      // mimetype helper para messageArchive / tarefaHandler
       mimetype:
         raw?.message?.imageMessage?.mimetype ||
         raw?.message?.videoMessage?.mimetype ||
@@ -82,16 +99,37 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
 
     logger.info(`[🔔 baileys/onMessage] userId=${userId} slot=${slot}`);
 
-    // Histórico (sempre) — mesmo contrato do WPP
     try {
       recordWhatsAppMessage(message, client, userId, slot);
     } catch (err) {
       logger.warn(`[baileys/messageArchive] ${err?.message}`);
     }
 
-    // Fonte de verdade = banco (toggle na plataforma), não só o --mode do start.
-    if (!(await isIaAtivaLive(userId, slot))) {
-      return;
+    const iaLive = await isIaAtivaLive(userId, slot);
+    let transferBypass = null;
+
+    if (!iaLive) {
+      // Bypass só para transferências no bot configurado + gerente/sessão ativa
+      if (transferenciasWppEnabled() && !message.fromMe && !message.isGroupMsg) {
+        const telefoneLimpo = telefoneFromNormalized(message);
+        const lidDigits = lidFromMessage(message);
+        try {
+          transferBypass = await avaliarBypassTransferencias({
+            stackUserId: userId,
+            slot,
+            telefone: telefoneLimpo,
+            lidDigits,
+          });
+        } catch (err) {
+          logger.warn(`[transf/bypass] ${err?.message}`);
+        }
+      }
+      if (!transferBypass?.bypass) {
+        return;
+      }
+      logger.info(
+        `[transf/bypass] iaAtiva=false mas gerente/sessão — seguindo buffer/handler`,
+      );
     }
 
     const isTextType = message.type === 'chat' || message.type === 'text';
@@ -99,19 +137,27 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
       message.isGroupMsg ||
       message.isStatus ||
       message.isStory ||
-      (message.from && (String(message.from).includes('status') || String(message.from).includes('broadcast'))) ||
+      (message.from &&
+        (String(message.from).includes('status') ||
+          String(message.from).includes('broadcast'))) ||
       message.type === 'status' ||
       message.fromMe ||
       !isTextType
     ) {
-      await handleIncomingMessage(message, client, userId, slot);
+      await handleIncomingMessage(message, client, userId, slot, {
+        transferenciasOnly: !iaLive,
+        transferBypass,
+      });
       return;
     }
 
     const phone = message.from;
     const text = (message.body || message.text || '').trim();
     if (!text) {
-      await handleIncomingMessage(message, client, userId, slot);
+      await handleIncomingMessage(message, client, userId, slot, {
+        transferenciasOnly: !iaLive,
+        transferBypass,
+      });
       return;
     }
 
@@ -119,8 +165,16 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
       clearTimeout(messageBuffers.get(phone).timer);
       messageBuffers.get(phone).texts.push(text);
       messageBuffers.get(phone).lastMessage = message;
+      messageBuffers.get(phone).transferenciasOnly = !iaLive;
+      messageBuffers.get(phone).transferBypass = transferBypass;
     } else {
-      messageBuffers.set(phone, { texts: [text], lastMessage: message, timer: null });
+      messageBuffers.set(phone, {
+        texts: [text],
+        lastMessage: message,
+        timer: null,
+        transferenciasOnly: !iaLive,
+        transferBypass,
+      });
     }
 
     const count = messageBuffers.get(phone).texts.length;
@@ -137,7 +191,10 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
         text: combinedText,
       });
       try {
-        await handleIncomingMessage(combinedMessage, client, userId, slot);
+        await handleIncomingMessage(combinedMessage, client, userId, slot, {
+          transferenciasOnly: buffer.transferenciasOnly === true,
+          transferBypass: buffer.transferBypass || null,
+        });
       } catch (bufferErr) {
         logger.warn(`[📦 BUFFER/baileys] Erro ${phone}: ${bufferErr?.message}`);
       }
@@ -149,23 +206,36 @@ export function setupBaileysMessagePipeline(client, userId, slot, iaAtiva) {
   return { onNormalizedMessage };
 }
 
-async function handleIncomingMessage(message, client, userId, slot) {
+/**
+ * @param {object} opts
+ * @param {boolean} [opts.transferenciasOnly] — iaAtiva=false; só transferências (sem GPT)
+ * @param {object|null} [opts.transferBypass]
+ */
+async function handleIncomingMessage(message, client, userId, slot, opts = {}) {
+  const transferenciasOnly = opts.transferenciasOnly === true;
+  let transferBypass = opts.transferBypass || null;
+
   try {
-    logger.info(`[📨 baileys] De: ${message.from} tipo=${message.type} fromMe=${message.fromMe}`);
+    logger.info(
+      `[📨 baileys] De: ${message.from} tipo=${message.type} fromMe=${message.fromMe}` +
+        (transferenciasOnly ? ' [transf-only]' : ''),
+    );
 
     let sessionIaPrompt = '';
-    try {
-      const durable = await WhatsAppBotModel.getDurableConfig(userId, slot);
-      if (!durable || durable.iaAtiva !== true) {
-        logger.warn(
-          `[baileys/handle] ignorando: sessão ${userId}:${slot} iaAtiva=${durable ? durable.iaAtiva : 'ausente'}`,
-        );
+    if (!transferenciasOnly) {
+      try {
+        const durable = await WhatsAppBotModel.getDurableConfig(userId, slot);
+        if (!durable || durable.iaAtiva !== true) {
+          logger.warn(
+            `[baileys/handle] ignorando: sessão ${userId}:${slot} iaAtiva=${durable ? durable.iaAtiva : 'ausente'}`,
+          );
+          return;
+        }
+        sessionIaPrompt = (durable.iaPrompt || '').trim();
+      } catch (iaErr) {
+        logger.error(`[baileys/handle] falha iaAtiva: ${iaErr?.message}`);
         return;
       }
-      sessionIaPrompt = (durable.iaPrompt || '').trim();
-    } catch (iaErr) {
-      logger.error(`[baileys/handle] falha iaAtiva: ${iaErr?.message}`);
-      return;
     }
 
     if (message.isGroupMsg) return;
@@ -173,7 +243,9 @@ async function handleIncomingMessage(message, client, userId, slot) {
     if (
       message.isStatus ||
       message.isStory ||
-      (message.from && (String(message.from).includes('status') || String(message.from).includes('broadcast'))) ||
+      (message.from &&
+        (String(message.from).includes('status') ||
+          String(message.from).includes('broadcast'))) ||
       message.type === 'status'
     ) {
       return;
@@ -208,13 +280,8 @@ async function handleIncomingMessage(message, client, userId, slot) {
     }
 
     const phone = extractPhoneNumber(message.from) || message.from;
-    const telefoneLimpo = telefoneFromNormalized(message);
-    const lidDigits = String(message.from || '').endsWith('@lid')
-      ? String(message.from).split('@')[0]
-      : (message._baileys?.remoteJid && String(message._baileys.remoteJid).endsWith('@lid')
-          ? String(message._baileys.remoteJid).split('@')[0]
-          : null);
-
+    let telefoneLimpo = telefoneFromNormalized(message);
+    let lidDigits = lidFromMessage(message);
     const chaveConversa = telefoneLimpo ?? String(phone).split('@')[0];
 
     if (sessionManager.isManualMode(userId, slot, chaveConversa)) {
@@ -222,17 +289,72 @@ async function handleIncomingMessage(message, client, userId, slot) {
       return;
     }
 
+    // Reavalia bypass se ainda não temos contexto (ex.: caminho fromMe=false sem buffer)
+    if (transferenciasWppEnabled() && !transferBypass) {
+      try {
+        transferBypass = await avaliarBypassTransferencias({
+          stackUserId: userId,
+          slot,
+          telefone: telefoneLimpo,
+          lidDigits,
+        });
+        if (transferBypass?.telefone) telefoneLimpo = transferBypass.telefone;
+        if (transferBypass?.lid) lidDigits = transferBypass.lid;
+      } catch (err) {
+        logger.warn(`[transf/bypass2] ${err?.message}`);
+      }
+    }
+
+    // ─── a) Transferências (sessão ativa OU novo pedido de gerente) ─────────
+    if (
+      transferenciasWppEnabled() &&
+      transferBypass?.tenantUserId &&
+      (transferBypass.bypass || transferenciasOnly)
+    ) {
+      try {
+        const consumiu = await processarMensagemTransferencia({
+          client,
+          stackUserId: userId,
+          slot,
+          message,
+          tenantUserId: transferBypass.tenantUserId,
+          gerente: transferBypass.gerente || null,
+          telefone: telefoneLimpo || transferBypass.telefone || null,
+          lid: lidDigits || transferBypass.lid || null,
+          sessoes: transferBypass.sessoes || null,
+        });
+        if (consumiu) return;
+      } catch (transfErr) {
+        logger.error(`[transf/baileys] ${transfErr?.message}`);
+        if (transferenciasOnly) return;
+      }
+    }
+
+    // Modo somente-transferência (iaAtiva=false): não segue tarefas/vagas/GPT
+    // — exceto tarefas, que o usuário pediu manter na ordem ANTES de vagas/GPT
+    //    quando iaAtiva está on. Com iaAtiva off, tarefas também não rodavam antes.
+    if (transferenciasOnly) {
+      return;
+    }
+
+    // ─── b) Tarefas ────────────────────────────────────────────────────────
     try {
       const sessaoAtiva = await tarefaHandler.getSessaoAtiva(telefoneLimpo, lidDigits);
       if (sessaoAtiva) {
         const telefoneParaHandler = telefoneLimpo ?? chaveConversa;
-        await tarefaHandler.processarMensagem(message, client, telefoneParaHandler, sessaoAtiva);
+        await tarefaHandler.processarMensagem(
+          message,
+          client,
+          telefoneParaHandler,
+          sessaoAtiva,
+        );
         return;
       }
     } catch (tarefaErr) {
       logger.error(`[🎯 TAREFA/baileys] ${tarefaErr?.message}`);
     }
 
+    // ─── c) Vagas ──────────────────────────────────────────────────────────
     try {
       const humanSessions = {
         has: (contactId) => {

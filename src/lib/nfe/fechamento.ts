@@ -421,6 +421,7 @@ export async function montarFechamento(params: {
       lojaOrigemLabel: storeLabel(d.lojaOrigem),
       lojaDestinoLabel: storeLabel(d.lojaDestino),
       lados: d.lados.map((l) => ({ tipo: l.tipo, rascunho: l.rascunho })),
+      origem: d.origem,
     });
     for (const p of msgs) {
       pendencias.push({

@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/prisma';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 import {
@@ -19,13 +20,33 @@ export async function GET(
   const { id } = await params;
   const doc = await obterTransferencia({ userId: tenant.tenantUserId, id });
   if (!doc) return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
-  const [origemFechada, destinoFechada] = await Promise.all([
+  const [origemFechada, destinoFechada, sessaoWa] = await Promise.all([
     competenciaEstaFechada(tenant.tenantUserId, doc.lojaOrigem, doc.competencia),
     competenciaEstaFechada(tenant.tenantUserId, doc.lojaDestino, doc.competencia),
+    doc.origem === 'WHATSAPP'
+      ? prisma.sessaoTransferencia.findFirst({
+          where: { cmvTransferenciaId: id, tenantUserId: tenant.tenantUserId },
+          include: {
+            gerenteOrigem: { select: { id: true, nome: true } },
+            gerenteDestino: { select: { id: true, nome: true } },
+          },
+        })
+      : Promise.resolve(null),
   ]);
   return NextResponse.json({
     ok: true,
     transferencia: doc,
+    sessaoWhatsapp: sessaoWa
+      ? {
+          id: sessaoWa.id,
+          codigo: sessaoWa.codigo,
+          estado: sessaoWa.estado,
+          gerenteOrigemNome: sessaoWa.gerenteOrigem?.nome ?? null,
+          gerenteDestinoNome: sessaoWa.gerenteDestino?.nome ?? null,
+          confirmacaoOrigemEm: sessaoWa.confirmacaoOrigemEm?.toISOString() ?? null,
+          recebimentoEm: sessaoWa.recebimentoEm?.toISOString() ?? null,
+        }
+      : null,
     competenciaFechada: origemFechada || destinoFechada,
     lojasFechadas: [
       ...(origemFechada ? [doc.lojaOrigem] : []),

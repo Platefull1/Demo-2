@@ -29,6 +29,21 @@ export type TransferenciaItemInput = {
   custoUnitario?: number | null;
 };
 
+export type ResolucaoDivergenciaItem = {
+  estoqueInsumoId: string;
+  escolha: 'ENVIADA' | 'RECEBIDA' | 'OUTRA';
+  qtdEnviada: number;
+  qtdRecebida: number;
+  qtdFinal: number;
+};
+
+export type ResolucaoDivergenciaAudit = {
+  resolvidoPorId: string;
+  resolvidoEm: string;
+  motivo: string;
+  itens: ResolucaoDivergenciaItem[];
+};
+
 export type TransferenciaResumo = {
   id: string;
   numeroDocumento: string;
@@ -39,6 +54,7 @@ export type TransferenciaResumo = {
   status: string;
   origem: string;
   observacao: string | null;
+  resolucaoDivergencia: ResolucaoDivergenciaAudit | null;
   criadoPorId: string | null;
   criadoPorNome: string | null;
   criadoEm: string;
@@ -166,6 +182,18 @@ export async function buscarCustoTransferencia(params: {
   });
 }
 
+function parseResolucaoDivergencia(raw: unknown): ResolucaoDivergenciaAudit | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  if (typeof o.resolvidoPorId !== 'string' || typeof o.motivo !== 'string') return null;
+  return {
+    resolvidoPorId: o.resolvidoPorId,
+    resolvidoEm: String(o.resolvidoEm || ''),
+    motivo: o.motivo,
+    itens: Array.isArray(o.itens) ? (o.itens as ResolucaoDivergenciaItem[]) : [],
+  };
+}
+
 function serializar(
   doc: {
   id: string;
@@ -177,6 +205,7 @@ function serializar(
   status: string;
   origem: string;
   observacao: string | null;
+  resolucaoDivergencia?: unknown;
   criadoPorId: string | null;
   editadoPorId: string | null;
   editadoEm: Date | null;
@@ -209,6 +238,7 @@ function serializar(
     status: doc.status,
     origem: doc.origem,
     observacao: doc.observacao,
+    resolucaoDivergencia: parseResolucaoDivergencia(doc.resolucaoDivergencia),
     criadoPorId: doc.criadoPorId,
     criadoPorNome: doc.criadoPorId ? (userNomeById?.get(doc.criadoPorId) ?? null) : null,
     criadoEm: doc.createdAt.toISOString(),
@@ -260,6 +290,9 @@ async function reconciliarELancar(params: {
       estoqueInsumoId: i.estoqueInsumoId,
       quantidade: n(i.quantidade),
     })),
+    origem: doc.origem,
+    saidaRascunho: saida?.rascunho === true,
+    entradaRascunho: entrada?.rascunho === true,
   });
 
   await prisma.cmvTransferencia.update({
@@ -696,7 +729,10 @@ export async function registrarTransferenciaCompleta(params: {
   data: Date;
   observacao?: string | null;
   itens: TransferenciaItemInput[];
+  /** Default MANUAL — WhatsApp passa WHATSAPP. */
+  origem?: 'MANUAL' | 'WHATSAPP';
 }): Promise<TransferenciaResumo> {
+  const origem = params.origem ?? 'MANUAL';
   if (!CMV_STORE_SLUGS.includes(params.lojaOrigem as CmvStoreSlug)) {
     throw new Error('Loja de origem inválida');
   }
@@ -769,7 +805,7 @@ export async function registrarTransferenciaCompleta(params: {
       lojaOrigem: params.lojaOrigem,
       lojaDestino: params.lojaDestino,
       status: 'CONCILIADA',
-      origem: 'MANUAL',
+      origem,
       observacao: params.observacao || null,
       criadoPorId: params.actorUserId,
       lados: {
@@ -806,6 +842,120 @@ export async function registrarTransferenciaCompleta(params: {
   return serializar(fresh);
 }
 
+/**
+ * Documento WhatsApp divergente: ambos os lados em rascunho (sem lançamento CMV),
+ * status DIVERGENTE explícito. Não chama reconciliarELancar.
+ */
+export async function registrarTransferenciaDivergenteWhatsapp(params: {
+  userId: string;
+  actorUserId: string;
+  lojaOrigem: string;
+  lojaDestino: string;
+  data: Date;
+  observacao?: string | null;
+  itensSaida: TransferenciaItemInput[];
+  itensEntrada: TransferenciaItemInput[];
+}): Promise<TransferenciaResumo> {
+  if (!CMV_STORE_SLUGS.includes(params.lojaOrigem as CmvStoreSlug)) {
+    throw new Error('Loja de origem inválida');
+  }
+  if (!CMV_STORE_SLUGS.includes(params.lojaDestino as CmvStoreSlug)) {
+    throw new Error('Loja de destino inválida');
+  }
+  if (params.lojaOrigem === params.lojaDestino) {
+    throw new Error('Origem e destino precisam ser lojas diferentes');
+  }
+  if (!params.itensSaida.length || !params.itensEntrada.length) {
+    throw new Error('Inclua itens de saída e de entrada');
+  }
+
+  const competencia = competenciaFromDataEntrada(params.data);
+  const saidaResolvida = await resolverItensParaTransferencia({
+    userId: params.userId,
+    lojaOrigem: params.lojaOrigem,
+    competencia,
+    itens: params.itensSaida,
+  });
+  const entradaResolvida = await resolverItensParaTransferencia({
+    userId: params.userId,
+    lojaOrigem: params.lojaOrigem,
+    competencia,
+    itens: params.itensEntrada.map((it) => ({
+      ...it,
+      // custo já congelado na confirmação da origem — propaga se informado
+      custoUnitario: it.custoUnitario,
+    })),
+  });
+
+  let numeroDocumento = gerarNumeroDocumento(params.data);
+  for (let i = 0; i < 5; i++) {
+    const existe = await prisma.cmvTransferencia.findUnique({
+      where: {
+        userId_numeroDocumento_lojaOrigem_lojaDestino: {
+          userId: params.userId,
+          numeroDocumento,
+          lojaOrigem: params.lojaOrigem,
+          lojaDestino: params.lojaDestino,
+        },
+      },
+      select: { id: true },
+    });
+    if (!existe) break;
+    numeroDocumento = gerarNumeroDocumento(params.data);
+  }
+
+  const agora = new Date();
+  const mapItens = (
+    itens: Awaited<ReturnType<typeof resolverItensParaTransferencia>>,
+  ) =>
+    itens.map((it) => ({
+      estoqueInsumoId: it.estoqueInsumoId,
+      quantidade: decimal(it.quantidade),
+      unidade: it.unidade,
+      custoUnitario: decimal(it.custo),
+      valorTotal: decimal(it.valorTotal),
+      custoOrigem: it.custoOrigem,
+    }));
+
+  const created = await prisma.cmvTransferencia.create({
+    data: {
+      userId: params.userId,
+      numeroDocumento,
+      data: params.data,
+      competencia,
+      lojaOrigem: params.lojaOrigem,
+      lojaDestino: params.lojaDestino,
+      status: 'DIVERGENTE',
+      origem: 'WHATSAPP',
+      observacao: params.observacao || null,
+      criadoPorId: params.actorUserId,
+      lados: {
+        create: [
+          {
+            tipo: 'SAIDA' as const,
+            storeSlug: params.lojaOrigem,
+            registradoPorId: params.actorUserId,
+            registradoEm: agora,
+            rascunho: true,
+            itens: { create: mapItens(saidaResolvida) },
+          },
+          {
+            tipo: 'ENTRADA' as const,
+            storeSlug: params.lojaDestino,
+            registradoPorId: params.actorUserId,
+            registradoEm: agora,
+            rascunho: true,
+            itens: { create: mapItens(entradaResolvida) },
+          },
+        ],
+      },
+    },
+    include: includeDoc,
+  });
+
+  return serializar(created);
+}
+
 // ─── Edição ───────────────────────────────────────────────────────────────────
 
 /**
@@ -826,6 +976,7 @@ export async function atualizarTransferencia(params: {
     include: includeDoc,
   });
   if (!doc) throw new Error('Transferência não encontrada');
+  // Somente MANUAL — nunca SAIPOS / NFE_LOJA / WHATSAPP
   if (doc.origem !== 'MANUAL') {
     throw new Error('Somente transferências manuais podem ser editadas aqui');
   }
@@ -894,6 +1045,199 @@ export async function atualizarTransferencia(params: {
         observacao: params.observacao !== undefined ? params.observacao : doc.observacao,
         editadoPorId: params.actorUserId,
         editadoEm: new Date(),
+      },
+    });
+  });
+
+  await reconciliarELancar({ userId: params.userId, transferenciaId: doc.id });
+
+  const fresh = await prisma.cmvTransferencia.findFirstOrThrow({
+    where: { id: doc.id },
+    include: includeDoc,
+  });
+  return serializar(fresh);
+}
+
+export type ItemResolucaoDivergenciaInput = {
+  estoqueInsumoId: string;
+  escolha: 'ENVIADA' | 'RECEBIDA' | 'OUTRA';
+  /** Obrigatório quando escolha = OUTRA */
+  quantidade?: number | null;
+};
+
+/**
+ * Resolve divergência WhatsApp: aplica qtd final nos dois lados,
+ * tira do rascunho, gera lançamentos (CONCILIADA) e grava auditoria.
+ * Não abre edição genérica de documentos WHATSAPP.
+ */
+export async function resolverDivergenciaWhatsapp(params: {
+  userId: string;
+  actorUserId: string;
+  id: string;
+  motivo: string;
+  itens: ItemResolucaoDivergenciaInput[];
+}): Promise<TransferenciaResumo> {
+  const motivo = params.motivo.trim();
+  if (!motivo) throw new Error('Motivo da resolução é obrigatório');
+  if (!params.itens.length) throw new Error('Informe a quantidade válida por item');
+
+  const doc = await prisma.cmvTransferencia.findFirst({
+    where: { id: params.id, userId: params.userId, excluidoEm: null },
+    include: includeDoc,
+  });
+  if (!doc) throw new Error('Transferência não encontrada');
+  if (doc.origem !== 'WHATSAPP') {
+    throw new Error('Somente transferências WhatsApp usam esta ação');
+  }
+  if (doc.status !== 'DIVERGENTE') {
+    throw new Error('Transferência não está divergente');
+  }
+  if (await competenciaEstaFechada(params.userId, doc.lojaOrigem, doc.competencia)) {
+    throw new Error(`Competência ${doc.competencia} fechada na loja de origem`);
+  }
+  if (await competenciaEstaFechada(params.userId, doc.lojaDestino, doc.competencia)) {
+    throw new Error(`Competência ${doc.competencia} fechada na loja de destino`);
+  }
+
+  const saida = doc.lados.find((l) => l.tipo === 'SAIDA');
+  const entrada = doc.lados.find((l) => l.tipo === 'ENTRADA');
+  if (!saida || !entrada) {
+    throw new Error('Documento sem os dois lados (saída e entrada)');
+  }
+
+  const saidaBy = new Map(saida.itens.map((i) => [i.estoqueInsumoId, i]));
+  const entradaBy = new Map(entrada.itens.map((i) => [i.estoqueInsumoId, i]));
+  const ids = new Set([...saidaBy.keys(), ...entradaBy.keys()]);
+
+  const inputBy = new Map(params.itens.map((i) => [i.estoqueInsumoId, i]));
+  for (const id of ids) {
+    if (!inputBy.has(id)) {
+      throw new Error('Informe a quantidade válida para todos os itens');
+    }
+  }
+
+  const agora = new Date();
+  const auditItens: ResolucaoDivergenciaItem[] = [];
+  const finais: Array<{
+    estoqueInsumoId: string;
+    quantidade: number;
+    unidade: 'KG' | 'UN';
+    custoUnitario: number | null;
+    custoOrigem: string | null;
+  }> = [];
+
+  for (const estoqueInsumoId of ids) {
+    const inp = inputBy.get(estoqueInsumoId)!;
+    const s = saidaBy.get(estoqueInsumoId);
+    const e = entradaBy.get(estoqueInsumoId);
+    const qtdEnviada = s ? n(s.quantidade) : 0;
+    const qtdRecebida = e ? n(e.quantidade) : 0;
+    let qtdFinal: number;
+    if (inp.escolha === 'ENVIADA') qtdFinal = qtdEnviada;
+    else if (inp.escolha === 'RECEBIDA') qtdFinal = qtdRecebida;
+    else {
+      qtdFinal = Number(inp.quantidade);
+      if (!(qtdFinal > 0)) {
+        throw new Error('Quantidade “Outra” deve ser maior que zero');
+      }
+    }
+    if (!(qtdFinal > 0)) {
+      throw new Error('Quantidade final deve ser maior que zero');
+    }
+
+    const ref = s || e!;
+    finais.push({
+      estoqueInsumoId,
+      quantidade: qtdFinal,
+      unidade: ref.unidade as 'KG' | 'UN',
+      custoUnitario: ref.custoUnitario != null ? n(ref.custoUnitario) : null,
+      custoOrigem: ref.custoOrigem,
+    });
+    auditItens.push({
+      estoqueInsumoId,
+      escolha: inp.escolha,
+      qtdEnviada,
+      qtdRecebida,
+      qtdFinal,
+    });
+  }
+
+  // Garante custo em todos (usa buscarCusto se faltou)
+  for (const it of finais) {
+    if (it.custoUnitario != null) continue;
+    const custo = await buscarCustoTransferencia({
+      userId: params.userId,
+      lojaOrigem: doc.lojaOrigem,
+      estoqueInsumoId: it.estoqueInsumoId,
+      competencia: doc.competencia,
+    });
+    if (custo.custo == null) {
+      throw new Error('Custo pendente — sem histórico para resolver a divergência');
+    }
+    it.custoUnitario = custo.custo;
+    it.custoOrigem = custo.origem;
+  }
+
+  const audit: ResolucaoDivergenciaAudit = {
+    resolvidoPorId: params.actorUserId,
+    resolvidoEm: agora.toISOString(),
+    motivo,
+    itens: auditItens,
+  };
+
+  const todosItemIds = doc.lados.flatMap((l) => l.itens.map((i) => i.id));
+
+  await prisma.$transaction(async (tx) => {
+    if (todosItemIds.length) {
+      await tx.cmvLancamento.deleteMany({
+        where: { transferenciaItemId: { in: todosItemIds } },
+      });
+      await tx.cmvTransferenciaItem.deleteMany({
+        where: { id: { in: todosItemIds } },
+      });
+    }
+
+    for (const lado of [saida, entrada]) {
+      await tx.cmvTransferenciaLado.update({
+        where: { id: lado.id },
+        data: {
+          rascunho: false,
+          registradoPorId: params.actorUserId,
+          registradoEm: agora,
+        },
+      });
+      await tx.cmvTransferenciaItem.createMany({
+        data: finais.map((it) => ({
+          ladoId: lado.id,
+          estoqueInsumoId: it.estoqueInsumoId,
+          quantidade: decimal(it.quantidade),
+          unidade: it.unidade,
+          custoUnitario: decimal(it.custoUnitario!),
+          valorTotal: decimal(Math.round(it.quantidade * it.custoUnitario! * 100) / 100),
+          custoOrigem: it.custoOrigem as never,
+        })),
+      });
+    }
+
+    await tx.cmvTransferencia.update({
+      where: { id: doc.id },
+      data: {
+        resolucaoDivergencia: audit as unknown as Prisma.InputJsonValue,
+        editadoPorId: params.actorUserId,
+        editadoEm: agora,
+      },
+    });
+
+    // Sessão WhatsApp associada passa a CONCLUIDA
+    await tx.sessaoTransferencia.updateMany({
+      where: {
+        cmvTransferenciaId: doc.id,
+        tenantUserId: params.userId,
+        estado: 'DIVERGENTE',
+      },
+      data: {
+        estado: 'CONCLUIDA',
+        concluidaEm: agora,
       },
     });
   });
