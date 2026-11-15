@@ -570,6 +570,8 @@ export async function startTyping(jid, opts = {}) {
     throw new Error('Sessão Baileys não conectada');
   }
   const dest = toJid(jid);
+  await session.sock.sendPresenceUpdate('available');
+  await session.sock.presenceSubscribe(dest);
   await session.sock.sendPresenceUpdate('composing', dest);
 }
 
