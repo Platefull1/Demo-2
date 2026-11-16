@@ -26,6 +26,14 @@ describe('resolverCategorias', () => {
     });
   });
 
+  it('aceita FALTOU_NA_LOJA no formulário', () => {
+    const ok = resolverCategorias(['FALTOU_NA_LOJA'], '');
+    assert.deepEqual(ok, {
+      ok: true,
+      categorias: ['FALTOU_NA_LOJA'],
+    });
+  });
+
   it('rejeita PEDIDO_ATRASADO no registro', () => {
     const fail = resolverCategorias(['PEDIDO_ATRASADO'], 'descrição longa suficiente');
     assert.equal(fail.ok, false);

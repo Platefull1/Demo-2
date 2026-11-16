@@ -1,0 +1,1 @@
+ALTER TYPE "CategoriaOcorrencia" ADD VALUE 'FALTOU_NA_LOJA';
