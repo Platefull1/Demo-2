@@ -52,6 +52,79 @@ export async function carregarCatalogoInsumos(tenantUserId) {
   });
 }
 
+function normalizarTextoInsumo(s) {
+  return String(s || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Remove quantidade/unidade do início ("10kg de cebola" → "cebola").
+ * @param {string} texto
+ */
+function extrairNomeProdutoDoTexto(texto) {
+  const n = normalizarTextoInsumo(texto);
+  if (!n) return '';
+  const limpo = n
+    .replace(
+      /^\d+([.,]\d+)?\s*(kg|kilos?|g|un|und|unidades?|cx|caixas?)?\s*(de\s+)?/,
+      '',
+    )
+    .replace(/^(de\s+)/, '')
+    .trim();
+  return limpo || n;
+}
+
+/**
+ * Resolve estoqueInsumoId pelo texto contra o catálogo CMV.
+ * Preferência: nome exato > nome do catálogo como prefixo do texto (mais longo)
+ * > texto igual ao nome (já coberto) > único nome que começa com o texto.
+ * @param {string} textoOriginal
+ * @param {Array<{ estoqueInsumoId: string, nome: string }>} catalogo
+ * @returns {string|null}
+ */
+export function resolverInsumoPorTexto(textoOriginal, catalogo) {
+  const q = extrairNomeProdutoDoTexto(textoOriginal);
+  if (!q || !catalogo?.length) return null;
+
+  const comNome = catalogo
+    .map((c) => ({ ...c, n: normalizarTextoInsumo(c.nome) }))
+    .filter((c) => c.n);
+
+  const exact = comNome.filter((c) => c.n === q);
+  if (exact.length === 1) return exact[0].estoqueInsumoId;
+  if (exact.length > 1) return null;
+
+  // "cebola branca" → CEBOLA; "cebola crocante" → CEBOLA + CEBOLA CROCANTE → mais longo
+  const prefixoDoTexto = comNome.filter(
+    (c) => q === c.n || q.startsWith(`${c.n} `),
+  );
+  if (prefixoDoTexto.length === 1) return prefixoDoTexto[0].estoqueInsumoId;
+  if (prefixoDoTexto.length > 1) {
+    prefixoDoTexto.sort((a, b) => b.n.length - a.n.length);
+    const top = prefixoDoTexto[0];
+    const empatados = prefixoDoTexto.filter((c) => c.n.length === top.n.length);
+    if (empatados.length === 1) return top.estoqueInsumoId;
+    return null;
+  }
+
+  // "cebola" → CEBOLA (exato já falhou acima só se não houver) + CEBOLA CROCANTE
+  const comecamComQuery = comNome.filter(
+    (c) => c.n === q || c.n.startsWith(`${q} `),
+  );
+  const soExato = comecamComQuery.filter((c) => c.n === q);
+  if (soExato.length === 1) return soExato[0].estoqueInsumoId;
+  if (soExato.length === 0 && comecamComQuery.length === 1) {
+    return comecamComQuery[0].estoqueInsumoId;
+  }
+
+  return null;
+}
+
 function buildSystemPrompt(lojas, catalogo) {
   const lojasTxt = lojas
     .map((s) => `${s}=${CMV_STORE_LABELS[s] || s}`)
@@ -72,8 +145,12 @@ function buildSystemPrompt(lojas, catalogo) {
     '"itens": [{"estoqueInsumoId": string|null, "textoOriginal": string, "quantidade": number|null, "unidade": "KG"|"UN"|null}], ' +
     '"duvidas": [string]}. ' +
     'Regras: (1) ehTransferencia=true só se for claramente pedido de envio/transferência de produtos entre lojas. ' +
-    '(2) lojaDestino deve ser um slug válido. (3) estoqueInsumoId só se for ID da lista; senão null e coloque dúvida. ' +
-    '(4) Nunca chute produto ou quantidade. (5) Se ambíguo (ex cebola roxa/branca), deixe id null e explique em duvidas. ' +
+    '(2) lojaDestino deve ser um slug válido. (3) estoqueInsumoId só se for ID da lista do catálogo abaixo; senão null e coloque dúvida. ' +
+    '(4) Nunca chute produto ou quantidade. ' +
+    '(5) Faça match pelo nome do catálogo (ignore maiúsculas/acentos). Se houver um único item que corresponda ' +
+    '(ex.: "cebola" → item "CEBOLA"), use esse ID — não invente variedades que não estão no catálogo. ' +
+    '(6) Só peça esclarecimento de produto quando houver 2+ itens do catálogo realmente parecidos ' +
+    '(ex.: "CEBOLA" e "CEBOLA CROCANTE" e a mensagem não distinguir). Liste no máximo esses nomes do catálogo. ' +
     `Lojas válidas (slug=nome): ${lojasTxt}. ` +
     `Catálogo (use só estes IDs):\n${catTxt}`
   );
@@ -183,7 +260,10 @@ export async function interpretarPedidoTransferencia(params) {
     let estoqueInsumoId = it.estoqueInsumoId ? String(it.estoqueInsumoId) : null;
     if (estoqueInsumoId && !idsOk.has(estoqueInsumoId)) {
       estoqueInsumoId = null;
-      duvidas.push(`Não achei "${textoOriginal || 'item'}" no catálogo.`);
+    }
+    // Fallback: IA às vezes inventa ambiguidade; resolve pelo nome do CMV Real
+    if (!estoqueInsumoId && textoOriginal) {
+      estoqueInsumoId = resolverInsumoPorTexto(textoOriginal, catalogo);
     }
     let quantidade =
       it.quantidade == null || it.quantidade === ''
@@ -241,11 +321,22 @@ export async function interpretarPedidoTransferencia(params) {
     duvidas.push('Origem e destino precisam ser lojas diferentes.');
   }
 
+  // Se todos os itens com texto foram resolvidos, descarta dúvidas inventadas de produto
+  const pendenteProduto = itens.some((i) => i.textoOriginal && !i.estoqueInsumoId);
+  const duvidasFinais = pendenteProduto
+    ? duvidas
+    : duvidas.filter(
+        (d) =>
+          !/qual produto|n[aã]o achei|cat[aá]logo|branca|roxa|amb[ií]gu/i.test(
+            d,
+          ),
+      );
+
   return {
     ehTransferencia,
     lojaDestino,
     itens,
-    duvidas: [...new Set(duvidas)],
+    duvidas: [...new Set(duvidasFinais)],
   };
 }
 
