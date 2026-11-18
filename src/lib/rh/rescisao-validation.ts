@@ -94,14 +94,28 @@ export const rescisaoFinalizarSchema = z
     possuiEstabilidade: z.boolean({
       error: 'Informe se possui estabilidade no emprego',
     }),
-    tipoEstabilidade: z.string().trim().max(200).nullable().optional(),
+    tipoEstabilidade: z.preprocess(
+      (v) => (v == null ? null : v),
+      z.string().trim().max(200).nullable().optional(),
+    ),
     foiTransferido: z.boolean({
       error: 'Informe se foi transferido de empresa ou grupo econômico',
     }),
-    empresaOrigem: z.string().trim().max(200).nullable().optional(),
+    empresaOrigem: z.preprocess(
+      (v) => (v == null ? null : v),
+      z.string().trim().max(200).nullable().optional(),
+    ),
     tipoRescisao: tipoRescisaoSchema,
     tipoAviso: tipoAvisoSchema,
-    motivo: z.string().trim().min(1, 'Motivo da rescisão é obrigatório').max(5000),
+    // Opcional: null/undefined/'' → null
+    motivo: z.preprocess(
+      (v) => {
+        if (v == null) return null;
+        const s = String(v).trim();
+        return s.length === 0 ? null : s;
+      },
+      z.string().max(5000).nullable(),
+    ),
     vencimentos: z.array(rescisaoItemSchema).optional(),
     descontos: z.array(rescisaoItemSchema).optional(),
   })

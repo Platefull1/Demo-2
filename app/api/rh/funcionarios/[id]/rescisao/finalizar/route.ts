@@ -123,7 +123,7 @@ export async function POST(
             valorAnterior: 'Ativo',
             valorNovo: `FINALIZADA — ${tipoLabel}`,
             alteradoPor: ctx!.stackUserId,
-            motivo: data.motivo.trim(),
+            motivo: data.motivo?.trim() || null,
           },
         });
 
@@ -135,7 +135,7 @@ export async function POST(
             valorAnterior: '',
             valorNovo: formatYmdBr(data.dataDesligamento),
             alteradoPor: ctx!.stackUserId,
-            motivo: data.motivo.trim(),
+            motivo: data.motivo?.trim() || null,
           },
         });
 
@@ -147,7 +147,7 @@ export async function POST(
             valorAnterior: 'Ativo',
             valorNovo: 'Inativo',
             alteradoPor: ctx!.stackUserId,
-            motivo: data.motivo.trim(),
+            motivo: data.motivo?.trim() || null,
           },
         });
 

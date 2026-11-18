@@ -152,7 +152,7 @@ export function finalizarBodyToPrisma(data: RescisaoFinalizarInput): Prisma.RhRe
     empresaOrigem: data.foiTransferido ? data.empresaOrigem?.trim() || null : null,
     tipoRescisao: data.tipoRescisao,
     tipoAviso: data.tipoAviso,
-    motivo: data.motivo.trim(),
+    motivo: data.motivo?.trim() || null,
     ...(data.vencimentos !== undefined
       ? { vencimentos: data.vencimentos as unknown as Prisma.InputJsonValue }
       : {}),

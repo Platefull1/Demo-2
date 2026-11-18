@@ -180,11 +180,17 @@ function formToPayload(form: FormState) {
     tipoAviso: form.tipoAviso,
     motivo: form.motivo.trim() || null,
     vencimentos: form.vencimentos.map((i) => ({
-      ...i,
+      chave: i.chave,
+      descricao: i.descricao,
+      unidade: i.unidade,
+      codigo: i.codigo ?? null,
       valor: i.valor === '' || i.valor == null ? null : i.valor,
     })),
     descontos: form.descontos.map((i) => ({
-      ...i,
+      chave: i.chave,
+      descricao: i.descricao,
+      unidade: i.unidade,
+      codigo: i.codigo ?? null,
       valor: i.valor === '' || i.valor == null ? null : i.valor,
     })),
   };
@@ -984,7 +990,7 @@ export default function DemissaoPage() {
               value={form.motivo}
               disabled={readOnly}
               rows={4}
-              placeholder="Descreva o motivo"
+              placeholder="Descreva o motivo (opcional)"
               onChange={(e) => patchForm({ motivo: e.target.value })}
             />
           </CardContent>
