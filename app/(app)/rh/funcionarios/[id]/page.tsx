@@ -7,7 +7,7 @@ import { useLoja } from '@/contexts/LojaContext';
 import {
   ArrowLeft, Edit3, Save, X, User, Briefcase, DollarSign, Clock,
   AlertTriangle, TrendingUp, Building2, Phone, Mail, Calendar,
-  History, Umbrella, ChevronRight, FileText, ArrowRight, Gift,
+  History, Umbrella, ChevronRight, FileText, ArrowRight, Gift, UserMinus,
 } from 'lucide-react';
 import BonificacoesTab from '@/components/rh/BonificacoesTab';
 import DocumentosTab from '@/components/rh/DocumentosTab';
@@ -130,6 +130,8 @@ export default function FuncionarioDetailPage() {
   const [tab, setTab] = useState<Tab>('dados');
   const [toast, setToast] = useState('');
   const [showDrawerTransferencia, setShowDrawerTransferencia] = useState(false);
+  const [canDemissao, setCanDemissao] = useState(false);
+  const [temRescisaoFinalizada, setTemRescisaoFinalizada] = useState(false);
 
   // Férias
   const [dataGozoFerias, setDataGozoFerias] = useState('');
@@ -224,6 +226,28 @@ export default function FuncionarioDetailPage() {
   useEffect(() => {
     if (tab === 'historico') fetchHistorico();
   }, [tab, fetchHistorico]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/rh/funcionarios/${params.id}/rescisao`);
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        if (cancelled) return;
+        setCanDemissao(Boolean(json.permissions?.canEdit));
+        setTemRescisaoFinalizada(json.rescisao?.status === 'FINALIZADA');
+      } catch {
+        if (!cancelled) {
+          setCanDemissao(false);
+          setTemRescisaoFinalizada(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [params.id]);
 
   const fetchBonificacoes = useCallback(async () => {
     const res = await fetch(`/api/rh/funcionarios/${params.id}/bonificacoes`);
@@ -412,7 +436,27 @@ export default function FuncionarioDetailPage() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            {canDemissao && funcionario.ativo && !editMode && (
+              <button
+                type="button"
+                onClick={() => router.push(`/rh/funcionarios/${params.id}/demissao`)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors"
+              >
+                <UserMinus className="w-4 h-4" />
+                Demissão
+              </button>
+            )}
+            {canDemissao && !funcionario.ativo && temRescisaoFinalizada && !editMode && (
+              <button
+                type="button"
+                onClick={() => router.push(`/rh/funcionarios/${params.id}/demissao`)}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1c1c1e] border border-[#2a2a2e] text-gray-300 text-sm font-medium hover:bg-[#2a2a2e] transition-colors"
+              >
+                <FileText className="w-4 h-4" />
+                Ver rescisão
+              </button>
+            )}
             {funcionario.ativo && !editMode && tab === 'dados' && (
               <button onClick={() => setShowDeleteModal(true)} className="px-4 py-2 rounded-xl bg-red-500/10 text-red-400 text-sm font-medium hover:bg-red-500/20 transition-colors">Desativar</button>
             )}
