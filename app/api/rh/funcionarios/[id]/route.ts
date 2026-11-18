@@ -38,7 +38,6 @@ type CampoHistorico = (typeof CAMPOS_HISTORICO)[number];
 function valorParaString(
   campo: CampoHistorico,
   valor: unknown,
-  existing?: Record<string, unknown>
 ): string {
   if (valor === null || valor === undefined) return '';
   if (campo === 'cargoResponsabilidade') return valor ? 'Sim' : 'Não';
@@ -286,7 +285,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const alteradoPor = rh!.userId;
 
     // Avanço do período aquisitivo ao registrar/atualizar gozo de férias
-    let feriasData: {
+    const feriasData: {
       dataGozoFerias?: Date | null;
       statusFerias?: string;
       diasFeriasGozados?: number;
@@ -348,6 +347,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
     const deveGravarVigencia = escalaMudou || forcarVigenciaPorData;
 
+    // Reativar → limpa dataDemissao (histórico preserva o registro anterior)
+    const reativando = ativo === true && existing.ativo === false;
+
     const funcionario = await prisma.$transaction(async (tx) => {
       const updated = await tx.rhFuncionario.update({
         where: { id },
@@ -383,6 +385,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           ...(domingoFolga !== undefined && { domingoFolga: domingoFolga || null }),
           ...(observacoes !== undefined && { observacoes: observacoes || null }),
           ...(ativo !== undefined && { ativo }),
+          ...(reativando && { dataDemissao: null }),
           ...(numeroFolhaNorm !== undefined && { numeroFolha: numeroFolhaNorm }),
           ...feriasData,
           ...experienciaData,
@@ -404,6 +407,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
           },
           valeYmd,
         );
+      }
+
+      if (reativando && existing.dataDemissao) {
+        const demissaoAnterior = existing.dataDemissao.toISOString().slice(0, 10);
+        const [y, m, d] = demissaoAnterior.split('-');
+        alteracoes.push({
+          campo: 'dataDemissao',
+          valorAnterior: y && m && d ? `${d}/${m}/${y}` : demissaoAnterior,
+          valorNovo: '',
+        });
       }
 
       if (alteracoes.length > 0) {

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { useLoja } from '@/contexts/LojaContext';
-import { Search, Plus, Trash2, X, AlertTriangle } from 'lucide-react';
+import { Search, Plus, Trash2, X, AlertTriangle, UserMinus, FileText } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { RhLojaCombobox } from '@/components/rh/RhLojaCombobox';
 import { DataTable } from '@/components/layout/DataTable';
@@ -18,6 +18,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface Cargo {
   id: string;
@@ -135,6 +141,9 @@ export default function FuncionariosPage() {
   const [filterAtivo, setFilterAtivo] = useState('true');
   const [deleteTarget, setDeleteTarget] = useState<Funcionario | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [rascunhoIds, setRascunhoIds] = useState<Set<string>>(new Set());
+  const [finalizadaIds, setFinalizadaIds] = useState<Set<string>>(new Set());
+  const [canEditEmployees, setCanEditEmployees] = useState(false);
 
   const fmt = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -158,9 +167,40 @@ export default function FuncionariosPage() {
     }
   }, [lojaSelecionada, filterCargo, filterEscala, filterTurno, filterAtivo]);
 
+  const fetchRescisoesMeta = useCallback(async () => {
+    try {
+      const [rascunhosRes, finalizadasRes] = await Promise.all([
+        fetch('/api/rh/rescisoes?status=RASCUNHO'),
+        fetch('/api/rh/rescisoes?status=FINALIZADA'),
+      ]);
+      if (rascunhosRes.ok) {
+        const json = await rascunhosRes.json();
+        const items = Array.isArray(json) ? json : (json.items ?? []);
+        setRascunhoIds(new Set(items.map((r: { funcionarioId: string }) => r.funcionarioId)));
+        if (json.permissions?.canEdit != null) {
+          setCanEditEmployees(Boolean(json.permissions.canEdit));
+        }
+      }
+      if (finalizadasRes.ok) {
+        const json = await finalizadasRes.json();
+        const items = Array.isArray(json) ? json : (json.items ?? []);
+        setFinalizadaIds(new Set(items.map((r: { funcionarioId: string }) => r.funcionarioId)));
+        if (json.permissions?.canEdit != null) {
+          setCanEditEmployees(Boolean(json.permissions.canEdit));
+        }
+      }
+    } catch {
+      /* ignore — botões de demissão ficam ocultos */
+    }
+  }, []);
+
   useEffect(() => {
     fetchFuncionarios();
   }, [fetchFuncionarios]);
+
+  useEffect(() => {
+    void fetchRescisoesMeta();
+  }, [fetchRescisoesMeta]);
 
   useEffect(() => {
     fetch('/api/rh/cargos')
@@ -180,6 +220,7 @@ export default function FuncionariosPage() {
       await fetch(url, { method: 'DELETE' });
       setDeleteTarget(null);
       fetchFuncionarios();
+      void fetchRescisoesMeta();
     } catch {
       /* silently fail */
     } finally {
@@ -291,29 +332,75 @@ export default function FuncionariosPage() {
       {
         id: 'actions',
         header: '',
-        meta: { headerClassName: 'w-12', cellClassName: 'w-12' },
+        meta: { headerClassName: 'w-[1%] whitespace-nowrap', cellClassName: 'w-[1%] whitespace-nowrap' },
         cell: ({ row }) => {
           const f = row.original;
+          const temRascunho = rascunhoIds.has(f.id);
+          const temFinalizada = finalizadaIds.has(f.id);
           return (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              title={f.ativo ? 'Desativar funcionário' : 'Excluir permanentemente'}
+            <div
+              className="flex items-center justify-end gap-1"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                setDeleteTarget(f);
               }}
             >
-              <Trash2 className="size-3.5 text-muted-foreground" />
-            </Button>
+              {canEditEmployees && f.ativo ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-destructive hover:text-destructive"
+                      onClick={() => router.push(`/rh/funcionarios/${f.id}/demissao`)}
+                    >
+                      <UserMinus className="size-3.5" />
+                      <span className="hidden xl:inline">
+                        {temRascunho ? 'Continuar demissão' : 'Demissão'}
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {temRascunho ? 'Continuar demissão' : 'Demissão'}
+                  </TooltipContent>
+                </Tooltip>
+              ) : null}
+
+              {canEditEmployees && !f.ativo && temFinalizada ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2"
+                      onClick={() => router.push(`/rh/funcionarios/${f.id}/demissao`)}
+                    >
+                      <FileText className="size-3.5 text-muted-foreground" />
+                      <span className="hidden xl:inline">Ver rescisão</span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Ver rescisão</TooltipContent>
+                </Tooltip>
+              ) : null}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="size-8"
+                title={f.ativo ? 'Desativar funcionário' : 'Excluir permanentemente'}
+                onClick={() => setDeleteTarget(f)}
+              >
+                <Trash2 className="size-3.5 text-muted-foreground" />
+              </Button>
+            </div>
           );
         },
       },
     ],
-    []
+    [canEditEmployees, finalizadaIds, rascunhoIds, router]
   );
 
   const clearFilters = () => {
@@ -325,6 +412,7 @@ export default function FuncionariosPage() {
   };
 
   return (
+    <TooltipProvider>
     <div className="space-y-6">
       {deleteTarget && (
         <ConfirmModal
@@ -435,6 +523,7 @@ export default function FuncionariosPage() {
         data={funcionariosFiltrados}
         loading={loading}
         getRowHref={(row) => `/rh/funcionarios/${row.id}`}
+        interactiveColumnIds={['actions']}
         emptyState={
           <div className="py-12 text-center space-y-3">
             <p className="text-sm text-foreground">Nenhum funcionário encontrado</p>
@@ -454,5 +543,6 @@ export default function FuncionariosPage() {
         }
       />
     </div>
+    </TooltipProvider>
   );
 }

@@ -979,6 +979,8 @@ model RhFuncionario {
   domingoFolga          String?
   observacoes           String?
   ativo                 Boolean                  @default(true)
+  /// Preenchida na finalização de rescisão; limpar ao reativar.
+  dataDemissao          DateTime?                @db.Date
   // Período de experiência (calculado automaticamente)
   dataInicioExperiencia DateTime?
   dataFimExperiencia1   DateTime?
@@ -1000,6 +1002,7 @@ model RhFuncionario {
   bonificacoesTrimestrais RhBonificacaoTrimestral[]
   bonificacoesAssiduidade RhBonificacaoAssiduidade[]
   plrPagamentos           RhPLRPagamento[]
+  rescisoes               RhRescisao[]
   numeroFolha             String?                  @unique
   /// NumeroPis vindo das batidas do Secullum — preenchido automaticamente pelo webhook
   pisSecullum             String?
@@ -1224,6 +1227,75 @@ model RhHistoricoFuncionario {
   @@index([funcionarioId])
   @@index([userId])
   @@map("rh_historico_funcionarios")
+}
+
+enum RescisaoStatus {
+  RASCUNHO
+  FINALIZADA
+}
+
+enum TipoRescisao {
+  DISPENSA_SEM_JUSTA_CAUSA
+  DISPENSA_COM_JUSTA_CAUSA
+  PEDIDO_DE_DISPENSA
+  ANTECIPADA_EMPREGADOR
+  ANTECIPADA_EMPREGADO
+}
+
+enum TipoAviso {
+  INDENIZADO_IMEDIATO
+  TRABALHADO_REDUCAO_7_DIAS
+  TRABALHADO_REDUCAO_2_HORAS
+  TERMINO_EXPERIENCIA
+  ANTECIPADA_EMPREGADOR
+  RESCISAO_POR_MORTE
+  AVISO_TRABALHADO_30_DIAS
+  AVISO_MEIO_INDENIZADO
+  DISPENSADO
+}
+
+/// Solicitação de rescisão de contrato (rascunho ou finalizada).
+/// Snapshot dos dados do cadastro no momento da rescisão — não muda se o cadastro mudar depois.
+model RhRescisao {
+  id                   String         @id @default(cuid())
+  funcionarioId        String
+  funcionario          RhFuncionario  @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  status               RescisaoStatus @default(RASCUNHO)
+
+  // Snapshot do cadastro
+  empresa              String         @default("BRULUVAS")
+  codigoSnapshot       String?
+  nomeSnapshot         String
+  /// Nullable porque dataAdmissao no cadastro também pode ser null.
+  dataAdmissaoSnapshot DateTime?      @db.Date
+  salarioSnapshot      Decimal        @db.Decimal(10, 2)
+
+  dataDesligamento     DateTime       @db.Date
+  cumpreAviso          Boolean?
+  descontaAviso        Boolean?
+  inicioAviso          DateTime?      @db.Date
+  terminoAviso         DateTime?      @db.Date
+  possuiEstabilidade   Boolean?
+  tipoEstabilidade     String?
+  foiTransferido       Boolean?
+  empresaOrigem        String?
+  tipoRescisao         TipoRescisao?
+  tipoAviso            TipoAviso?
+  motivo               String?
+
+  /// [{ chave, descricao, unidade, valor }]
+  vencimentos          Json           @default("[]")
+  /// [{ chave, codigo?, descricao, unidade, valor }]
+  descontos            Json           @default("[]")
+
+  criadoPorId          String
+  finalizadoPorId      String?
+  finalizadoEm         DateTime?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  @@index([funcionarioId, status])
+  @@map("rh_rescisoes")
 }
 
 model RhQuadroIdeal {
