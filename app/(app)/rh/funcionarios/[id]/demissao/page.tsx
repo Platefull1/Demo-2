@@ -664,9 +664,12 @@ export default function DemissaoPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download =
-        res.headers.get('Content-Disposition')?.match(/filename="(.+)"/)?.[1] ??
-        'rescisao.pdf';
+      const cd = res.headers.get('Content-Disposition') ?? '';
+      const star = cd.match(/filename\*=UTF-8''([^;]+)/i)?.[1];
+      const plain = cd.match(/filename="([^"]+)"/i)?.[1];
+      a.download = star
+        ? decodeURIComponent(star)
+        : plain ?? 'rescisao.pdf';
       a.click();
       URL.revokeObjectURL(url);
     } catch (e) {

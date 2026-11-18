@@ -78,33 +78,33 @@ const C = {
 const styles = StyleSheet.create({
   page: {
     fontFamily: 'Inter',
-    fontSize: 6.5,
+    fontSize: 8,
     color: C.tinta,
-    paddingTop: 16,
-    paddingBottom: 16,
-    paddingHorizontal: 18,
+    paddingTop: 22,
+    paddingBottom: 20,
+    paddingHorizontal: 22,
   },
   titulo: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: 700,
     textAlign: 'center',
-    marginBottom: 2,
+    marginBottom: 3,
     color: C.marca,
   },
   subtitulo: {
-    fontSize: 6,
+    fontSize: 7.5,
     textAlign: 'center',
     color: C.cinza,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   secao: {
-    marginTop: 5,
-    marginBottom: 2,
-    fontSize: 7,
+    marginTop: 7,
+    marginBottom: 3,
+    fontSize: 8.5,
     fontWeight: 700,
     borderBottomWidth: 0.5,
     borderBottomColor: C.linha,
-    paddingBottom: 1,
+    paddingBottom: 2,
   },
   grid: {
     flexDirection: 'row',
@@ -113,111 +113,111 @@ const styles = StyleSheet.create({
   },
   cell: {
     width: '33.33%',
-    paddingVertical: 1,
-    paddingRight: 4,
+    paddingVertical: 2,
+    paddingRight: 5,
   },
   label: {
-    fontSize: 5.5,
+    fontSize: 6.5,
     color: C.cinza,
-    marginBottom: 0,
+    marginBottom: 1,
   },
   valor: {
-    fontSize: 6.5,
+    fontSize: 8,
     fontWeight: 600,
   },
   linhaPergunta: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 1,
-    gap: 6,
+    marginBottom: 2,
+    gap: 8,
   },
   pergunta: {
     flex: 1,
-    fontSize: 6.5,
+    fontSize: 8,
   },
   marcas: {
     flexDirection: 'row',
-    gap: 8,
-    width: 100,
+    gap: 10,
+    width: 110,
   },
   marcaItem: {
-    fontSize: 6.5,
+    fontSize: 8,
   },
   tiposRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
   tipoCol: {
     flex: 1,
   },
   opcao: {
     flexDirection: 'row',
-    marginBottom: 0.5,
+    marginBottom: 1.5,
   },
   opcaoTxt: {
-    fontSize: 6,
+    fontSize: 7.5,
   },
   motivoBox: {
     borderWidth: 0.5,
     borderColor: C.linha,
     borderRadius: 2,
-    padding: 3,
-    minHeight: 16,
+    padding: 5,
+    minHeight: 28,
     backgroundColor: C.fundo,
-    fontSize: 6.5,
+    fontSize: 8,
   },
   colunas: {
     flexDirection: 'row',
-    gap: 6,
-    marginTop: 2,
+    gap: 8,
+    marginTop: 3,
   },
   coluna: {
     flex: 1,
   },
   colTitulo: {
-    fontSize: 6.5,
+    fontSize: 8,
     fontWeight: 700,
-    marginBottom: 2,
+    marginBottom: 3,
   },
   tabelaHeader: {
     flexDirection: 'row',
     backgroundColor: C.fundo,
     borderBottomWidth: 0.5,
     borderBottomColor: C.linha,
-    paddingVertical: 1,
-    paddingHorizontal: 2,
+    paddingVertical: 2,
+    paddingHorizontal: 3,
   },
   tabelaRow: {
     flexDirection: 'row',
     borderBottomWidth: 0.4,
     borderBottomColor: C.linha,
-    paddingVertical: 0.5,
-    paddingHorizontal: 2,
+    paddingVertical: 1.5,
+    paddingHorizontal: 3,
   },
-  colCod: { width: '12%', fontSize: 5.5 },
-  colDesc: { flex: 1, fontSize: 5.5 },
-  colValor: { width: '26%', fontSize: 5.5, textAlign: 'right' },
+  colCod: { width: '12%', fontSize: 7 },
+  colDesc: { flex: 1, fontSize: 7 },
+  colValor: { width: '26%', fontSize: 7, textAlign: 'right' },
   lembrete: {
-    marginTop: 5,
-    padding: 4,
+    marginTop: 8,
+    padding: 6,
     borderWidth: 0.5,
     borderColor: C.linha,
     backgroundColor: C.fundo,
-    fontSize: 5.5,
+    fontSize: 6.5,
     color: C.cinza,
-    lineHeight: 1.25,
+    lineHeight: 1.35,
   },
   lembreteTitulo: {
     fontWeight: 700,
     color: C.tinta,
-    marginBottom: 1,
-    fontSize: 6,
+    marginBottom: 2,
+    fontSize: 7.5,
   },
   watermark: {
     position: 'absolute',
     top: 300,
     left: 40,
-    fontSize: 48,
+    fontSize: 56,
     fontWeight: 700,
     color: '#CBD5E1',
     opacity: 0.35,
@@ -538,23 +538,25 @@ export async function generateRescisaoPdf(data: RescisaoPdfInput): Promise<Buffe
   return Buffer.from(buffer);
 }
 
-/** rescisao_<numeroFolha|id>_<nome-slug>_<dd-MM-yyyy>.pdf */
+/** recisão_<nome do funcionario>_<loja do funcionario>.pdf */
 export function rescisaoPdfFilename(opts: {
-  codigoOuId: string;
   colaborador: string;
-  dataDesligamentoYmd: string;
+  loja?: string | null;
 }): string {
-  const slug = opts.colaborador
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-|-$/g, '')
-    .slice(0, 40);
-  const codigo = String(opts.codigoOuId || 'sem-codigo')
-    .trim()
-    .replace(/[^\w.-]+/g, '-')
-    .replace(/^-|-$/g, '') || 'sem-codigo';
-  const [y, m, d] = opts.dataDesligamentoYmd.split('-');
-  const dataBr = y && m && d ? `${d}-${m}-${y}` : opts.dataDesligamentoYmd;
-  return `rescisao_${codigo}_${slug || 'colaborador'}_${dataBr}.pdf`;
+  const safePart = (s: string) =>
+    s
+      .normalize('NFC')
+      .replace(/[\\/:*?"<>|]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 80) || '—';
+  const nome = safePart(opts.colaborador);
+  const loja = safePart(opts.loja || 'sem loja');
+  return `recisão_${nome}_${loja}.pdf`;
+}
+
+/** Header Content-Disposition com UTF-8 (ç/ã no nome). */
+export function rescisaoPdfContentDisposition(filename: string): string {
+  const asciiFallback = filename.replace(/[^\x20-\x7E]/g, '_');
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
 }

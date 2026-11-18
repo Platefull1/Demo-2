@@ -13,6 +13,7 @@ import {
 } from '@/lib/rh/rescisao-config';
 import {
   generateRescisaoPdf,
+  rescisaoPdfContentDisposition,
   rescisaoPdfFilename,
 } from '@/lib/rh/rescisao-pdf';
 
@@ -116,15 +117,14 @@ export async function GET(
     });
 
     const filename = rescisaoPdfFilename({
-      codigoOuId: dto.codigoSnapshot || funcionario.id,
       colaborador: dto.nomeSnapshot,
-      dataDesligamentoYmd: dto.dataDesligamento,
+      loja: funcionario.loja?.nome ?? null,
     });
     return new NextResponse(new Uint8Array(pdf), {
       status: 200,
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Disposition': rescisaoPdfContentDisposition(filename),
         'Cache-Control': 'no-store',
       },
     });
