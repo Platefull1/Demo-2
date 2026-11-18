@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
 import { useLoja } from '@/contexts/LojaContext';
 import { Search, Plus, Trash2, X, AlertTriangle, UserMinus, FileText } from 'lucide-react';
@@ -130,6 +130,7 @@ const TURNO_LABELS: Record<string, string> = {
 
 export default function FuncionariosPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { lojas, lojaSelecionada, setLojaSelecionada } = useLoja();
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
@@ -138,12 +139,24 @@ export default function FuncionariosPage() {
   const [filterCargo, setFilterCargo] = useState('');
   const [filterEscala, setFilterEscala] = useState('');
   const [filterTurno, setFilterTurno] = useState('');
-  const [filterAtivo, setFilterAtivo] = useState('true');
+  const ativoParam = searchParams.get('ativo');
+  const [filterAtivo, setFilterAtivo] = useState(
+    ativoParam === 'false' || ativoParam === 'true' || ativoParam === ''
+      ? ativoParam
+      : 'true',
+  );
   const [deleteTarget, setDeleteTarget] = useState<Funcionario | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [rascunhoIds, setRascunhoIds] = useState<Set<string>>(new Set());
   const [finalizadaIds, setFinalizadaIds] = useState<Set<string>>(new Set());
   const [canEditEmployees, setCanEditEmployees] = useState(false);
+
+  useEffect(() => {
+    const a = searchParams.get('ativo');
+    if (a === 'false' || a === 'true' || a === '') {
+      setFilterAtivo(a);
+    }
+  }, [searchParams]);
 
   const fmt = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
@@ -385,16 +398,19 @@ export default function FuncionariosPage() {
                 </Tooltip>
               ) : null}
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                title={f.ativo ? 'Desativar funcionário' : 'Excluir permanentemente'}
-                onClick={() => setDeleteTarget(f)}
-              >
-                <Trash2 className="size-3.5 text-muted-foreground" />
-              </Button>
+              {/* Com rescisão finalizada: permanece inativo — sem exclusão permanente */}
+              {f.ativo || !temFinalizada ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  title={f.ativo ? 'Desativar funcionário' : 'Excluir permanentemente'}
+                  onClick={() => setDeleteTarget(f)}
+                >
+                  <Trash2 className="size-3.5 text-muted-foreground" />
+                </Button>
+              ) : null}
             </div>
           );
         },

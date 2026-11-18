@@ -473,6 +473,20 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
           { error: 'Desative o funcionário antes de excluir permanentemente' },
           { status: 400 }
         );
+      // Com rescisão finalizada, o registro fica como histórico (inativo) — não apagar
+      const temRescisaoFinalizada = await prisma.rhRescisao.findFirst({
+        where: { funcionarioId: id, status: 'FINALIZADA' },
+        select: { id: true },
+      });
+      if (temRescisaoFinalizada) {
+        return NextResponse.json(
+          {
+            error:
+              'Funcionário com rescisão finalizada não pode ser excluído — permanece como inativo',
+          },
+          { status: 400 },
+        );
+      }
       await prisma.rhFuncionario.delete({ where: { id } });
       return NextResponse.json({ ok: true });
     }

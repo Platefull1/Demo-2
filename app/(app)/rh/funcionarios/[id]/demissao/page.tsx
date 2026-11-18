@@ -631,7 +631,7 @@ export default function DemissaoPage() {
       setRescisao(json.rescisao);
       setForm(rescisaoToForm(json.rescisao));
       setFuncionario((f) => (f ? { ...f, ativo: false } : f));
-      setToast('Rescisão finalizada');
+      setToast('Rescisão finalizada — funcionário ficou inativo (não excluído)');
     } catch (e) {
       finalizandoRef.current = false;
       setSaveError(e instanceof Error ? e.message : 'Erro ao finalizar');
@@ -761,6 +761,16 @@ export default function DemissaoPage() {
                 type="button"
                 variant="outline"
                 size="sm"
+                loading={pdfLoading}
+                onClick={() => void handleGerarPdf()}
+              >
+                <FileDown className="size-4" />
+                Gerar PDF
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   if (dirty && !readOnly) {
                     const ok = window.confirm(
@@ -768,7 +778,11 @@ export default function DemissaoPage() {
                     );
                     if (!ok) return;
                   }
-                  router.push('/rh/funcionarios');
+                  router.push(
+                    rescisao.status === 'FINALIZADA'
+                      ? '/rh/funcionarios?ativo=false'
+                      : '/rh/funcionarios',
+                  );
                 }}
               >
                 <ArrowLeft className="size-4" />
