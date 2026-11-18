@@ -23,7 +23,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -594,7 +593,14 @@ export default function DemissaoPage() {
 
   const handleFinalizar = async () => {
     const current = formRef.current;
-    if (!current || !permissions.canFinalize) return;
+    if (!current) {
+      setSaveError('Formulário não carregado');
+      return;
+    }
+    if (!permissions.canFinalize) {
+      setSaveError('Sem permissão para finalizar rescisão (employees.deactivate)');
+      return;
+    }
 
     // Cancela debounce pendente — o body do finalizar já grava o estado atual
     if (autosaveRef.current) {
@@ -611,8 +617,8 @@ export default function DemissaoPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formToPayload(current)),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Falha ao finalizar');
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Falha ao finalizar (${res.status})`);
       setConfirmFinalizar(false);
       setDirty(false);
       setSaveState('idle');
@@ -1110,7 +1116,13 @@ export default function DemissaoPage() {
           </div>
         </div>
 
-        <AlertDialog open={confirmFinalizar} onOpenChange={setConfirmFinalizar}>
+        <AlertDialog
+          open={confirmFinalizar}
+          onOpenChange={(open) => {
+            if (finalizando) return;
+            setConfirmFinalizar(open);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Finalizar rescisão?</AlertDialogTitle>
@@ -1141,22 +1153,29 @@ export default function DemissaoPage() {
                 </div>
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {saveError ? (
+              <p className="text-sm text-destructive">{saveError}</p>
+            ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={finalizando}>Voltar</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={finalizando}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void handleFinalizar();
-                }}
+              <Button
+                type="button"
+                loading={finalizando}
+                onClick={() => void handleFinalizar()}
               >
-                {finalizando ? 'Finalizando…' : 'Confirmar'}
-              </AlertDialogAction>
+                Confirmar
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
 
-        <AlertDialog open={confirmCancelar} onOpenChange={setConfirmCancelar}>
+        <AlertDialog
+          open={confirmCancelar}
+          onOpenChange={(open) => {
+            if (cancelando) return;
+            setConfirmCancelar(open);
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Cancelar rascunho?</AlertDialogTitle>
@@ -1164,18 +1183,19 @@ export default function DemissaoPage() {
                 O rascunho será excluído. Esta ação não desliga o funcionário.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            {saveError ? (
+              <p className="text-sm text-destructive">{saveError}</p>
+            ) : null}
             <AlertDialogFooter>
               <AlertDialogCancel disabled={cancelando}>Voltar</AlertDialogCancel>
-              <AlertDialogAction
-                disabled={cancelando}
-                className={cn('bg-destructive text-white hover:bg-destructive/90')}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void handleCancelar();
-                }}
+              <Button
+                type="button"
+                variant="destructive"
+                loading={cancelando}
+                onClick={() => void handleCancelar()}
               >
-                {cancelando ? 'Excluindo…' : 'Excluir rascunho'}
-              </AlertDialogAction>
+                Excluir rascunho
+              </Button>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
