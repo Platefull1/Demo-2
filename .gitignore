@@ -44,3 +44,7 @@ scripts/.unidades-vendidas-itens-checkpoint.json
 
 # PDFs reais de holerites (dados pessoais — nunca commitar)
 tests/fixtures/holerites/
+
+# pdf.js worker (resolvido via import.meta.url / bundler)
+public/pdf.worker.min.mjs
+
