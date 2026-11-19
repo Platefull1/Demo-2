@@ -1,8 +1,8 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { config } from 'dotenv';
-config({ path: '.env.local', override: true });
 config({ path: '.env', override: true });
+config({ path: '.env.local', override: true });
 
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
@@ -54,8 +54,16 @@ describe('employee session + auth routes (dev DB)', { concurrency: false }, () =
   let logOrig: typeof console.log;
 
   before(async () => {
-    if (!HOST || HOST.includes('odd-sunset')) {
-      throw new Error(`Testes abortados: host inválido (${HOST})`);
+    // HOST foi capturado no load do módulo; relê após dotenv (.env.local por último)
+    const hostNow = (() => {
+      try {
+        return new URL(process.env.DATABASE_URL || '').hostname;
+      } catch {
+        return '';
+      }
+    })();
+    if (!hostNow || hostNow.includes('odd-sunset')) {
+      throw new Error(`Testes abortados: host inválido (${hostNow})`);
     }
     process.env.EMPLOYEE_JWT_SECRET ||=
       'employee-test-secret-32-chars-minimum!!';

@@ -41,3 +41,6 @@ tmp/
 scripts/.unidades-vendidas-checkpoint.json
 scripts/.unidades-vendidas-parcial.json
 scripts/.unidades-vendidas-itens-checkpoint.json
+
+# PDFs reais de holerites (dados pessoais — nunca commitar)
+tests/fixtures/holerites/

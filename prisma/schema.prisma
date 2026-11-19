@@ -2851,6 +2851,9 @@ model Payslip {
   fileSizeBytes  Int
   pageCount      Int
   netAmountCents Int?
+  /// Origem no PDF de staging (vínculo manual / desvincular)
+  sourcePath         String?
+  sourcePageIndexes  Int[]    @default([])
   rhNote         String?
   replacesId     String?
   replaces       Payslip?      @relation("PayslipRectification", fields: [replacesId], references: [id])

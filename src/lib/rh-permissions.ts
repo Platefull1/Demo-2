@@ -19,6 +19,13 @@ export const P = {
   RH_VIEW_SALARY:       'rh.view_salary',
   RH_EDIT_SALARY:       'rh.edit_salary',
 
+  // Módulo Holerites
+  PAYSLIPS_VIEW:          'payslips.view',
+  PAYSLIPS_UPLOAD:        'payslips.upload',
+  PAYSLIPS_PUBLISH:       'payslips.publish',
+  PAYSLIPS_REVOKE:        'payslips.revoke',
+  PAYSLIPS_PORTAL_MANAGE: 'payslips.portal_manage',
+
   // CMV Real — NÃO entram no default de convite (só preset ou toggle manual)
   CMV_REAL_VISUALIZAR:         'cmv_real.visualizar',
   CMV_REAL_REVISAR_APROVAR:    'cmv_real.revisar_aprovar',
@@ -93,6 +100,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'riders.approve_docs':  'Aprovar/rejeitar documentos',
   'rh.view_salary':       'Visualizar salários e valores',
   'rh.edit_salary':       'Editar salários e valores',
+  'payslips.view':          'Visualizar holerites',
+  'payslips.upload':        'Enviar holerites',
+  'payslips.publish':       'Publicar holerites',
+  'payslips.revoke':        'Revogar holerites',
+  'payslips.portal_manage': 'Gerenciar portal do colaborador',
   'cmv_real.visualizar':        'Visualizar CMV Real',
   'cmv_real.revisar_aprovar':   'Revisar e aprovar NF-e',
   'cmv_real.lancamentos':       'Lançamentos manuais',
@@ -134,6 +146,16 @@ export const PERMISSION_GROUPS: Array<{
   {
     label: 'RH Geral',
     permissions: [P.RH_VIEW_SALARY, P.RH_EDIT_SALARY],
+  },
+  {
+    label: 'Holerites',
+    permissions: [
+      P.PAYSLIPS_VIEW,
+      P.PAYSLIPS_UPLOAD,
+      P.PAYSLIPS_PUBLISH,
+      P.PAYSLIPS_REVOKE,
+      P.PAYSLIPS_PORTAL_MANAGE,
+    ],
   },
   {
     label: 'CMV Real',

@@ -16,7 +16,7 @@ const nextConfig = {
     domains: ['platefull.com.br'],
   },
 
-  serverExternalPackages: ['@react-pdf/renderer'],
+  serverExternalPackages: ['@react-pdf/renderer', 'unpdf', 'pdf-lib', 'pdfjs-dist'],
   outputFileTracingIncludes: {
     '/api/ocorrencias/atas': ['./src/assets/fonts/**/*'],
     '/api/ocorrencias/atas/**': ['./src/assets/fonts/**/*'],
