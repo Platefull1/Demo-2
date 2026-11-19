@@ -1,10 +1,16 @@
-export default function ColaboradorLoginPlaceholder() {
+import { Suspense } from 'react';
+import { ColaboradorLoginForm } from './LoginForm';
+
+export default function ColaboradorLoginPage() {
   return (
-    <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-4 px-6">
-      <h1 className="text-2xl font-semibold">Portal do colaborador</h1>
-      <p className="text-sm text-muted-foreground">
-        Login por CPF + código WhatsApp (tela completa na etapa 5).
-      </p>
-    </main>
+    <Suspense
+      fallback={
+        <main className="flex flex-1 items-center justify-center py-12">
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        </main>
+      }
+    >
+      <ColaboradorLoginForm />
+    </Suspense>
   );
 }

@@ -245,8 +245,14 @@ export async function middleware(request: NextRequest) {
     if (!isPublicColaboradorPage(pathname)) {
       const ok = await hasValidEmployeeJwt(request);
       if (!ok) {
+        const loginUrl = new URL('/colaborador/login', request.url);
+        const nextPath = `${pathname}${request.nextUrl.search || ''}`;
+        // deep link do WhatsApp: preserva destino (validado no client via safeNext)
+        if (nextPath.startsWith('/colaborador/')) {
+          loginUrl.searchParams.set('next', nextPath);
+        }
         return withIsolationCookie(
-          NextResponse.redirect(new URL('/colaborador/login', request.url)),
+          NextResponse.redirect(loginUrl),
           isolationToken,
         );
       }
