@@ -145,6 +145,12 @@ describe('buildNavSections', () => {
     ]) {
       assert.equal(ids.includes(id), true, `faltou ${id}`);
     }
+    const rh = nav.flatMap((s) => s.items).find((i) => i.id === 'rh');
+    assert.equal(
+      rh?.children?.some((c) => c.id === 'holerites'),
+      true,
+      'RH deve ter filho Holerites quando a tool está ligada',
+    );
   });
 });
 

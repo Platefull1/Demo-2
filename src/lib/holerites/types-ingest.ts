@@ -22,6 +22,14 @@ export type UnmatchedPage = {
   previewText: string;
 };
 
+export type IgnoredPage = {
+  sourcePath: string;
+  pageIndexes: number[];
+  cpfDetectado: string | null;
+  previewText: string;
+  ignoredAt: string;
+};
+
 export type CreateBatchInput = {
   competencia: string;
   type: PayslipType;

@@ -14,7 +14,7 @@ import {
   removePayslipObjects,
   uploadPayslipObject,
 } from '@/lib/holerites/storage';
-import type { UnmatchedPage } from '@/lib/holerites/types-ingest';
+import type { IgnoredPage, UnmatchedPage } from '@/lib/holerites/types-ingest';
 import type { PayslipType } from '@/lib/shared/holerites/types';
 
 function sha256Hex(bytes: Buffer | Uint8Array): string {
@@ -273,6 +273,158 @@ export async function desvincularDraft(opts: {
   await prisma.payslipBatch.update({
     where: { id: batchId },
     data: { unmatchedPages: unmatched },
+  });
+
+  return { ok: true };
+}
+
+function samePageSet(a: number[], b: number[]): boolean {
+  return a.length === b.length && a.every((p, i) => p === b[i]);
+}
+
+function removeUnmatched(
+  list: UnmatchedPage[],
+  sourcePath: string,
+  pageIndexes: number[],
+): UnmatchedPage[] {
+  return list.filter(
+    (u) => !(u.sourcePath === sourcePath && samePageSet(u.pageIndexes, pageIndexes)),
+  );
+}
+
+/**
+ * Anexa páginas unmatched ao DRAFT do mesmo arquivo cuja última página
+ * é imediatamente anterior ao início deste grupo.
+ */
+export async function anexarPaginasAnterior(opts: {
+  batchId: string;
+  userId: string;
+  sourcePath: string;
+  pageIndexes: number[];
+}) {
+  const { batchId, userId, sourcePath, pageIndexes } = opts;
+  const batch = await requireBatchReview(batchId, userId);
+
+  if (!sourcePath.startsWith(`${userId}/_staging/${batchId}/`)) {
+    throw Object.assign(new Error('Arquivo de origem inválido'), { status: 400 });
+  }
+
+  const sorted = [...pageIndexes].sort((a, b) => a - b);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i]! !== sorted[i - 1]! + 1) {
+      throw Object.assign(new Error('Páginas devem ser consecutivas'), { status: 400 });
+    }
+  }
+  const start = sorted[0]!;
+
+  const drafts = await prisma.payslip.findMany({
+    where: { batchId, userId, status: 'DRAFT', sourcePath },
+    select: {
+      id: true,
+      storagePath: true,
+      sourcePageIndexes: true,
+      funcionario: { select: { nome: true } },
+    },
+  });
+
+  const alvo = drafts.find((d) => {
+    const pages = d.sourcePageIndexes ?? [];
+    if (pages.length === 0) return false;
+    const max = Math.max(...pages);
+    return max + 1 === start;
+  });
+
+  if (!alvo) {
+    throw Object.assign(
+      new Error('Nenhum holerite adjacente encontrado neste arquivo'),
+      { status: 409 },
+    );
+  }
+
+  const novasPaginas = [...(alvo.sourcePageIndexes ?? []), ...sorted].sort(
+    (a, b) => a - b,
+  );
+  const buffer = await downloadPayslipObject(sourcePath);
+  const pdfBytes = await extrairPaginasPdf(buffer, novasPaginas);
+  const newPath = alvo.storagePath; // upsert no mesmo path
+  await removePayslipObjects([alvo.storagePath]);
+  await uploadPayslipObject(newPath, pdfBytes);
+
+  try {
+    const textos = await extrairTextoPorPagina(buffer);
+    const joined = novasPaginas.map((i) => textos[i] ?? '').join('\n');
+    await prisma.payslip.update({
+      where: { id: alvo.id },
+      data: {
+        storagePath: newPath,
+        fileSha256: sha256Hex(pdfBytes),
+        fileSizeBytes: pdfBytes.byteLength,
+        pageCount: novasPaginas.length,
+        sourcePageIndexes: novasPaginas,
+        netAmountCents: extrairLiquido(joined),
+      },
+    });
+  } catch (err) {
+    throw err;
+  }
+
+  const unmatched = removeUnmatched(
+    asUnmatched(batch.unmatchedPages),
+    sourcePath,
+    pageIndexes,
+  );
+  await prisma.payslipBatch.update({
+    where: { id: batchId },
+    data: { unmatchedPages: unmatched },
+  });
+
+  return { payslipId: alvo.id, funcionarioNome: alvo.funcionario.nome };
+}
+
+export async function ignorarPaginas(opts: {
+  batchId: string;
+  userId: string;
+  sourcePath: string;
+  pageIndexes: number[];
+}) {
+  const { batchId, userId, sourcePath, pageIndexes } = opts;
+  const batch = await requireBatchReview(batchId, userId);
+
+  if (!sourcePath.startsWith(`${userId}/_staging/${batchId}/`)) {
+    throw Object.assign(new Error('Arquivo de origem inválido'), { status: 400 });
+  }
+
+  const unmatched = asUnmatched(batch.unmatchedPages);
+  const item = unmatched.find(
+    (u) => u.sourcePath === sourcePath && samePageSet(u.pageIndexes, pageIndexes),
+  );
+  if (!item) {
+    throw Object.assign(new Error('Página não encontrada em sem vínculo'), {
+      status: 404,
+    });
+  }
+
+  const full = await prisma.payslipBatch.findFirst({
+    where: { id: batchId },
+    select: { ignoredPages: true },
+  });
+  const ignored: IgnoredPage[] = Array.isArray(full?.ignoredPages)
+    ? (full!.ignoredPages as IgnoredPage[])
+    : [];
+  ignored.push({
+    sourcePath: item.sourcePath,
+    pageIndexes: item.pageIndexes,
+    cpfDetectado: item.cpfDetectado,
+    previewText: item.previewText,
+    ignoredAt: new Date().toISOString(),
+  });
+
+  await prisma.payslipBatch.update({
+    where: { id: batchId },
+    data: {
+      unmatchedPages: removeUnmatched(unmatched, sourcePath, pageIndexes),
+      ignoredPages: ignored,
+    },
   });
 
   return { ok: true };

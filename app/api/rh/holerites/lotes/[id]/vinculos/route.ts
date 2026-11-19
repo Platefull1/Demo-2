@@ -3,7 +3,9 @@ import { requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
 import { vinculosBodySchema } from '@/lib/holerites/api-schemas';
 import {
+  anexarPaginasAnterior,
   desvincularDraft,
+  ignorarPaginas,
   trocarFuncionarioDraft,
   vincularPaginas,
 } from '@/lib/holerites/vinculos';
@@ -68,10 +70,28 @@ export async function PATCH(req: NextRequest, { params }: Ctx) {
       });
       return NextResponse.json({ ok: true, payslipId: payslip.id });
     }
-    await desvincularDraft({
+    if (body.action === 'desvincular') {
+      await desvincularDraft({
+        batchId,
+        userId: ctx.userId,
+        payslipId: body.payslipId,
+      });
+      return NextResponse.json({ ok: true });
+    }
+    if (body.action === 'anexar_anterior') {
+      const result = await anexarPaginasAnterior({
+        batchId,
+        userId: ctx.userId,
+        sourcePath: body.sourcePath,
+        pageIndexes: body.pageIndexes,
+      });
+      return NextResponse.json({ ok: true, ...result });
+    }
+    await ignorarPaginas({
       batchId,
       userId: ctx.userId,
-      payslipId: body.payslipId,
+      sourcePath: body.sourcePath,
+      pageIndexes: body.pageIndexes,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -11,6 +11,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ModuleTabs, moduleTabClass } from '@/components/layout/ModuleTabs';
 import { cn } from '@/lib/utils';
+import { useToolPermissions } from '@/hooks/useToolPermissions';
+import { SystemTool } from '@/types/admin';
 
 const MAIN_TABS = [
   { href: '/rh', label: 'Visão geral', match: (p: string) => p === '/rh' },
@@ -68,6 +70,8 @@ const MORE_ITEMS = [
 
 export function RhSubNav() {
   const pathname = usePathname() || '';
+  const { permissions } = useToolPermissions();
+  const showHolerites = permissions[SystemTool.HOLERITES] === true;
   const moreActive = MORE_ITEMS.some((item) => item.match(pathname));
 
   return (
@@ -80,6 +84,15 @@ export function RhSubNav() {
           </Link>
         );
       })}
+
+      {showHolerites ? (
+        <Link
+          href="/rh/holerites"
+          className={moduleTabClass(pathname.startsWith('/rh/holerites'))}
+        >
+          Holerites
+        </Link>
+      ) : null}
 
       <DropdownMenu>
         <DropdownMenuTrigger className={moduleTabClass(moreActive)}>

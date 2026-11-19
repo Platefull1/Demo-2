@@ -2819,6 +2819,8 @@ model PayslipBatch {
   status         PayslipBatchStatus @default(PROCESSING)
   sourceFiles    Json
   unmatchedPages Json?
+  /// Páginas ignoradas na conferência (capa, resumo etc.)
+  ignoredPages   Json?
   errorMessage   String?
   /// pending | sent | failed
   notifyStatus   String?

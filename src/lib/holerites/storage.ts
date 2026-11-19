@@ -1,8 +1,12 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
-/** Sempre via env — nunca hardcodar "payslips". */
-export const PAYSLIPS_BUCKET =
-  process.env.SUPABASE_PAYSLIPS_BUCKET?.trim() || 'payslips';
+/** Sempre via env — nunca hardcodar "payslips". Resolvido em runtime. */
+export function getPayslipsBucket(): string {
+  return process.env.SUPABASE_PAYSLIPS_BUCKET?.trim() || 'payslips';
+}
+
+/** @deprecated use getPayslipsBucket() — mantido p/ imports existentes */
+export const PAYSLIPS_BUCKET = getPayslipsBucket();
 
 let _client: SupabaseClient | null = null;
 
@@ -20,6 +24,10 @@ function getClient(): SupabaseClient {
   return _client;
 }
 
+function bucket() {
+  return getPayslipsBucket();
+}
+
 export async function createPayslipSignedUploadUrl(path: string): Promise<{
   signedUrl: string;
   token: string;
@@ -27,7 +35,7 @@ export async function createPayslipSignedUploadUrl(path: string): Promise<{
 }> {
   const supabase = getClient();
   const { data, error } = await supabase.storage
-    .from(PAYSLIPS_BUCKET)
+    .from(bucket())
     .createSignedUploadUrl(path);
   if (error || !data) {
     throw new Error(error?.message ?? 'Falha ao gerar URL de upload');
@@ -37,7 +45,7 @@ export async function createPayslipSignedUploadUrl(path: string): Promise<{
 
 export async function downloadPayslipObject(path: string): Promise<Buffer> {
   const supabase = getClient();
-  const { data, error } = await supabase.storage.from(PAYSLIPS_BUCKET).download(path);
+  const { data, error } = await supabase.storage.from(bucket()).download(path);
   if (error || !data) {
     throw new Error(error?.message ?? `Falha ao baixar ${path}`);
   }
@@ -50,7 +58,7 @@ export async function uploadPayslipObject(
   bytes: Buffer | Uint8Array,
 ): Promise<void> {
   const supabase = getClient();
-  const { error } = await supabase.storage.from(PAYSLIPS_BUCKET).upload(path, bytes, {
+  const { error } = await supabase.storage.from(bucket()).upload(path, bytes, {
     contentType: 'application/pdf',
     upsert: false,
   });
@@ -59,16 +67,35 @@ export async function uploadPayslipObject(
 
 export async function movePayslipObject(from: string, to: string): Promise<void> {
   const supabase = getClient();
-  const { error } = await supabase.storage.from(PAYSLIPS_BUCKET).move(from, to);
+  const { error } = await supabase.storage.from(bucket()).move(from, to);
   if (error) throw new Error(error.message);
 }
 
 export async function removePayslipObjects(paths: string[]): Promise<void> {
   const unique = [...new Set(paths.filter(Boolean))];
   if (unique.length === 0) return;
-  const supabase = getClient();
-  const { error } = await supabase.storage.from(PAYSLIPS_BUCKET).remove(unique);
-  if (error) throw new Error(error.message);
+
+  // O client JS às vezes retorna data=[] sem erro e não apaga.
+  // DELETE REST com { prefixes } é o contrato estável do Storage.
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  if (!url || !key) {
+    throw new Error('Supabase não configurado');
+  }
+  const fullUrl = url.startsWith('http') ? url : `https://${url}.supabase.co`;
+  const res = await fetch(`${fullUrl}/storage/v1/object/${bucket()}`, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${key}`,
+      apikey: key,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ prefixes: unique }),
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`Falha ao remover storage (${res.status}): ${text}`);
+  }
 }
 
 export async function createPayslipSignedReadUrl(
@@ -77,7 +104,7 @@ export async function createPayslipSignedReadUrl(
 ): Promise<string> {
   const supabase = getClient();
   const { data, error } = await supabase.storage
-    .from(PAYSLIPS_BUCKET)
+    .from(bucket())
     .createSignedUrl(path, expiresInSeconds);
   if (error || !data?.signedUrl) {
     throw new Error(error?.message ?? 'Falha ao gerar URL assinada');
@@ -91,7 +118,7 @@ export async function listPayslipPathsUnder(prefix: string): Promise<string[]> {
   const out: string[] = [];
 
   async function walk(path: string) {
-    const { data, error } = await supabase.storage.from(PAYSLIPS_BUCKET).list(path, {
+    const { data, error } = await supabase.storage.from(bucket()).list(path, {
       limit: 1000,
     });
     if (error) throw new Error(error.message);

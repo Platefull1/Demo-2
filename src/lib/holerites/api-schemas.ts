@@ -46,6 +46,16 @@ export const vinculosBodySchema = z.discriminatedUnion('action', [
     action: z.literal('desvincular'),
     payslipId: z.string().min(1),
   }),
+  z.object({
+    action: z.literal('anexar_anterior'),
+    sourcePath: z.string().min(1),
+    pageIndexes: z.array(z.number().int().nonnegative()).min(1),
+  }),
+  z.object({
+    action: z.literal('ignorar'),
+    sourcePath: z.string().min(1),
+    pageIndexes: z.array(z.number().int().nonnegative()).min(1),
+  }),
 ]);
 
 export { MAX_FILE_BYTES, MAX_FILES };

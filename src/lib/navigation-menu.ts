@@ -187,12 +187,21 @@ export function buildNavSections(input: {
   const pessoas: NavItemDTO[] = [];
 
   if (hasTool(SystemTool.RH)) {
+    const rhChildren: NavChildDTO[] = [];
+    if (hasTool(SystemTool.HOLERITES)) {
+      rhChildren.push({
+        id: 'holerites',
+        label: 'Holerites',
+        href: '/rh/holerites',
+      });
+    }
     pessoas.push({
       id: 'rh',
       label: 'RH',
       href: '/rh',
       icon: 'Users',
       match: { prefix: ['/rh', '/bonificacao'] },
+      ...(rhChildren.length ? { children: rhChildren } : {}),
     });
   }
 
