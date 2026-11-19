@@ -19,7 +19,7 @@
     "db:migrate:deploy": "tsx scripts/guard-prisma-db.ts && prisma migrate deploy",
     "db:studio": "prisma studio",
     "test": "npm run test:node && npm run test:vitest",
-    "test:node": "tsx --test src/lib/ocorrencias-*.test.ts src/lib/auth/*.test.ts src/lib/user-api-mask.test.ts src/lib/error-handler.test.ts src/lib/navigation.test.ts src/lib/store-access.test.ts src/lib/nfe/*.test.ts src/lib/cmv-real/*.test.ts src/lib/pontos/*.test.ts src/lib/rider-quinzena-docs.test.ts src/lib/rate-limit.test.ts src/lib/shared/holerites/*.test.ts src/lib/holerites/*.test.ts",
+    "test:node": "node scripts/run-node-tests.mjs",
     "test:estoque-scope": "tsx --test src/lib/estoque/contagens-store-scope.test.ts",
     "test:vitest": "vitest run",
     "test:nfe": "tsx --test src/lib/nfe/pipeline.test.ts",

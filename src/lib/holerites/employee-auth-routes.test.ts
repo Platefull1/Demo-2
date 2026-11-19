@@ -71,6 +71,11 @@ describe('employee session + auth routes (dev DB)', { concurrency: false }, () =
     process.env.N8N_EMPLOYEE_OTP_WEBHOOK ||= 'https://example.com/otp';
     process.env.N8N_WEBHOOK_SECRET ||= 'test-webhook-secret';
 
+    await prisma.$executeRaw`
+      DELETE FROM rate_limit_buckets
+      WHERE key LIKE ${'otp:%'} OR key LIKE ${'verify:%'}
+    `;
+
     const func = await prisma.rhFuncionario.findFirst({
       where: { cpf: TEST_EMPLOYEE_CPF, nome: 'TESTE HOLERITE' },
       select: { id: true, userId: true, portalTokenVersion: true },

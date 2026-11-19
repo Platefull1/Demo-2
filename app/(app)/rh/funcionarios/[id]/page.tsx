@@ -13,6 +13,7 @@ import BonificacoesTab from '@/components/rh/BonificacoesTab';
 import DocumentosTab from '@/components/rh/DocumentosTab';
 import OcorrenciasTab from '@/components/rh/OcorrenciasTab';
 import TransferenciasTab from '@/components/rh/TransferenciasTab';
+import { FuncionarioHoleritesTab } from '@/components/rh/holerites/FuncionarioHoleritesTab';
 import DrawerTransferencia from '@/components/rh/DrawerTransferencia';
 import ComposicaoSalarialCard from '@/components/rh/ComposicaoSalarial';
 import ComposicaoSalarialForm, { type ComposicaoSalarialValues } from '@/components/rh/ComposicaoSalarialForm';
@@ -108,7 +109,7 @@ const fmtDate = (d: string | null | undefined) => !d ? '—' : new Date(d).toLoc
 const inputCls = 'w-full bg-[#0a0a0a] border border-[#2a2a2e] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/50 transition-colors';
 const labelCls = 'block text-xs font-medium text-gray-400 mb-1.5';
 
-type Tab = 'dados' | 'ferias' | 'bonificacoes' | 'historico' | 'documentos' | 'ocorrencias' | 'transferencias';
+type Tab = 'dados' | 'ferias' | 'bonificacoes' | 'historico' | 'documentos' | 'ocorrencias' | 'transferencias' | 'holerites';
 
 export default function FuncionarioDetailPage() {
   const router = useRouter();
@@ -480,6 +481,7 @@ export default function FuncionarioDetailPage() {
             ['documentos', FileText, 'Documentos'],
             ['ocorrencias', AlertTriangle, 'Ocorrências'],
             ['transferencias', ArrowRight, 'Transferências'],
+            ['holerites', FileText, 'Holerites'],
             ['historico', History, 'Histórico'],
           ] as const).map(([t, Icon, label]) => (
             <button key={t} onClick={() => setTab(t as Tab)}
@@ -985,6 +987,10 @@ export default function FuncionarioDetailPage() {
             </div>
             <TransferenciasTab funcionarioId={params.id} />
           </div>
+        )}
+
+        {tab === 'holerites' && (
+          <FuncionarioHoleritesTab funcionarioId={params.id} />
         )}
 
         <DrawerBonificacaoTrimestral

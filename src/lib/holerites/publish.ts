@@ -215,6 +215,64 @@ export async function afterPublicarLote(opts: {
   return ok ? 'sent' : 'failed';
 }
 
+/** Reenvia aviso de um único holerite publicado. */
+export async function reenviarAvisoHolerite(opts: {
+  payslipId: string;
+  userId: string;
+}): Promise<{ notified: number }> {
+  const { payslipId, userId } = opts;
+  const payslip = await prisma.payslip.findFirst({
+    where: {
+      id: payslipId,
+      userId,
+      status: { in: ['PUBLISHED', 'VIEWED'] },
+    },
+    select: {
+      id: true,
+      batchId: true,
+      competencia: true,
+      type: true,
+      replacesId: true,
+      funcionario: {
+        select: { nome: true, telefone: true, whatsappLid: true },
+      },
+    },
+  });
+  if (!payslip) {
+    throw Object.assign(new Error('Holerite não encontrado'), { status: 404 });
+  }
+  if (!temContatoValido(payslip.funcionario)) {
+    throw Object.assign(new Error('Funcionário sem WhatsApp válido'), {
+      status: 422,
+    });
+  }
+
+  const phone = normalizeTelefoneBr(payslip.funcionario.telefone);
+  const firstName =
+    (payslip.funcionario.nome || '').trim().split(/\s+/)[0] || 'Colaborador';
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+
+  const ok = await sendPayslipsPublishedWebhook({
+    batchId: payslip.batchId,
+    items: [
+      {
+        payslipId: payslip.id,
+        firstName,
+        phone: phone ?? '',
+        whatsappLid: payslip.funcionario.whatsappLid,
+        competenciaLabel: labelCompetencia(payslip.competencia),
+        typeLabel: labelPayslipType(payslip.type as PayslipType),
+        isRetificacao: Boolean(payslip.replacesId),
+        link: `${appUrl}/colaborador/holerites/${payslip.id}`,
+      },
+    ],
+  });
+  if (!ok) {
+    throw Object.assign(new Error('Falha ao reenviar aviso'), { status: 502 });
+  }
+  return { notified: 1 };
+}
+
 export async function reenviarAvisosLote(opts: {
   batchId: string;
   userId: string;

@@ -2884,6 +2884,8 @@ model PayslipAccessLog {
   action    String
   ip        String?
   userAgent String?
+  /// Motivo (ex.: revogação) ou nota livre
+  note      String?
   createdAt DateTime @default(now())
 
   @@index([payslipId])
