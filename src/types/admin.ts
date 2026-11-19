@@ -37,6 +37,7 @@ export enum SystemTool {
   ESTOQUE = 'estoque',
   IFOOD = 'ifood',
   RH = 'rh',
+  HOLERITES = 'holerites',
   TAREFAS = 'tarefas',
   BONIFICACAO = 'bonificacao',
   CHAT = 'chat',

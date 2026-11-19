@@ -39,6 +39,7 @@ const TOOL_LABELS: Record<SystemTool, string> = {
   [SystemTool.ESTOQUE]: "Estoque",
   [SystemTool.IFOOD]: "iFood",
   [SystemTool.RH]: "RH",
+  [SystemTool.HOLERITES]: "Holerites",
   [SystemTool.TAREFAS]: "Tarefas",
   [SystemTool.BONIFICACAO]: "Bonificação",
   [SystemTool.CHAT]: "Chat",
@@ -71,7 +72,7 @@ const TOOL_GROUPS: { label: string; tools: SystemTool[] }[] = [
   },
   {
     label: "RH & Tarefas",
-    tools: [SystemTool.RH, SystemTool.TAREFAS, SystemTool.PONTOS],
+    tools: [SystemTool.RH, SystemTool.HOLERITES, SystemTool.TAREFAS, SystemTool.PONTOS],
   },
   {
     label: "Outros",

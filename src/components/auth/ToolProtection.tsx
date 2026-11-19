@@ -25,6 +25,7 @@ const TOOL_LABELS: Record<SystemTool, string> = {
   [SystemTool.ESTOQUE]: "Estoque",
   [SystemTool.IFOOD]: "iFood",
   [SystemTool.RH]: "RH",
+  [SystemTool.HOLERITES]: "Holerites",
   [SystemTool.TAREFAS]: "Tarefas",
   [SystemTool.BONIFICACAO]: "Bonificação",
   [SystemTool.CHAT]: "Chat",

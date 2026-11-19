@@ -31,11 +31,23 @@ describe('matchApiTool', () => {
     });
   });
 
-  it('auth/cron/ocorrências/ingest não passam pelo mapa', () => {
+  it('auth/cron/ocorrências/ingest/colaborador não passam pelo mapa', () => {
     assert.equal(matchApiTool('/api/auth/check-tool-permission')?.type, 'skip');
     assert.equal(matchApiTool('/api/cron/ifood-polling')?.type, 'skip');
     assert.equal(matchApiTool('/api/ocorrencias')?.type, 'skip');
     assert.equal(matchApiTool('/api/nfe/ingest')?.type, 'skip');
+    assert.equal(matchApiTool('/api/colaborador/auth/request-code')?.type, 'skip');
+  });
+
+  it('holerites exige SystemTool.HOLERITES e não cai no RH genérico', () => {
+    assert.deepEqual(matchApiTool('/api/rh/holerites/lotes'), {
+      type: 'all',
+      tool: SystemTool.HOLERITES,
+    });
+    assert.deepEqual(matchApiTool('/api/rh/funcionarios'), {
+      type: 'all',
+      tool: SystemTool.RH,
+    });
   });
 
   it('leitura Saipos fica só login (sem tool); sync exige CONEXOES', () => {

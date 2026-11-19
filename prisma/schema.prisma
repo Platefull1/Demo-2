@@ -928,6 +928,7 @@ model RhLoja {
   riders                DeliveryRider[]
   ocorrencias           Ocorrencia[]   @relation("OcorrenciaLoja")
   ocorrenciaAtrasosMensais OcorrenciaAtrasoMensal[] @relation("OcorrenciaAtrasoMensalLoja")
+  payslips              Payslip[]
 
   @@index([userId])
   @@map("rh_lojas")
@@ -981,6 +982,11 @@ model RhFuncionario {
   ativo                 Boolean                  @default(true)
   /// Preenchida na finalização de rescisão; limpar ao reativar.
   dataDemissao          DateTime?                @db.Date
+  /// Portal do colaborador (holerites): enabled | disabled
+  portalStatus          String                   @default("enabled")
+  /// Incrementar derruba todas as sessões JWT do colaborador.
+  portalTokenVersion    Int                      @default(0)
+  portalLastLoginAt     DateTime?
   // Período de experiência (calculado automaticamente)
   dataInicioExperiencia DateTime?
   dataFimExperiencia1   DateTime?
@@ -1015,6 +1021,8 @@ model RhFuncionario {
   escalasVigencia         RhEscalaVigencia[]
   sessoesTransferenciaOrigem  SessaoTransferencia[] @relation("SessaoTransferenciaGerenteOrigem")
   sessoesTransferenciaDestino SessaoTransferencia[] @relation("SessaoTransferenciaGerenteDestino")
+  payslips                Payslip[]
+  loginCodes              EmployeeLoginCode[]
 
   @@index([userId, cpf])
   @@index([userId])
@@ -2774,4 +2782,130 @@ model OcorrenciaAta {
   @@unique([companyId, ano, mes, escopo])
   @@index([companyId, ano, mes])
   @@map("ocorrencia_atas")
+}
+
+// ── MÓDULO HOLERITES ──────────────────────────────────────────────────────────
+
+enum PayslipType {
+  MENSAL
+  ADIANTAMENTO
+  DECIMO_TERCEIRO_1
+  DECIMO_TERCEIRO_2
+  FERIAS
+  RESCISAO
+}
+
+enum PayslipStatus {
+  DRAFT
+  PUBLISHED
+  VIEWED
+  ACKNOWLEDGED
+  REVOKED
+}
+
+enum PayslipBatchStatus {
+  PROCESSING
+  REVIEW
+  PUBLISHED
+  CANCELLED
+}
+
+model PayslipBatch {
+  id             String             @id @default(cuid())
+  userId         String
+  competencia    String
+  type           PayslipType
+  status         PayslipBatchStatus @default(PROCESSING)
+  sourceFiles    Json
+  unmatchedPages Json?
+  errorMessage   String?
+  /// pending | sent | failed
+  notifyStatus   String?
+  createdBy      String
+  publishedAt    DateTime?
+  publishedBy    String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  payslips       Payslip[]
+
+  @@index([userId, competencia])
+  @@map("payslip_batches")
+}
+
+model Payslip {
+  id             String        @id @default(cuid())
+  userId         String
+  batchId        String
+  batch          PayslipBatch  @relation(fields: [batchId], references: [id])
+  funcionarioId  String
+  funcionario    RhFuncionario @relation(fields: [funcionarioId], references: [id])
+  /// Snapshot da loja no momento do DRAFT
+  lojaId         String
+  loja           RhLoja        @relation(fields: [lojaId], references: [id])
+  competencia    String
+  type           PayslipType
+  status         PayslipStatus @default(DRAFT)
+  storagePath    String
+  fileSha256     String
+  fileSizeBytes  Int
+  pageCount      Int
+  netAmountCents Int?
+  rhNote         String?
+  replacesId     String?
+  replaces       Payslip?      @relation("PayslipRectification", fields: [replacesId], references: [id])
+  replacedBy     Payslip[]     @relation("PayslipRectification")
+  publishedAt    DateTime?
+  firstViewedAt  DateTime?
+  acknowledgedAt DateTime?
+  ackIp          String?
+  ackUserAgent   String?
+  ackFileSha256  String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  accessLogs     PayslipAccessLog[]
+
+  @@index([userId, competencia, status])
+  @@index([funcionarioId, status])
+  @@map("payslips")
+}
+
+model PayslipAccessLog {
+  id        String   @id @default(cuid())
+  payslipId String
+  payslip   Payslip  @relation(fields: [payslipId], references: [id])
+  actorType String
+  actorId   String
+  action    String
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([payslipId])
+  @@map("payslip_access_logs")
+}
+
+model EmployeeLoginCode {
+  id            String        @id @default(cuid())
+  funcionarioId String
+  funcionario   RhFuncionario @relation(fields: [funcionarioId], references: [id], onDelete: Cascade)
+  codeHash      String
+  expiresAt     DateTime
+  attempts      Int           @default(0)
+  consumedAt    DateTime?
+  requestIp     String?
+  createdAt     DateTime      @default(now())
+
+  @@index([funcionarioId, createdAt])
+  @@map("employee_login_codes")
+}
+
+/// Rate limit distribuído (Neon) — substitui Map in-memory em serverless.
+model RateLimitBucket {
+  key         String   @id
+  count       Int
+  windowStart DateTime @map("window_start")
+  expiresAt   DateTime @map("expires_at")
+
+  @@index([expiresAt])
+  @@map("rate_limit_buckets")
 }
