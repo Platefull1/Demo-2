@@ -43,7 +43,22 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const { getRhContext } = await import('@/lib/rh-auth');
   const ctx = await getRhContext();
 
-  const [nfeConfig, lancamentosRecentes] = await Promise.all([
+  const { agruparHistoricoCustoPorInsumo, ALERTA_PRECO_HISTORICO_NOTAS } =
+    await import('@/lib/nfe/alerta-preco-revisao');
+
+  const insumosDaNota = new Set<string>();
+  for (const it of nota.itens) {
+    if (it.estoqueInsumoId) insumosDaNota.add(it.estoqueInsumoId);
+    if (it.sugestaoInsumoId) insumosDaNota.add(it.sugestaoInsumoId);
+    if (Array.isArray(it.sugestoes)) {
+      for (const s of it.sugestoes as Array<{ id?: string }>) {
+        if (s?.id) insumosDaNota.add(String(s.id));
+      }
+    }
+  }
+  const insumosIds = [...insumosDaNota];
+
+  const [nfeConfig, lancamentosRecentes, historicoItens] = await Promise.all([
     prisma.nfeConfig.findUnique({
       where: { userId: tenant.tenantUserId },
       select: { limiteVariacaoCustoPercent: true },
@@ -56,6 +71,29 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       },
       select: { estoqueInsumoId: true, quantidade: true, valorTotal: true },
     }),
+    insumosIds.length === 0
+      ? Promise.resolve([])
+      : prisma.nfeItem.findMany({
+          where: {
+            estoqueInsumoId: { in: insumosIds },
+            status: 'MAPEADO',
+            custoUnitario: { not: null },
+            nota: {
+              userId: tenant.tenantUserId,
+              status: 'APROVADA',
+              id: { not: nota.id },
+            },
+          },
+          select: {
+            estoqueInsumoId: true,
+            custoUnitario: true,
+            notaId: true,
+            nota: { select: { dataEntrada: true } },
+          },
+          orderBy: { nota: { dataEntrada: 'desc' } },
+          // Folga para deduplicar por nota e ainda sobrar 5 por insumo.
+          take: insumosIds.length * ALERTA_PRECO_HISTORICO_NOTAS * 4,
+        }),
   ]);
 
   const custoMedioPorInsumo: Record<string, number> = {};
@@ -73,6 +111,14 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     if (a.qtd > 0) custoMedioPorInsumo[insumoId] = a.valor / a.qtd;
   }
 
+  const historicoCustoPorInsumo = agruparHistoricoCustoPorInsumo(
+    historicoItens.map((h) => ({
+      estoqueInsumoId: h.estoqueInsumoId,
+      custoUnitario: h.custoUnitario != null ? Number(h.custoUnitario) : null,
+      notaId: h.notaId,
+    })),
+  );
+
   return NextResponse.json({
     ok: true,
     canRevisar:
@@ -82,6 +128,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     canMapeamentoEditar:
       tenant.isAdmin || (ctx?.hasPermission(P.CMV_REAL_MAPEAMENTO_EDITAR) ?? false),
     custoMedioPorInsumo,
+    historicoCustoPorInsumo,
     limiteVariacaoCustoPercent: Number(nfeConfig?.limiteVariacaoCustoPercent ?? 30),
     nota: {
       id: nota.id,

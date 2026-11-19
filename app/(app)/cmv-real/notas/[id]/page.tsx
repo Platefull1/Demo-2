@@ -33,6 +33,7 @@ import {
   storeLabel,
 } from '@/lib/nfe/ui-labels';
 import { catalogoPareceGenericoDemais } from '@/lib/nfe/similarity';
+import { avaliarAlertaPrecoRevisao } from '@/lib/nfe/alerta-preco-revisao';
 import {
   fatorEfetivoDaEntrada,
   formatFatorBr,
@@ -121,6 +122,9 @@ function CmvRealNotaDetalhePageInner() {
   const [canMapeamentoCriar, setCanMapeamentoCriar] = useState(false);
   const [canMapeamentoEditar, setCanMapeamentoEditar] = useState(false);
   const [custoMedioPorInsumo, setCustoMedioPorInsumo] = useState<Record<string, number>>({});
+  const [historicoCustoPorInsumo, setHistoricoCustoPorInsumo] = useState<
+    Record<string, number[]>
+  >({});
   const [nota, setNota] = useState<{
     id: string;
     numero: string;
@@ -157,6 +161,7 @@ function CmvRealNotaDetalhePageInner() {
       setCanMapeamentoCriar(data.canMapeamentoCriar === true);
       setCanMapeamentoEditar(data.canMapeamentoEditar === true);
       setCustoMedioPorInsumo(data.custoMedioPorInsumo || {});
+      setHistoricoCustoPorInsumo(data.historicoCustoPorInsumo || {});
       setNota(data.nota);
 
       let prodList: ProdutoOpt[] = [];
@@ -669,6 +674,21 @@ function CmvRealNotaDetalhePageInner() {
     });
     const { pergunta, sufixo } = interp;
     const usaCards = interp.opcoes.length > 0;
+
+    const pesoOuFatorAtual = parseFator(d.fator);
+    const fatorAtual =
+      pesoOuFatorAtual != null
+        ? fatorEfetivoDaEntrada(pesoOuFatorAtual, interp)
+        : null;
+    const qtdConvAtual =
+      fatorAtual != null && fatorAtual > 0 ? it.quantidade * fatorAtual : null;
+    const custoAtual =
+      qtdConvAtual != null && qtdConvAtual > 0 ? valor / qtdConvAtual : null;
+    const alertaPreco = avaliarAlertaPrecoRevisao({
+      custoAtual,
+      historico: d.produtoId ? historicoCustoPorInsumo[d.produtoId] : undefined,
+      sufixo,
+    });
     const produtoGenerico =
       Boolean(prod?.nome) &&
       catalogoPareceGenericoDemais(it.descricao, prod!.nome, {
@@ -793,7 +813,7 @@ function CmvRealNotaDetalhePageInner() {
           </div>
         </div>
 
-        {(ambiguo || suspeito) && (
+        {(ambiguo || suspeito || alertaPreco) && (
           <div className="rounded-md border border-border bg-muted px-2.5 py-2 text-xs text-muted-foreground flex gap-2">
             <AlertTriangle className="size-3.5 shrink-0 text-warning mt-0.5" aria-hidden />
             <div>
@@ -808,6 +828,17 @@ function CmvRealNotaDetalhePageInner() {
               {suspeito && (
                 <p className={ambiguo ? 'mt-1.5' : ''}>
                   Custo fora da faixa esperada — confira o valor digitado.
+                </p>
+              )}
+              {alertaPreco && (
+                <p
+                  className={
+                    ambiguo || suspeito
+                      ? 'mt-1.5 font-medium text-foreground'
+                      : 'font-medium text-foreground'
+                  }
+                >
+                  {alertaPreco.mensagem}
                 </p>
               )}
             </div>
