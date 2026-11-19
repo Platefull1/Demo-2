@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
-import { RIDER_JWT_ISSUER } from '@/lib/auth/jwt-config';
+import {
+  EMPLOYEE_JWT_AUDIENCE,
+  EMPLOYEE_JWT_ISSUER,
+  RIDER_JWT_ISSUER,
+} from '@/lib/auth/jwt-config';
 import {
   OCORRENCIAS_ONLY_COOKIE,
   hasStackSessionCookies,
@@ -17,6 +21,7 @@ import {
 import { isCronApiRequest, matchApiTool } from '@/lib/auth/api-tool-map';
 
 const RIDER_COOKIE = 'rider_token';
+const EMPLOYEE_COOKIE = 'employee_token';
 
 async function getRiderSession(request: NextRequest) {
   try {
@@ -32,6 +37,50 @@ async function getRiderSession(request: NextRequest) {
   } catch {
     return null;
   }
+}
+
+/** Edge-only: assinatura + issuer + audience. Sem Prisma. */
+async function hasValidEmployeeJwt(request: NextRequest): Promise<boolean> {
+  try {
+    let token = request.cookies.get(EMPLOYEE_COOKIE)?.value ?? null;
+    if (!token) {
+      const auth = request.headers.get('authorization');
+      if (auth?.startsWith('Bearer ')) token = auth.slice(7).trim() || null;
+    }
+    if (!token) return false;
+    const secret = process.env.EMPLOYEE_JWT_SECRET;
+    if (!secret || secret.length < 32) return false;
+    await jwtVerify(token, new TextEncoder().encode(secret), {
+      algorithms: ['HS256'],
+      issuer: EMPLOYEE_JWT_ISSUER,
+      audience: EMPLOYEE_JWT_AUDIENCE,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isPublicColaboradorPage(pathname: string): boolean {
+  return (
+    pathname === '/colaborador/login' ||
+    pathname.startsWith('/colaborador/login/') ||
+    pathname === '/colaborador/verificar' ||
+    pathname.startsWith('/colaborador/verificar/')
+  );
+}
+
+function isPublicColaboradorApi(pathname: string, method: string): boolean {
+  if (pathname === '/api/colaborador/auth/request-code' && method === 'POST') {
+    return true;
+  }
+  if (pathname === '/api/colaborador/auth/verify-code' && method === 'POST') {
+    return true;
+  }
+  if (pathname === '/api/colaborador/auth' && method === 'DELETE') {
+    return true;
+  }
+  return false;
 }
 
 function denyOcorrenciasOnly(request: NextRequest): NextResponse {
@@ -176,6 +225,28 @@ export async function middleware(request: NextRequest) {
       if (!session) {
         return withIsolationCookie(
           NextResponse.redirect(new URL('/rider/login', request.url)),
+          isolationToken,
+        );
+      }
+    }
+  }
+
+  if (pathname.startsWith('/api/colaborador')) {
+    if (!isPublicColaboradorApi(pathname, request.method)) {
+      const ok = await hasValidEmployeeJwt(request);
+      if (!ok) {
+        return withIsolationCookie(
+          NextResponse.json({ error: 'unauthorized' }, { status: 401 }),
+          isolationToken,
+        );
+      }
+    }
+  } else if (pathname.startsWith('/colaborador')) {
+    if (!isPublicColaboradorPage(pathname)) {
+      const ok = await hasValidEmployeeJwt(request);
+      if (!ok) {
+        return withIsolationCookie(
+          NextResponse.redirect(new URL('/colaborador/login', request.url)),
           isolationToken,
         );
       }

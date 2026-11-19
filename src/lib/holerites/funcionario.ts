@@ -80,6 +80,20 @@ export function escolherFuncionarioPorCpf(
   return null;
 }
 
+const FUNC_SELECT = {
+  id: true,
+  userId: true,
+  nome: true,
+  cpf: true,
+  telefone: true,
+  whatsappLid: true,
+  ativo: true,
+  dataDemissao: true,
+  lojaId: true,
+  portalStatus: true,
+  portalTokenVersion: true,
+} as const;
+
 export async function resolverFuncionarioPorCpf(
   userId: string,
   cpf: string,
@@ -91,20 +105,26 @@ export async function resolverFuncionarioPorCpf(
 
   const rows = await prisma.rhFuncionario.findMany({
     where: { userId, cpf: digits },
-    select: {
-      id: true,
-      userId: true,
-      nome: true,
-      cpf: true,
-      telefone: true,
-      whatsappLid: true,
-      ativo: true,
-      dataDemissao: true,
-      lojaId: true,
-      portalStatus: true,
-      portalTokenVersion: true,
-    },
+    select: FUNC_SELECT,
   });
 
   return escolherFuncionarioPorCpf(rows, contexto, competencia);
+}
+
+/**
+ * Login do portal: busca em TODOS os tenants.
+ * Mais de um elegível (mesmo em tenants diferentes) → null + warn mascarado.
+ */
+export async function resolverFuncionarioPorCpfLogin(
+  cpf: string,
+): Promise<PortalFuncionario | null> {
+  const digits = limparCpfDigits(cpf);
+  if (digits.length !== 11) return null;
+
+  const rows = await prisma.rhFuncionario.findMany({
+    where: { cpf: digits },
+    select: FUNC_SELECT,
+  });
+
+  return escolherFuncionarioPorCpf(rows, 'login');
 }
