@@ -87,12 +87,13 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
           select: {
             estoqueInsumoId: true,
             custoUnitario: true,
+            descricao: true,
             notaId: true,
             nota: { select: { dataEntrada: true } },
           },
           orderBy: { nota: { dataEntrada: 'desc' } },
-          // Folga para deduplicar por nota e ainda sobrar 5 por insumo.
-          take: insumosIds.length * ALERTA_PRECO_HISTORICO_NOTAS * 4,
+          // Folga para deduplicar por nota + filtro por descrição.
+          take: insumosIds.length * ALERTA_PRECO_HISTORICO_NOTAS * 6,
         }),
   ]);
 
@@ -115,6 +116,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     historicoItens.map((h) => ({
       estoqueInsumoId: h.estoqueInsumoId,
       custoUnitario: h.custoUnitario != null ? Number(h.custoUnitario) : null,
+      descricao: h.descricao,
       notaId: h.notaId,
     })),
   );

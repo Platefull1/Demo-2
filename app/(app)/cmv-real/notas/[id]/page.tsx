@@ -123,7 +123,7 @@ function CmvRealNotaDetalhePageInner() {
   const [canMapeamentoEditar, setCanMapeamentoEditar] = useState(false);
   const [custoMedioPorInsumo, setCustoMedioPorInsumo] = useState<Record<string, number>>({});
   const [historicoCustoPorInsumo, setHistoricoCustoPorInsumo] = useState<
-    Record<string, number[]>
+    Record<string, Array<{ custo: number; descricao: string; notaId: string }>>
   >({});
   const [nota, setNota] = useState<{
     id: string;
@@ -684,16 +684,20 @@ function CmvRealNotaDetalhePageInner() {
       fatorAtual != null && fatorAtual > 0 ? it.quantidade * fatorAtual : null;
     const custoAtual =
       qtdConvAtual != null && qtdConvAtual > 0 ? valor / qtdConvAtual : null;
-    const alertaPreco = avaliarAlertaPrecoRevisao({
-      custoAtual,
-      historico: d.produtoId ? historicoCustoPorInsumo[d.produtoId] : undefined,
-      sufixo,
-    });
     const produtoGenerico =
       Boolean(prod?.nome) &&
       catalogoPareceGenericoDemais(it.descricao, prod!.nome, {
         secao: (prod?.secao as 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA') || null,
       });
+    // Histórico filtrado pela descrição da NF (evita KitKat × recheio de morango).
+    const alertaPreco = d.produtoId
+      ? avaliarAlertaPrecoRevisao({
+          custoAtual,
+          historico: historicoCustoPorInsumo[d.produtoId],
+          descricaoAtual: it.descricao,
+          sufixo,
+        })
+      : null;
 
     const selecionarOpcao = (opcaoId: OpcaoPesoId) => {
       const opt = interp.opcoes.find((o) => o.id === opcaoId);
