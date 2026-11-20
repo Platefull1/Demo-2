@@ -4,6 +4,7 @@
  *
  * Uso:
  *   npx tsx scripts/guard-prisma-db.ts
+ *   npx tsx scripts/guard-prisma-db.ts --confirm-prod   # só com autorização explícita
  *   (package.json: db:migrate / db:push / db:migrate:deploy chamam isto antes)
  */
 import { config } from 'dotenv';
@@ -11,6 +12,8 @@ import { config } from 'dotenv';
 // mascare o .env/.env.local da branch dev.
 config({ path: '.env', override: true });
 config({ path: '.env.local', override: true });
+
+const CONFIRM_PROD = process.argv.includes('--confirm-prod');
 
 const PRODUCTION_DATABASE_HOSTS = [
   'ep-odd-sunset-ac2loti5-pooler.sa-east-1.aws.neon.tech',
@@ -37,11 +40,17 @@ for (const [label, host] of [
   ['DIRECT_URL', directHost],
 ] as const) {
   if (host && PRODUCTION_DATABASE_HOSTS.includes(host)) {
-    console.error(
-      `\nABORTADO: ${label} aponta para PRODUÇÃO (${host}).\n` +
-        'Use a branch Neon "dev" (ep-rough-firefly-…). Nunca rode migrate/db push em produção por aqui.\n',
+    if (!CONFIRM_PROD) {
+      console.error(
+        `\nABORTADO: ${label} aponta para PRODUÇÃO (${host}).\n` +
+          'Use a branch Neon "dev" (ep-rough-firefly-…). Nunca rode migrate/db push em produção por aqui.\n' +
+          'Se for intencional e autorizado: npx tsx scripts/guard-prisma-db.ts --confirm-prod\n',
+      );
+      process.exit(1);
+    }
+    console.warn(
+      `AVISO: --confirm-prod ativo — ${label} aponta para PRODUÇÃO (${host}).`,
     );
-    process.exit(1);
   }
 }
 
