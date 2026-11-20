@@ -130,7 +130,14 @@ function startHttpServer() {
           return sendJson(400, { success: false, error: 'Campos "to" e "message" obrigatórios' });
         }
         const result = await sendMessage(USER_ID, body.to, body.message, SLOT);
-        return sendJson(result.success ? 200 : 503, result);
+        if (result.success) return sendJson(200, result);
+        const status =
+          result.error === 'not_on_whatsapp'
+            ? 422
+            : result.error === 'invalid_destination'
+              ? 400
+              : 503;
+        return sendJson(status, result);
       }
 
       if (req.method === 'POST' && url === '/typing') {

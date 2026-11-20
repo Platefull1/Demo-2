@@ -797,6 +797,12 @@ export async function sendSendOnlyMessage(req, res) {
     if (local.success) {
       return res.json(local);
     }
+    if (local.error === 'not_on_whatsapp') {
+      return res.status(422).json(local);
+    }
+    if (local.error === 'invalid_destination') {
+      return res.status(400).json(local);
+    }
 
     await ensureSessionWorker(normalizedUserId, slot, { waitMs: 45000 });
 

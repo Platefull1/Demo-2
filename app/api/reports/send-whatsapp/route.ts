@@ -68,6 +68,23 @@ export async function POST(req: NextRequest) {
 
   const sendOk = vpsResult.ok && vpsResult.data.success !== false;
   const rawError = String(vpsResult.data.error || vpsResult.data.message || '');
+
+  if (
+    !sendOk &&
+    (rawError === 'not_on_whatsapp' ||
+      (vpsResult.status === 422 && rawError.toLowerCase().includes('not_on_whatsapp')))
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'not_on_whatsapp',
+        code: 'NOT_ON_WHATSAPP',
+        sessionSlot,
+      },
+      { status: 422 },
+    );
+  }
+
   const mapped = mapSendError(rawError, sessionSlot, bot.isConnected, sendOk);
 
   if (mapped) {
@@ -99,6 +116,22 @@ function mapSendError(
   if (ok) return null;
 
   const lower = raw.toLowerCase();
+
+  if (lower.includes('not_on_whatsapp')) {
+    return {
+      error: 'not_on_whatsapp',
+      code: 'NOT_ON_WHATSAPP',
+      status: 422,
+    };
+  }
+
+  if (lower.includes('invalid_destination')) {
+    return {
+      error: 'Destino inválido.',
+      code: 'INVALID_DESTINATION',
+      status: 400,
+    };
+  }
 
   if (
     lower.includes('ainda não está conectada') ||

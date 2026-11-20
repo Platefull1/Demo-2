@@ -17,6 +17,7 @@ import logger from '../utils/logger.js';
 import prisma from '../db/index.js';
 import { getDigest, getPendentes, patchStatus } from './platefulApi.js';
 import { criarSessao, marcarSessaoExpirada, expirarSessoesAntigas } from './tarefaHandler.js';
+import { resolveDestinationWithCheck } from '../baileys/phoneJid.js';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -164,56 +165,21 @@ function paraWpp(telefone) {
 }
 
 /**
- * Resolve o JID correto de um destinatário via checkNumberStatus.
+ * Resolve o JID correto de um destinatário via checkNumberStatus
+ * (variantes do 9º dígito BR — ver src/baileys/phoneJid.js).
  *
- * Problema: JIDs montados manualmente ("55...@c.us") falham com "No LID for user"
- * porque o WhatsApp usa o sistema LID e o número pode estar registrado sem o nono
- * dígito. checkNumberStatus retorna o JID resolvido pelo próprio WhatsApp.
- *
- * Nota: checkNumberStatus NÃO retorna o LID nesta versão do WPPConnect.
- * O LID é capturado pelo eco da mensagem enviada — ver vincularLidASessaoRecente
- * em tarefaHandler.js.
- *
- * @param {object}      client    Cliente WPPConnect ativo
+ * @param {object}      client    Cliente WPPConnect / shim Baileys
  * @param {string|null} telefone  Telefone bruto do funcionário
- * @returns {Promise<string|null>}  JID resolvido (ex: "5541...@c.us") ou null
+ * @returns {Promise<string|null>}  JID resolvido ou null
  */
 async function resolverDestino(client, telefone) {
-  if (!telefone) return null;
-  const raw = String(telefone).replace(/\D/g, '');
-  if (!raw) return null;
-
-  // Normaliza para 12–13 dígitos com prefixo 55 (mesma lógica de paraWpp)
-  let digits;
-  if (raw.length === 10 || raw.length === 11) {
-    digits = `55${raw}`;
-  } else if ((raw.length === 12 || raw.length === 13) && raw.startsWith('55')) {
-    digits = raw;
-  } else {
-    return null; // tamanho inesperado
-  }
-
-  // Tentativa 1: número como está
-  try {
-    const result = await client.checkNumberStatus(`${digits}@c.us`);
-    if ((result?.numberExists || result?.canReceiveMessage) && result?.id?._serialized) {
-      return result.id._serialized;
-    }
-  } catch { /* segue para fallback */ }
-
-  // Tentativa 2: 13 dígitos (55 + DDD + 9 + 8 dígitos) → remove o nono dígito
-  // ex: "5541996420791" → "554196420791"
-  if (digits.length === 13 && digits.startsWith('55') && digits[4] === '9') {
-    const semNono = digits.slice(0, 4) + digits.slice(5);
-    try {
-      const result = await client.checkNumberStatus(`${semNono}@c.us`);
-      if ((result?.numberExists || result?.canReceiveMessage) && result?.id?._serialized) {
-        return result.id._serialized;
-      }
-    } catch { /* número não localizado */ }
-  }
-
-  return null; // WhatsApp não reconheceu o número em nenhuma forma
+  if (!telefone || typeof client?.checkNumberStatus !== 'function') return null;
+  const resolved = await resolveDestinationWithCheck(
+    (idOrPhone) => client.checkNumberStatus(idOrPhone),
+    telefone,
+    { preferBaileys: client.__provider === 'baileys' },
+  );
+  return resolved.ok ? resolved.jid : null;
 }
 
 /**

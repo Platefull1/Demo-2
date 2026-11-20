@@ -3,6 +3,7 @@
  */
 
 import logger from '../../utils/logger.js';
+import { resolveDestinationWithCheck } from '../../baileys/phoneJid.js';
 
 /**
  * @param {object} client — shim Baileys com checkNumberStatus + sendText
@@ -10,41 +11,13 @@ import logger from '../../utils/logger.js';
  * @returns {Promise<string|null>}
  */
 export async function resolverDestino(client, telefone) {
-  if (!telefone) return null;
-  const raw = String(telefone).replace(/\D/g, '');
-  if (!raw) return null;
-
-  let digits;
-  if (raw.length === 10 || raw.length === 11) {
-    digits = `55${raw}`;
-  } else if ((raw.length === 12 || raw.length === 13) && raw.startsWith('55')) {
-    digits = raw;
-  } else {
-    return null;
-  }
-
-  try {
-    const result = await client.checkNumberStatus(`${digits}@c.us`);
-    if ((result?.numberExists || result?.canReceiveMessage) && result?.id?._serialized) {
-      return result.id._serialized;
-    }
-  } catch {
-    /* fallback */
-  }
-
-  if (digits.length === 13 && digits.startsWith('55') && digits[4] === '9') {
-    const semNono = digits.slice(0, 4) + digits.slice(5);
-    try {
-      const result = await client.checkNumberStatus(`${semNono}@c.us`);
-      if ((result?.numberExists || result?.canReceiveMessage) && result?.id?._serialized) {
-        return result.id._serialized;
-      }
-    } catch {
-      /* ignore */
-    }
-  }
-
-  return null;
+  if (!telefone || typeof client?.checkNumberStatus !== 'function') return null;
+  const resolved = await resolveDestinationWithCheck(
+    (idOrPhone) => client.checkNumberStatus(idOrPhone),
+    telefone,
+    { preferBaileys: client.__provider === 'baileys' },
+  );
+  return resolved.ok ? resolved.jid : null;
 }
 
 /**

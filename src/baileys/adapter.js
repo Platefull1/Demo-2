@@ -21,6 +21,20 @@ import {
   normalizeBaileysMessage,
   messageArchiveExpectedFields,
 } from './normalizeMessage.js';
+import {
+  normalizeBrPhoneDigits,
+  passthroughJid,
+  resolveDestinationWithCheck,
+} from './phoneJid.js';
+
+export { normalizeBrPhoneDigits } from './phoneJid.js';
+export {
+  isAlreadyWhatsAppJid,
+  phoneLookupVariants,
+  passthroughJid,
+  resolveDestinationWithCheck,
+  clearJidResolveCache,
+} from './phoneJid.js';
 
 const TEST_USER_ID = 'baileys-teste';
 const TEST_SLOT = 1;
@@ -106,17 +120,14 @@ async function persistDisconnected(userId, slot, persistDb) {
   }
 }
 
+/** Converte destino já conhecido (typing etc.) sem consultar onWhatsApp. */
 function toJid(to) {
   let dest = String(to || '').trim();
   if (!dest) return '';
   if (!dest.includes('@')) {
     dest = `${dest.replace(/\D/g, '')}@s.whatsapp.net`;
   }
-  // Baileys usa @s.whatsapp.net; WPP usa @c.us — aceita ambos
-  if (dest.endsWith('@c.us')) {
-    dest = dest.replace(/@c\.us$/, '@s.whatsapp.net');
-  }
-  return dest;
+  return passthroughJid(dest);
 }
 
 /**
@@ -347,13 +358,19 @@ export async function sendMessage(userId, to, message, slot = TEST_SLOT) {
     return { success: false, error: 'Sessão Baileys ainda não está conectada' };
   }
 
-  const dest = toJid(to);
-  if (!dest) {
-    return { success: false, error: 'Destino inválido' };
-  }
   if (!message) {
     return { success: false, error: 'message é obrigatório' };
   }
+
+  const resolved = await resolveDestinationWithCheck(
+    (idOrPhone) => checkNumberStatus(uid, idOrPhone, slotNum),
+    to,
+    { preferBaileys: true },
+  );
+  if (!resolved.ok) {
+    return { success: false, error: resolved.error };
+  }
+  const dest = resolved.jid;
 
   try {
     await session.sock.sendMessage(dest, { text: String(message) });
@@ -367,19 +384,6 @@ export async function sendMessage(userId, to, message, slot = TEST_SLOT) {
   } catch (err) {
     return { success: false, error: err?.message || String(err) };
   }
-}
-
-/**
- * Normaliza telefone BR para dígitos com DDI 55 (mesma lógica do scheduler/paraWpp).
- * Aceita "41996420791", "5541996420791", "5541996420791@c.us", etc.
- * @returns {string|null} só dígitos (12–13) ou null
- */
-export function normalizeBrPhoneDigits(input) {
-  const raw = String(input || '').replace(/\D/g, '');
-  if (!raw) return null;
-  if (raw.length === 10 || raw.length === 11) return `55${raw}`;
-  if ((raw.length === 12 || raw.length === 13) && raw.startsWith('55')) return raw;
-  return null;
 }
 
 /**
