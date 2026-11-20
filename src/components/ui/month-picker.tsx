@@ -10,7 +10,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
-import { addMonthsYm, formatMonthLong, todayYmd, ymFromYmd } from "@/lib/date-ymd"
+import {
+  formatMonthLong,
+  parseYm,
+  todayYmd,
+  ymFromYmd,
+} from "@/lib/date-ymd"
 
 const MESES = [
   "jan",
@@ -28,11 +33,18 @@ const MESES = [
 ] as const
 
 type MonthPickerProps = {
-  value: string
+  /** yyyy-MM; vazio/undefined → placeholder (não crasha) */
+  value?: string | null
   onChange: (value: string) => void
   disabled?: boolean
   id?: string
   "aria-label"?: string
+}
+
+function yearFromValue(value: string | null | undefined): number {
+  const parsed = parseYm(value)
+  if (parsed) return parsed.year
+  return Number(ymFromYmd(todayYmd()).slice(0, 4)) || new Date().getFullYear()
 }
 
 export function MonthPicker({
@@ -43,14 +55,14 @@ export function MonthPicker({
   "aria-label": ariaLabel,
 }: MonthPickerProps) {
   const [open, setOpen] = React.useState(false)
-  const [year, setYear] = React.useState(() => Number(value.slice(0, 4)) || new Date().getFullYear())
+  const [year, setYear] = React.useState(() => yearFromValue(value))
   const atual = ymFromYmd(todayYmd())
+  const parsed = parseYm(value)
+  const selectedMonth = parsed?.month ?? 0
 
   React.useEffect(() => {
-    if (open) setYear(Number(value.slice(0, 4)) || new Date().getFullYear())
+    if (open) setYear(yearFromValue(value))
   }, [open, value])
-
-  const selectedMonth = Number(value.slice(5, 7))
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -93,7 +105,10 @@ export function MonthPicker({
         <div className="grid grid-cols-3 gap-1">
           {MESES.map((label, i) => {
             const ym = `${year}-${String(i + 1).padStart(2, "0")}`
-            const selected = year === Number(value.slice(0, 4)) && i + 1 === selectedMonth
+            const selected =
+              parsed != null &&
+              year === parsed.year &&
+              i + 1 === selectedMonth
             const isAtual = ym === atual
             return (
               <Button

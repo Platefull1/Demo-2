@@ -51,7 +51,7 @@ export default function ColaboradorHoleritesPage() {
   const byYear = useMemo(() => {
     const map = new Map<string, PortalPayslipItem[]>();
     for (const item of items) {
-      const year = item.competencia.slice(0, 4) || '—';
+      const year = item.competencia?.slice(0, 4) || '—';
       const list = map.get(year) ?? [];
       list.push(item);
       map.set(year, list);

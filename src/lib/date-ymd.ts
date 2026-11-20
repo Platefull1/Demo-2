@@ -35,11 +35,28 @@ export function formatYmdDisplay(ymd: string): string {
   return format(parseYmd(ymd), 'dd/MM/yyyy');
 }
 
-export function formatMonthLong(ym: string): string {
-  const [y, m] = ym.split('-').map(Number);
-  const s = format(new Date(y || 1970, (m || 1) - 1, 1), "MMMM 'de' yyyy", {
-    locale: ptBR,
-  });
+/** Aceita yyyy-MM (ou prefixo); vazio/inválido → null. */
+export function parseYm(
+  ym: string | null | undefined,
+): { year: number; month: number } | null {
+  if (!ym || typeof ym !== 'string') return null;
+  const m = /^(\d{4})-(\d{2})/.exec(ym.trim());
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  if (!Number.isFinite(year) || year < 1) return null;
+  if (!Number.isFinite(month) || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+export function formatMonthLong(ym: string | null | undefined): string {
+  const parts = parseYm(ym);
+  if (!parts) return 'Selecionar mês';
+  const s = format(
+    new Date(parts.year, parts.month - 1, 1),
+    "MMMM 'de' yyyy",
+    { locale: ptBR },
+  );
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 

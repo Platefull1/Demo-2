@@ -23,6 +23,7 @@ const base = [
   'src/lib/rider-quinzena-docs.test.ts',
   'src/lib/rate-limit.test.ts',
   'src/lib/rh-permissions.test.ts',
+  'src/lib/date-ymd.test.ts',
   'src/lib/shared/holerites/*.test.ts',
   'src/baileys/phoneJid.test.ts',
 ];

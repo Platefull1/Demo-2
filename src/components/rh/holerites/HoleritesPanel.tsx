@@ -33,6 +33,7 @@ import {
   labelPayslipType,
 } from '@/lib/shared/holerites/labels';
 import { formatDateTimeSp, labelBatchStatus } from '@/lib/holerites/ui-labels';
+import { competenciaMesAnterior } from '@/lib/holerites/rh-panel';
 import { cn } from '@/lib/utils';
 import type { PayslipType } from '@/lib/shared/holerites/types';
 
@@ -105,14 +106,22 @@ export function HoleritesPanel({ lojas }: { lojas: LojaOpt[] }) {
   const status = searchParams.get('status') ?? '';
   const page = Math.max(1, Number(searchParams.get('page') || '1') || 1);
 
+  /** Tenant sem lotes / URL sem ?competencia= → mês anterior (SP), nunca undefined. */
+  const fallbackCompetencia = useMemo(() => competenciaMesAnterior(), []);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [totalPages, setTotalPages] = useState(1);
-  const [resolvedCompetencia, setResolvedCompetencia] = useState(competencia);
+  const [resolvedCompetencia, setResolvedCompetencia] = useState(
+    () => competencia || competenciaMesAnterior(),
+  );
   const syncedCompetencia = useRef(false);
+
+  const monthPickerValue =
+    resolvedCompetencia || competencia || fallbackCompetencia;
 
   const setParams = useCallback(
     (patch: Record<string, string | null>) => {
@@ -243,7 +252,7 @@ export function HoleritesPanel({ lojas }: { lojas: LojaOpt[] }) {
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:flex-wrap">
         <MonthPicker
-          value={resolvedCompetencia || competencia || undefined}
+          value={monthPickerValue}
           onChange={(v) => setParams({ competencia: v || null })}
           aria-label="Competência"
         />
