@@ -32,8 +32,11 @@ export {
   isAlreadyWhatsAppJid,
   phoneLookupVariants,
   passthroughJid,
+  digitsToLegacyJid,
   resolveDestinationWithCheck,
   clearJidResolveCache,
+  CACHE_TTL_POSITIVE_MS,
+  CACHE_TTL_NEGATIVE_MS,
 } from './phoneJid.js';
 
 const TEST_USER_ID = 'baileys-teste';

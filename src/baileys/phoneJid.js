@@ -3,7 +3,8 @@
  * Funções puras + resolve via checkNumberStatus (sem duplicar onWhatsApp/USync).
  */
 
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+export const CACHE_TTL_POSITIVE_MS = 24 * 60 * 60 * 1000;
+export const CACHE_TTL_NEGATIVE_MS = 10 * 60 * 1000;
 
 /** @type {Map<string, { jid: string|null, expiresAt: number }>} */
 const jidResolveCache = new Map();
@@ -32,6 +33,18 @@ export function passthroughJid(to, opts = {}) {
     dest = dest.replace(/@c\.us$/i, '@s.whatsapp.net');
   }
   return dest;
+}
+
+/**
+ * Monta JID na variante original (comportamento antigo, sem consultar WA).
+ * @param {string} digits
+ * @param {{ preferBaileys?: boolean }} [opts]
+ */
+export function digitsToLegacyJid(digits, opts = {}) {
+  const d = String(digits || '').replace(/\D/g, '');
+  if (!d) return '';
+  const preferBaileys = opts.preferBaileys !== false;
+  return preferBaileys ? `${d}@s.whatsapp.net` : `${d}@c.us`;
 }
 
 /**
@@ -88,11 +101,27 @@ export function getCachedResolvedJid(digits) {
 }
 
 /**
+ * Peek da entrada de cache (testes / debug).
+ * @param {string} digits
+ * @returns {{ jid: string|null, expiresAt: number }|undefined}
+ */
+export function peekJidResolveCache(digits) {
+  const entry = jidResolveCache.get(String(digits || ''));
+  if (!entry) return undefined;
+  if (Date.now() > entry.expiresAt) {
+    jidResolveCache.delete(String(digits || ''));
+    return undefined;
+  }
+  return { jid: entry.jid, expiresAt: entry.expiresAt };
+}
+
+/**
  * @param {string[]} keys
- * @param {string|null} jid
+ * @param {string|null} jid — string = positivo (24h); null = não existe (10 min)
  */
 export function setCachedResolvedJid(keys, jid) {
-  const entry = { jid, expiresAt: Date.now() + CACHE_TTL_MS };
+  const ttl = jid ? CACHE_TTL_POSITIVE_MS : CACHE_TTL_NEGATIVE_MS;
+  const entry = { jid, expiresAt: Date.now() + ttl };
   for (const k of keys) {
     if (k) jidResolveCache.set(String(k), entry);
   }
@@ -106,6 +135,9 @@ export function clearJidResolveCache() {
 /**
  * Resolve destino para envio reutilizando checkNumberStatus (exists === true).
  *
+ * - Consulta OK e nenhuma variante existe → not_on_whatsapp (422)
+ * - Exceção/timeout na consulta → fallback na variante original + warn (não 422)
+ *
  * @param {(idOrPhone: string) => Promise<{
  *   numberExists?: boolean,
  *   canReceiveMessage?: boolean,
@@ -114,7 +146,7 @@ export function clearJidResolveCache() {
  * @param {unknown} to
  * @param {{ preferBaileys?: boolean, useCache?: boolean }} [opts]
  * @returns {Promise<
- *   | { ok: true, jid: string }
+ *   | { ok: true, jid: string, fallback?: boolean }
  *   | { ok: false, error: 'not_on_whatsapp' | 'invalid_destination' }
  * >}
  */
@@ -138,27 +170,51 @@ export async function resolveDestinationWithCheck(checkFn, to, opts = {}) {
     for (const v of variants) {
       const cached = getCachedResolvedJid(v);
       if (cached !== undefined) {
-        setCachedResolvedJid(variants, cached);
         if (cached) return { ok: true, jid: passthroughJid(cached, opts) };
         return { ok: false, error: 'not_on_whatsapp' };
       }
     }
   }
 
+  let anyQueryOk = false;
+  let anyQueryError = false;
+  /** @type {string[]} */
+  const queryErrors = [];
+
   for (const v of variants) {
     try {
       const result = await checkFn(v);
+      anyQueryOk = true;
       // Estrito: só numberExists === true (checkNumberStatus já exige exists === true)
       if (result?.numberExists === true && result?.id?._serialized) {
         const jid = passthroughJid(result.id._serialized, opts);
         if (useCache) setCachedResolvedJid(variants, jid);
         return { ok: true, jid };
       }
-    } catch {
-      /* tenta próxima variante */
+    } catch (err) {
+      anyQueryError = true;
+      queryErrors.push(`${v}: ${err?.message || String(err)}`);
     }
   }
 
-  if (useCache) setCachedResolvedJid(variants, null);
-  return { ok: false, error: 'not_on_whatsapp' };
+  // Consulta falhou (socket, timeout, etc.) → não afirmar "não existe"
+  if (anyQueryError) {
+    const legacy = digitsToLegacyJid(digits, opts);
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[phoneJid] consulta onWhatsApp/USync falhou — enviando variante original ${legacy}. ` +
+        `erros=[${queryErrors.join('; ')}]`,
+    );
+    return { ok: true, jid: legacy, fallback: true };
+  }
+
+  // Consulta respondeu e nenhuma variante existe
+  if (anyQueryOk) {
+    if (useCache) setCachedResolvedJid(variants, null);
+    return { ok: false, error: 'not_on_whatsapp' };
+  }
+
+  // Sem variantes / sem chamada — fallback seguro
+  const legacy = digitsToLegacyJid(digits, opts);
+  return { ok: true, jid: legacy, fallback: true };
 }

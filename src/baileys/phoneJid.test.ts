@@ -5,8 +5,13 @@ import {
   phoneLookupVariants,
   isAlreadyWhatsAppJid,
   passthroughJid,
+  digitsToLegacyJid,
   resolveDestinationWithCheck,
   clearJidResolveCache,
+  setCachedResolvedJid,
+  peekJidResolveCache,
+  CACHE_TTL_POSITIVE_MS,
+  CACHE_TTL_NEGATIVE_MS,
 } from './phoneJid.js';
 
 describe('phoneJid — normalização e variantes', () => {
@@ -94,10 +99,11 @@ describe('phoneJid — normalização e variantes', () => {
     assert.equal(resolved.ok, true);
     if (resolved.ok) {
       assert.equal(resolved.jid, '554196420791@s.whatsapp.net');
+      assert.equal(resolved.fallback, undefined);
     }
   });
 
-  it('resolveDestinationWithCheck: nenhuma variante → not_on_whatsapp', async () => {
+  it('consulta respondeu e nenhuma variante existe → not_on_whatsapp', async () => {
     const resolved = await resolveDestinationWithCheck(async () => {
       return { numberExists: false, id: null };
     }, '5541996420791');
@@ -114,5 +120,76 @@ describe('phoneJid — normalização e variantes', () => {
     }, '554196420791');
     assert.equal(resolved.ok, false);
     if (!resolved.ok) assert.equal(resolved.error, 'not_on_whatsapp');
+  });
+
+  it('exceção/timeout na consulta → fallback na variante original (não not_on_whatsapp)', async () => {
+    const resolved = await resolveDestinationWithCheck(async () => {
+      throw new Error('timeout / socket reconnecting');
+    }, '5541996420791');
+
+    assert.equal(resolved.ok, true);
+    if (resolved.ok) {
+      assert.equal(resolved.jid, '5541996420791@s.whatsapp.net');
+      assert.equal(resolved.fallback, true);
+    }
+    // Não cacheia falha de consulta
+    assert.equal(peekJidResolveCache('5541996420791'), undefined);
+  });
+
+  it('consulta mista (uma ok false + uma exceção) → fallback, não 422', async () => {
+    const resolved = await resolveDestinationWithCheck(async (id) => {
+      const digits = String(id).replace(/\D/g, '');
+      if (digits === '5541996420791') {
+        return { numberExists: false, id: null };
+      }
+      throw new Error('USync unavailable');
+    }, '5541996420791');
+
+    assert.equal(resolved.ok, true);
+    if (resolved.ok) {
+      assert.equal(resolved.jid, digitsToLegacyJid('5541996420791'));
+      assert.equal(resolved.fallback, true);
+    }
+  });
+
+  it('cache positivo TTL 24h; negativo TTL 10 min', () => {
+    const now = Date.now();
+    setCachedResolvedJid(['5541996420791'], '554196420791@s.whatsapp.net');
+    const pos = peekJidResolveCache('5541996420791');
+    assert.ok(pos);
+    assert.equal(pos!.jid, '554196420791@s.whatsapp.net');
+    assert.ok(
+      Math.abs(pos!.expiresAt - (now + CACHE_TTL_POSITIVE_MS)) < 5_000,
+      `positivo deve expirar ~24h (got ${pos!.expiresAt - now}ms)`,
+    );
+
+    clearJidResolveCache();
+    const now2 = Date.now();
+    setCachedResolvedJid(['5541996420791'], null);
+    const neg = peekJidResolveCache('5541996420791');
+    assert.ok(neg);
+    assert.equal(neg!.jid, null);
+    assert.ok(
+      Math.abs(neg!.expiresAt - (now2 + CACHE_TTL_NEGATIVE_MS)) < 5_000,
+      `negativo deve expirar ~10min (got ${neg!.expiresAt - now2}ms)`,
+    );
+  });
+
+  it('cache negativo: segunda chamada não reconsulta e devolve not_on_whatsapp', async () => {
+    let calls = 0;
+    const check = async () => {
+      calls += 1;
+      return { numberExists: false, id: null };
+    };
+
+    const first = await resolveDestinationWithCheck(check, '554196420791');
+    assert.equal(first.ok, false);
+    assert.ok(calls >= 1);
+
+    const callsAfter = calls;
+    const second = await resolveDestinationWithCheck(check, '554196420791');
+    assert.equal(second.ok, false);
+    if (!second.ok) assert.equal(second.error, 'not_on_whatsapp');
+    assert.equal(calls, callsAfter, 'não deve reconsultar enquanto cache negativo válido');
   });
 });
