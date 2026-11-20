@@ -7,8 +7,10 @@
  * - POST /employee-otp  (imprime o código mascarando o telefone)
  */
 import { config } from 'dotenv';
-config({ path: '.env.local', override: true });
 config({ path: '.env', override: true });
+config({ path: '.env.local', override: true });
+
+import './guard-prisma-db';
 
 import { createServer } from 'node:http';
 

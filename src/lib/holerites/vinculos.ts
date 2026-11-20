@@ -16,6 +16,7 @@ import {
 } from '@/lib/holerites/storage';
 import type { IgnoredPage, UnmatchedPage } from '@/lib/holerites/types-ingest';
 import type { PayslipType } from '@/lib/shared/holerites/types';
+import { resolveStagingSourcePath } from '@/lib/holerites/staging-path';
 
 function sha256Hex(bytes: Buffer | Uint8Array): string {
   return createHash('sha256').update(bytes).digest('hex');
@@ -56,7 +57,8 @@ export async function vincularPaginas(opts: {
   pageIndexes: number[];
   funcionarioId: string;
 }) {
-  const { batchId, userId, sourcePath, pageIndexes, funcionarioId } = opts;
+  const { batchId, userId, pageIndexes, funcionarioId } = opts;
+  const sourcePath = resolveStagingSourcePath(userId, batchId, opts.sourcePath);
   const batch = await requireBatchReview(batchId, userId);
 
   const funcionario = await prisma.rhFuncionario.findFirst({
@@ -83,9 +85,6 @@ export async function vincularPaginas(opts: {
   });
   const files = (sourceFiles?.sourceFiles as Array<{ path: string }> | null) ?? [];
   if (!files.some((f) => f.path === sourcePath)) {
-    throw Object.assign(new Error('Arquivo de origem inválido'), { status: 400 });
-  }
-  if (!sourcePath.startsWith(`${userId}/_staging/${batchId}/`)) {
     throw Object.assign(new Error('Arquivo de origem inválido'), { status: 400 });
   }
 
@@ -302,12 +301,9 @@ export async function anexarPaginasAnterior(opts: {
   sourcePath: string;
   pageIndexes: number[];
 }) {
-  const { batchId, userId, sourcePath, pageIndexes } = opts;
+  const { batchId, userId, pageIndexes } = opts;
+  const sourcePath = resolveStagingSourcePath(userId, batchId, opts.sourcePath);
   const batch = await requireBatchReview(batchId, userId);
-
-  if (!sourcePath.startsWith(`${userId}/_staging/${batchId}/`)) {
-    throw Object.assign(new Error('Arquivo de origem inválido'), { status: 400 });
-  }
 
   const sorted = [...pageIndexes].sort((a, b) => a - b);
   for (let i = 1; i < sorted.length; i++) {
@@ -387,12 +383,9 @@ export async function ignorarPaginas(opts: {
   sourcePath: string;
   pageIndexes: number[];
 }) {
-  const { batchId, userId, sourcePath, pageIndexes } = opts;
+  const { batchId, userId, pageIndexes } = opts;
+  const sourcePath = resolveStagingSourcePath(userId, batchId, opts.sourcePath);
   const batch = await requireBatchReview(batchId, userId);
-
-  if (!sourcePath.startsWith(`${userId}/_staging/${batchId}/`)) {
-    throw Object.assign(new Error('Arquivo de origem inválido'), { status: 400 });
-  }
 
   const unmatched = asUnmatched(batch.unmatchedPages);
   const item = unmatched.find(

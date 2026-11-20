@@ -7,6 +7,7 @@ import { SystemTool } from '@/types/admin';
 import { clientIp } from '@/lib/holerites/otp';
 import { downloadPayslipObject } from '@/lib/holerites/storage';
 import { payslipDownloadFilename } from '@/lib/holerites/portal';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,18 @@ export async function GET(req: NextRequest, { params }: Ctx) {
     SystemTool.HOLERITES,
   );
   if (error) return error;
+
+  const rl = await checkRateLimit({
+    key: `rh:file:${ctx.userId}`,
+    limit: 120,
+    windowSeconds: 10 * 60,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Limite de downloads atingido. Tente novamente em breve.' },
+      { status: 429, headers: { 'Retry-After': String(rl.retryAfterSeconds) } },
+    );
+  }
 
   const { id } = await params;
   const download = req.nextUrl.searchParams.get('download') === '1';

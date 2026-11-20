@@ -24,18 +24,41 @@ export type PaginaSemVinculo = {
   motivo: 'sem_cpf' | 'pagina_sem_texto';
 };
 
-/** Extrai texto de cada página do PDF (runtime Node / unpdf). */
+export const MAX_PDF_PAGES = 500;
+export const PDF_EXTRACT_TIMEOUT_MS = 30_000;
+
+/** Extrai texto de cada página do PDF (runtime Node / unpdf). Timeout 30s. */
 export async function extrairTextoPorPagina(
   buffer: Buffer | Uint8Array,
 ): Promise<string[]> {
-  const { extractText } = await import('unpdf');
-  // unpdf/pdf.js toma ownership do Uint8Array — sempre passar cópia
-  const data = Uint8Array.from(
-    buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer),
-  );
-  const { text } = await extractText(data, { mergePages: false });
-  if (Array.isArray(text)) return text.map((t) => t ?? '');
-  return [text ?? ''];
+  const work = async () => {
+    const { extractText } = await import('unpdf');
+    // unpdf/pdf.js toma ownership do Uint8Array — sempre passar cópia
+    const data = Uint8Array.from(
+      buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer),
+    );
+    const { text } = await extractText(data, { mergePages: false });
+    if (Array.isArray(text)) return text.map((t) => t ?? '');
+    return [text ?? ''];
+  };
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            Object.assign(new Error('Timeout na extração do PDF (30s)'), {
+              status: 400,
+            }),
+          );
+        }, PDF_EXTRACT_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 /** Indício de página escaneada / só imagem. */

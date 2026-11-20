@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { requireRhPermission } from '@/lib/rh-auth';
+import { requireAnyRhPermission, requireRhPermission } from '@/lib/rh-auth';
 import { P } from '@/lib/rh-permissions';
 import { limparDraftsDoLote } from '@/lib/holerites/process-batch';
 import { removePayslipObjects } from '@/lib/holerites/storage';
 import { temContatoValido } from '@/lib/holerites/publish';
+import { maskCpf } from '@/lib/holerites/mask';
+import { toOpaqueSourceId } from '@/lib/holerites/staging-path';
 import type {
   IgnoredPage,
   PayslipSourceFile,
@@ -17,23 +19,27 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-async function requireViewOrUpload() {
-  const { ctx, error } = await requireRhPermission(undefined, SystemTool.HOLERITES);
-  if (error) return { ctx: null, error };
-  if (!ctx.hasPermission(P.PAYSLIPS_VIEW) && !ctx.hasPermission(P.PAYSLIPS_UPLOAD)) {
-    return {
-      ctx: null,
-      error: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }),
-    };
-  }
-  return { ctx, error: null };
+function sanitizePageRef<T extends { sourcePath: string; cpfDetectado: string | null }>(
+  item: T,
+): Omit<T, 'sourcePath' | 'cpfDetectado'> & {
+  sourcePath: string;
+  cpfDetectado: string | null;
+} {
+  return {
+    ...item,
+    sourcePath: toOpaqueSourceId(item.sourcePath) ?? item.sourcePath,
+    cpfDetectado: item.cpfDetectado ? maskCpf(item.cpfDetectado) : null,
+  };
 }
 
 /**
  * GET /api/rh/holerites/lotes/[id]
  */
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const { ctx, error } = await requireViewOrUpload();
+  const { ctx, error } = await requireAnyRhPermission(
+    [P.PAYSLIPS_VIEW, P.PAYSLIPS_UPLOAD],
+    SystemTool.HOLERITES,
+  );
   if (error || !ctx) return error!;
 
   const { id: batchId } = await params;
@@ -165,9 +171,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     sizeBytes: f.sizeBytes,
   }));
 
-  const unmatchedPages = (batch.unmatchedPages ?? []) as UnmatchedPage[];
-  const ignoredPages = (batch.ignoredPages ?? []) as IgnoredPage[];
-
   const draftsOut = payslips
     .map((d) => {
       const semContato = !temContatoValido(d.funcionario);
@@ -186,7 +189,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
           ? Boolean(d.replacesId)
           : retificacaoSet.has(d.funcionarioId),
         semContato,
-        sourcePath: d.sourcePath,
+        sourcePath: toOpaqueSourceId(d.sourcePath),
         sourcePageIndexes: d.sourcePageIndexes ?? [],
       };
     })
@@ -200,6 +203,13 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const retificacoes = draftsOut.filter((d) => d.retificacao).length;
   const semWhatsapp = draftsOut.filter((d) => d.semContato).length;
 
+  const unmatchedOut = (
+    (batch.unmatchedPages ?? []) as UnmatchedPage[]
+  ).map(sanitizePageRef);
+  const ignoredOut = (
+    (batch.ignoredPages ?? []) as IgnoredPage[]
+  ).map(sanitizePageRef);
+
   return NextResponse.json({
     lote: {
       id: batch.id,
@@ -211,8 +221,8 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       sourceFiles,
     },
     drafts: draftsOut,
-    unmatchedPages,
-    ignoredPages,
+    unmatchedPages: unmatchedOut,
+    ignoredPages: ignoredOut,
     ativosSemHolerite,
     funcionariosOpcoes: funcionariosOpcoes.map((f) => ({
       id: f.id,
@@ -226,7 +236,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     },
     resumo: {
       vinculados: draftsOut.length,
-      semVinculo: unmatchedPages.length,
+      semVinculo: unmatchedOut.length,
       ativosSemHolerite: ativosSemHolerite.length,
       retificacoes,
       semWhatsapp,

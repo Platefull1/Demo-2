@@ -151,14 +151,13 @@ export async function getRhContext(): Promise<RhContext | null> {
   };
 }
 
-/**
- * Helper para uso nas API routes — retorna 401/403 como NextResponse
- * quando o contexto não existe ou não tem a permissão exigida.
- */
-export async function requireRhPermission(
-  permission?: string,
-  moduleTool: SystemTool = SystemTool.RH,
-): Promise<{ ctx: RhContext; error: null } | { ctx: null; error: NextResponse }> {
+type RhAuthResult =
+  | { ctx: RhContext; error: null }
+  | { ctx: null; error: NextResponse };
+
+async function resolveRhAuthContext(
+  moduleTool: SystemTool,
+): Promise<RhAuthResult> {
   let ctx: RhContext | null;
   try {
     ctx = await getRhContext();
@@ -168,7 +167,7 @@ export async function requireRhPermission(
       ctx: null,
       error: NextResponse.json(
         { error: 'Erro interno ao verificar autenticação', details: String(err) },
-        { status: 500 }
+        { status: 500 },
       ),
     };
   }
@@ -177,8 +176,11 @@ export async function requireRhPermission(
     return {
       ctx: null,
       error: NextResponse.json(
-        { error: 'Sessão expirada. Por favor, faça login novamente.', code: 'UNAUTHENTICATED' },
-        { status: 401 }
+        {
+          error: 'Sessão expirada. Por favor, faça login novamente.',
+          code: 'UNAUTHENTICATED',
+        },
+        { status: 401 },
       ),
     };
   }
@@ -197,14 +199,54 @@ export async function requireRhPermission(
   if (!memberHasCoreRhPermission(ctx)) {
     return {
       ctx: null,
-      error: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }),
-    };
-  }
-  if (permission && !ctx.hasPermission(permission)) {
-    return {
-      ctx: null,
-      error: NextResponse.json({ error: 'Sem permissão para esta ação' }, { status: 403 }),
+      error: NextResponse.json(
+        { error: 'Sem permissão para esta ação' },
+        { status: 403 },
+      ),
     };
   }
   return { ctx, error: null };
+}
+
+/**
+ * Helper para uso nas API routes — retorna 401/403 como NextResponse
+ * quando o contexto não existe ou não tem a permissão exigida.
+ */
+export async function requireRhPermission(
+  permission?: string,
+  moduleTool: SystemTool = SystemTool.RH,
+): Promise<RhAuthResult> {
+  const base = await resolveRhAuthContext(moduleTool);
+  if (base.error || !base.ctx) return base;
+  if (permission && !base.ctx.hasPermission(permission)) {
+    return {
+      ctx: null,
+      error: NextResponse.json(
+        { error: 'Sem permissão para esta ação' },
+        { status: 403 },
+      ),
+    };
+  }
+  return base;
+}
+
+/**
+ * Exige pelo menos uma das permissões listadas (OR).
+ */
+export async function requireAnyRhPermission(
+  permissions: readonly string[],
+  moduleTool: SystemTool = SystemTool.RH,
+): Promise<RhAuthResult> {
+  const base = await resolveRhAuthContext(moduleTool);
+  if (base.error || !base.ctx) return base;
+  if (!permissions.some((p) => base.ctx!.hasPermission(p))) {
+    return {
+      ctx: null,
+      error: NextResponse.json(
+        { error: 'Sem permissão para esta ação' },
+        { status: 403 },
+      ),
+    };
+  }
+  return base;
 }

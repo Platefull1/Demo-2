@@ -34,14 +34,11 @@ vi.mock('@/lib/auth/toolPermissions', async (importOriginal) => {
 vi.mock('@/lib/rh-auth', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/rh-auth')>();
 
-  async function requireRhPermission(
-    permission?: string,
-    moduleTool: SystemTool = SystemTool.RH,
-  ) {
+  async function resolveCtx(moduleTool: SystemTool) {
     const ctx = await mocks.getRhContext();
     if (!ctx) {
       return {
-        ctx: null,
+        ctx: null as null,
         error: NextResponse.json(
           {
             error: 'Sessão expirada. Por favor, faça login novamente.',
@@ -53,7 +50,7 @@ vi.mock('@/lib/rh-auth', async (importOriginal) => {
     }
     if (!(await mocks.canAccessTool(ctx.stackUserId, moduleTool))) {
       return {
-        ctx: null,
+        ctx: null as null,
         error: NextResponse.json(
           {
             error: 'Acesso negado',
@@ -65,14 +62,23 @@ vi.mock('@/lib/rh-auth', async (importOriginal) => {
     }
     if (!actual.memberHasCoreRhPermission(ctx)) {
       return {
-        ctx: null,
+        ctx: null as null,
         error: NextResponse.json(
           { error: 'Sem permissão para esta ação' },
           { status: 403 },
         ),
       };
     }
-    if (permission && !ctx.hasPermission(permission)) {
+    return { ctx, error: null as null };
+  }
+
+  async function requireRhPermission(
+    permission?: string,
+    moduleTool: SystemTool = SystemTool.RH,
+  ) {
+    const base = await resolveCtx(moduleTool);
+    if (base.error || !base.ctx) return base;
+    if (permission && !base.ctx.hasPermission(permission)) {
       return {
         ctx: null,
         error: NextResponse.json(
@@ -81,13 +87,32 @@ vi.mock('@/lib/rh-auth', async (importOriginal) => {
         ),
       };
     }
-    return { ctx, error: null };
+    return base;
+  }
+
+  async function requireAnyRhPermission(
+    permissions: readonly string[],
+    moduleTool: SystemTool = SystemTool.RH,
+  ) {
+    const base = await resolveCtx(moduleTool);
+    if (base.error || !base.ctx) return base;
+    if (!permissions.some((p) => base.ctx!.hasPermission(p))) {
+      return {
+        ctx: null,
+        error: NextResponse.json(
+          { error: 'Sem permissão para esta ação' },
+          { status: 403 },
+        ),
+      };
+    }
+    return base;
   }
 
   return {
     ...actual,
     getRhContext: mocks.getRhContext,
     requireRhPermission,
+    requireAnyRhPermission,
   };
 });
 

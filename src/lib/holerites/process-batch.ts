@@ -9,6 +9,7 @@ import {
   extrairLiquido,
   extrairTextoPorPagina,
   isPdfMagic,
+  MAX_PDF_PAGES,
   type PaginaIngest,
 } from '@/lib/holerites/pdf-ingest';
 import { extrairPaginasPdf } from '@/lib/holerites/pdf-split';
@@ -109,11 +110,27 @@ export async function processarLoteHolerites(opts: {
 
   for (const file of sourceFiles) {
     const buffer = await downloadPayslipObject(file.path);
+    if (buffer.byteLength !== file.sizeBytes) {
+      throw Object.assign(
+        new Error(
+          `Tamanho do arquivo "${file.name}" diverge do declarado (${buffer.byteLength} ≠ ${file.sizeBytes} bytes). Reenvie o lote.`,
+        ),
+        { status: 400 },
+      );
+    }
     if (!isPdfMagic(buffer)) {
       throw new Error(`arquivo não é PDF válido: ${file.name}`);
     }
 
     const textos = await extrairTextoPorPagina(buffer);
+    if (textos.length > MAX_PDF_PAGES) {
+      throw Object.assign(
+        new Error(
+          `Arquivo "${file.name}" tem ${textos.length} páginas (máximo ${MAX_PDF_PAGES}).`,
+        ),
+        { status: 400 },
+      );
+    }
     totalPages += textos.length;
     const paginas: PaginaIngest[] = textos.map((texto, index) => {
       const semTexto = detectarPaginaSemTexto(texto);

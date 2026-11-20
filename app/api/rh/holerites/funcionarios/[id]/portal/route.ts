@@ -72,10 +72,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       '[holerites/portal] revoke_sessions',
       JSON.stringify({ who: ctx.stackUserId, funcionarioId: func.id }),
     );
-    return NextResponse.json({
-      ok: true,
-      portalTokenVersion: updated.portalTokenVersion,
-    });
+    return NextResponse.json({ ok: true });
   }
 
   if (parsed.data.action === 'disable') {
@@ -103,7 +100,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       '[holerites/portal] disable',
       JSON.stringify({ who: ctx.stackUserId, funcionarioId: func.id }),
     );
-    return NextResponse.json({ ok: true, portalStatus: 'disabled' });
+    return NextResponse.json({ ok: true });
   }
 
   // enable
@@ -128,5 +125,5 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     '[holerites/portal] enable',
     JSON.stringify({ who: ctx.stackUserId, funcionarioId: func.id }),
   );
-  return NextResponse.json({ ok: true, portalStatus: 'enabled' });
+  return NextResponse.json({ ok: true });
 }

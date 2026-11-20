@@ -72,6 +72,19 @@ export async function POST(_req: NextRequest, { params }: Ctx) {
     );
     console.error('[holerites/processar]', masked);
 
+    if (status === 400) {
+      await prisma.payslipBatch
+        .update({
+          where: { id: batchId },
+          data: {
+            status: 'PROCESSING',
+            errorMessage: masked.slice(0, 500),
+          },
+        })
+        .catch(() => undefined);
+      return NextResponse.json({ error: masked }, { status: 400 });
+    }
+
     await prisma.payslipBatch
       .update({
         where: { id: batchId },

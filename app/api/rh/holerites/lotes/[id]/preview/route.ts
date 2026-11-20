@@ -7,6 +7,8 @@ import {
   downloadPayslipObject,
 } from '@/lib/holerites/storage';
 import { extrairPaginasPdf } from '@/lib/holerites/pdf-split';
+import { isPdfMagic } from '@/lib/holerites/pdf-ingest';
+import { resolveStagingSourcePath } from '@/lib/holerites/staging-path';
 import type { PayslipSourceFile } from '@/lib/holerites/types-ingest';
 import { SystemTool } from '@/types/admin';
 
@@ -62,11 +64,14 @@ export async function GET(req: NextRequest, { params }: Ctx) {
   }
 
   if (sourcePath && pagesRaw) {
-    const files = (batch.sourceFiles ?? []) as PayslipSourceFile[];
-    if (!files.some((f) => f.path === sourcePath)) {
+    let resolvedPath: string;
+    try {
+      resolvedPath = resolveStagingSourcePath(ctx.userId, batchId, sourcePath);
+    } catch {
       return NextResponse.json({ error: 'Arquivo inválido' }, { status: 400 });
     }
-    if (!sourcePath.startsWith(`${ctx.userId}/_staging/${batchId}/`)) {
+    const files = (batch.sourceFiles ?? []) as PayslipSourceFile[];
+    if (!files.some((f) => f.path === resolvedPath)) {
       return NextResponse.json({ error: 'Arquivo inválido' }, { status: 400 });
     }
 
@@ -78,7 +83,10 @@ export async function GET(req: NextRequest, { params }: Ctx) {
       return NextResponse.json({ error: 'Páginas inválidas' }, { status: 400 });
     }
 
-    const buffer = await downloadPayslipObject(sourcePath);
+    const buffer = await downloadPayslipObject(resolvedPath);
+    if (!isPdfMagic(buffer)) {
+      return NextResponse.json({ error: 'Arquivo não é PDF válido' }, { status: 400 });
+    }
     const pdfBytes = await extrairPaginasPdf(buffer, pageIndexes);
 
     return new NextResponse(Buffer.from(pdfBytes), {

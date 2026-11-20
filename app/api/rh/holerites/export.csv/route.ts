@@ -11,14 +11,10 @@ import {
   typeSlugForExport,
 } from '@/lib/holerites/rh-panel';
 import type { PayslipType } from '@/lib/shared/holerites/types';
+import { csvEscapeCell } from '@/lib/holerites/csv-escape';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-function csvCell(v: string): string {
-  if (/[;"\n\r]/.test(v)) return `"${v.replace(/"/g, '""')}"`;
-  return v;
-}
 
 export async function GET(req: NextRequest) {
   const { ctx, error } = await requireRhPermission(
@@ -103,18 +99,18 @@ export async function GET(req: NextRequest) {
 
   const lines = rows.map((r) =>
     [
-      csvCell(r.funcionario.nome),
-      csvCell(r.funcionario.cpf ?? ''),
-      csvCell(r.loja.nome),
-      csvCell(labelPayslipType(r.type)),
-      csvCell(r.competencia),
-      csvCell(labelPayslipStatusRh(r.status)),
-      csvCell(r.publishedAt ? formatDateTimeSp(r.publishedAt) : ''),
-      csvCell(r.firstViewedAt ? formatDateTimeSp(r.firstViewedAt) : ''),
-      csvCell(r.acknowledgedAt ? formatDateTimeSp(r.acknowledgedAt) : ''),
-      csvCell(r.ackIp ?? ''),
-      csvCell(r.fileSha256),
-      csvCell(r.replacesId ? 'Sim' : 'Não'),
+      csvEscapeCell(r.funcionario.nome),
+      csvEscapeCell(r.funcionario.cpf ?? ''),
+      csvEscapeCell(r.loja.nome),
+      csvEscapeCell(labelPayslipType(r.type)),
+      csvEscapeCell(r.competencia),
+      csvEscapeCell(labelPayslipStatusRh(r.status)),
+      csvEscapeCell(r.publishedAt ? formatDateTimeSp(r.publishedAt) : ''),
+      csvEscapeCell(r.firstViewedAt ? formatDateTimeSp(r.firstViewedAt) : ''),
+      csvEscapeCell(r.acknowledgedAt ? formatDateTimeSp(r.acknowledgedAt) : ''),
+      csvEscapeCell(r.ackIp ?? ''),
+      csvEscapeCell(r.fileSha256),
+      csvEscapeCell(r.replacesId ? 'Sim' : 'Não'),
     ].join(';'),
   );
 
