@@ -213,7 +213,14 @@ function startHttpServer(boundUserId, boundSlot) {
         }
 
         const result = await sendMessage(uid, to, message, slotBody);
-        return sendJson(result.success ? 200 : 503, result);
+        if (result.success) return sendJson(200, result);
+        const status =
+          result.error === 'not_on_whatsapp'
+            ? 422
+            : result.error === 'invalid_destination'
+              ? 400
+              : 503;
+        return sendJson(status, result);
       }
 
       if (req.method === 'POST' && url === '/ia-ativa') {

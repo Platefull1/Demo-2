@@ -471,10 +471,16 @@ export async function sendMessage(userId, to, message, slot = SLOT_SOMENTE_ENVIO
       return { success: false, error: 'Sessão ainda não está conectada ao WhatsApp' };
     }
 
-    let dest = String(to).trim();
-    if (!dest.includes('@')) {
-      dest = `${dest.replace(/\D/g, '')}@c.us`;
+    const { resolveDestinationWithCheck } = await import('../baileys/phoneJid.js');
+    const resolved = await resolveDestinationWithCheck(
+      (idOrPhone) => client.checkNumberStatus(idOrPhone),
+      to,
+      { preferBaileys: false },
+    );
+    if (!resolved.ok) {
+      return { success: false, error: resolved.error };
     }
+    const dest = resolved.jid;
 
     await client.sendText(dest, message);
     logger.wpp(normalizedUserId, slot, `📤 sendMessage OK → ${dest}`);

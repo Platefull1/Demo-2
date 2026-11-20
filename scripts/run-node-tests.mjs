@@ -24,6 +24,7 @@ const base = [
   'src/lib/rate-limit.test.ts',
   'src/lib/rh-permissions.test.ts',
   'src/lib/shared/holerites/*.test.ts',
+  'src/baileys/phoneJid.test.ts',
 ];
 
 const code1 = run(base);
