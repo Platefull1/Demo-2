@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/complaints-ifood",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/holerites-cleanup",
+      "schedule": "0 6 * * *"
     }
   ]
 }

@@ -5,7 +5,13 @@ export default defineConfig({
   test: {
     environment: 'node',
     globals: false,
-    include: ['src/lib/user-apis-route.test.ts', 'src/lib/user-apis-security.test.ts'],
+    include: [
+      'src/lib/user-apis-route.test.ts',
+      'src/lib/user-apis-security.test.ts',
+      'src/lib/holerites/route-authz.test.ts',
+    ],
+    testTimeout: 60_000,
+    hookTimeout: 60_000,
   },
   resolve: {
     alias: {

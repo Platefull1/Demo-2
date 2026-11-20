@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import {
   PERMISSION_LABELS,
+  PERMISSION_DESCRIPTIONS,
   RH_PERMISSION_PRESETS,
   RH_STORE_SLUGS,
   RH_STORE_LABELS,
@@ -331,9 +332,16 @@ export default function PermissoesPage() {
                     key={item.permission}
                     className="px-4 py-3.5 flex items-center justify-between gap-4"
                   >
-                    <p className={`text-sm ${item.active ? 'text-white' : 'text-gray-500'}`}>
-                      {PERMISSION_LABELS[item.permission] ?? item.permission}
-                    </p>
+                    <div className="min-w-0">
+                      <p className={`text-sm ${item.active ? 'text-white' : 'text-gray-500'}`}>
+                        {PERMISSION_LABELS[item.permission] ?? item.permission}
+                      </p>
+                      {PERMISSION_DESCRIPTIONS[item.permission] ? (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {PERMISSION_DESCRIPTIONS[item.permission]}
+                        </p>
+                      ) : null}
+                    </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {state === 'ok' && <CheckCircle className="w-3.5 h-3.5 text-green-400" />}
                       {state === 'error' && <XCircle className="w-3.5 h-3.5 text-red-400" />}

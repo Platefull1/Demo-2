@@ -67,6 +67,36 @@ describe('canAccessToolFromState — Camada 1 só UserToolPermission', () => {
       false,
     );
   });
+
+  it('HOLERITES ligado/desligado (fail-closed, sem bypass)', () => {
+    assert.equal(
+      canAccessToolFromState({
+        stackUserExists: true,
+        isActive: true,
+        enabledTools: [SystemTool.RH, SystemTool.HOLERITES],
+        tool: SystemTool.HOLERITES,
+      }),
+      true,
+    );
+    assert.equal(
+      canAccessToolFromState({
+        stackUserExists: true,
+        isActive: true,
+        enabledTools: [SystemTool.RH],
+        tool: SystemTool.HOLERITES,
+      }),
+      false,
+    );
+    assert.equal(
+      canAccessToolFromState({
+        stackUserExists: true,
+        isActive: true,
+        enabledTools: [SystemTool.HOLERITES],
+        tool: SystemTool.HOLERITES,
+      }),
+      true,
+    );
+  });
 });
 
 describe('canSeeCmvReal — Camada 1 AND Camada 2', () => {

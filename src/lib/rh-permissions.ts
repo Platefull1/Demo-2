@@ -101,10 +101,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'rh.view_salary':       'Visualizar salários e valores',
   'rh.edit_salary':       'Editar salários e valores',
   'payslips.view':          'Visualizar holerites',
-  'payslips.upload':        'Enviar holerites',
-  'payslips.publish':       'Publicar holerites',
-  'payslips.revoke':        'Revogar holerites',
+  'payslips.upload':        'Enviar e conferir lotes',
+  'payslips.publish':       'Publicar e reenviar avisos',
+  'payslips.revoke':        'Revogar holerites publicados',
   'payslips.portal_manage': 'Gerenciar portal do colaborador',
+
   'cmv_real.visualizar':        'Visualizar CMV Real',
   'cmv_real.revisar_aprovar':   'Revisar e aprovar NF-e',
   'cmv_real.lancamentos':       'Lançamentos manuais',
@@ -115,6 +116,20 @@ export const PERMISSION_LABELS: Record<string, string> = {
   'cmv_real.config':            'Configurações CMV Real',
   'users.manage':         'Gerenciar usuários de RH',
   'ocorrencias.registrar': 'Registrar ocorrência',
+};
+
+/** Descrições curtas (ajuda na tela de permissões). */
+export const PERMISSION_DESCRIPTIONS: Partial<Record<string, string>> = {
+  'payslips.view':
+    'Ver painel, PDF, histórico e exportar CSV da competência.',
+  'payslips.upload':
+    'Criar lote, enviar PDFs, processar, vincular e cancelar rascunhos.',
+  'payslips.publish':
+    'Publicar lotes e reenviar avisos no WhatsApp.',
+  'payslips.revoke':
+    'Revogar holerite publicado (com motivo).',
+  'payslips.portal_manage':
+    'Habilitar/desabilitar portal e encerrar sessões do funcionário.',
 };
 
 // ─── Grupos de permissões para a UI de toggles ────────────────────────────────
