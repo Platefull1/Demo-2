@@ -6,8 +6,10 @@ import { requireCmvRealAccess } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 import {
   reabrirNotaSePermitido,
+  transferirCompetenciaNota,
   voltarMapeadosParaPendentes,
 } from '@/lib/nfe/approve';
+import { preservarMarcasManuais } from '@/lib/nfe/bonificacao';
 import { salvarEAprovarNota } from '@/lib/nfe/aprovar-manual';
 import { Prisma } from '@prisma/client';
 
@@ -202,6 +204,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     fatorConversao?: number;
     criarMapeamento?: boolean;
     motivo?: string;
+    /** transferir_competencia: YYYY-MM de destino */
+    competencia?: string;
     natureza?: 'BONIFICACAO' | 'TROCA' | 'NORMAL';
     itens?: Array<{
       itemId: string;
@@ -236,6 +240,45 @@ export async function POST(req: NextRequest, { params }: Ctx) {
       data: { observacao: etiquetaNatureza(marca) },
     });
     return NextResponse.json({ ok: true, alertas });
+  }
+
+  if (body.action === 'transferir_competencia') {
+    const { tenant, error } = await requireCmvRealAccess(
+      P.CMV_REAL_REVISAR_APROVAR,
+    );
+    if (error) return error;
+
+    const destino =
+      typeof body.competencia === 'string' ? body.competencia.trim() : '';
+    const nota = await prisma.nfeNota.findFirst({
+      where: { id, userId: tenant.tenantUserId },
+      select: { id: true, storeSlug: true },
+    });
+    if (!nota) {
+      return NextResponse.json({ error: 'Não encontrada' }, { status: 404 });
+    }
+    if (
+      !tenant.isAdmin &&
+      tenant.allowedStoreSlugs &&
+      !tenant.allowedStoreSlugs.includes(nota.storeSlug)
+    ) {
+      return NextResponse.json({ error: 'Sem acesso a esta loja' }, { status: 403 });
+    }
+
+    const result = await transferirCompetenciaNota({
+      userId: tenant.tenantUserId,
+      notaId: nota.id,
+      competenciaDestino: destino,
+    });
+    if (result.ok === false) {
+      return NextResponse.json({ error: result.motivo }, { status: result.status });
+    }
+    return NextResponse.json({
+      ok: true,
+      competenciaOrigem: result.competenciaOrigem,
+      competencia: destino,
+      lancamentos: result.lancamentos,
+    });
   }
 
   if (body.action === 'fornecedor_fora_cmv') {
@@ -412,7 +455,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
           item.valorLiquido != null && qtdConv > 0
             ? decimal(Number(item.valorLiquido) / qtdConv)
             : null,
-        alertas: [],
+        // Mantém Bonificação/Troca marcadas manualmente.
+        alertas: preservarMarcasManuais(item.alertas),
       },
     });
 

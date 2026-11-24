@@ -10,9 +10,28 @@ import {
 } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { AlertTriangle, ArrowLeft, Loader2, Check, Ban, Unlock } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRightLeft,
+  Loader2,
+  Check,
+  Ban,
+  Unlock,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { MonthPicker } from '@/components/ui/month-picker';
+import { formatMonthLong } from '@/lib/date-ymd';
+import { competenciaFromDataEntrada } from '@/lib/nfe/dates';
 import {
   Select,
   SelectContent,
@@ -131,6 +150,7 @@ function CmvRealNotaDetalhePageInner() {
     storeSlug: string;
     status: string;
     dataEntrada: string;
+    competencia: string;
     valorTotal: number;
     fornecedor: {
       razaoSocial: string;
@@ -143,6 +163,9 @@ function CmvRealNotaDetalhePageInner() {
   const [produtos, setProdutos] = useState<ProdutoOpt[]>([]);
 
   const [draft, setDraft] = useState<Record<string, DraftItem>>({});
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferDestino, setTransferDestino] = useState('');
+  const [transferErro, setTransferErro] = useState<string | null>(null);
   const savingRef = useRef<string | null>(null);
   const aprovarEnterLock = useRef(false);
 
@@ -207,9 +230,23 @@ function CmvRealNotaDetalhePageInner() {
         let fatorNum = it.fatorConversao ?? it.fatorSugerido ?? 1;
         let opcaoPeso: OpcaoPesoId | null = null;
         if (interp.opcoes.length > 0 && interp.opcaoPadrao) {
-          opcaoPeso = interp.opcaoPadrao;
-          const opt = interp.opcoes.find((o) => o.id === opcaoPeso);
-          if (opt?.fator != null) fatorNum = opt.fator;
+          if (it.fatorConversao != null) {
+            // Fator já salvo (mapeamento ou revisão anterior) vence a sugestão:
+            // seleciona o card equivalente ou "Outro peso" com o valor salvo.
+            const salvo = it.fatorConversao;
+            const igual = interp.opcoes.find(
+              (o) =>
+                o.id !== 'outro' &&
+                o.fator != null &&
+                Math.abs(o.fator - salvo) <= Math.max(0.0005, salvo * 0.001),
+            );
+            opcaoPeso = igual ? igual.id : 'outro';
+            fatorNum = salvo;
+          } else {
+            opcaoPeso = interp.opcaoPadrao;
+            const opt = interp.opcoes.find((o) => o.id === opcaoPeso);
+            if (opt?.fator != null) fatorNum = opt.fator;
+          }
         }
 
         // Peso por interna: campo = peso da peça (fator kg/CX ÷ N).
@@ -350,6 +387,57 @@ function CmvRealNotaDetalhePageInner() {
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  /** Marca Bonificação/Troca sem recarregar a nota (preserva o que já foi digitado). */
+  const marcarNatureza = async (
+    itemId: string,
+    natureza: 'BONIFICACAO' | 'TROCA' | 'NORMAL',
+  ) => {
+    setMsg(null);
+    try {
+      const data = await post({ action: 'marcar_natureza', itemId, natureza });
+      const alertas: string[] = Array.isArray(data.alertas) ? data.alertas : [];
+      setNota((n) =>
+        n
+          ? {
+              ...n,
+              itens: n.itens.map((i) =>
+                i.id === itemId ? { ...i, alertas } : i,
+              ),
+            }
+          : n,
+      );
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const abrirTransferencia = () => {
+    if (!nota) return;
+    const [y, m] = nota.competencia.split('-').map(Number);
+    const proximo = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+    setTransferDestino(proximo);
+    setTransferErro(null);
+    setTransferOpen(true);
+  };
+
+  const transferir = async () => {
+    if (!transferDestino) return;
+    setSaving('transferir');
+    setTransferErro(null);
+    try {
+      await post({
+        action: 'transferir_competencia',
+        competencia: transferDestino,
+      });
+      setTransferOpen(false);
+      await load();
+    } catch (e) {
+      setTransferErro(e instanceof Error ? e.message : 'Erro');
     } finally {
       setSaving(null);
     }
@@ -571,8 +659,9 @@ function CmvRealNotaDetalhePageInner() {
       if (tag === 'TEXTAREA') return;
       if (tag === 'SELECT') return;
       if (target.isContentEditable) return;
-      // Select/autocomplete aberto (Radix ou listbox nativo)
+      // Select/autocomplete aberto (Radix ou listbox nativo) ou diálogo aberto
       if (
+        document.querySelector('[role="dialog"]') ||
         document.querySelector('[role="listbox"]') ||
         document.querySelector('[data-radix-popper-content-wrapper]') ||
         target.closest('[role="combobox"][aria-expanded="true"]')
@@ -716,10 +805,24 @@ function CmvRealNotaDetalhePageInner() {
       }));
     };
 
+    const natureza = naturezaDoItem({ cfop: it.cfop, alertas: it.alertas });
+    const etiqueta = etiquetaNatureza(natureza);
+    const avisoNatureza =
+      natureza === 'BONIFICACAO' || natureza === 'TROCA'
+        ? `${etiqueta} — o item soma na compra, mas não define o custo do saldo em estoque.`
+        : natureza === 'DEVOLUCAO'
+          ? 'Devolução/Troca ao fornecedor — o item entra como compra negativa.'
+          : null;
+    const classeNaturezaAtiva = 'border-warning/60 bg-warning/15 text-foreground';
+
     return (
       <article
         key={it.id}
-        className="rounded-xl border border-border bg-card p-3 space-y-3"
+        className={`rounded-xl border p-3 space-y-3 ${
+          natureza
+            ? 'border-warning/50 bg-warning/10'
+            : 'border-border bg-card'
+        }`}
       >
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -727,71 +830,52 @@ function CmvRealNotaDetalhePageInner() {
             <p className="text-sm text-foreground font-medium leading-snug mt-0.5">
               {it.descricao}
             </p>
-            {(() => {
-              const etiqueta = etiquetaNatureza(
-                naturezaDoItem({ cfop: it.cfop, alertas: it.alertas }),
-              );
-              if (!etiqueta && !canRevisar) return null;
-              return (
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  {etiqueta ? <Badge variant="outline">{etiqueta}</Badge> : null}
-                  {canRevisar ? (
-                    <>
+            {etiqueta || canRevisar ? (
+              <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                {etiqueta ? <Badge variant="outline">{etiqueta}</Badge> : null}
+                {canRevisar ? (
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-pressed={natureza === 'BONIFICACAO'}
+                      className={
+                        natureza === 'BONIFICACAO' ? classeNaturezaAtiva : undefined
+                      }
+                      onClick={() => void marcarNatureza(it.id, 'BONIFICACAO')}
+                    >
+                      Bonificação
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-pressed={natureza === 'TROCA'}
+                      className={natureza === 'TROCA' ? classeNaturezaAtiva : undefined}
+                      onClick={() => void marcarNatureza(it.id, 'TROCA')}
+                    >
+                      Troca
+                    </Button>
+                    {etiqueta ? (
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={() =>
-                          void post({
-                            action: 'marcar_natureza',
-                            itemId: it.id,
-                            natureza: 'BONIFICACAO',
-                          })
-                            .then(() => load())
-                            .catch((e) => setMsg(e.message))
-                        }
+                        onClick={() => void marcarNatureza(it.id, 'NORMAL')}
                       >
-                        Bonificação
+                        Compra normal
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          void post({
-                            action: 'marcar_natureza',
-                            itemId: it.id,
-                            natureza: 'TROCA',
-                          })
-                            .then(() => load())
-                            .catch((e) => setMsg(e.message))
-                        }
-                      >
-                        Troca
-                      </Button>
-                      {etiqueta ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            void post({
-                              action: 'marcar_natureza',
-                              itemId: it.id,
-                              natureza: 'NORMAL',
-                            })
-                              .then(() => load())
-                              .catch((e) => setMsg(e.message))
-                          }
-                        >
-                          Compra normal
-                        </Button>
-                      ) : null}
-                    </>
-                  ) : null}
-                </div>
-              );
-            })()}
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+            {avisoNatureza ? (
+              <p className="mt-2 rounded-md border border-warning/40 bg-warning/15 px-2.5 py-1.5 text-xs font-medium text-foreground">
+                {avisoNatureza}
+              </p>
+            ) : null}
           </div>
           <div className="text-right shrink-0 text-xs text-muted-foreground">
             <div>
@@ -1205,6 +1289,10 @@ function CmvRealNotaDetalhePageInner() {
               {nota.valorTotal.toLocaleString('pt-BR', {
                 minimumFractionDigits: 2,
               })}
+              {' · '}Competência {formatMonthLong(nota.competencia)}
+              {nota.competencia !== competenciaFromDataEntrada(nota.dataEntrada)
+                ? ' (transferida)'
+                : ''}
             </p>
           </div>
           <span
@@ -1218,21 +1306,83 @@ function CmvRealNotaDetalhePageInner() {
         </p>
         <p className="text-xs text-muted-foreground">{nota.fornecedor.cnpj}</p>
 
-        {canMapeamentoEditar && !nota.fornecedor.ignorarCmv && (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            disabled={saving === 'fornecedor'}
-            loading={saving === 'fornecedor'}
-            onClick={() => void fornecedorFora()}
-            className="w-full sm:w-auto"
-          >
-            <Ban className="size-4" />
-            Fornecedor fora do CMV
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canRevisar && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={abrirTransferencia}
+            >
+              <ArrowRightLeft className="size-4" />
+              Transferir para…
+            </Button>
+          )}
+          {canMapeamentoEditar && !nota.fornecedor.ignorarCmv && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={saving === 'fornecedor'}
+              loading={saving === 'fornecedor'}
+              onClick={() => void fornecedorFora()}
+            >
+              <Ban className="size-4" />
+              Fornecedor fora do CMV
+            </Button>
+          )}
+        </div>
       </header>
+
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transferir NF {nota.numero}</DialogTitle>
+            <DialogDescription>
+              A nota passa a contar no CMV do mês escolhido. A data de entrada
+              não muda
+              {nota.status === 'APROVADA'
+                ? ' e os lançamentos já gerados vão junto.'
+                : '.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Hoje: {formatMonthLong(nota.competencia)}
+            </p>
+            <MonthPicker
+              value={transferDestino}
+              onChange={setTransferDestino}
+              aria-label="Mês de destino"
+            />
+            {transferErro && (
+              <p className="text-sm text-destructive" role="alert">
+                {transferErro}
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTransferOpen(false)}
+              disabled={saving === 'transferir'}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void transferir()}
+              loading={saving === 'transferir'}
+              disabled={
+                !transferDestino || transferDestino === nota.competencia
+              }
+            >
+              Transferir nota
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {msg && (
         <p className="text-sm text-destructive border border-border bg-muted rounded-md px-3 py-2">

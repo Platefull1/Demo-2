@@ -188,7 +188,11 @@ async function loadReavaliarContext(
   }
   // Mapeamentos por fornecedor + herança por CNPJ raiz
   const mapsByForn = new Map<string, PipelineMapeamento[]>();
-  for (const m of mapeamentos) {
+  // Mais recente por último: o último mapeamento salvo vence entre irmãos.
+  const mapeamentosOrdenados = [...mapeamentos].sort(
+    (a, b) => a.updatedAt.getTime() - b.updatedAt.getTime(),
+  );
+  for (const m of mapeamentosOrdenados) {
     const list = mapsByForn.get(m.fornecedorId) ?? [];
     list.push({
       id: m.id,
@@ -222,7 +226,7 @@ async function loadReavaliarContext(
     for (const fid of ids) {
       if (fid === f.id) continue;
       for (const m of mapsByForn.get(fid) ?? []) {
-        if (!merged.has(m.chave)) merged.set(m.chave, m);
+        merged.set(m.chave, m);
       }
     }
     for (const m of mapsByForn.get(f.id) ?? []) {
@@ -664,6 +668,26 @@ export async function reavaliarNotaAposMapeamento(params: {
     });
     ctx.pipelineConfig.autoAprovar = false;
 
+    // Fornecedor da nota + irmãos de mesma raiz de CNPJ (herdam mapeamento).
+    let fornecedorIds: string[] = [];
+    if (params.fornecedorId) {
+      const base = await prisma.nfeFornecedor.findFirst({
+        where: { id: params.fornecedorId, userId: params.userId },
+        select: { cnpj: true },
+      });
+      const raiz = base ? cnpjRaiz(base.cnpj) : '';
+      const irmaos =
+        raiz.length === 8
+          ? await prisma.nfeFornecedor.findMany({
+              where: { userId: params.userId, cnpj: { startsWith: raiz } },
+              select: { id: true },
+            })
+          : [];
+      fornecedorIds = [
+        ...new Set([params.fornecedorId, ...irmaos.map((f) => f.id)]),
+      ];
+    }
+
     const where = {
       userId: params.userId,
       status: 'EM_REVISAO' as const,
@@ -671,7 +695,9 @@ export async function reavaliarNotaAposMapeamento(params: {
       competencia: { gte: ctx.inicioCmvReal },
       OR: [
         { id: params.notaId },
-        ...(params.fornecedorId ? [{ fornecedorId: params.fornecedorId }] : []),
+        ...(fornecedorIds.length > 0
+          ? [{ fornecedorId: { in: fornecedorIds } }]
+          : []),
       ],
     };
 

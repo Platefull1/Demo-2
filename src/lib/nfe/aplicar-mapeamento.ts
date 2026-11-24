@@ -16,6 +16,31 @@ function decimal(n: number): Prisma.Decimal {
   return new Prisma.Decimal(n);
 }
 
+/** IDs de fornecedores do tenant com a mesma raiz de CNPJ (matriz/filiais). */
+export async function fornecedorIdsMesmaRaiz(
+  tenantUserId: string,
+  fornecedorId: string,
+): Promise<string[]> {
+  const base = await prisma.nfeFornecedor.findFirst({
+    where: { id: fornecedorId, userId: tenantUserId },
+    select: { cnpj: true },
+  });
+  if (!base) return [fornecedorId];
+  const raiz = base.cnpj.replace(/\D/g, '').slice(0, 8);
+  if (raiz.length < 8) return [fornecedorId];
+  const irmaos = await prisma.nfeFornecedor.findMany({
+    where: { userId: tenantUserId, cnpj: { startsWith: raiz } },
+    select: { id: true },
+  });
+  return [...new Set([fornecedorId, ...irmaos.map((f) => f.id)])];
+}
+
+/**
+ * Propaga o mapeamento salvo (último vence) para itens de outras notas em
+ * revisão: pendentes (SUGERIDO / SEM_MAPEAMENTO) e também itens já MAPEADO
+ * por um mapeamento anterior com a mesma chave.
+ * Notas aprovadas não são alteradas.
+ */
 export async function aplicarMapeamentoEmNotasPendentes(params: {
   tenantUserId: string;
   fornecedorId: string;
@@ -26,13 +51,17 @@ export async function aplicarMapeamentoEmNotasPendentes(params: {
   unidadeConvertida: CmvRealUnidade;
   excludeItemId: string;
 }): Promise<number> {
+  const fornecedorIds = await fornecedorIdsMesmaRaiz(
+    params.tenantUserId,
+    params.fornecedorId,
+  );
   const candidatos = await prisma.nfeItem.findMany({
     where: {
       id: { not: params.excludeItemId },
-      status: { in: ['SUGERIDO', 'SEM_MAPEAMENTO'] },
+      status: { in: ['SUGERIDO', 'SEM_MAPEAMENTO', 'MAPEADO'] },
       nota: {
         userId: params.tenantUserId,
-        fornecedorId: params.fornecedorId,
+        fornecedorId: { in: fornecedorIds },
         status: 'EM_REVISAO',
       },
     },

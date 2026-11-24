@@ -6,6 +6,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { gerarLancamentosAprovacao } from './approve';
+import { preservarMarcasManuais } from './bonificacao';
 import {
   ensureCmvRealInsumoConfig,
   secaoFromCategoriaId,
@@ -144,7 +145,8 @@ async function confirmarItemNoTx(
         item.valorLiquido != null && qtdConv > 0
           ? decimal(Number(item.valorLiquido) / qtdConv)
           : null,
-      alertas: [],
+      // Mantém Bonificação/Troca marcadas manualmente.
+      alertas: preservarMarcasManuais(item.alertas),
     },
   });
 

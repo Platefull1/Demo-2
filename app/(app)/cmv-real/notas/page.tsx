@@ -32,6 +32,8 @@ import {
   buildNotasListQuery,
   parseNotasListFilters,
 } from '@/lib/nfe/notas-list-query';
+import { formatMonthLong } from '@/lib/date-ymd';
+import { competenciaFromDataEntrada } from '@/lib/nfe/dates';
 import { storeLabel } from '@/lib/nfe/ui-labels';
 import { cn } from '@/lib/utils';
 
@@ -42,6 +44,7 @@ type NotaRow = {
   storeSlug: string;
   status: string;
   dataEntrada: string;
+  competencia?: string;
   valorTotal: number;
   fornecedor: {
     razaoSocial: string;
@@ -397,11 +400,24 @@ function CmvRealNotasPageInner() {
       {
         accessorKey: 'dataEntrada',
         header: 'Data',
-        cell: ({ row }) => (
-          <span className="tabular-nums text-foreground">
-            {new Date(row.original.dataEntrada).toLocaleDateString('pt-BR')}
-          </span>
-        ),
+        cell: ({ row }) => {
+          const n = row.original;
+          const transferida =
+            Boolean(n.competencia) &&
+            n.competencia !== competenciaFromDataEntrada(n.dataEntrada);
+          return (
+            <div className="tabular-nums">
+              <span className="text-foreground">
+                {new Date(n.dataEntrada).toLocaleDateString('pt-BR')}
+              </span>
+              {transferida ? (
+                <span className="block text-xs text-muted-foreground">
+                  Competência {formatMonthLong(n.competencia)}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       },
       {
         accessorKey: 'valorTotal',

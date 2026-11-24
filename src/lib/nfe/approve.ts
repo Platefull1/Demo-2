@@ -223,6 +223,104 @@ export async function reabrirNotaSePermitido(params: {
   return { ok: true, itensPendentes: itens.count };
 }
 
+/**
+ * Transfere a nota para outra competência (YYYY-MM).
+ * - Mantém `dataEntrada` (data real); só muda o mês em que a nota conta no CMV.
+ * - Se já aprovada, move também os lançamentos do CMV.
+ * - Bloqueia se o mês de destino (ou o de origem, quando há lançamentos)
+ *   estiver FECHADO no Fechamento.
+ */
+export async function transferirCompetenciaNota(params: {
+  userId: string;
+  notaId: string;
+  competenciaDestino: string;
+}): Promise<
+  | { ok: true; competenciaOrigem: string; lancamentos: number }
+  | { ok: false; status: number; motivo: string }
+> {
+  const destino = params.competenciaDestino;
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(destino)) {
+    return { ok: false, status: 400, motivo: 'Mês de destino inválido.' };
+  }
+
+  const nota = await prisma.nfeNota.findFirst({
+    where: { id: params.notaId, userId: params.userId },
+    select: {
+      id: true,
+      status: true,
+      storeSlug: true,
+      competencia: true,
+      itens: { select: { estoqueInsumoId: true } },
+    },
+  });
+  if (!nota) return { ok: false, status: 404, motivo: 'Nota não encontrada.' };
+  if (nota.competencia === destino) {
+    return {
+      ok: false,
+      status: 400,
+      motivo: 'A nota já está neste mês.',
+    };
+  }
+
+  const temLancamentos = nota.status === 'APROVADA';
+  const competenciasChecar = temLancamentos
+    ? [nota.competencia, destino]
+    : [destino];
+  const fechados = await prisma.cmvFechamento.findMany({
+    where: {
+      userId: params.userId,
+      storeSlug: nota.storeSlug,
+      competencia: { in: competenciasChecar },
+      status: 'FECHADO',
+    },
+    select: { competencia: true },
+  });
+  if (fechados.length > 0) {
+    return {
+      ok: false,
+      status: 400,
+      motivo: `Competência ${fechados
+        .map((f) => f.competencia)
+        .join(' / ')} fechada — reabra o fechamento antes de transferir.`,
+    };
+  }
+
+  const [, movidos] = await prisma.$transaction([
+    prisma.nfeNota.update({
+      where: { id: nota.id },
+      data: { competencia: destino },
+    }),
+    prisma.cmvLancamento.updateMany({
+      where: { userId: params.userId, nfeItem: { notaId: nota.id } },
+      data: { competencia: destino },
+    }),
+  ]);
+
+  if (movidos.count > 0) {
+    const estoqueInsumoIds = [
+      ...new Set(
+        nota.itens
+          .map((it) => it.estoqueInsumoId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    for (const competencia of [nota.competencia, destino]) {
+      await recalcularCustosDosProdutos({
+        userId: params.userId,
+        storeSlug: nota.storeSlug,
+        competencia,
+        estoqueInsumoIds,
+      });
+    }
+  }
+
+  return {
+    ok: true,
+    competenciaOrigem: nota.competencia,
+    lancamentos: movidos.count,
+  };
+}
+
 async function recalcularCustosDosProdutos(params: {
   userId: string;
   storeSlug: string;

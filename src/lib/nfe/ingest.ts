@@ -4,6 +4,7 @@
 
 import { Prisma, type NfeNotaStatus } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
+import { preservarMarcasManuais } from './bonificacao';
 import { competenciaFromDataEntrada } from './dates';
 import {
   normalizarCnpj,
@@ -143,9 +144,13 @@ async function loadContext(tenantUserId: string) {
     }
   }
 
-  const mapeamentosPorFornecedor = new Map<string, PipelineMapeamento[]>();
-  for (const m of mapeamentos) {
-    const list = mapeamentosPorFornecedor.get(m.fornecedorId) ?? [];
+  const mapsByForn = new Map<string, PipelineMapeamento[]>();
+  // Mais recente por último: em empate de chave, o último mapeamento salvo vence.
+  const mapeamentosOrdenados = [...mapeamentos].sort(
+    (a, b) => a.updatedAt.getTime() - b.updatedAt.getTime(),
+  );
+  for (const m of mapeamentosOrdenados) {
+    const list = mapsByForn.get(m.fornecedorId) ?? [];
     list.push({
       id: m.id,
       chave: m.chave,
@@ -158,7 +163,30 @@ async function loadContext(tenantUserId: string) {
         : undefined,
       secao: m.estoqueInsumoId ? insumosConfig[m.estoqueInsumoId]?.secao : undefined,
     });
-    mapeamentosPorFornecedor.set(m.fornecedorId, list);
+    mapsByForn.set(m.fornecedorId, list);
+  }
+
+  // Herança por raiz de CNPJ (matriz/filiais), igual ao reavaliar:
+  // o mapeamento do próprio fornecedor sobrescreve o da raiz.
+  const fornecedores = await prisma.nfeFornecedor.findMany({
+    where: { userId: tenantUserId },
+    select: { id: true, cnpj: true },
+  });
+  const raizDe = (cnpj: string) => cnpj.replace(/\D/g, '').slice(0, 8);
+  const idsPorRaiz = new Map<string, string[]>();
+  for (const f of fornecedores) {
+    const raiz = raizDe(f.cnpj);
+    idsPorRaiz.set(raiz, [...(idsPorRaiz.get(raiz) ?? []), f.id]);
+  }
+  const mapeamentosPorFornecedor = new Map<string, PipelineMapeamento[]>();
+  for (const f of fornecedores) {
+    const merged = new Map<string, PipelineMapeamento>();
+    for (const fid of idsPorRaiz.get(raizDe(f.cnpj)) ?? [f.id]) {
+      if (fid === f.id) continue;
+      for (const m of mapsByForn.get(fid) ?? []) merged.set(m.chave, m);
+    }
+    for (const m of mapsByForn.get(f.id) ?? []) merged.set(m.chave, m);
+    mapeamentosPorFornecedor.set(f.id, [...merged.values()]);
   }
 
   const custoMedioPorInsumo: Record<string, number> = {};
@@ -332,6 +360,11 @@ async function aplicarPipelineNaNota(
     }
   }
 
+  // Bonificação/Troca marcadas à mão sobrevivem ao reprocessamento.
+  const marcasPorItem = new Map(
+    nota.itens.map((it) => [it.saiposItemId, preservarMarcasManuais(it.alertas)]),
+  );
+
   await prisma.$transaction(async (tx) => {
     for (const it of out.itens) {
       await tx.nfeItem.updateMany({
@@ -354,7 +387,9 @@ async function aplicarPipelineNaNota(
           sugestaoInsumoId: it.sugestaoInsumoId,
           sugestaoScore: it.sugestaoScore,
           sugestoes: it.sugestoes,
-          alertas: it.alertas,
+          alertas: [
+            ...new Set([...it.alertas, ...(marcasPorItem.get(it.saiposItemId) ?? [])]),
+          ],
         },
       });
     }
@@ -412,13 +447,20 @@ async function upsertNotaEItens(
   const dataEntrada = asDate(rawNota.date_entry || rawNota.created_at);
   const dataEmissao = asDate(rawNota.date_emission || rawNota.date_entry || rawNota.created_at);
   const dataCadastro = asDate(rawNota.created_at || rawNota.date_entry);
-  const competencia = competenciaFromDataEntrada(dataEntrada);
+  const competenciaDaData = competenciaFromDataEntrada(dataEntrada);
   const valorTotal = num(rawNota.total_amount) ?? 0;
   const transferenciaId = num(rawNota.id_store_stock_transfer);
 
   const existing = await prisma.nfeNota.findUnique({
     where: { userId_saiposNotaId: { userId, saiposNotaId } },
   });
+
+  // Nota transferida manualmente para outro mês ("Transferir para"):
+  // competência diverge do mês da data de entrada gravada → mantém.
+  const competencia =
+    existing && existing.competencia !== competenciaFromDataEntrada(existing.dataEntrada)
+      ? existing.competencia
+      : competenciaDaData;
 
   counters.recebidas++;
 

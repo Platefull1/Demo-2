@@ -9,16 +9,6 @@ import {
 } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 
-function mesBounds(ano: number, mes: number): { start: Date; end: Date } {
-  const mm = String(mes).padStart(2, '0');
-  const start = new Date(`${ano}-${mm}-01T00:00:00.000-03:00`);
-  const nextMes = mes === 12 ? 1 : mes + 1;
-  const nextAno = mes === 12 ? ano + 1 : ano;
-  const nm = String(nextMes).padStart(2, '0');
-  const end = new Date(`${nextAno}-${nm}-01T00:00:00.000-03:00`);
-  return { start, end };
-}
-
 const notaInclude = {
   fornecedor: {
     select: {
@@ -179,8 +169,9 @@ export async function GET(req: NextRequest) {
     Number.isInteger(anoParam) &&
     anoParam >= 2000
   ) {
-    const { start, end } = mesBounds(anoParam, mesParam);
-    baseWhere.dataEntrada = { gte: start, lt: end };
+    // Filtra pela competência (não pela data de entrada) para que notas
+    // transferidas para outro mês apareçam no mês de destino.
+    baseWhere.competencia = `${anoParam}-${String(mesParam).padStart(2, '0')}`;
   }
 
   const where: Record<string, unknown> = { ...baseWhere };
