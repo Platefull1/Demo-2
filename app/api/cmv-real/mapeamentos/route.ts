@@ -140,12 +140,40 @@ export async function PATCH(req: NextRequest) {
 
   const updated = await prisma.nfeMapeamento.update({
     where: { id: existing.id },
-    data: { fatorConversao: decimal(fator) },
+    data: { fatorConversao: decimal(fator), ultimoUsoEm: new Date() },
   });
+
+  // Espelha o novo fator nas notas ainda em revisão (último salva vence).
+  const { aplicarMapeamentoEmNotasPendentes } = await import(
+    '@/lib/nfe/aplicar-mapeamento'
+  );
+  const { unidadeFromEstoque } = await import('@/lib/nfe/cmv-catalogo');
+  let unidadeConvertida: 'KG' | 'UN' = 'KG';
+  if (updated.estoqueInsumoId) {
+    const insumo = await prisma.estoqueInsumo.findFirst({
+      where: { id: updated.estoqueInsumoId },
+      select: { unidade: true },
+    });
+    if (insumo) unidadeConvertida = unidadeFromEstoque(insumo.unidade) === 'UN' ? 'UN' : 'KG';
+  }
+
+  const itensPropagados = updated.estoqueInsumoId
+    ? await aplicarMapeamentoEmNotasPendentes({
+        tenantUserId: tenant.tenantUserId,
+        fornecedorId: updated.fornecedorId,
+        chave: updated.chave,
+        estoqueInsumoId: updated.estoqueInsumoId,
+        fatorConversao: fator,
+        mapeamentoId: updated.id,
+        unidadeConvertida,
+        excludeItemId: '', // nenhum item a excluir
+      })
+    : 0;
 
   return NextResponse.json({
     ok: true,
     id: updated.id,
     fatorConversao: Number(updated.fatorConversao),
+    itensPropagados,
   });
 }

@@ -392,54 +392,23 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
     let itensPropagados = 0;
     if (body.criarMapeamento && canCreateMap) {
-      const { chaveMapeamentoDesc, chaveMapeamentoEan, normalizarDescricao, normalizarUnidade } =
-        await import('@/lib/nfe/normalize');
-      const und = normalizarUnidade(item.unidadeComercial);
-      const chave = item.ean
-        ? chaveMapeamentoEan(item.ean, und)
-        : chaveMapeamentoDesc(normalizarDescricao(item.descricao), und);
-
-      const map = await prisma.nfeMapeamento.upsert({
-        where: {
-          userId_fornecedorId_chave: {
-            userId: tenant.tenantUserId,
-            fornecedorId: item.nota.fornecedorId,
-            chave,
-          },
-        },
-        create: {
-          userId: tenant.tenantUserId,
-          fornecedorId: item.nota.fornecedorId,
-          chave,
-          ean: item.ean,
-          descricaoNormalizada: normalizarDescricao(item.descricao),
-          unidadeComercial: und,
-          estoqueInsumoId: body.estoqueInsumoId,
-          fatorConversao: decimal(fator),
-          criadoPorId: tenant.actorUserId,
-        },
-        update: {
-          estoqueInsumoId: body.estoqueInsumoId,
-          fatorConversao: decimal(fator),
-          usos: { increment: 1 },
-          ultimoUsoEm: new Date(),
-        },
-      });
-      mapeamentoId = map.id;
-
-      const { aplicarMapeamentoEmNotasPendentes } = await import(
+      const { salvarMapeamentoEPropagar } = await import(
         '@/lib/nfe/aplicar-mapeamento'
       );
-      itensPropagados = await aplicarMapeamentoEmNotasPendentes({
+      const salvo = await salvarMapeamentoEPropagar({
         tenantUserId: tenant.tenantUserId,
+        actorUserId: tenant.actorUserId,
         fornecedorId: item.nota.fornecedorId,
-        chave,
+        ean: item.ean,
+        descricao: item.descricao,
+        unidadeComercial: item.unidadeComercial,
         estoqueInsumoId: body.estoqueInsumoId,
         fatorConversao: fator,
-        mapeamentoId: map.id,
         unidadeConvertida: unidade === 'UN' ? 'UN' : 'KG',
         excludeItemId: item.id,
       });
+      mapeamentoId = salvo.mapeamentoId;
+      itensPropagados = salvo.itensPropagados;
     }
 
     await prisma.nfeItem.update({

@@ -830,45 +830,44 @@ function CmvRealNotaDetalhePageInner() {
             <p className="text-sm text-foreground font-medium leading-snug mt-0.5">
               {it.descricao}
             </p>
-            {etiqueta || canRevisar ? (
+            {canRevisar ? (
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                {etiqueta ? <Badge variant="outline">{etiqueta}</Badge> : null}
-                {canRevisar ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-pressed={natureza === 'BONIFICACAO'}
-                      className={
-                        natureza === 'BONIFICACAO' ? classeNaturezaAtiva : undefined
-                      }
-                      onClick={() => void marcarNatureza(it.id, 'BONIFICACAO')}
-                    >
-                      Bonificação
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      aria-pressed={natureza === 'TROCA'}
-                      className={natureza === 'TROCA' ? classeNaturezaAtiva : undefined}
-                      onClick={() => void marcarNatureza(it.id, 'TROCA')}
-                    >
-                      Troca
-                    </Button>
-                    {etiqueta ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => void marcarNatureza(it.id, 'NORMAL')}
-                      >
-                        Compra normal
-                      </Button>
-                    ) : null}
-                  </>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={natureza === 'BONIFICACAO'}
+                  className={
+                    natureza === 'BONIFICACAO' ? classeNaturezaAtiva : undefined
+                  }
+                  onClick={() => void marcarNatureza(it.id, 'BONIFICACAO')}
+                >
+                  Bonificação
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={natureza === 'TROCA'}
+                  className={natureza === 'TROCA' ? classeNaturezaAtiva : undefined}
+                  onClick={() => void marcarNatureza(it.id, 'TROCA')}
+                >
+                  Troca
+                </Button>
+                {natureza === 'BONIFICACAO' || natureza === 'TROCA' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void marcarNatureza(it.id, 'NORMAL')}
+                  >
+                    Compra normal
+                  </Button>
                 ) : null}
+              </div>
+            ) : etiqueta ? (
+              <div className="mt-1.5">
+                <Badge variant="outline">{etiqueta}</Badge>
               </div>
             ) : null}
             {avisoNatureza ? (

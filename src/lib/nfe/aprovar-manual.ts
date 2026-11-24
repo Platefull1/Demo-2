@@ -61,7 +61,13 @@ async function confirmarItemNoTx(
     canCreateMap: boolean;
     unidade: 'KG' | 'UN';
   },
-): Promise<{ mapeamentoChave?: string; mapeamentoId?: string; unidade: 'KG' | 'UN' }> {
+): Promise<{
+  mapeamentoChave?: string;
+  mapeamentoId?: string;
+  chaves?: string[];
+  mapeamentoIdsExtras?: string[];
+  unidade: 'KG' | 'UN';
+}> {
   const item = await tx.nfeItem.findFirst({
     where: {
       id: params.draft.itemId,
@@ -89,47 +95,30 @@ async function confirmarItemNoTx(
 
   let mapeamentoId: string | null = item.mapeamentoId;
   let mapeamentoChave: string | undefined;
+  let chaves: string[] | undefined;
+  let mapeamentoIdsExtras: string[] | undefined;
 
   if (params.draft.criarMapeamento && params.canCreateMap) {
-    const {
-      chaveMapeamentoDesc,
-      chaveMapeamentoEan,
-      normalizarDescricao,
-      normalizarUnidade,
-    } = await import('./normalize');
-    const und = normalizarUnidade(item.unidadeComercial);
-    const chave = item.ean
-      ? chaveMapeamentoEan(item.ean, und)
-      : chaveMapeamentoDesc(normalizarDescricao(item.descricao), und);
-    mapeamentoChave = chave;
-
-    const map = await tx.nfeMapeamento.upsert({
-      where: {
-        userId_fornecedorId_chave: {
-          userId: params.tenantUserId,
-          fornecedorId: params.fornecedorId,
-          chave,
-        },
-      },
-      create: {
-        userId: params.tenantUserId,
-        fornecedorId: params.fornecedorId,
-        chave,
-        ean: item.ean,
-        descricaoNormalizada: normalizarDescricao(item.descricao),
-        unidadeComercial: und,
-        estoqueInsumoId: params.draft.estoqueInsumoId,
-        fatorConversao: decimal(fator),
-        criadoPorId: params.actorUserId,
-      },
-      update: {
-        estoqueInsumoId: params.draft.estoqueInsumoId,
-        fatorConversao: decimal(fator),
-        usos: { increment: 1 },
-        ultimoUsoEm: new Date(),
-      },
+    const { salvarMapeamentoEPropagar } = await import('./aplicar-mapeamento');
+    const salvo = await salvarMapeamentoEPropagar({
+      tenantUserId: params.tenantUserId,
+      actorUserId: params.actorUserId,
+      fornecedorId: params.fornecedorId,
+      ean: item.ean,
+      descricao: item.descricao,
+      unidadeComercial: item.unidadeComercial,
+      estoqueInsumoId: params.draft.estoqueInsumoId,
+      fatorConversao: fator,
+      unidadeConvertida: unidade,
+      excludeItemId: item.id,
+      tx,
+      // Propaga depois do commit (mesma ordem de antes).
+      propagar: false,
     });
-    mapeamentoId = map.id;
+    mapeamentoId = salvo.mapeamentoId;
+    mapeamentoChave = salvo.chave;
+    chaves = salvo.chaves;
+    mapeamentoIdsExtras = salvo.mapeamentoIds.slice(1);
   }
 
   await tx.nfeItem.update({
@@ -153,6 +142,8 @@ async function confirmarItemNoTx(
   return {
     mapeamentoChave,
     mapeamentoId: mapeamentoId ?? undefined,
+    chaves,
+    mapeamentoIdsExtras,
     unidade,
   };
 }
@@ -249,10 +240,11 @@ export async function salvarEAprovarNota(params: {
   }
 
   const propagacoes: Array<{
-    chave: string;
+    chaves: string[];
     estoqueInsumoId: string;
     fatorConversao: number;
     mapeamentoId: string;
+    mapeamentoIdsExtras?: string[];
     unidadeConvertida: 'KG' | 'UN';
     excludeItemId: string;
   }> = [];
@@ -273,12 +265,17 @@ export async function salvarEAprovarNota(params: {
           canCreateMap: params.canCreateMap,
           unidade: resolved.unidade,
         });
-        if (out.mapeamentoChave && out.mapeamentoId && draft.criarMapeamento) {
+        if (
+          out.mapeamentoId &&
+          out.chaves &&
+          draft.criarMapeamento
+        ) {
           propagacoes.push({
-            chave: out.mapeamentoChave,
+            chaves: out.chaves,
             estoqueInsumoId: draft.estoqueInsumoId,
             fatorConversao: draft.fatorConversao,
             mapeamentoId: out.mapeamentoId,
+            mapeamentoIdsExtras: out.mapeamentoIdsExtras,
             unidadeConvertida: out.unidade,
             excludeItemId: draft.itemId,
           });
@@ -367,10 +364,11 @@ export async function salvarEAprovarNota(params: {
       itensPropagados += await aplicarMapeamentoEmNotasPendentes({
         tenantUserId: params.tenantUserId,
         fornecedorId: nota.fornecedorId,
-        chave: p.chave,
+        chave: p.chaves,
         estoqueInsumoId: p.estoqueInsumoId,
         fatorConversao: p.fatorConversao,
         mapeamentoId: p.mapeamentoId,
+        mapeamentoIdsExtras: p.mapeamentoIdsExtras,
         unidadeConvertida: p.unidadeConvertida,
         excludeItemId: p.excludeItemId,
       });
