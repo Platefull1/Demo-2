@@ -340,6 +340,15 @@ export default function CmvRealFechamentoPage() {
   const [canEditarManuais, setCanEditarManuais] = useState(false);
   const [valoresManuais, setValoresManuais] =
     useState<ValoresManuais>(VALORES_MANUAIS_VAZIO);
+  /** CMV KPI em edição inline: cmvMp | cmvEmbalagens | cmvBebidas */
+  const [editCmvCampo, setEditCmvCampo] = useState<
+    'cmvMp' | 'cmvEmbalagens' | 'cmvBebidas' | null
+  >(null);
+  const [editCmvDraft, setEditCmvDraft] = useState('');
+  /** Produto em edição de estoque: `${alvo}:${estoqueInsumoId}` */
+  const [editSaldoKey, setEditSaldoKey] = useState<string | null>(null);
+  const [editSaldoQtd, setEditSaldoQtd] = useState('');
+  const [editSaldoCusto, setEditSaldoCusto] = useState('');
 
   const lojasOpts = allowed.length > 0 ? allowed : Object.keys(CMV_STORE_LABELS);
 
@@ -454,28 +463,83 @@ export default function CmvRealFechamentoPage() {
     }
   };
 
-  const salvarValorManual = async (
-    campo: keyof ValoresManuais,
-    label: string,
+  const parseNumBr = (raw: string): number | null => {
+    const t = raw.trim();
+    if (!t) return null;
+    const n = Number(t.replace(/\./g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  const abrirEditCmv = (
+    campo: 'cmvMp' | 'cmvEmbalagens' | 'cmvBebidas',
+    valorAtual: number | null | undefined,
   ) => {
-    const atual = valoresManuais[campo];
-    const raw = window.prompt(
-      `${label} (R$). Deixe vazio para limpar.`,
-      atual != null ? String(atual).replace('.', ',') : '',
+    setEditCmvCampo(campo);
+    setEditCmvDraft(
+      valorAtual != null ? String(valorAtual).replace('.', ',') : '',
     );
-    if (raw === null) return;
-    const trimmed = raw.trim();
-    const valor =
-      trimmed === ''
-        ? null
-        : Number(trimmed.replace(/\./g, '').replace(',', '.'));
-    if (valor != null && !Number.isFinite(valor)) {
+  };
+
+  const salvarEditCmv = async () => {
+    const campo = editCmvCampo;
+    if (!campo) return;
+    const valor = parseNumBr(editCmvDraft);
+    if (valor !== null && Number.isNaN(valor)) {
       setMsg('Valor inválido');
       return;
     }
+    setEditCmvCampo(null);
+    setEditCmvDraft('');
     try {
-      await patch({ action: 'set_valores_manuais', campo, valor });
-      setMsg(`${label} salvo`);
+      await patch({
+        action: 'set_valores_manuais',
+        campo,
+        valor,
+      });
+      setMsg('CMV salvo');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const abrirEditSaldo = (
+    alvo: 'inicial' | 'final',
+    l: Linha,
+  ) => {
+    const qtd = alvo === 'final' ? l.estoqueFinal : l.estoqueInicial;
+    const custo =
+      alvo === 'final' ? l.custoMedioFinal : l.custoMedioInicial;
+    setEditSaldoKey(`${alvo}:${l.estoqueInsumoId}`);
+    setEditSaldoQtd(qtd ? String(qtd).replace('.', ',') : '');
+    setEditSaldoCusto(
+      custo != null ? String(custo).replace('.', ',') : '',
+    );
+  };
+
+  const salvarEditSaldo = async (estoqueInsumoId: string, alvo: 'inicial' | 'final') => {
+    const key = `${alvo}:${estoqueInsumoId}`;
+    if (editSaldoKey !== key) return;
+    const qtd = parseNumBr(editSaldoQtd);
+    const custo = parseNumBr(editSaldoCusto);
+    if (qtd !== null && Number.isNaN(qtd)) {
+      setMsg('Quantidade inválida');
+      return;
+    }
+    if (custo !== null && Number.isNaN(custo)) {
+      setMsg('Custo inválido');
+      return;
+    }
+    setEditSaldoKey(null);
+    try {
+      await patch({
+        action: 'set_saldo_produto',
+        alvoCusto: alvo,
+        estoqueInsumoId,
+        qtdFinal: qtd ?? 0,
+        custoMedio: custo,
+      });
+      setMsg(alvo === 'final' ? 'Estoque final salvo' : 'Estoque inicial salvo');
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -882,6 +946,8 @@ export default function CmvRealFechamentoPage() {
                     canFechar &&
                     aberto &&
                     k.manualCampo != null;
+                  const editando =
+                    podeEditar && editCmvCampo === k.manualCampo;
                   return (
                   <div
                     key={k.label}
@@ -895,28 +961,53 @@ export default function CmvRealFechamentoPage() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <p className="text-sm text-muted-foreground">{k.label}</p>
-                      {podeEditar ? (
+                      {podeEditar && !editando ? (
                         <Button
                           type="button"
                           variant="ghost"
                           size="icon"
                           className="size-7 shrink-0 -mt-1 -mr-1"
-                          title={`Informar ${k.label} manualmente`}
+                          title={`Editar ${k.label}`}
                           onClick={() =>
-                            void salvarValorManual(k.manualCampo!, k.label)
+                            abrirEditCmv(
+                              k.manualCampo!,
+                              k.manualValor ?? k.r?.valor ?? null,
+                            )
                           }
                         >
                           <Pencil className="size-3.5 text-muted-foreground" />
                         </Button>
                       ) : null}
                     </div>
-                    <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
-                      {k.r != null ? (
-                        <AnimatedNumber value={k.r.valor} format="currency" />
-                      ) : (
-                        '–'
-                      )}
-                    </p>
+                    {editando ? (
+                      <Input
+                        autoFocus
+                        value={editCmvDraft}
+                        onChange={(e) => setEditCmvDraft(e.target.value)}
+                        onBlur={() => void salvarEditCmv()}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            void salvarEditCmv();
+                          }
+                          if (e.key === 'Escape') {
+                            setEditCmvCampo(null);
+                            setEditCmvDraft('');
+                          }
+                        }}
+                        placeholder="0,00"
+                        inputMode="decimal"
+                        className="mt-1 h-10 text-2xl font-semibold tabular-nums"
+                      />
+                    ) : (
+                      <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
+                        {k.r != null ? (
+                          <AnimatedNumber value={k.r.valor} format="currency" />
+                        ) : (
+                          '–'
+                        )}
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                       {k.manualValor != null ? (
                         'Valor manual'
@@ -961,71 +1052,6 @@ export default function CmvRealFechamentoPage() {
                   </div>
                   );
                 })}
-              </div>
-            </CardContent>
-          </Card>
-        ) : null}
-
-        {canEditarManuais ? (
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between gap-4 mb-3">
-                <div>
-                  <p className="text-base font-semibold text-foreground">
-                    Estoque
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Valores manuais de referência (R$). Não substituem o saldo
-                    por produto.
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                {(
-                  [
-                    {
-                      label: 'Estoque inicial',
-                      campo: 'estoqueInicial' as const,
-                      valor: valoresManuais.estoqueInicial,
-                    },
-                    {
-                      label: 'Estoque final',
-                      campo: 'estoqueFinal' as const,
-                      valor: valoresManuais.estoqueFinal,
-                    },
-                  ] as const
-                ).map((e) => (
-                  <div
-                    key={e.campo}
-                    className="rounded-md border border-border px-3 py-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm text-muted-foreground">{e.label}</p>
-                      {canFechar && aberto ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="size-7 shrink-0 -mt-1 -mr-1"
-                          title={`Informar ${e.label} manualmente`}
-                          onClick={() =>
-                            void salvarValorManual(e.campo, e.label)
-                          }
-                        >
-                          <Pencil className="size-3.5 text-muted-foreground" />
-                        </Button>
-                      ) : null}
-                    </div>
-                    <p className="text-xl font-semibold tabular-nums text-foreground mt-1">
-                      {e.valor != null ? fmtMoney(e.valor) : '–'}
-                    </p>
-                    {e.valor != null ? (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Valor manual
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
               </div>
             </CardContent>
           </Card>
@@ -1577,6 +1603,12 @@ export default function CmvRealFechamentoPage() {
                         l.custoOrigemDetalheFinal ||
                         l.custoOrigemInicial ||
                         l.custoOrigemFinal;
+                      const podeEditarSaldo =
+                        canEditarManuais && canFechar && aberto;
+                      const editIni =
+                        editSaldoKey === `inicial:${l.estoqueInsumoId}`;
+                      const editFim =
+                        editSaldoKey === `final:${l.estoqueInsumoId}`;
                       return (
                       <tr
                         key={l.estoqueInsumoId}
@@ -1595,40 +1627,104 @@ export default function CmvRealFechamentoPage() {
                           ) : null}
                         </td>
                         <td className="px-2 py-1.5 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            {cellNum(l.estoqueInicial)}
-                            {iniPendente && status === 'ABERTO' && (
+                          {editIni ? (
+                            <div className="flex flex-col items-end gap-1">
                               <Input
-                                type="text"
+                                autoFocus
+                                value={editSaldoQtd}
+                                onChange={(e) => setEditSaldoQtd(e.target.value)}
+                                placeholder="Qtd"
                                 inputMode="decimal"
-                                placeholder="Custo"
                                 className="h-7 w-20 text-xs text-right"
-                                onBlur={async (e) => {
-                                  const raw = e.target.value.trim();
-                                  if (!raw) return;
-                                  const n = Number(
-                                    raw.replace(/\./g, '').replace(',', '.')
-                                  );
-                                  if (!Number.isFinite(n) || n <= 0) return;
-                                  try {
-                                    await patch({
-                                      action: 'set_custo_saldo',
-                                      alvoCusto: 'inicial',
-                                      estoqueInsumoId: l.estoqueInsumoId,
-                                      custoMedio: n,
-                                    });
-                                    await load();
-                                  } catch (err) {
-                                    setMsg(
-                                      err instanceof Error
-                                        ? err.message
-                                        : 'Erro ao salvar custo'
-                                    );
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void salvarEditSaldo(l.estoqueInsumoId, 'inicial');
                                   }
+                                  if (e.key === 'Escape') setEditSaldoKey(null);
                                 }}
                               />
-                            )}
-                          </div>
+                              <Input
+                                value={editSaldoCusto}
+                                onChange={(e) => setEditSaldoCusto(e.target.value)}
+                                placeholder="Custo"
+                                inputMode="decimal"
+                                className="h-7 w-20 text-xs text-right"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void salvarEditSaldo(l.estoqueInsumoId, 'inicial');
+                                  }
+                                  if (e.key === 'Escape') setEditSaldoKey(null);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() =>
+                                  void salvarEditSaldo(l.estoqueInsumoId, 'inicial')
+                                }
+                              >
+                                Salvar
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-start justify-end gap-1">
+                              <div className="flex flex-col items-end gap-0.5">
+                                {cellNum(l.estoqueInicial)}
+                                {l.custoMedioInicial != null && l.estoqueInicial > 0 ? (
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {fmtMoney(l.custoMedioInicial)}
+                                  </span>
+                                ) : null}
+                                {iniPendente && !podeEditarSaldo && status === 'ABERTO' && (
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="Custo"
+                                    className="h-7 w-20 text-xs text-right"
+                                    onBlur={async (e) => {
+                                      const raw = e.target.value.trim();
+                                      if (!raw) return;
+                                      const n = Number(
+                                        raw.replace(/\./g, '').replace(',', '.')
+                                      );
+                                      if (!Number.isFinite(n) || n <= 0) return;
+                                      try {
+                                        await patch({
+                                          action: 'set_custo_saldo',
+                                          alvoCusto: 'inicial',
+                                          estoqueInsumoId: l.estoqueInsumoId,
+                                          custoMedio: n,
+                                        });
+                                        await load();
+                                      } catch (err) {
+                                        setMsg(
+                                          err instanceof Error
+                                            ? err.message
+                                            : 'Erro ao salvar custo'
+                                        );
+                                      }
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              {podeEditarSaldo ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-6 shrink-0"
+                                  title="Editar estoque inicial"
+                                  onClick={() => abrirEditSaldo('inicial', l)}
+                                >
+                                  <Pencil className="size-3 text-muted-foreground" />
+                                </Button>
+                              ) : null}
+                            </div>
+                          )}
                         </td>
                         <td className="px-2 py-1.5 text-right">
                           {cellNum(l.comprasQtd)}
@@ -1650,40 +1746,104 @@ export default function CmvRealFechamentoPage() {
                           {cellNum(l.desperdicioQtd)}
                         </td>
                         <td className="px-2 py-1.5 text-right">
-                          <div className="flex flex-col items-end gap-1">
-                            {cellNum(l.estoqueFinal)}
-                            {fimPendente && status === 'ABERTO' && (
+                          {editFim ? (
+                            <div className="flex flex-col items-end gap-1">
                               <Input
-                                type="text"
+                                autoFocus
+                                value={editSaldoQtd}
+                                onChange={(e) => setEditSaldoQtd(e.target.value)}
+                                placeholder="Qtd"
                                 inputMode="decimal"
-                                placeholder="Custo"
                                 className="h-7 w-20 text-xs text-right"
-                                onBlur={async (e) => {
-                                  const raw = e.target.value.trim();
-                                  if (!raw) return;
-                                  const n = Number(
-                                    raw.replace(/\./g, '').replace(',', '.')
-                                  );
-                                  if (!Number.isFinite(n) || n <= 0) return;
-                                  try {
-                                    await patch({
-                                      action: 'set_custo_saldo',
-                                      alvoCusto: 'final',
-                                      estoqueInsumoId: l.estoqueInsumoId,
-                                      custoMedio: n,
-                                    });
-                                    await load();
-                                  } catch (err) {
-                                    setMsg(
-                                      err instanceof Error
-                                        ? err.message
-                                        : 'Erro ao salvar custo'
-                                    );
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void salvarEditSaldo(l.estoqueInsumoId, 'final');
                                   }
+                                  if (e.key === 'Escape') setEditSaldoKey(null);
                                 }}
                               />
-                            )}
-                          </div>
+                              <Input
+                                value={editSaldoCusto}
+                                onChange={(e) => setEditSaldoCusto(e.target.value)}
+                                placeholder="Custo"
+                                inputMode="decimal"
+                                className="h-7 w-20 text-xs text-right"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    void salvarEditSaldo(l.estoqueInsumoId, 'final');
+                                  }
+                                  if (e.key === 'Escape') setEditSaldoKey(null);
+                                }}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() =>
+                                  void salvarEditSaldo(l.estoqueInsumoId, 'final')
+                                }
+                              >
+                                Salvar
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-start justify-end gap-1">
+                              <div className="flex flex-col items-end gap-0.5">
+                                {cellNum(l.estoqueFinal)}
+                                {l.custoMedioFinal != null && l.estoqueFinal > 0 ? (
+                                  <span className="text-xs text-muted-foreground tabular-nums">
+                                    {fmtMoney(l.custoMedioFinal)}
+                                  </span>
+                                ) : null}
+                                {fimPendente && !podeEditarSaldo && status === 'ABERTO' && (
+                                  <Input
+                                    type="text"
+                                    inputMode="decimal"
+                                    placeholder="Custo"
+                                    className="h-7 w-20 text-xs text-right"
+                                    onBlur={async (e) => {
+                                      const raw = e.target.value.trim();
+                                      if (!raw) return;
+                                      const n = Number(
+                                        raw.replace(/\./g, '').replace(',', '.')
+                                      );
+                                      if (!Number.isFinite(n) || n <= 0) return;
+                                      try {
+                                        await patch({
+                                          action: 'set_custo_saldo',
+                                          alvoCusto: 'final',
+                                          estoqueInsumoId: l.estoqueInsumoId,
+                                          custoMedio: n,
+                                        });
+                                        await load();
+                                      } catch (err) {
+                                        setMsg(
+                                          err instanceof Error
+                                            ? err.message
+                                            : 'Erro ao salvar custo'
+                                        );
+                                      }
+                                    }}
+                                  />
+                                )}
+                              </div>
+                              {podeEditarSaldo ? (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-6 shrink-0"
+                                  title="Editar estoque final"
+                                  onClick={() => abrirEditSaldo('final', l)}
+                                >
+                                  <Pencil className="size-3 text-muted-foreground" />
+                                </Button>
+                              ) : null}
+                            </div>
+                          )}
                         </td>
                         <td className="px-2 py-1.5 text-right">
                           {cellNum(l.consumoQtd)}

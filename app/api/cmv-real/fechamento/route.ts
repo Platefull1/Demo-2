@@ -142,7 +142,8 @@ export async function GET(req: NextRequest) {
  *  - remove_ajuste { storeSlug, competencia, ajusteId }
  *  - set_refeicoes { storeSlug, competencia, refeicoes }
  *  - set_valores_manuais { storeSlug, competencia, campo, valor }
- *      campo: cmvMp | cmvEmbalagens | cmvBebidas | estoqueInicial | estoqueFinal
+ *      campo: cmvMp | cmvEmbalagens | cmvBebidas
+ *  - set_saldo_produto { storeSlug, competencia, estoqueInsumoId, alvoCusto, qtdFinal, custoMedio? }
  *  - fechar { storeSlug, competencia }
  *  - reabrir { storeSlug, competencia }
  */
@@ -160,7 +161,8 @@ export async function PATCH(req: NextRequest) {
     ajusteId?: string;
     refeicoes?: RefeicaoFuncionario[];
     estoqueInsumoId?: string;
-    custoMedio?: number;
+    custoMedio?: number | null;
+    qtdFinal?: number;
     /** 'inicial' = saldo do mês anterior; 'final' = saldo da competência atual */
     alvoCusto?: 'inicial' | 'final';
     campo?: keyof ValoresManuaisFechamento;
@@ -449,12 +451,10 @@ export async function PATCH(req: NextRequest) {
       'cmvMp',
       'cmvEmbalagens',
       'cmvBebidas',
-      'estoqueInicial',
-      'estoqueFinal',
     ];
     if (!body.campo || !campos.includes(body.campo)) {
       return NextResponse.json(
-        { error: 'campo inválido (cmvMp|cmvEmbalagens|cmvBebidas|estoqueInicial|estoqueFinal)' },
+        { error: 'campo inválido (cmvMp|cmvEmbalagens|cmvBebidas)' },
         { status: 400 },
       );
     }
@@ -525,6 +525,107 @@ export async function PATCH(req: NextRequest) {
       custoMedio: Number(updated.custoMedio),
       custoOrigem: updated.custoOrigem,
       custoOrigemDetalhe: updated.custoOrigemDetalhe,
+    });
+  }
+
+  if (body.action === 'set_saldo_produto') {
+    if (fechamento.status === 'FECHADO') {
+      return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
+    }
+    if (!lojaPermiteValoresManuais(body.storeSlug)) {
+      return NextResponse.json(
+        { error: 'Esta loja não permite edição manual de estoque' },
+        { status: 403 },
+      );
+    }
+    if (!body.estoqueInsumoId || body.qtdFinal == null || !Number.isFinite(Number(body.qtdFinal))) {
+      return NextResponse.json(
+        { error: 'estoqueInsumoId e qtdFinal obrigatórios' },
+        { status: 400 },
+      );
+    }
+    const qtd = Number(body.qtdFinal);
+    if (qtd < 0) {
+      return NextResponse.json({ error: 'qtdFinal deve ser ≥ 0' }, { status: 400 });
+    }
+    const custoRaw = body.custoMedio;
+    const custo =
+      custoRaw == null || !Number.isFinite(Number(custoRaw))
+        ? null
+        : Number(custoRaw);
+    if (custo != null && custo < 0) {
+      return NextResponse.json({ error: 'custoMedio deve ser ≥ 0' }, { status: 400 });
+    }
+
+    const alvo = body.alvoCusto === 'inicial' ? 'inicial' : 'final';
+    const competenciaSaldo =
+      alvo === 'final'
+        ? body.competencia
+        : competenciaAnterior(body.competencia);
+
+    const key = {
+      userId_storeSlug_competencia_estoqueInsumoId: {
+        userId: tenant.tenantUserId,
+        storeSlug: body.storeSlug,
+        competencia: competenciaSaldo,
+        estoqueInsumoId: body.estoqueInsumoId,
+      },
+    };
+
+    if (qtd === 0 && (custo == null || custo === 0)) {
+      await prisma.cmvSaldoEstoque.deleteMany({
+        where: {
+          userId: tenant.tenantUserId,
+          storeSlug: body.storeSlug,
+          competencia: competenciaSaldo,
+          estoqueInsumoId: body.estoqueInsumoId,
+        },
+      });
+      return NextResponse.json({
+        ok: true,
+        deleted: true,
+        alvo,
+        competenciaSaldo,
+        estoqueInsumoId: body.estoqueInsumoId,
+      });
+    }
+
+    const updated = await prisma.cmvSaldoEstoque.upsert({
+      where: key,
+      create: {
+        userId: tenant.tenantUserId,
+        storeSlug: body.storeSlug,
+        competencia: competenciaSaldo,
+        estoqueInsumoId: body.estoqueInsumoId,
+        qtdFinal: decimal(qtd),
+        custoMedio: custo != null ? decimal(custo) : null,
+        custoOrigem: custo != null && custo > 0 ? 'MANUAL' : 'PENDENTE',
+        custoOrigemDetalhe:
+          custo != null && custo > 0
+            ? 'Informado manualmente no fechamento'
+            : null,
+        origem: 'MANUAL',
+      },
+      update: {
+        qtdFinal: decimal(qtd),
+        ...(custo != null
+          ? {
+              custoMedio: decimal(custo),
+              custoOrigem: custo > 0 ? ('MANUAL' as const) : ('PENDENTE' as const),
+              custoOrigemDetalhe:
+                custo > 0 ? 'Informado manualmente no fechamento' : null,
+            }
+          : {}),
+        origem: 'MANUAL',
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      alvo,
+      competenciaSaldo,
+      estoqueInsumoId: updated.estoqueInsumoId,
+      qtdFinal: Number(updated.qtdFinal),
+      custoMedio: updated.custoMedio != null ? Number(updated.custoMedio) : null,
     });
   }
 
