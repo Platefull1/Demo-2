@@ -10,6 +10,7 @@ import {
   marcarForaDoCatalogoCmv,
   previewSaldoComCatalogo,
   resolverCustosSaldo,
+  totaisCmvPorSecao,
   type ConfirmSaldoItem,
 } from '@/lib/nfe/importar-saldo';
 import { requireCmvRealAccess } from '@/lib/nfe/tenant';
@@ -89,12 +90,14 @@ export async function POST(req: NextRequest) {
         comCusto,
       );
       const contadores = contadoresPreviewSaldo(preview);
+      const totais = totaisCmvPorSecao(preview);
       return NextResponse.json({
         ok: true,
         storeSlug,
         storeLabel: storeLabel(storeSlug),
         competencia,
         ...contadores,
+        totais,
         itens: preview,
       });
     }
@@ -104,6 +107,13 @@ export async function POST(req: NextRequest) {
       storeSlug?: string;
       competencia?: string;
       itens?: ConfirmSaldoItem[];
+      totaisPlanilha?: {
+        cmvMp: number;
+        cmvEmbalagens: number;
+        cmvBebidas: number;
+        estoqueInicial: number;
+        estoqueFinal: number;
+      };
     };
 
     if (body.action === 'confirmar') {
@@ -125,6 +135,7 @@ export async function POST(req: NextRequest) {
         storeSlug: body.storeSlug,
         competencia: body.competencia,
         itens: body.itens ?? [],
+        totaisPlanilha: body.totaisPlanilha,
       });
       return NextResponse.json({ ok: true, ...result });
     }

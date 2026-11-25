@@ -36,9 +36,19 @@ type SaldoPreview = {
   linha: number;
   nome: string;
   secao: 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
+  unidadeRaw?: string;
+  qtdInicial?: number;
+  custoInicial?: number | null;
+  comprasQtd?: number;
+  comprasValor?: number;
+  transfQtd?: number;
+  transfValor?: number;
+  desperdicioQtd?: number;
+  desperdicioValor?: number;
   qtdFinal: number;
   custoMedio: number | null;
   custoPlanilha: number | null;
+  consumoValor?: number;
   custoOrigem: CustoOrigem;
   custoOrigemDetalhe: string | null;
   custoAntigo?: boolean;
@@ -99,6 +109,14 @@ type ContadoresSecao = {
   foraDoCatalogo?: number;
 };
 
+type TotaisPlanilha = {
+  cmvMp: number;
+  cmvEmbalagens: number;
+  cmvBebidas: number;
+  estoqueInicial: number;
+  estoqueFinal: number;
+};
+
 /**
  * Bloco SALDO da planilha (AE=qtd, AG=custo) — uma planilha por loja.
  * Lê as 3 seções por âncoras; não descarta qtd quando AG é inválido.
@@ -125,6 +143,9 @@ export function ImportarSaldoBlock() {
   } | null>(null);
   const [filtroSecao, setFiltroSecao] = useState<FiltroSecao>('TODAS');
   const [filtroStatus, setFiltroStatus] = useState<FiltroStatus>('TODOS');
+  const [totaisPlanilha, setTotaisPlanilha] = useState<TotaisPlanilha | null>(
+    null,
+  );
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -133,6 +154,7 @@ export function ImportarSaldoBlock() {
     setMsg(null);
     setItens(null);
     setResumo(null);
+    setTotaisPlanilha(null);
     try {
       const fd = new FormData();
       fd.set('action', 'listar-abas');
@@ -158,6 +180,7 @@ export function ImportarSaldoBlock() {
       setAbas([]);
       setItens(null);
       setResumo(null);
+      setTotaisPlanilha(null);
       if (f) void listarAbas(f);
     },
     [listarAbas]
@@ -190,6 +213,7 @@ export function ImportarSaldoBlock() {
         qtdSemCorrespondencia: data.qtdSemCorrespondencia ?? 0,
         porSecao: data.porSecao,
       });
+      setTotaisPlanilha(data.totais ?? null);
       setFiltroSecao('TODAS');
       setFiltroStatus('TODOS');
     } catch (e) {
@@ -247,6 +271,16 @@ export function ImportarSaldoBlock() {
           i.custoOrigem ?? (i.custoMedio != null ? 'MANUAL' : 'PENDENTE'),
         custoOrigemDetalhe: i.custoOrigemDetalhe ?? null,
         secao: i.secao,
+        unidadeRaw: i.unidadeRaw,
+        qtdInicial: i.qtdInicial ?? 0,
+        custoInicial: i.custoInicial ?? null,
+        comprasQtd: i.comprasQtd ?? 0,
+        comprasValor: i.comprasValor ?? 0,
+        transfQtd: i.transfQtd ?? 0,
+        transfValor: i.transfValor ?? 0,
+        desperdicioQtd: i.desperdicioQtd ?? 0,
+        desperdicioValor: i.desperdicioValor ?? 0,
+        consumoValor: i.consumoValor ?? 0,
       }));
     if (payload.length === 0) {
       setMsg('Nenhum item casado para gravar');
@@ -263,23 +297,28 @@ export function ImportarSaldoBlock() {
           storeSlug,
           competencia,
           itens: payload,
+          totaisPlanilha: totaisPlanilha ?? undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha');
       const configs =
         typeof data.configsCriadas === 'number' && data.configsCriadas > 0
-          ? ` ${data.configsCriadas} produto(s) incluído(s) no catálogo CMV Real.`
+          ? ` ${data.configsCriadas} produto(s) no catálogo.`
           : '';
+      const vm = data.valoresManuais;
+      const cmvTxt = vm
+        ? ` CMV MP ${formatCustoMedioBr(vm.cmvMp)} · Emb ${formatCustoMedioBr(vm.cmvEmbalagens)} · Beb ${formatCustoMedioBr(vm.cmvBebidas)}.`
+        : '';
       setMsg(
-        `Saldo gravado (${CMV_STORE_LABELS[storeSlug] || storeSlug} / ${competencia}): ${data.upserted} itens. Vira estoque inicial do mês seguinte.${configs}`
+        `Mês importado (${CMV_STORE_LABELS[storeSlug] || storeSlug} / ${competencia}): ${data.upserted} finais, ${data.saldosIniciais ?? 0} iniciais, ${data.lancamentos ?? 0} lançamentos.${cmvTxt}${configs}`,
       );
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
     } finally {
       setLoading(false);
     }
-  }, [itens, storeSlug, competencia]);
+  }, [itens, storeSlug, competencia, totaisPlanilha]);
 
   const filtrados = useMemo(() => {
     if (!itens) return [];
@@ -304,11 +343,11 @@ export function ImportarSaldoBlock() {
         </span>
         <div className="min-w-0 space-y-1">
           <h3 className="text-base font-semibold text-foreground">
-            Importar saldo (estoque final)
+            Importar mês (planilha CMV)
           </h3>
           <p className="text-sm text-muted-foreground">
-            Envie a planilha de saldo da loja. Usamos a quantidade e o custo
-            médio de cada insumo.
+            Importa o mês selecionado por completo: estoque inicial e final,
+            compras, desperdício, transferências e CMV por seção.
           </p>
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer inline-flex items-center gap-1 hover:text-foreground">
@@ -316,10 +355,10 @@ export function ImportarSaldoBlock() {
               <ChevronDown className="size-3" />
             </summary>
             <p className="mt-1.5 pl-0.5">
-              Uma planilha por loja. Colunas AE (quantidade) e AG (custo médio).
-              Lê Matéria-prima, Embalagens e Bebidas por âncoras na coluna B. Se
-              AG for inválido (#DIV/0!), usa última compra ou mês anterior;
-              senão fica como custo pendente.
+              Lê D/G (inicial), compras semanais, transferência, desperdício,
+              AE/AG (final) e AM (CMV). O inicial grava no mês anterior; o CMV
+              preenche os cards do fechamento. Custo vazio/#DIV/0! tenta
+              recalcular e fallbacks.
             </p>
           </details>
         </div>
@@ -389,7 +428,7 @@ export function ImportarSaldoBlock() {
           disabled={!itens || loading}
           onClick={() => void confirmar()}
         >
-          Gravar saldo
+          Gravar mês
         </Button>
       </div>
 
@@ -422,10 +461,32 @@ export function ImportarSaldoBlock() {
               })}
             </p>
           )}
+          {totaisPlanilha && (
+            <p className="text-xs text-muted-foreground tabular-nums">
+              Planilha — Ini {formatCustoMedioBr(totaisPlanilha.estoqueInicial)} ·
+              Final {formatCustoMedioBr(totaisPlanilha.estoqueFinal)} · CMV MP{' '}
+              {formatCustoMedioBr(totaisPlanilha.cmvMp)} · Emb{' '}
+              {formatCustoMedioBr(totaisPlanilha.cmvEmbalagens)} · Beb{' '}
+              {formatCustoMedioBr(totaisPlanilha.cmvBebidas)} · Total{' '}
+              {formatCustoMedioBr(
+                totaisPlanilha.cmvMp +
+                  totaisPlanilha.cmvEmbalagens +
+                  totaisPlanilha.cmvBebidas,
+              )}
+            </p>
+          )}
         </div>
       )}
       {msg && (
-        <p className="text-sm text-destructive" role="alert">
+        <p
+          className={cn(
+            'text-sm',
+            msg.startsWith('Mês importado')
+              ? 'text-foreground'
+              : 'text-destructive',
+          )}
+          role="alert"
+        >
           {msg}
         </p>
       )}
@@ -487,8 +548,11 @@ export function ImportarSaldoBlock() {
                   <th className="py-2 px-2">Linha</th>
                   <th className="py-2 px-2">Seção</th>
                   <th className="py-2 px-2">Produto</th>
-                  <th className="py-2 px-2 text-right">Qtd</th>
-                  <th className="py-2 px-2 text-right">Custo médio</th>
+                  <th className="py-2 px-2 text-right">Ini</th>
+                  <th className="py-2 px-2 text-right">Compras</th>
+                  <th className="py-2 px-2 text-right">Final</th>
+                  <th className="py-2 px-2 text-right">Custo</th>
+                  <th className="py-2 px-2 text-right">CMV</th>
                   <th className="py-2 px-2">Origem</th>
                   <th className="py-2 px-2">Correspondência</th>
                 </tr>
@@ -524,6 +588,12 @@ export function ImportarSaldoBlock() {
                       >
                         {i.nome}
                       </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
+                        {formatQuantidadeBr(i.qtdInicial ?? 0)}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
+                        {formatQuantidadeBr(i.comprasQtd ?? 0)}
+                      </td>
                       <td
                         className={cn(
                           'py-1.5 px-2 text-right tabular-nums',
@@ -551,6 +621,11 @@ export function ImportarSaldoBlock() {
                         ) : (
                           <span className="text-muted-foreground">–</span>
                         )}
+                      </td>
+                      <td className="py-1.5 px-2 text-right tabular-nums text-foreground">
+                        {(i.consumoValor ?? 0) !== 0
+                          ? formatCustoMedioBr(i.consumoValor ?? 0)
+                          : '–'}
                       </td>
                       <td className="py-1.5 px-2 text-muted-foreground max-w-[180px]">
                         <div>

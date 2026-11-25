@@ -1,7 +1,15 @@
 /**
- * Parser puro do saldo da planilha CMV (sem Prisma).
- * Colunas: B=produto, E/AF=unidade, AE=qtd final, AG=custo médio.
- * Recálculo: (G+K+N+Q+T+W)/(D+I+L+O+R+U) quando AG inválido.
+ * Parser puro do mês da planilha CMV DESPERDÍCIO (sem Prisma).
+ *
+ * Colunas (0-based):
+ * - D=qtd inicial, F=custo unit inicial, G=$ estoque inicial
+ * - I/L/O/R/U + K/N/Q/T/W = compras (qtd/valor) por semana
+ * - X=transf qtd, Z=transf valor
+ * - AA=desperdício qtd, AC=desperdício valor
+ * - AE=qtd final, AG=custo unit final, AH=$ estoque final
+ * - AJ=consumo qtd, AM=$ CMV (consumo valor)
+ *
+ * Recálculo de custo final: (G+K+N+Q+T+W)/(D+I+L+O+R+U) quando AG inválido.
  */
 
 import * as XLSX from 'xlsx';
@@ -17,12 +25,20 @@ import { normalizarDescricao } from './normalize';
 export type { CmvRealSecao };
 
 /** Colunas 0-based */
-const COL_QTD_INI = 3; // D
-const COL_VAL_INI = 6; // G
-const COL_COMPRAS_QTD = [8, 11, 14, 17, 20] as const; // I L O R U
-const COL_COMPRAS_VAL = [10, 13, 16, 19, 22] as const; // K N Q T W
-const COL_QTD = 30; // AE
-const COL_CUSTO = 32; // AG
+export const COL_QTD_INI = 3; // D
+export const COL_CUSTO_INI = 5; // F
+export const COL_VAL_INI = 6; // G
+export const COL_COMPRAS_QTD = [8, 11, 14, 17, 20] as const; // I L O R U
+export const COL_COMPRAS_VAL = [10, 13, 16, 19, 22] as const; // K N Q T W
+export const COL_TRANSF_QTD = 23; // X
+export const COL_TRANSF_VAL = 25; // Z
+export const COL_DESP_QTD = 26; // AA
+export const COL_DESP_VAL = 28; // AC
+export const COL_QTD = 30; // AE
+export const COL_CUSTO = 32; // AG
+export const COL_VAL_FINAL = 33; // AH
+export const COL_CONSUMO_QTD = 35; // AJ
+export const COL_CONSUMO_VAL = 38; // AM
 
 export type CustoOrigemSaldo =
   | 'PLANILHA'
@@ -40,7 +56,28 @@ export type LinhaSaldoPlanilha = {
   nome: string;
   secao: CmvRealSecao;
   unidadeRaw: string;
+  /** Estoque inicial (qtd) — coluna D */
+  qtdInicial: number;
+  /** Custo unitário do estoque inicial (F, ou G/D) */
+  custoInicial: number | null;
+  /** $ estoque inicial — coluna G */
+  valorInicial: number;
+  /** Compras do mês (soma das 5 semanas) */
+  comprasQtd: number;
+  comprasValor: number;
+  /** Transferência recebida (coluna X/Z) */
+  transfQtd: number;
+  transfValor: number;
+  /** Desperdício (AA/AC) */
+  desperdicioQtd: number;
+  desperdicioValor: number;
+  /** Estoque final (qtd) — coluna AE */
   qtdFinal: number;
+  /** $ estoque final — coluna AH */
+  valorFinal: number;
+  /** Consumo qtd / valor CMV da linha (AJ / AM) */
+  consumoQtd: number;
+  consumoValor: number;
   /** Custo lido da planilha AG (null se inválido: #DIV/0!, vazio, 0). */
   custoPlanilha: number | null;
   /**
@@ -48,7 +85,7 @@ export type LinhaSaldoPlanilha = {
    * quando numerador e denominador > 0.
    */
   custoRecalculado: number | null;
-  /** Custo efetivo após fallbacks (pode ainda ser null = pendente). */
+  /** Custo efetivo do estoque final após fallbacks (pode ainda ser null = pendente). */
   custoMedio: number | null;
   custoOrigem: CustoOrigemSaldo | null;
   custoOrigemDetalhe: string | null;
@@ -172,8 +209,27 @@ export function mesesEntreCompetencias(de: string, ate: string): number {
   return (y2 - y1) * 12 + (m2 - m1);
 }
 
+function somarCols(
+  ws: XLSX.WorkSheet,
+  r: number,
+  cols: readonly number[],
+): number {
+  let s = 0;
+  for (const c of cols) {
+    const v = cellNum(ws, r, c);
+    if (v != null && Number.isFinite(v)) s += v;
+  }
+  return s;
+}
+
+function numOr0(ws: XLSX.WorkSheet, r: number, c: number): number {
+  const v = cellNum(ws, r, c);
+  return v == null || !Number.isFinite(v) ? 0 : v;
+}
+
 /**
- * Lê produtos das 3 seções. Inclui qtd 0. Não exige unidade em E.
+ * Lê produtos das 3 seções com o mês completo (inicial, compras, transf,
+ * desperdício, final, consumo). Inclui qtd 0. Não exige unidade em E.
  */
 export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
   const ref = ws['!ref'];
@@ -200,9 +256,27 @@ export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
     const prod = lerLinhaProduto(ws, r);
     if (!prod) continue;
 
+    const qtdInicial = numOr0(ws, r, COL_QTD_INI);
+    const valorInicial = numOr0(ws, r, COL_VAL_INI);
+    const custoIniRaw = cellNum(ws, r, COL_CUSTO_INI);
+    const custoInicial = isCustoPlanilhaValido(custoIniRaw)
+      ? custoIniRaw
+      : qtdInicial > 0 && valorInicial > 0
+        ? Math.round((valorInicial / qtdInicial) * 10000) / 10000
+        : null;
+
+    const comprasQtd = somarCols(ws, r, COL_COMPRAS_QTD);
+    const comprasValor = somarCols(ws, r, COL_COMPRAS_VAL);
+    const transfQtd = numOr0(ws, r, COL_TRANSF_QTD);
+    const transfValor = numOr0(ws, r, COL_TRANSF_VAL);
+    const desperdicioQtd = numOr0(ws, r, COL_DESP_QTD);
+    const desperdicioValor = numOr0(ws, r, COL_DESP_VAL);
+
     // AE null → trata como 0 (mostra zerados); número 0 entra normalmente
-    const qtdRaw = cellNum(ws, r, COL_QTD);
-    const qtdFinal = qtdRaw == null ? 0 : qtdRaw;
+    const qtdFinal = numOr0(ws, r, COL_QTD);
+    const valorFinal = numOr0(ws, r, COL_VAL_FINAL);
+    const consumoQtd = numOr0(ws, r, COL_CONSUMO_QTD);
+    const consumoValor = numOr0(ws, r, COL_CONSUMO_VAL);
 
     const custoRaw = cellNum(ws, r, COL_CUSTO);
     const custoPlanilha = isCustoPlanilhaValido(custoRaw) ? custoRaw : null;
@@ -214,7 +288,19 @@ export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
       nome: prod.nome,
       secao: secaoAtual,
       unidadeRaw: prod.unidadeRaw,
+      qtdInicial,
+      custoInicial,
+      valorInicial,
+      comprasQtd,
+      comprasValor,
+      transfQtd,
+      transfValor,
+      desperdicioQtd,
+      desperdicioValor,
       qtdFinal,
+      valorFinal,
+      consumoQtd,
+      consumoValor,
       custoPlanilha,
       custoRecalculado,
       custoMedio: custoPlanilha,
@@ -224,6 +310,38 @@ export function parseSaldoDaAba(ws: XLSX.WorkSheet): LinhaSaldoPlanilha[] {
   }
 
   return out;
+}
+
+/** Totais de CMV (consumo valor) por seção a partir das linhas parseadas. */
+export function totaisCmvPorSecao(linhas: LinhaSaldoPlanilha[]): {
+  cmvMp: number;
+  cmvEmbalagens: number;
+  cmvBebidas: number;
+  cmvTotal: number;
+  estoqueInicial: number;
+  estoqueFinal: number;
+} {
+  let cmvMp = 0;
+  let cmvEmbalagens = 0;
+  let cmvBebidas = 0;
+  let estoqueInicial = 0;
+  let estoqueFinal = 0;
+  for (const l of linhas) {
+    estoqueInicial += l.valorInicial || 0;
+    estoqueFinal += l.valorFinal || 0;
+    if (l.secao === 'MATERIA_PRIMA') cmvMp += l.consumoValor || 0;
+    else if (l.secao === 'EMBALAGEM') cmvEmbalagens += l.consumoValor || 0;
+    else if (l.secao === 'BEBIDA') cmvBebidas += l.consumoValor || 0;
+  }
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  return {
+    cmvMp: round2(cmvMp),
+    cmvEmbalagens: round2(cmvEmbalagens),
+    cmvBebidas: round2(cmvBebidas),
+    cmvTotal: round2(cmvMp + cmvEmbalagens + cmvBebidas),
+    estoqueInicial: round2(estoqueInicial),
+    estoqueFinal: round2(estoqueFinal),
+  };
 }
 
 export function lerSaldoDoBuffer(

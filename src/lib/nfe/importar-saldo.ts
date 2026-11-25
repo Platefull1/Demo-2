@@ -1,9 +1,12 @@
 /**
- * Importação de SALDO (estoque final + custo médio) da planilha CMV DESPERDÍCIO.
- * Parser puro em importar-saldo-parse.ts; aqui: match, fallbacks de custo e persistência.
+ * Importação do MÊS da planilha CMV DESPERDÍCIO.
+ * Grava: estoque inicial (comp. anterior), estoque final, compras manuais,
+ * desperdício, transferências recebidas e CMV por seção no fechamento.
+ * Parser puro em importar-saldo-parse.ts; aqui: match, fallbacks e persistência.
  */
 
-import type { CmvCustoOrigem } from '@prisma/client';
+import type { CmvCustoOrigem, CmvRealUnidade } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   matchCatalogoPorNome,
@@ -19,6 +22,7 @@ import {
   type CompraHit,
   type CustoResolvido,
 } from './importar-saldo-custo-resolve';
+import { competenciaAnterior } from './lojas';
 import { normalizarDescricao } from './normalize';
 import {
   buscarCustoAgAbasAnteriores,
@@ -26,6 +30,7 @@ import {
   isCustoPlanilhaValido,
   lerSaldoDoBuffer,
   parseSaldoDaAba,
+  totaisCmvPorSecao,
   type AgAnteriorHit,
   type CustoOrigemSaldo,
   type LinhaSaldoPlanilha,
@@ -37,9 +42,33 @@ export {
   isCustoPlanilhaValido,
   lerSaldoDoBuffer,
   parseSaldoDaAba,
+  totaisCmvPorSecao,
   buscarCustoAgAbasAnteriores,
   resolverUmCusto,
 };
+
+const OBS_IMPORT = 'IMPORTACAO_PLANILHA';
+
+function decimal(n: number): Prisma.Decimal {
+  return new Prisma.Decimal(n);
+}
+
+function dataMeioCompetencia(competencia: string): Date {
+  const [y, m] = competencia.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, 15, 12, 0, 0));
+}
+
+function unidadeDeRaw(raw: string | undefined): CmvRealUnidade {
+  const u = String(raw || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase()
+    .trim();
+  if (u === 'UN' || u === 'UND' || u === 'UNIDADE' || u === 'PC' || u === 'PÇ') {
+    return 'UN';
+  }
+  return 'KG';
+}
 
 export type MatchStatusSaldo = 'casado' | 'sugerido' | 'nao_encontrado';
 
@@ -599,6 +628,17 @@ export type ConfirmSaldoItem = {
   /** Seção da planilha — usada para criar config CMV se faltar */
   secao?: 'MATERIA_PRIMA' | 'EMBALAGEM' | 'BEBIDA';
   unidade?: 'KG' | 'UN';
+  /** Campos do mês completo (opcionais para compat) */
+  qtdInicial?: number;
+  custoInicial?: number | null;
+  comprasQtd?: number;
+  comprasValor?: number;
+  transfQtd?: number;
+  transfValor?: number;
+  desperdicioQtd?: number;
+  desperdicioValor?: number;
+  consumoValor?: number;
+  unidadeRaw?: string;
 };
 
 export async function confirmarSaldo(params: {
@@ -606,43 +646,133 @@ export async function confirmarSaldo(params: {
   storeSlug: string;
   competencia: string;
   itens: ConfirmSaldoItem[];
-}): Promise<{ upserted: number; configsCriadas: number }> {
+  /** Totais da planilha inteira (inclui não casados) — preferidos nos cards CMV */
+  totaisPlanilha?: {
+    cmvMp: number;
+    cmvEmbalagens: number;
+    cmvBebidas: number;
+    estoqueInicial: number;
+    estoqueFinal: number;
+  };
+}): Promise<{
+  upserted: number;
+  configsCriadas: number;
+  saldosIniciais: number;
+  lancamentos: number;
+  valoresManuais: {
+    cmvMp: number;
+    cmvEmbalagens: number;
+    cmvBebidas: number;
+    estoqueInicial: number;
+    estoqueFinal: number;
+  };
+}> {
   const {
     ensureCmvRealInsumoConfig,
     secaoFromCategoriaId,
     secaoFromNomeProduto,
     unidadeFromEstoque,
   } = await import('./cmv-catalogo');
+
+  const compAnt = competenciaAnterior(params.competencia);
+  const dataLanc = dataMeioCompetencia(params.competencia);
+  const obsTag = `${OBS_IMPORT}:${params.competencia}`;
+
+  // Remove lançamentos anteriores desta mesma importação (reimport seguro)
+  await prisma.cmvLancamento.deleteMany({
+    where: {
+      userId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competencia,
+      observacao: obsTag,
+      tipo: {
+        in: [
+          'COMPRA_MANUAL',
+          'DESPERDICIO',
+          'TRANSFERENCIA_ENTRADA',
+          'TRANSFERENCIA_SAIDA',
+        ],
+      },
+    },
+  });
+
+  // Agrega linhas que casaram no mesmo estoqueInsumoId (evita sobrescrita)
+  const agregados = new Map<string, ConfirmSaldoItem>();
+  for (const raw of params.itens) {
+    if (!raw.estoqueInsumoId) continue;
+    const prev = agregados.get(raw.estoqueInsumoId);
+    if (!prev) {
+      agregados.set(raw.estoqueInsumoId, { ...raw });
+      continue;
+    }
+    const qtdIni = (prev.qtdInicial ?? 0) + (raw.qtdInicial ?? 0);
+    const valIni =
+      (prev.qtdInicial ?? 0) * (prev.custoInicial ?? 0) +
+      (raw.qtdInicial ?? 0) * (raw.custoInicial ?? 0);
+    const qtdFim = (prev.qtdFinal ?? 0) + (raw.qtdFinal ?? 0);
+    const valFim =
+      (prev.qtdFinal ?? 0) * (prev.custoMedio ?? 0) +
+      (raw.qtdFinal ?? 0) * (raw.custoMedio ?? 0);
+    agregados.set(raw.estoqueInsumoId, {
+      ...prev,
+      qtdInicial: qtdIni,
+      custoInicial: qtdIni > 0 ? valIni / qtdIni : prev.custoInicial ?? raw.custoInicial,
+      qtdFinal: qtdFim,
+      custoMedio: qtdFim > 0 ? valFim / qtdFim : prev.custoMedio ?? raw.custoMedio,
+      comprasQtd: (prev.comprasQtd ?? 0) + (raw.comprasQtd ?? 0),
+      comprasValor: (prev.comprasValor ?? 0) + (raw.comprasValor ?? 0),
+      transfQtd: (prev.transfQtd ?? 0) + (raw.transfQtd ?? 0),
+      transfValor: (prev.transfValor ?? 0) + (raw.transfValor ?? 0),
+      desperdicioQtd: (prev.desperdicioQtd ?? 0) + (raw.desperdicioQtd ?? 0),
+      desperdicioValor: (prev.desperdicioValor ?? 0) + (raw.desperdicioValor ?? 0),
+      consumoValor: (prev.consumoValor ?? 0) + (raw.consumoValor ?? 0),
+    });
+  }
+
   let upserted = 0;
   let configsCriadas = 0;
-  for (const it of params.itens) {
+  let saldosIniciais = 0;
+  let lancamentos = 0;
+
+  let cmvMp = 0;
+  let cmvEmbalagens = 0;
+  let cmvBebidas = 0;
+  let estoqueInicialTotal = 0;
+  let estoqueFinalTotal = 0;
+
+  for (const it of agregados.values()) {
     if (!it.estoqueInsumoId) continue;
 
-    {
-      const insumo = await prisma.estoqueInsumo.findUnique({
-        where: { id: it.estoqueInsumoId },
-        select: { unidade: true, nome: true, categoriaId: true },
-      });
-      const secao =
-        it.secao ??
-        (() => {
-          const byNome = secaoFromNomeProduto(insumo?.nome || '');
-          return byNome !== 'MATERIA_PRIMA'
-            ? byNome
-            : secaoFromCategoriaId(insumo?.categoriaId);
-        })();
-      const { created } = await ensureCmvRealInsumoConfig({
-        tenantUserId: params.tenantUserId,
-        estoqueInsumoId: it.estoqueInsumoId,
-        secao,
-        unidade: it.unidade ?? unidadeFromEstoque(insumo?.unidade),
-      });
-      if (created) configsCriadas += 1;
-    }
+    const insumo = await prisma.estoqueInsumo.findUnique({
+      where: { id: it.estoqueInsumoId },
+      select: { unidade: true, nome: true, categoriaId: true },
+    });
+    const secao =
+      it.secao ??
+      (() => {
+        const byNome = secaoFromNomeProduto(insumo?.nome || '');
+        return byNome !== 'MATERIA_PRIMA'
+          ? byNome
+          : secaoFromCategoriaId(insumo?.categoriaId);
+      })();
+    const unidade: CmvRealUnidade =
+      it.unidade ??
+      unidadeFromEstoque(insumo?.unidade) ??
+      unidadeDeRaw(it.unidadeRaw);
+
+    const { created } = await ensureCmvRealInsumoConfig({
+      tenantUserId: params.tenantUserId,
+      estoqueInsumoId: it.estoqueInsumoId,
+      secao,
+      unidade,
+    });
+    if (created) configsCriadas += 1;
 
     const custoOrigem: CmvCustoOrigem =
       (it.custoOrigem as CmvCustoOrigem | null | undefined) ??
       (isCustoPlanilhaValido(it.custoMedio) ? 'PLANILHA' : 'PENDENTE');
+
+    // --- Estoque final (competência selecionada) ---
     await prisma.cmvSaldoEstoque.upsert({
       where: {
         userId_storeSlug_competencia_estoqueInsumoId: {
@@ -672,8 +802,173 @@ export async function confirmarSaldo(params: {
       },
     });
     upserted++;
+
+    const qtdIni = it.qtdInicial ?? 0;
+    const custoIni = it.custoInicial ?? null;
+    if (qtdIni > 0 || (custoIni != null && custoIni > 0)) {
+      await prisma.cmvSaldoEstoque.upsert({
+        where: {
+          userId_storeSlug_competencia_estoqueInsumoId: {
+            userId: params.tenantUserId,
+            storeSlug: params.storeSlug,
+            competencia: compAnt,
+            estoqueInsumoId: it.estoqueInsumoId,
+          },
+        },
+        create: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: compAnt,
+          estoqueInsumoId: it.estoqueInsumoId,
+          qtdFinal: qtdIni,
+          custoMedio: custoIni,
+          custoOrigem: isCustoPlanilhaValido(custoIni) ? 'PLANILHA' : 'PENDENTE',
+          custoOrigemDetalhe: `Estoque inicial importado de ${params.competencia}`,
+          origem: 'IMPORTACAO',
+        },
+        update: {
+          qtdFinal: qtdIni,
+          custoMedio: custoIni,
+          custoOrigem: isCustoPlanilhaValido(custoIni) ? 'PLANILHA' : 'PENDENTE',
+          custoOrigemDetalhe: `Estoque inicial importado de ${params.competencia}`,
+          origem: 'IMPORTACAO',
+        },
+      });
+      saldosIniciais++;
+      estoqueInicialTotal += qtdIni * (custoIni ?? 0);
+    }
+
+    estoqueFinalTotal +=
+      Number(it.qtdFinal || 0) * (it.custoMedio != null ? Number(it.custoMedio) : 0);
+
+    const comprasQtd = it.comprasQtd ?? 0;
+    const comprasValor = it.comprasValor ?? 0;
+    if (comprasQtd > 0 || comprasValor > 0) {
+      await prisma.cmvLancamento.create({
+        data: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: params.competencia,
+          data: dataLanc,
+          tipo: 'COMPRA_MANUAL',
+          estoqueInsumoId: it.estoqueInsumoId,
+          quantidade: decimal(comprasQtd),
+          unidade,
+          valorTotal: decimal(Math.round(comprasValor * 100) / 100),
+          observacao: obsTag,
+        },
+      });
+      lancamentos++;
+    }
+
+    const despQtd = it.desperdicioQtd ?? 0;
+    const despValor = it.desperdicioValor ?? 0;
+    if (despQtd > 0 || despValor > 0) {
+      await prisma.cmvLancamento.create({
+        data: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: params.competencia,
+          data: dataLanc,
+          tipo: 'DESPERDICIO',
+          estoqueInsumoId: it.estoqueInsumoId,
+          quantidade: decimal(despQtd),
+          unidade,
+          valorTotal: decimal(Math.round(despValor * 100) / 100),
+          observacao: obsTag,
+        },
+      });
+      lancamentos++;
+    }
+
+    const transfQtd = it.transfQtd ?? 0;
+    const transfValor = it.transfValor ?? 0;
+    if (transfQtd > 0 || transfValor > 0) {
+      await prisma.cmvLancamento.create({
+        data: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: params.competencia,
+          data: dataLanc,
+          tipo: 'TRANSFERENCIA_ENTRADA',
+          estoqueInsumoId: it.estoqueInsumoId,
+          quantidade: decimal(transfQtd),
+          unidade,
+          valorTotal: decimal(Math.round(transfValor * 100) / 100),
+          observacao: obsTag,
+        },
+      });
+      lancamentos++;
+    } else if (transfQtd < 0 || transfValor < 0) {
+      await prisma.cmvLancamento.create({
+        data: {
+          userId: params.tenantUserId,
+          storeSlug: params.storeSlug,
+          competencia: params.competencia,
+          data: dataLanc,
+          tipo: 'TRANSFERENCIA_SAIDA',
+          estoqueInsumoId: it.estoqueInsumoId,
+          quantidade: decimal(Math.abs(transfQtd)),
+          unidade,
+          valorTotal: decimal(Math.round(Math.abs(transfValor) * 100) / 100),
+          observacao: obsTag,
+        },
+      });
+      lancamentos++;
+    }
+
+    const consumo = it.consumoValor ?? 0;
+    if (secao === 'MATERIA_PRIMA') cmvMp += consumo;
+    else if (secao === 'EMBALAGEM') cmvEmbalagens += consumo;
+    else if (secao === 'BEBIDA') cmvBebidas += consumo;
   }
-  return { upserted, configsCriadas };
+
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const valoresManuais = params.totaisPlanilha
+    ? {
+        cmvMp: round2(params.totaisPlanilha.cmvMp),
+        cmvEmbalagens: round2(params.totaisPlanilha.cmvEmbalagens),
+        cmvBebidas: round2(params.totaisPlanilha.cmvBebidas),
+        estoqueInicial: round2(params.totaisPlanilha.estoqueInicial),
+        estoqueFinal: round2(params.totaisPlanilha.estoqueFinal),
+      }
+    : {
+        cmvMp: round2(cmvMp),
+        cmvEmbalagens: round2(cmvEmbalagens),
+        cmvBebidas: round2(cmvBebidas),
+        estoqueInicial: round2(estoqueInicialTotal),
+        estoqueFinal: round2(estoqueFinalTotal),
+      };
+
+  await prisma.cmvFechamento.upsert({
+    where: {
+      userId_storeSlug_competencia: {
+        userId: params.tenantUserId,
+        storeSlug: params.storeSlug,
+        competencia: params.competencia,
+      },
+    },
+    create: {
+      userId: params.tenantUserId,
+      storeSlug: params.storeSlug,
+      competencia: params.competencia,
+      status: 'ABERTO',
+      ajustes: [],
+      refeicoesFuncionarios: [],
+      valoresManuais,
+    },
+    update: {
+      valoresManuais,
+    },
+  });
+
+  return {
+    upserted,
+    configsCriadas,
+    saldosIniciais,
+    lancamentos,
+    valoresManuais,
+  };
 }
 
 export { listarAbas, normalizarDescricao };
