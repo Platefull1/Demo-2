@@ -1009,15 +1009,14 @@ export default function CmvRealFechamentoPage() {
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-                      {k.manualValor != null ? (
-                        'Valor manual'
-                      ) : k.r?.pct != null ? (
+                      {k.r?.pct != null ? (
                         <>
                           <AnimatedNumber value={k.r.pct} format="percent" />
                           {' da venda'}
+                          {k.manualValor != null ? ' · manual' : null}
                         </>
                       ) : kpiVenda != null ? (
-                        '–'
+                        k.manualValor != null ? 'Valor manual' : '–'
                       ) : (
                         'Informe a venda'
                       )}
