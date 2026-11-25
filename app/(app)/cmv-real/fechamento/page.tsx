@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Download,
   Lock,
+  Pencil,
   RefreshCw,
   Unlock,
 } from 'lucide-react';
@@ -75,12 +76,28 @@ type Linha = {
 
 type ResumoSecao = { valor: number; pct: number | null };
 
+type ValoresManuais = {
+  cmvMp: number | null;
+  cmvEmbalagens: number | null;
+  cmvBebidas: number | null;
+  estoqueInicial: number | null;
+  estoqueFinal: number | null;
+};
+
 type Ajuste = {
   id: string;
   secao: string;
   descricao: string;
   valor: number;
   criadoEm: string;
+};
+
+const VALORES_MANUAIS_VAZIO: ValoresManuais = {
+  cmvMp: null,
+  cmvEmbalagens: null,
+  cmvBebidas: null,
+  estoqueInicial: null,
+  estoqueFinal: null,
 };
 
 const SECAO_LABEL: Record<string, string> = {
@@ -285,6 +302,7 @@ export default function CmvRealFechamentoPage() {
     cmvEmbalagens?: ResumoSecao;
     cmvBebidas?: ResumoSecao;
     cmvTotal?: ResumoSecao;
+    temManualCmv?: boolean;
     semEstoqueFinal?: boolean;
     ritmo?: {
       materiaPrima: ResumoSecao;
@@ -319,6 +337,9 @@ export default function CmvRealFechamentoPage() {
   >([]);
   const [contagemEscolhida, setContagemEscolhida] = useState('');
   const [storeOverrideContagem, setStoreOverrideContagem] = useState('');
+  const [canEditarManuais, setCanEditarManuais] = useState(false);
+  const [valoresManuais, setValoresManuais] =
+    useState<ValoresManuais>(VALORES_MANUAIS_VAZIO);
 
   const lojasOpts = allowed.length > 0 ? allowed : Object.keys(CMV_STORE_LABELS);
 
@@ -363,6 +384,12 @@ export default function CmvRealFechamentoPage() {
       setCanReabrir(data.canReabrir === true);
       setLojaTravada(data.lojaTravada === true);
       setAllowed(data.allowedStoreSlugs || []);
+      setCanEditarManuais(data.canEditarManuais === true);
+      setValoresManuais(
+        data.fechamento?.valoresManuais
+          ? { ...VALORES_MANUAIS_VAZIO, ...data.fechamento.valoresManuais }
+          : VALORES_MANUAIS_VAZIO,
+      );
       if (resC.ok) {
         const dc = await resC.json();
         setContagens(dc.contagens || []);
@@ -421,6 +448,34 @@ export default function CmvRealFechamentoPage() {
           vendaMes === '' ? null : Number(String(vendaMes).replace(',', '.')),
       });
       setMsg('Venda/mês salva');
+      await load();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : 'Erro');
+    }
+  };
+
+  const salvarValorManual = async (
+    campo: keyof ValoresManuais,
+    label: string,
+  ) => {
+    const atual = valoresManuais[campo];
+    const raw = window.prompt(
+      `${label} (R$). Deixe vazio para limpar.`,
+      atual != null ? String(atual).replace('.', ',') : '',
+    );
+    if (raw === null) return;
+    const trimmed = raw.trim();
+    const valor =
+      trimmed === ''
+        ? null
+        : Number(trimmed.replace(/\./g, '').replace(',', '.'));
+    if (valor != null && !Number.isFinite(valor)) {
+      setMsg('Valor inválido');
+      return;
+    }
+    try {
+      await patch({ action: 'set_valores_manuais', campo, valor });
+      setMsg(`${label} salvo`);
       await load();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : 'Erro');
@@ -792,28 +847,41 @@ export default function CmvRealFechamentoPage() {
                       r: displayTotais.cmvMp,
                       secao: 'MATERIA_PRIMA',
                       ritmo: displayTotais.ritmo?.materiaPrima,
+                      manualCampo: 'cmvMp' as const,
+                      manualValor: valoresManuais.cmvMp,
                     },
                     {
                       label: 'CMV Embalagens',
                       r: displayTotais.cmvEmbalagens,
                       secao: 'EMBALAGEM',
                       ritmo: displayTotais.ritmo?.embalagens,
+                      manualCampo: 'cmvEmbalagens' as const,
+                      manualValor: valoresManuais.cmvEmbalagens,
                     },
                     {
                       label: 'CMV Bebidas',
                       r: displayTotais.cmvBebidas,
                       secao: 'BEBIDA',
                       ritmo: displayTotais.ritmo?.bebidas,
+                      manualCampo: 'cmvBebidas' as const,
+                      manualValor: valoresManuais.cmvBebidas,
                     },
                     {
                       label: 'CMV Total',
                       r: displayTotais.cmvTotal,
                       secao: '',
                       ritmo: displayTotais.ritmo?.total,
+                      manualCampo: null,
+                      manualValor: null,
                     },
                   ] as const
                 ).map((k, i) => {
                   const semSaldoFim = k.secao !== '' && secoesSemSaldoFinal.includes(k.secao);
+                  const podeEditar =
+                    canEditarManuais &&
+                    canFechar &&
+                    aberto &&
+                    k.manualCampo != null;
                   return (
                   <div
                     key={k.label}
@@ -825,7 +893,23 @@ export default function CmvRealFechamentoPage() {
                       i < 3 && 'xl:border-r'
                     )}
                   >
-                    <p className="text-sm text-muted-foreground">{k.label}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm text-muted-foreground">{k.label}</p>
+                      {podeEditar ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 shrink-0 -mt-1 -mr-1"
+                          title={`Informar ${k.label} manualmente`}
+                          onClick={() =>
+                            void salvarValorManual(k.manualCampo!, k.label)
+                          }
+                        >
+                          <Pencil className="size-3.5 text-muted-foreground" />
+                        </Button>
+                      ) : null}
+                    </div>
                     <p className="text-3xl font-semibold tabular-nums text-foreground mt-1">
                       {k.r != null ? (
                         <AnimatedNumber value={k.r.valor} format="currency" />
@@ -834,7 +918,9 @@ export default function CmvRealFechamentoPage() {
                       )}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-                      {k.r?.pct != null ? (
+                      {k.manualValor != null ? (
+                        'Valor manual'
+                      ) : k.r?.pct != null ? (
                         <>
                           <AnimatedNumber value={k.r.pct} format="percent" />
                           {' da venda'}
@@ -845,13 +931,15 @@ export default function CmvRealFechamentoPage() {
                         'Informe a venda'
                       )}
                     </p>
-                    {semSaldoFim && (
+                    {k.manualValor == null && semSaldoFim && (
                       <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                         <AlertTriangle className="size-3 shrink-0" aria-hidden />
                         parcial: sem contagem final
                       </p>
                     )}
-                    {displayTotais.semEstoqueFinal && k.ritmo ? (
+                    {k.manualValor == null &&
+                    displayTotais.semEstoqueFinal &&
+                    k.ritmo ? (
                       <p className="text-xs text-muted-foreground mt-1 tabular-nums">
                         Ritmo{' '}
                         <AnimatedNumber
@@ -873,6 +961,71 @@ export default function CmvRealFechamentoPage() {
                   </div>
                   );
                 })}
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {canEditarManuais ? (
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <p className="text-base font-semibold text-foreground">
+                    Estoque
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Valores manuais de referência (R$). Não substituem o saldo
+                    por produto.
+                  </p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                {(
+                  [
+                    {
+                      label: 'Estoque inicial',
+                      campo: 'estoqueInicial' as const,
+                      valor: valoresManuais.estoqueInicial,
+                    },
+                    {
+                      label: 'Estoque final',
+                      campo: 'estoqueFinal' as const,
+                      valor: valoresManuais.estoqueFinal,
+                    },
+                  ] as const
+                ).map((e) => (
+                  <div
+                    key={e.campo}
+                    className="rounded-md border border-border px-3 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm text-muted-foreground">{e.label}</p>
+                      {canFechar && aberto ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 shrink-0 -mt-1 -mr-1"
+                          title={`Informar ${e.label} manualmente`}
+                          onClick={() =>
+                            void salvarValorManual(e.campo, e.label)
+                          }
+                        >
+                          <Pencil className="size-3.5 text-muted-foreground" />
+                        </Button>
+                      ) : null}
+                    </div>
+                    <p className="text-xl font-semibold tabular-nums text-foreground mt-1">
+                      {e.valor != null ? fmtMoney(e.valor) : '–'}
+                    </p>
+                    {e.valor != null ? (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Valor manual
+                      </p>
+                    ) : null}
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>

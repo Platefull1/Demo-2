@@ -2470,6 +2470,9 @@ model CmvFechamento {
   /// Sempre vazio no mês novo: [{id, secao, descricao, valor, criadoPorId, criadoEm}]
   ajustes               Json                @default("[]")
   refeicoesFuncionarios Json                @default("[]") @map("refeicoes_funcionarios") // [{descricao, valorVenda}]
+  /// Overrides manuais do fechamento (lojas sem histórico completo):
+  /// { cmvMp?, cmvEmbalagens?, cmvBebidas?, estoqueInicial?, estoqueFinal? } em R$.
+  valoresManuais        Json?               @map("valores_manuais")
   contagemId            String?             @map("contagem_id")
   snapshot              Json?
   fechadoEm             DateTime?           @map("fechado_em")

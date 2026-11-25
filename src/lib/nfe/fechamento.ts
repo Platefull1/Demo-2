@@ -124,6 +124,7 @@ export async function montarFechamento(params: {
   pendencias: PendenciaFechamento[];
   transferencias: Awaited<ReturnType<typeof listarTransferencias>>;
   orfaosCatalogoCount: number;
+  valoresManuais: ValoresManuaisFechamento;
   totais: {
     consumoValor: number;
     consumoMp: number;
@@ -139,6 +140,8 @@ export async function montarFechamento(params: {
     cmvEmbalagens: ResumoCmvSecao;
     cmvBebidas: ResumoCmvSecao;
     cmvTotal: ResumoCmvSecao;
+    /** true se algum CMV de seção veio de override manual */
+    temManualCmv?: boolean;
     /** true quando não há saldo da competência (CMV = inicial + compras) */
     semEstoqueFinal: boolean;
     /** compras ÷ venda — ritmo do período, sem estoque inicial */
@@ -573,6 +576,18 @@ export async function montarFechamento(params: {
     .reduce((a, l) => a + l.comprasValor, 0);
   const comprasTotal = comprasMp + comprasEmb + comprasBeb;
 
+  const valoresManuais = parseValoresManuais(fechamento.valoresManuais);
+  const cmvComManual = aplicarValoresManuaisNosTotais(
+    {
+      cmvMp: { valor: cmvMpValor, pct: pctOf(cmvMpValor) },
+      cmvEmbalagens: { valor: cmvEmbalagensValor, pct: pctOf(cmvEmbalagensValor) },
+      cmvBebidas: { valor: cmvBebidasValor, pct: pctOf(cmvBebidasValor) },
+      cmvTotal: { valor: cmvTotalValor, pct: pctOf(cmvTotalValor) },
+      vendaMes,
+    },
+    valoresManuais,
+  );
+
   return {
     fechamento,
     linhas,
@@ -581,6 +596,7 @@ export async function montarFechamento(params: {
     secoesSemSaldoFinal,
     transferencias: docsTransf,
     orfaosCatalogoCount: orfaosCatalogo.length,
+    valoresManuais,
     refeicoes: refeicaoRows.map((r) => ({
       id: r.id,
       data: r.data.toISOString().slice(0, 10),
@@ -602,10 +618,11 @@ export async function montarFechamento(params: {
       pctCmvMpBruto:
         vendaMes != null && vendaMes > 0 ? calcRef.pctCmvMpBruto : null,
       custoRefeicoes: calcRef.custoTotal,
-      cmvMp: { valor: cmvMpValor, pct: pctOf(cmvMpValor) },
-      cmvEmbalagens: { valor: cmvEmbalagensValor, pct: pctOf(cmvEmbalagensValor) },
-      cmvBebidas: { valor: cmvBebidasValor, pct: pctOf(cmvBebidasValor) },
-      cmvTotal: { valor: cmvTotalValor, pct: pctOf(cmvTotalValor) },
+      cmvMp: cmvComManual.cmvMp,
+      cmvEmbalagens: cmvComManual.cmvEmbalagens,
+      cmvBebidas: cmvComManual.cmvBebidas,
+      cmvTotal: cmvComManual.cmvTotal,
+      temManualCmv: cmvComManual.temManualCmv,
       semEstoqueFinal: !fimMap.size,
       ritmo: {
         materiaPrima: { valor: comprasMp, pct: pctOf(comprasMp) },
@@ -643,4 +660,83 @@ export function parseRefeicoes(raw: unknown): RefeicaoFuncionario[] {
       valorVenda: Number(o.valorVenda ?? 0),
     };
   });
+}
+
+/** Lojas que permitem informar CMV/estoque manualmente no fechamento. */
+export const CMV_MANUAL_STORE_SLUGS = ['pilarzinho', 'portao', 'uberaba'] as const;
+export type CmvManualStoreSlug = (typeof CMV_MANUAL_STORE_SLUGS)[number];
+
+export function lojaPermiteValoresManuais(storeSlug: string): boolean {
+  return (CMV_MANUAL_STORE_SLUGS as readonly string[]).includes(storeSlug);
+}
+
+export type ValoresManuaisFechamento = {
+  cmvMp: number | null;
+  cmvEmbalagens: number | null;
+  cmvBebidas: number | null;
+  estoqueInicial: number | null;
+  estoqueFinal: number | null;
+};
+
+export function parseValoresManuais(raw: unknown): ValoresManuaisFechamento {
+  const empty: ValoresManuaisFechamento = {
+    cmvMp: null,
+    cmvEmbalagens: null,
+    cmvBebidas: null,
+    estoqueInicial: null,
+    estoqueFinal: null,
+  };
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return empty;
+  const o = raw as Record<string, unknown>;
+  const num = (v: unknown): number | null => {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    cmvMp: num(o.cmvMp),
+    cmvEmbalagens: num(o.cmvEmbalagens),
+    cmvBebidas: num(o.cmvBebidas),
+    estoqueInicial: num(o.estoqueInicial),
+    estoqueFinal: num(o.estoqueFinal),
+  };
+}
+
+export function aplicarValoresManuaisNosTotais(
+  totais: {
+    cmvMp: ResumoCmvSecao;
+    cmvEmbalagens: ResumoCmvSecao;
+    cmvBebidas: ResumoCmvSecao;
+    cmvTotal: ResumoCmvSecao;
+    vendaMes: number | null;
+  },
+  manual: ValoresManuaisFechamento,
+): {
+  cmvMp: ResumoCmvSecao;
+  cmvEmbalagens: ResumoCmvSecao;
+  cmvBebidas: ResumoCmvSecao;
+  cmvTotal: ResumoCmvSecao;
+  temManualCmv: boolean;
+} {
+  const pctOf = (valor: number): number | null =>
+    totais.vendaMes != null && totais.vendaMes > 0
+      ? Math.round((valor / totais.vendaMes) * 10000) / 10000
+      : null;
+
+  const cmvMpValor = manual.cmvMp ?? totais.cmvMp.valor;
+  const cmvEmbValor = manual.cmvEmbalagens ?? totais.cmvEmbalagens.valor;
+  const cmvBebValor = manual.cmvBebidas ?? totais.cmvBebidas.valor;
+  const cmvTotalValor = Math.round((cmvMpValor + cmvEmbValor + cmvBebValor) * 100) / 100;
+  const temManualCmv =
+    manual.cmvMp != null ||
+    manual.cmvEmbalagens != null ||
+    manual.cmvBebidas != null;
+
+  return {
+    cmvMp: { valor: cmvMpValor, pct: pctOf(cmvMpValor) },
+    cmvEmbalagens: { valor: cmvEmbValor, pct: pctOf(cmvEmbValor) },
+    cmvBebidas: { valor: cmvBebValor, pct: pctOf(cmvBebValor) },
+    cmvTotal: { valor: cmvTotalValor, pct: pctOf(cmvTotalValor) },
+    temManualCmv,
+  };
 }

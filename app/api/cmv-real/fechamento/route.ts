@@ -6,11 +6,14 @@ import { prisma } from '@/lib/prisma';
 import { requireCmvRealAccess, resolveCmvRealStoreFilter } from '@/lib/nfe/tenant';
 import { P } from '@/lib/rh-permissions';
 import {
+  lojaPermiteValoresManuais,
   montarFechamento,
   parseAjustes,
   parseRefeicoes,
+  parseValoresManuais,
   type AjusteFechamento,
   type RefeicaoFuncionario,
+  type ValoresManuaisFechamento,
 } from '@/lib/nfe/fechamento';
 import { CMV_STORE_SLUGS, competenciaAnterior, storeLabel } from '@/lib/nfe/lojas';
 import { exportarFechamentoXlsx } from '@/lib/nfe/exportar-fechamento';
@@ -115,7 +118,9 @@ export async function GET(req: NextRequest) {
       refeicoes: parseRefeicoes(data.fechamento.refeicoesFuncionarios),
       contagemId: data.fechamento.contagemId,
       fechadoEm: data.fechamento.fechadoEm,
+      valoresManuais: data.valoresManuais,
     },
+    canEditarManuais: lojaPermiteValoresManuais(storeSlug),
     refeicoesSaipos: data.refeicoes,
     linhas: data.linhas,
     alertasTransferencia: data.alertasTransferencia,
@@ -136,6 +141,8 @@ export async function GET(req: NextRequest) {
  *  - add_ajuste { storeSlug, competencia, secao, descricao, valor }
  *  - remove_ajuste { storeSlug, competencia, ajusteId }
  *  - set_refeicoes { storeSlug, competencia, refeicoes }
+ *  - set_valores_manuais { storeSlug, competencia, campo, valor }
+ *      campo: cmvMp | cmvEmbalagens | cmvBebidas | estoqueInicial | estoqueFinal
  *  - fechar { storeSlug, competencia }
  *  - reabrir { storeSlug, competencia }
  */
@@ -156,6 +163,7 @@ export async function PATCH(req: NextRequest) {
     custoMedio?: number;
     /** 'inicial' = saldo do mês anterior; 'final' = saldo da competência atual */
     alvoCusto?: 'inicial' | 'final';
+    campo?: keyof ValoresManuaisFechamento;
   };
 
   if (!body.action || !body.storeSlug || !body.competencia) {
@@ -425,6 +433,44 @@ export async function PATCH(req: NextRequest) {
       },
     });
     return NextResponse.json({ ok: true, status: fechamento.status });
+  }
+
+  if (body.action === 'set_valores_manuais') {
+    if (fechamento.status === 'FECHADO') {
+      return NextResponse.json({ error: 'Competência fechada' }, { status: 400 });
+    }
+    if (!lojaPermiteValoresManuais(body.storeSlug)) {
+      return NextResponse.json(
+        { error: 'Esta loja não permite valores manuais' },
+        { status: 403 },
+      );
+    }
+    const campos: Array<keyof ValoresManuaisFechamento> = [
+      'cmvMp',
+      'cmvEmbalagens',
+      'cmvBebidas',
+      'estoqueInicial',
+      'estoqueFinal',
+    ];
+    if (!body.campo || !campos.includes(body.campo)) {
+      return NextResponse.json(
+        { error: 'campo inválido (cmvMp|cmvEmbalagens|cmvBebidas|estoqueInicial|estoqueFinal)' },
+        { status: 400 },
+      );
+    }
+    const atual = parseValoresManuais(fechamento.valoresManuais);
+    const raw = body.valor;
+    const nextValor =
+      raw == null || !Number.isFinite(Number(raw)) ? null : Number(raw);
+    const next: ValoresManuaisFechamento = { ...atual, [body.campo]: nextValor };
+    fechamento = await prisma.cmvFechamento.update({
+      where: { id: fechamento.id },
+      data: { valoresManuais: next },
+    });
+    return NextResponse.json({
+      ok: true,
+      valoresManuais: parseValoresManuais(fechamento.valoresManuais),
+    });
   }
 
   if (body.action === 'set_custo_saldo') {
