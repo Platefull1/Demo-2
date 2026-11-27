@@ -1,0 +1,157 @@
+﻿DB host: ep-odd-sunset-ac2loti5-pooler.sa-east-1.aws.neon.tech
+Modo: DRY-RUN (s├│ l├¬)
+Planilha: D:\mods\mds sa\mods the sims\CMV_DESPERD├ìCIO - UBERABA 2026.xlsx | aba="OUTUBRO " | linhas=157
+Antes: MP=R$ 31.711,91 BEB=R$ 8.681,82
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ PASSO 2 ÔÇö Restaurar custoMedio da coluna AG (itens casados)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Itens a restaurar: 125
+  [MATERIA_PRIMA] PALMITO: 20.6481 (ULTIMA_COMPRA_GRUPO) ÔåÆ 15.2588 PLANILHA | valor R$ 1.110,76 ÔåÆ R$ 820,85 (╬ö -R$ 289,91)
+  [MATERIA_PRIMA] QUEIJO CHEDDAR: 34.1386 (ULTIMA_COMPRA_GRUPO) ÔåÆ 41.3692 PLANILHA | valor R$ 634,81 ÔåÆ R$ 769,26 (╬ö R$ 134,45)
+  [MATERIA_PRIMA] MILHO: 12 (ULTIMA_COMPRA_GRUPO) ÔåÆ 11.2932 PLANILHA | valor R$ 2.197,44 ÔåÆ R$ 2.068,01 (╬ö -R$ 129,43)
+  [EMBALAGEM] SEPARADOR: 0.1075 (ULTIMA_COMPRA_GRUPO) ÔåÆ 0.1561 PLANILHA | valor R$ 279,50 ÔåÆ R$ 405,85 (╬ö R$ 126,35)
+  [MATERIA_PRIMA] QUEIJO MUSSARELA: 27.75 (ULTIMA_COMPRA_GRUPO) ÔåÆ 28.87 PLANILHA | valor R$ 2.500,27 ÔåÆ R$ 2.601,19 (╬ö R$ 100,92)
+  [MATERIA_PRIMA] CHOCOLATE PRETO: 20.1188 (ULTIMA_COMPRA_GRUPO) ÔåÆ 20.6708 PLANILHA | valor R$ 3.038,34 ÔåÆ R$ 3.121,70 (╬ö R$ 83,36)
+  [MATERIA_PRIMA] FIL├ë DE PEITO SEM OSSO: 15.1314 (ULTIMA_COMPRA_GRUPO) ÔåÆ 14.834 PLANILHA | valor R$ 4.217,73 ÔåÆ R$ 4.134,82 (╬ö -R$ 82,91)
+  [EMBALAGEM] MESINHA: 0.054 (ULTIMA_COMPRA_GRUPO) ÔåÆ 0.1078 PLANILHA | valor R$ 81,00 ÔåÆ R$ 161,72 (╬ö R$ 80,72)
+  [MATERIA_PRIMA] CHOCOLATE BRANCO: 19.6995 (ULTIMA_COMPRA_GRUPO) ÔåÆ 20.7086 PLANILHA | valor R$ 1.126,22 ÔåÆ R$ 1.183,91 (╬ö R$ 57,69)
+  [MATERIA_PRIMA] FARINHA DE TRIGO: 2.78 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.6202 PLANILHA | valor R$ 1.000,80 ÔåÆ R$ 943,29 (╬ö -R$ 57,51)
+  [MATERIA_PRIMA] ATUM LATA: 60.1498 (ULTIMA_COMPRA_GRUPO) ÔåÆ 51.3264 PLANILHA | valor R$ 294,73 ÔåÆ R$ 251,50 (╬ö -R$ 43,23)
+  [MATERIA_PRIMA] CEBOLA: 6.5 (ULTIMA_COMPRA_GRUPO) ÔåÆ 7.4305 PLANILHA | valor R$ 283,99 ÔåÆ R$ 324,64 (╬ö R$ 40,65)
+  [MATERIA_PRIMA] QUEIJO PROVOLONE: 33 (ULTIMA_COMPRA_GRUPO) ÔåÆ 34.5391 PLANILHA | valor R$ 796,29 ÔåÆ R$ 833,43 (╬ö R$ 37,14)
+  [MATERIA_PRIMA] CREME GALAK: 81.2277 (ULTIMA_COMPRA_GRUPO) ÔåÆ 73.8792 PLANILHA | valor R$ 410,20 ÔåÆ R$ 373,09 (╬ö -R$ 37,11)
+  [BEBIDA] PEPSI LATA ZERO: 3.2617 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.6402 PLANILHA | valor R$ 169,61 ÔåÆ R$ 137,29 (╬ö -R$ 32,32)
+  [MATERIA_PRIMA] A├ç├ÜCAR: 2.9 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.1532 PLANILHA | valor R$ 323,64 ÔåÆ R$ 351,90 (╬ö R$ 28,26)
+  [MATERIA_PRIMA] QUEIJO PARMES├âO: 32 (ULTIMA_COMPRA_GRUPO) ÔåÆ 33.0362 PLANILHA | valor R$ 775,04 ÔåÆ R$ 800,14 (╬ö R$ 25,10)
+  [MATERIA_PRIMA] DORITOS: 58.3268 (ULTIMA_COMPRA_GRUPO) ÔåÆ 49.6777 PLANILHA | valor R$ 151,07 ÔåÆ R$ 128,67 (╬ö -R$ 22,40)
+  [BEBIDA] GUARAN├ü ANT├üRCTICA 600 ZERO: 4.1746 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.6451 PLANILHA | valor R$ 146,11 ÔåÆ R$ 127,58 (╬ö -R$ 18,53)
+  [BEBIDA] PEPSI 2L: 7.8569 (ULTIMA_COMPRA_GRUPO) ÔåÆ 7.4653 PLANILHA | valor R$ 361,42 ÔåÆ R$ 343,40 (╬ö -R$ 18,02)
+  [BEBIDA] PEPSI 2L ZERO: 7.8575 (ULTIMA_COMPRA_GRUPO) ÔåÆ 7.4205 PLANILHA | valor R$ 298,58 ÔåÆ R$ 281,98 (╬ö -R$ 16,60)
+  [BEBIDA] COCA 2 LITROS: 10.4047 (ULTIMA_COMPRA_GRUPO) ÔåÆ 10.2876 PLANILHA | valor R$ 1.435,85 ÔåÆ R$ 1.419,69 (╬ö -R$ 16,16)
+  [MATERIA_PRIMA] LINGUI├çA CALABRESA: 18.65 (ULTIMA_COMPRA_GRUPO) ÔåÆ 18.8876 PLANILHA | valor R$ 1.257,01 ÔåÆ R$ 1.273,02 (╬ö R$ 16,01)
+  [BEBIDA] CERVEJA ORIGINAL LATA: 4.5942 (OUTRA_LOJA) ÔåÆ 4.0977 PLANILHA | valor R$ 124,04 ÔåÆ R$ 110,64 (╬ö -R$ 13,40)
+  [BEBIDA] GUARAN├ü ANT├üRCTICA 600: 4.1746 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.7157 PLANILHA | valor R$ 121,06 ÔåÆ R$ 107,76 (╬ö -R$ 13,30)
+  [MATERIA_PRIMA] P├èSSEGO EM CALDA: 20.2636 (ULTIMA_COMPRA_GRUPO) ÔåÆ 19.094 PLANILHA | valor R$ 226,55 ÔåÆ R$ 213,47 (╬ö -R$ 13,08)
+  [MATERIA_PRIMA] ESCAROLA (CRUA): 9.9 (ULTIMA_COMPRA_GRUPO) ÔåÆ 7.3894 PLANILHA | valor R$ 49,01 ÔåÆ R$ 36,58 (╬ö -R$ 12,43)
+  [BEBIDA] GUARAN├ü ANT├üRCTICA LATA: 3.2525 (OUTRA_LOJA) ÔåÆ 3.5512 PLANILHA | valor R$ 130,10 ÔåÆ R$ 142,05 (╬ö R$ 11,95)
+  [MATERIA_PRIMA] BACON (CRU): 17.9 (ULTIMA_COMPRA_GRUPO) ÔåÆ 18.0796 PLANILHA | valor R$ 1.163,86 ÔåÆ R$ 1.175,54 (╬ö R$ 11,68)
+  [MATERIA_PRIMA] CREME DE LEITE: 13 (ULTIMA_COMPRA_GRUPO) ÔåÆ 10.7363 PLANILHA | valor R$ 65,00 ÔåÆ R$ 53,68 (╬ö -R$ 11,32)
+  [BEBIDA] PEPSI 600: 4.1767 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.8077 PLANILHA | valor R$ 116,95 ÔåÆ R$ 106,62 (╬ö -R$ 10,33)
+  [BEBIDA] CERVEJA STELLA ARTOIS LATA: 4.4 (OUTRA_LOJA) ÔåÆ 3.76 PLANILHA | valor R$ 70,40 ÔåÆ R$ 60,16 (╬ö -R$ 10,24)
+  [BEBIDA] GUARAN├ü ANT├üRCTICA 2L ZERO: 8.8667 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.6656 PLANILHA | valor R$ 425,60 ÔåÆ R$ 415,95 (╬ö -R$ 9,65)
+  [MATERIA_PRIMA] AN├ëIS DE CEBOLA: 18 (OUTRA_LOJA) ÔåÆ 18.8326 PLANILHA | valor R$ 207,00 ÔåÆ R$ 216,57 (╬ö R$ 9,57)
+  [MATERIA_PRIMA] ├ôLEO: 8.3222 (ULTIMA_COMPRA_GRUPO) ÔåÆ 7.6672 PLANILHA | valor R$ 104,86 ÔåÆ R$ 96,61 (╬ö -R$ 8,25)
+  [MATERIA_PRIMA] PEPPERONI: 53.98 (ULTIMA_COMPRA_GRUPO) ÔåÆ 50.9297 PLANILHA | valor R$ 132,79 ÔåÆ R$ 125,29 (╬ö -R$ 7,50)
+  [MATERIA_PRIMA] AZEITONA VERDE: 19.75 (ULTIMA_COMPRA_GRUPO) ÔåÆ 26.7009 PLANILHA | valor R$ 19,75 ÔåÆ R$ 26,70 (╬ö R$ 6,95)
+  [MATERIA_PRIMA] CHAMPIGNON: 23.5 (ULTIMA_COMPRA_GRUPO) ÔåÆ 22.4565 PLANILHA | valor R$ 145,58 ÔåÆ R$ 139,12 (╬ö -R$ 6,46)
+  [MATERIA_PRIMA] COCO RALADO: 30.9 (ULTIMA_COMPRA_GRUPO) ÔåÆ 37.4015 PLANILHA | valor R$ 30,59 ÔåÆ R$ 37,03 (╬ö R$ 6,44)
+  [MATERIA_PRIMA] MOLHO PIZZA: 4.3548 (ULTIMA_COMPRA_GRUPO) ÔåÆ 4.2807 PLANILHA | valor R$ 378,87 ÔåÆ R$ 372,43 (╬ö -R$ 6,44)
+  [BEBIDA] CERVEJA BUDWEISER LATA: 4.0425 (OUTRA_LOJA) ÔåÆ 3.6873 PLANILHA | valor R$ 72,77 ÔåÆ R$ 66,37 (╬ö -R$ 6,40)
+  [BEBIDA] COCA 2 LITROS ZERO: 10.406 (ULTIMA_COMPRA_GRUPO) ÔåÆ 10.4397 PLANILHA | valor R$ 1.925,11 ÔåÆ R$ 1.931,34 (╬ö R$ 6,23)
+  [BEBIDA] GUARAN├ü ANT├üRCTICA 2L: 8.8665 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.7035 PLANILHA | valor R$ 319,19 ÔåÆ R$ 313,32 (╬ö -R$ 5,87)
+  [MATERIA_PRIMA] CEREJA: 46.1364 (ULTIMA_COMPRA_GRUPO) ÔåÆ 48.6801 PLANILHA | valor R$ 101,50 ÔåÆ R$ 107,10 (╬ö R$ 5,60)
+  [MATERIA_PRIMA] ABACAXI: 34.75 (ULTIMA_COMPRA_GRUPO) ÔåÆ 33.8817 PLANILHA | valor R$ 203,64 ÔåÆ R$ 198,55 (╬ö -R$ 5,09)
+  [EMBALAGEM] EMBALAGEM 20: 1.32 (ULTIMA_COMPRA_GRUPO) ÔåÆ 1.3093 PLANILHA | valor R$ 624,36 ÔåÆ R$ 619,32 (╬ö -R$ 5,04)
+  [MATERIA_PRIMA] CARNE EM ISCA (STROGONOFF): 41.98 (ULTIMA_COMPRA_GRUPO) ÔåÆ 42.3196 PLANILHA | valor R$ 592,34 ÔåÆ R$ 597,13 (╬ö R$ 4,79)
+  [MATERIA_PRIMA] VINAGRE: 1.89 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.077 PLANILHA | valor R$ 45,93 ÔåÆ R$ 50,47 (╬ö R$ 4,54)
+  [MATERIA_PRIMA] R├ÜCULA: 21.9048 (ULTIMA_COMPRA_GRUPO) ÔåÆ 20.3077 PLANILHA | valor R$ 60,24 ÔåÆ R$ 55,85 (╬ö -R$ 4,39)
+  [MATERIA_PRIMA] AZEITE DE OLIVA: 26 (OUTRA_LOJA) ÔåÆ 25.1476 PLANILHA | valor R$ 130,26 ÔåÆ R$ 125,99 (╬ö -R$ 4,27)
+  [BEBIDA] PEPSI LATA: 3.235 (OUTRA_LOJA) ÔåÆ 3.0469 PLANILHA | valor R$ 71,17 ÔåÆ R$ 67,03 (╬ö -R$ 4,14)
+  [MATERIA_PRIMA] TOMATE: 13.3791 (ULTIMA_COMPRA_GRUPO) ÔåÆ 13.292 PLANILHA | valor R$ 625,47 ÔåÆ R$ 621,40 (╬ö -R$ 4,07)
+  [MATERIA_PRIMA] BOLACHA NEGRESCO: 41.36 (ULTIMA_COMPRA_GRUPO) ÔåÆ 44.3363 PLANILHA | valor R$ 53,35 ÔåÆ R$ 57,19 (╬ö R$ 3,84)
+  [MATERIA_PRIMA] DOCE DE LEITE: 19.801 (ULTIMA_COMPRA_GRUPO) ÔåÆ 18.9 PLANILHA | valor R$ 75,24 ÔåÆ R$ 71,82 (╬ö -R$ 3,42)
+  [MATERIA_PRIMA] ERVILHA: 9.4059 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.6364 PLANILHA | valor R$ 41,67 ÔåÆ R$ 38,26 (╬ö -R$ 3,41)
+  [MATERIA_PRIMA] MOSTARDA GAL├âO: 12.5 (OUTRA_LOJA) ÔåÆ 11.8494 PLANILHA | valor R$ 61,25 ÔåÆ R$ 58,06 (╬ö -R$ 3,19)
+  [MATERIA_PRIMA] QUEIJO CREAM CHEESE: 40.7672 (ULTIMA_COMPRA_GRUPO) ÔåÆ 40.0791 PLANILHA | valor R$ 187,12 ÔåÆ R$ 183,96 (╬ö -R$ 3,16)
+  [MATERIA_PRIMA] MOLHO TOMODORO: 10.3171 (ULTIMA_COMPRA_GRUPO) ÔåÆ 10.2348 PLANILHA | valor R$ 385,86 ÔåÆ R$ 382,78 (╬ö -R$ 3,08)
+  [BEBIDA] COCA 600 ZERO: 4.1607 (ULTIMA_COMPRA_GRUPO) ÔåÆ 4.2742 PLANILHA | valor R$ 112,34 ÔåÆ R$ 115,40 (╬ö R$ 3,06)
+  [MATERIA_PRIMA] PIMENTA CALABRESA: 29 (OUTRA_LOJA) ÔåÆ 27 PLANILHA | valor R$ 44,08 ÔåÆ R$ 41,04 (╬ö -R$ 3,04)
+  [BEBIDA] COCA 600: 4.159 (ULTIMA_COMPRA_GRUPO) ÔåÆ 4.2282 PLANILHA | valor R$ 178,84 ÔåÆ R$ 181,81 (╬ö R$ 2,97)
+  [MATERIA_PRIMA] OVOS: 9.3814 (ULTIMA_COMPRA_GRUPO) ÔåÆ 9.2971 PLANILHA | valor R$ 302,08 ÔåÆ R$ 299,37 (╬ö -R$ 2,71)
+  [MATERIA_PRIMA] BANANA: 3.15 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.1934 PLANILHA | valor R$ 8,82 ÔåÆ R$ 6,14 (╬ö -R$ 2,68)
+  [BEBIDA] GUARAN├ü ANT├üRCTICA LATA ZERO: 3.2258 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.0696 PLANILHA | valor R$ 54,84 ÔåÆ R$ 52,18 (╬ö -R$ 2,66)
+  [EMBALAGEM] EMBALAGEM 40: 2.85 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.8534 PLANILHA | valor R$ 2.194,50 ÔåÆ R$ 2.197,15 (╬ö R$ 2,65)
+  [MATERIA_PRIMA] FIGO EM CALDA: 29.75 (ULTIMA_COMPRA_GRUPO) ÔåÆ 29.5625 PLANILHA | valor R$ 327,25 ÔåÆ R$ 325,19 (╬ö -R$ 2,06)
+  [MATERIA_PRIMA] QUEIJO RICOTA: 9.399 (ULTIMA_COMPRA_GRUPO) ÔåÆ 9.9546 PLANILHA | valor R$ 34,78 ÔåÆ R$ 36,83 (╬ö R$ 2,05)
+  [EMBALAGEM] EMBALAGEM 30: 1.58 (ULTIMA_COMPRA_GRUPO) ÔåÆ 1.6203 PLANILHA | valor R$ 79,00 ÔåÆ R$ 81,02 (╬ö R$ 2,02)
+  [BEBIDA] COCA 1 LITRO: 6.5492 (ULTIMA_COMPRA_GRUPO) ÔåÆ 6.4762 PLANILHA | valor R$ 176,83 ÔåÆ R$ 174,86 (╬ö -R$ 1,97)
+  [BEBIDA] COCA LATA: 3.3894 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.4235 PLANILHA | valor R$ 193,20 ÔåÆ R$ 195,14 (╬ö R$ 1,94)
+  [BEBIDA] ├üGUA COM G├üS: 1.63 (OUTRA_LOJA) ÔåÆ 1.7035 PLANILHA | valor R$ 35,86 ÔåÆ R$ 37,48 (╬ö R$ 1,62)
+  [MATERIA_PRIMA] AMEIXA: 34.5 (ULTIMA_COMPRA_GRUPO) ÔåÆ 33.972 PLANILHA | valor R$ 100,05 ÔåÆ R$ 98,52 (╬ö -R$ 1,53)
+  [BEBIDA] CERVEJA STELLA ARTOIS LONG NECK: 4.8 (OUTRA_LOJA) ÔåÆ 4.7482 PLANILHA | valor R$ 124,80 ÔåÆ R$ 123,45 (╬ö -R$ 1,35)
+  [BEBIDA] COCA LATA ZERO: 3.3892 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.4131 PLANILHA | valor R$ 189,80 ÔåÆ R$ 191,13 (╬ö R$ 1,33)
+  [MATERIA_PRIMA] CONFETE: 39.6 (ULTIMA_COMPRA_GRUPO) ÔåÆ 39.4083 PLANILHA | valor R$ 264,92 ÔåÆ R$ 263,64 (╬ö -R$ 1,28)
+  [MATERIA_PRIMA] CANELA: 32 (OUTRA_LOJA) ÔåÆ 34.5 PLANILHA | valor R$ 16,00 ÔåÆ R$ 17,25 (╬ö R$ 1,25)
+  [MATERIA_PRIMA] BR├ôCOLIS: 18.24 (ULTIMA_COMPRA_GRUPO) ÔåÆ 17.8899 PLANILHA | valor R$ 63,11 ÔåÆ R$ 61,90 (╬ö -R$ 1,21)
+  [EMBALAGEM] EMBALAGEM CALZONE: 3.044 (ULTIMA_COMPRA_GRUPO) ÔåÆ 3.0322 PLANILHA | valor R$ 280,05 ÔåÆ R$ 278,96 (╬ö -R$ 1,09)
+  [MATERIA_PRIMA] TEMPERO COMPLETO: 14.75 (ULTIMA_COMPRA_GRUPO) ÔåÆ 15.6546 PLANILHA | valor R$ 16,81 ÔåÆ R$ 17,85 (╬ö R$ 1,04)
+  [BEBIDA] SPRITE 2 LITROS ZERO: 8.4638 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.4194 PLANILHA | valor R$ 177,74 ÔåÆ R$ 176,81 (╬ö -R$ 0,93)
+  [MATERIA_PRIMA] QUEIJO CATUPIRY: 24.8 (ULTIMA_COMPRA_GRUPO) ÔåÆ 24.7694 PLANILHA | valor R$ 736,56 ÔåÆ R$ 735,65 (╬ö -R$ 0,91)
+  [BEBIDA] ├üGUA SEM G├üS: 1.5558 (ULTIMA_COMPRA_GRUPO) ÔåÆ 1.5077 PLANILHA | valor R$ 28,00 ÔåÆ R$ 27,14 (╬ö -R$ 0,86)
+  [BEBIDA] SUCO P├èSSEGO: 3.2825 (OUTRA_LOJA) ÔåÆ 3.0296 PLANILHA | valor R$ 9,85 ÔåÆ R$ 9,09 (╬ö -R$ 0,76)
+  [BEBIDA] FANTA LARANJA 2 LITROS: 8.464 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.4762 PLANILHA | valor R$ 448,59 ÔåÆ R$ 449,24 (╬ö R$ 0,65)
+  [BEBIDA] SUCO UVA: 3.2833 (OUTRA_LOJA) ÔåÆ 3.1889 PLANILHA | valor R$ 19,70 ÔåÆ R$ 19,13 (╬ö -R$ 0,57)
+  [MATERIA_PRIMA] ALHO MO├ìDO: 25 (OUTRA_LOJA) ÔåÆ 24.8567 PLANILHA | valor R$ 100,00 ÔåÆ R$ 99,43 (╬ö -R$ 0,57)
+  [EMBALAGEM] EMBALAGEM 25: 1.53 (ULTIMA_COMPRA_GRUPO) ÔåÆ 1.5247 PLANILHA | valor R$ 153,00 ÔåÆ R$ 152,47 (╬ö -R$ 0,53)
+  [MATERIA_PRIMA] TOMATE SECO: 13.25 (ULTIMA_COMPRA_GRUPO) ÔåÆ 13.6073 PLANILHA | valor R$ 18,55 ÔåÆ R$ 19,05 (╬ö R$ 0,50)
+  [MATERIA_PRIMA] BATATA SORRISO: 11.5 (OUTRA_LOJA) ÔåÆ 11.5527 PLANILHA | valor R$ 102,35 ÔåÆ R$ 102,82 (╬ö R$ 0,47)
+  [MATERIA_PRIMA] CARNE MO├ìDA (BOLONHESA): 29.98 (ULTIMA_COMPRA_GRUPO) ÔåÆ 29.909 PLANILHA | valor R$ 179,88 ÔåÆ R$ 179,45 (╬ö -R$ 0,43)
+  [MATERIA_PRIMA] ALHO CROCANTE: 25.4 (ULTIMA_COMPRA_GRUPO) ÔåÆ 25.1057 PLANILHA | valor R$ 35,81 ÔåÆ R$ 35,40 (╬ö -R$ 0,41)
+  [EMBALAGEM] EMBALAGEM 35: 2.16 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.1604 PLANILHA | valor R$ 1.926,72 ÔåÆ R$ 1.927,11 (╬ö R$ 0,39)
+  [MATERIA_PRIMA] OR├ëGANO: 24 (ULTIMA_COMPRA_GRUPO) ÔåÆ 23.8806 PLANILHA | valor R$ 70,56 ÔåÆ R$ 70,21 (╬ö -R$ 0,35)
+  [BEBIDA] CH├ü P├èSSEGO 1,5: 5.9592 (OUTRA_LOJA) ÔåÆ 5.9862 PLANILHA | valor R$ 77,47 ÔåÆ R$ 77,82 (╬ö R$ 0,35)
+  [BEBIDA] CH├ü LIM├âO 1,5: 5.9583 (OUTRA_LOJA) ÔåÆ 6.0252 PLANILHA | valor R$ 29,79 ÔåÆ R$ 30,13 (╬ö R$ 0,34)
+  [MATERIA_PRIMA] CREME CULIN├üRIO: 8.865 (OUTRA_LOJA) ÔåÆ 8.6015 PLANILHA | valor R$ 8,87 ÔåÆ R$ 8,60 (╬ö -R$ 0,27)
+  [MATERIA_PRIMA] PIMENT├âO VERDE: 12 (ULTIMA_COMPRA_GRUPO) ÔåÆ 12.3786 PLANILHA | valor R$ 8,04 ÔåÆ R$ 8,29 (╬ö R$ 0,25)
+  [BEBIDA] CERVEJA BUDWEISER LONG NECK: 4.4 (OUTRA_LOJA) ÔåÆ 4.3845 PLANILHA | valor R$ 66,00 ÔåÆ R$ 65,77 (╬ö -R$ 0,23)
+  [BEBIDA] COCA 1 LITRO ZERO: 6.5467 (ULTIMA_COMPRA_GRUPO) ÔåÆ 6.5581 PLANILHA | valor R$ 104,75 ÔåÆ R$ 104,93 (╬ö R$ 0,18)
+  [MATERIA_PRIMA] AZEITONA PRETA: 27 (ULTIMA_COMPRA_GRUPO) ÔåÆ 26.9638 PLANILHA | valor R$ 108,00 ÔåÆ R$ 107,86 (╬ö -R$ 0,14)
+  [MATERIA_PRIMA] SAL: 1.59 (ULTIMA_COMPRA_GRUPO) ÔåÆ 1.5844 PLANILHA | valor R$ 36,33 ÔåÆ R$ 36,20 (╬ö -R$ 0,13)
+  [MATERIA_PRIMA] BATATA PALHA: 18.5 (ULTIMA_COMPRA_GRUPO) ÔåÆ 18.4919 PLANILHA | valor R$ 234,03 ÔåÆ R$ 233,92 (╬ö -R$ 0,11)
+  [BEBIDA] SPRITE 2 LITROS: 8.4639 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.4662 PLANILHA | valor R$ 397,80 ÔåÆ R$ 397,91 (╬ö R$ 0,11)
+  [MATERIA_PRIMA] QUEIJO GORGONZOLA: 48.9013 (ULTIMA_COMPRA_GRUPO) ÔåÆ 48.9787 PLANILHA | valor R$ 68,46 ÔåÆ R$ 68,57 (╬ö R$ 0,11)
+  [MATERIA_PRIMA] MARGARINA: 7.3103 (ULTIMA_COMPRA_GRUPO) ÔåÆ 7.3114 PLANILHA | valor R$ 275,96 ÔåÆ R$ 276,00 (╬ö R$ 0,04)
+  [MATERIA_PRIMA] BARBECUE: 8.5429 (ULTIMA_COMPRA_GRUPO) ÔåÆ 8.5451 PLANILHA | valor R$ 59,80 ÔåÆ R$ 59,82 (╬ö R$ 0,02)
+  [BEBIDA] FANTA LARANJA LATA: 2.9972 (ULTIMA_COMPRA_GRUPO) ÔåÆ 2.9797 PLANILHA | valor R$ 3,00 ÔåÆ R$ 2,98 (╬ö -R$ 0,02)
+  [MATERIA_PRIMA] PRESUNTO: 16.5 (ULTIMA_COMPRA_GRUPO) ÔåÆ 16.4993 PLANILHA | valor R$ 442,20 ÔåÆ R$ 442,18 (╬ö -R$ 0,02)
+╬ö valor total restore: -R$ 145,29
+(dry-run ÔÇö nada gravado)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ PASSO 3 ÔÇö Mapear/criar produtos faltantes
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+  ÔåÆ CARNE BOV DESFIADA | plan qtd=4.12 AG=56.13025244 AH=R$ 231,26 se├º├úo=MATERIA_PRIMA
+    match cfg: nao_encontrado ÔåÆ - (score=0.000, ativo=undefined)
+    match insumo: nao_encontrado ÔåÆ - (score=0.000)
+    a├º├úo: CRIAR produto novo "CARNE BOV DESFIADA" + config CMV ÔÜá´©Å NOVO
+    (dry-run) criaria saldo qtd=4.12 custo=56.13025244 valor=R$ 231,26
+
+  ÔåÆ CHOCOLATE KIT KAT BARRA | plan qtd=2.739 AG=80.12048193 AH=R$ 219,45 se├º├úo=MATERIA_PRIMA
+    match cfg: nao_encontrado ÔåÆ - (score=0.000, ativo=undefined)
+    match insumo: nao_encontrado ÔåÆ - (score=0.000)
+    a├º├úo: CRIAR produto novo "CHOCOLATE KIT KAT BARRA" + config CMV ÔÜá´©Å NOVO
+    (dry-run) criaria saldo qtd=2.739 custo=80.12048193 valor=R$ 219,45
+
+  ÔåÆ KUAT LATA | plan qtd=2 AG=2.574615059 AH=R$ 5,15 se├º├úo=BEBIDA
+    match cfg: nao_encontrado ÔåÆ - (score=0.000, ativo=undefined)
+    match insumo: nao_encontrado ÔåÆ - (score=0.000)
+    a├º├úo: CRIAR produto novo "KUAT LATA" + config CMV ÔÜá´©Å NOVO
+    (dry-run) criaria saldo qtd=2 custo=2.574615059 valor=R$ 5,15
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ PASSO 4 ÔÇö Remover saldo duplicado SPRITE ZERO 2L
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+SPRITE ZERO 2L: SPRITE ZERO 2L xz79uqkm
+SPRITE 2 LITROS ZERO: SPRITE 2 LITROS ZERO 3gaq5x4q
+Saldo a remover: qtd=21 custo=8.4194 valor=R$ 176,81 origem=PENDENTE
+(dry-run ÔÇö n├úo removido)
+Mantido SPRITE 2 LITROS ZERO: qtd=21 custo=8.4638 (ser├í PLANILHA se passo 2 rodou)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ PASSO 5 ÔÇö Confirmar estoque inicial nov (saldo out cat├ílogo)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Dry-run: estimando totais ap├│s mudan├ºas...
+Rode com --execute para gravar e confirmar totais no banco.
+Alvos: MP R$ 31.965,41 | BEB R$ 8.356,60

@@ -59,6 +59,52 @@ describe('custo do saldo final', () => {
     );
   });
 
+  it('custo da planilha não é sobrescrito mesmo com recalcularExistentes', () => {
+    assert.equal(
+      custoSaldoEntraNoRecalculo({
+        fechamentoFechado: false,
+        qtd: 53.795,
+        custoOrigem: 'PLANILHA',
+        custoMedio: 15.2589,
+        recalcularExistentes: true,
+      }),
+      false,
+    );
+  });
+
+  it('PENDENTE / ULTIMA_COMPRA_GRUPO / OUTRA_LOJA ainda recalculam', () => {
+    assert.equal(
+      custoSaldoEntraNoRecalculo({
+        fechamentoFechado: false,
+        qtd: 10,
+        custoOrigem: 'PENDENTE',
+        custoMedio: null,
+        recalcularExistentes: true,
+      }),
+      true,
+    );
+    assert.equal(
+      custoSaldoEntraNoRecalculo({
+        fechamentoFechado: false,
+        qtd: 10,
+        custoOrigem: 'ULTIMA_COMPRA_GRUPO',
+        custoMedio: 12,
+        recalcularExistentes: true,
+      }),
+      true,
+    );
+    assert.equal(
+      custoSaldoEntraNoRecalculo({
+        fechamentoFechado: false,
+        qtd: 10,
+        custoOrigem: 'OUTRA_LOJA',
+        custoMedio: 12,
+        recalcularExistentes: true,
+      }),
+      true,
+    );
+  });
+
   it('mês fechado não recalcula, nem o custo pendente', () => {
     assert.equal(
       custoSaldoEntraNoRecalculo({

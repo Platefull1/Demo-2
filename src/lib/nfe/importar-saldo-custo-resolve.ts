@@ -70,10 +70,11 @@ function detalheCompra(hit: CompraHit): string {
  * 6) pendente
  */
 /**
- * O saldo entra no recálculo quando o mês está aberto, a quantidade é positiva
- * e o custo não foi informado à mão.
- * Custo vazio ou pendente entra sempre. Custo positivo só entra com
- * `recalcularExistentes` (fechamento aberto, nota aprovada/editada ou contagem).
+ * O saldo entra no recálculo quando o mês está aberto e a quantidade é positiva.
+ * PLANILHA e MANUAL nunca são sobrescritos (mesmo com `recalcularExistentes`).
+ * Custo vazio/pendente entra sempre. Custo positivo de outras origens
+ * (ex.: ULTIMA_COMPRA_*, OUTRA_LOJA) só entra com `recalcularExistentes`
+ * (fechamento aberto, nota aprovada/editada ou contagem).
  */
 /** Variação acima de 50% para cima ou para baixo não grava sozinha. */
 export function variacaoCustoBloqueada(
@@ -93,7 +94,9 @@ export function custoSaldoEntraNoRecalculo(params: {
 }): boolean {
   if (params.fechamentoFechado) return false;
   if (!(params.qtd > 0)) return false;
-  if (params.custoOrigem === 'MANUAL') return false;
+  if (params.custoOrigem === 'MANUAL' || params.custoOrigem === 'PLANILHA') {
+    return false;
+  }
   const vazio =
     params.custoOrigem === 'PENDENTE' ||
     params.custoMedio == null ||

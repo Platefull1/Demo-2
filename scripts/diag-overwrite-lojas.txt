@@ -1,0 +1,84 @@
+﻿Diagn├│stico PLANILHA sobrescrito ÔÇö 2026-10 (somente leitura)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ ahu
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Saldos out no banco: 145
+  Valor cat├ílogo ativo (qtd>0): R$ 88.810,41
+  Origens:
+    CMV_TEORICO            n=  2 R$ 235,50
+    MANUAL                 n=  2 R$ 724,80
+    OUTRA_LOJA             n= 16 R$ 1.524,06
+    ULTIMA_COMPRA_GRUPO    n= 10 R$ 1.407,45
+    ULTIMA_COMPRA_LOJA     n= 94 R$ 84.918,60
+  Planilha: D:\mods\mds sa\mods the sims\CMV_DESPERD├ìCIO - AHU 2025_2026.xlsx
+  Aba: "OUTUBRO"
+
+  Por se├º├úo (planilha AH vs saldo cat├ílogo casado):
+    MATERIA_PRIMA: plan=R$ 63.351,32 dbCasado=R$ 62.526,63 diff=-R$ 228,95 | overwrite(n=74 ╬ö=R$ 5.121,81) | unmatched(n=2 R$ 595,76) | planilhaOk=0
+    EMBALAGEM: plan=R$ 10.987,40 dbCasado=R$ 11.345,81 diff=R$ 358,40 | overwrite(n=9 ╬ö=R$ 358,40) | unmatched(n=0 R$ 0,00) | planilhaOk=0
+    BEBIDA: plan=R$ 14.127,13 dbCasado=R$ 12.256,52 diff=-R$ 1.688,99 | overwrite(n=30 ╬ö=-R$ 1.656,19) | unmatched(n=1 R$ 181,64) | planilhaOk=0
+
+  TOTAL diff casados (dbÔêÆplan): -R$ 1.559,54
+  TOTAL custo sobrescrito (origemÔëáPLANILHA/MANUAL e AGÔëádb): R$ 3.824,02
+  Top 10 overlays |diff|:
+    [MATERIA_PRIMA] QUEIJO MUSSARELA: R$ 13.074,76 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] LINGUI├çA CALABRESA: -R$ 8.436,20 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] CHOCOLATE PRETO: -R$ 2.741,59 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] COSTELA: R$ 1.242,31 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] MILHO: R$ 1.000,04 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] CREME KIT KAT: -R$ 979,54 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] QUEIJO PROVOLONE: -R$ 826,30 origem=ULTIMA_COMPRA_LOJA
+    [EMBALAGEM] EMBALAGEM CALZONE: -R$ 814,63 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] QUEIJO PARMES├âO: R$ 776,07 origem=ULTIMA_COMPRA_LOJA
+    [MATERIA_PRIMA] ATUM LATA: R$ 766,22 origem=ULTIMA_COMPRA_LOJA
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ pilarzinho
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Saldos out no banco: 0
+  Valor cat├ílogo ativo (qtd>0): R$ 0,00
+  Origens:
+    (nenhum saldo ativo com qtd>0)
+  Planilha: D:\mods\mds sa\CMV_DESPERD├ìCIO - PILARZINHO 2026.xlsx
+  Aba: "OUTUBRO"
+
+  Por se├º├úo (planilha AH vs saldo cat├ílogo casado):
+
+  TOTAL diff casados (dbÔêÆplan): R$ 0,00
+  TOTAL custo sobrescrito (origemÔëáPLANILHA/MANUAL e AGÔëádb): R$ 0,00
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ portao
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Saldos out no banco: 0
+  Valor cat├ílogo ativo (qtd>0): R$ 0,00
+  Origens:
+    (nenhum saldo ativo com qtd>0)
+  Planilha: D:\mods\mds sa\CMV_DESPERD├ìCIO - PORT├âO 2026.xlsx
+  Aba: "OUTUBRO "
+
+  Por se├º├úo (planilha AH vs saldo cat├ílogo casado):
+    BEBIDA: plan=R$ 5.179,45 dbCasado=R$ 0,00 diff=-R$ 5.179,45 | overwrite(n=0 ╬ö=R$ 0,00) | unmatched(n=0 R$ 0,00) | planilhaOk=0
+
+  TOTAL diff casados (dbÔêÆplan): -R$ 5.179,45
+  TOTAL custo sobrescrito (origemÔëáPLANILHA/MANUAL e AGÔëádb): R$ 0,00
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ uberaba
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  Saldos out no banco: 279
+  Valor cat├ílogo ativo (qtd>0): R$ 46.145,52
+  Origens:
+    PLANILHA               n=129 R$ 46.145,52
+  Planilha: D:\mods\mds sa\mods the sims\CMV_DESPERD├ìCIO - UBERABA 2026.xlsx
+  Aba: "OUTUBRO "
+
+  Por se├º├úo (planilha AH vs saldo cat├ílogo casado):
+    MATERIA_PRIMA: plan=R$ 31.965,41 dbCasado=R$ 31.965,40 diff=-R$ 0,02 | overwrite(n=0 ╬ö=R$ 0,00) | unmatched(n=1 R$ 0,00) | planilhaOk=81
+    EMBALAGEM: plan=R$ 5.823,60 dbCasado=R$ 5.823,51 diff=-R$ 0,09 | overwrite(n=0 ╬ö=R$ 0,00) | unmatched(n=0 R$ 0,00) | planilhaOk=8
+    BEBIDA: plan=R$ 8.356,60 dbCasado=R$ 8.356,61 diff=R$ 0,01 | overwrite(n=0 ╬ö=R$ 0,00) | unmatched(n=0 R$ 0,00) | planilhaOk=40
+
+  TOTAL diff casados (dbÔêÆplan): -R$ 0,10
+  TOTAL custo sobrescrito (origemÔëáPLANILHA/MANUAL e AGÔëádb): R$ 0,00
+

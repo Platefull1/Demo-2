@@ -433,7 +433,7 @@ export async function preencherCustosPendentesFechamento(params: {
   competenciaSaldo: string;
   /**
    * true no fechamento aberto, na aprovação/edição de nota e na contagem:
-   * refaz também custo positivo que não seja MANUAL.
+   * refaz também custo positivo que não seja MANUAL nem PLANILHA.
    */
   recalcularExistentes?: boolean;
   itens: Array<{

@@ -1,0 +1,231 @@
+﻿DIAGN├ôSTICO CMV UBERABA ÔÇö estoque inicial nov/2026
+Modo: SOMENTE LEITURA (sem montarFechamento)
+Planilha: D:\mods\mds sa\mods the sims\CMV_DESPERD├ìCIO - UBERABA 2026.xlsx
+Aba: "OUTUBRO "
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 0. Totais planilha (AH = valor final out)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+MP linhas=92 soma AH=R$ 31.965,41 (esperado R$ 31.965,41)
+BEB linhas=56 soma AH=R$ 8.356,60 (esperado R$ 8.356,60)
+EMB soma AH=R$ 5.823,60
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 0b. Fechamentos / saldos banco
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Out: ABERTO manuais={"cmvMp":102818.64,"cmvBebidas":15798.38,"estoqueFinal":46145.61,"cmvEmbalagens":11537.6,"estoqueInicial":56383.63}
+Nov: ABERTO manuais={"cmvMp":null,"cmvBebidas":null,"estoqueFinal":null,"cmvEmbalagens":5618.13,"estoqueInicial":null}
+Saldos out=277 nov=0 | configs ativos=147/147
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 1. Soma saldo outubro no banco (qtd ├ù custoMedio)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Todos saldos (com cfg ou fora):
+  BEBIDA           n=44 R$ 8.681,84
+  EMBALAGEM        n=9 R$ 5.618,13
+  FORA_CATALOGO    n=137 R$ 44.545,90
+  MATERIA_PRIMA    n=87 R$ 31.711,89
+S├│ cat├ílogo ATIVO:
+  BEBIDA           n=44 R$ 8.681,84
+  EMBALAGEM        n=9 R$ 5.618,13
+  MATERIA_PRIMA    n=87 R$ 31.711,89
+  [MATERIA_PRIMA] plan=R$ 31.965,41 dbCfg=R$ 31.711,89 (╬ö=R$ 253,52) ativo=R$ 31.711,89 card=R$ 31.711,89 (╬ö card-ativo=R$ 0,00)
+  [BEBIDA] plan=R$ 8.356,60 dbCfg=R$ 8.681,84 (╬ö=-R$ 325,24) ativo=R$ 8.681,84 card=R$ 8.681,84 (╬ö card-ativo=R$ 0,00)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 2. Lan├ºamentos novembro
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+Total lan├ºamentos: 0
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 3. Replica card nov (fim=0 se sem saldo nov)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+semEstoqueFinal=true (saldosNov=0)
+  MATERIA_PRIMA: CMV=R$ 31.711,89 ini=R$ 31.711,89 compras=R$ 0,00
+  EMBALAGEM: CMV=R$ 5.618,13 ini=R$ 5.618,13 compras=R$ 0,00
+  BEBIDA: CMV=R$ 8.681,84 ini=R$ 8.681,84 compras=R$ 0,00
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 4. Match planilha Ôåö banco (item a item com diferen├ºa)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 5. Diferen├ºas ÔÇö MATERIA_PRIMA (valor nov ÔêÆ valor planilha)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+produto | qtdPlan | custoPlan | valorPlan | qtdDb | custoDb | valorDb | qtdNov | custoNov | valorNov | diff | motivo | detalhe
+PALMITO | 53.795 | 15.2589 | 820.85 | 53.795 | 20.6481 | 1110.76 | 53.795 | 20.6481 | 1110.76 | 289.91 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1810 Ah├║ 28/10/2026; custo plan=15.2589 db=20.6481; valor plan=820.85 db=1110.76
+CARNE BOV DESFIADA | 4.12 | 56.1311 | 231.26 |  |  |  |  |  | 0 | -231.26 | sem_match | sem match no cat├ílogo ativo
+CHOCOLATE KIT KAT BARRA | 2.739 | 80.1205 | 219.45 |  |  |  |  |  | 0 | -219.45 | sem_match | sem match no cat├ílogo ativo
+QUEIJO CHEDDAR | 18.595 | 41.3692 | 769.26 | 18.595 | 34.1386 | 634.81 | 18.595 | 34.1386 | 634.81 | -134.45 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 326368 Ah├║ 27/10/2026; custo plan=41.3692 db=34.1386; valor plan=769.26 db=634.81
+MILHO | 183.12 | 11.2932 | 2068.01 | 183.12 | 12 | 2197.44 | 183.12 | 12 | 2197.44 | 129.43 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=11.2932 db=12; valor plan=2068.01 db=2197.44
+QUEIJO MUSSARELA | 90.1 | 28.87 | 2601.19 | 90.1 | 27.75 | 2500.27 | 90.1 | 27.75 | 2500.27 | -100.92 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9241 Ah├║ 26/10/2026; custo plan=28.87 db=27.75; valor plan=2601.19 db=2500.27
+CHOCOLATE PRETO | 151.02 | 20.6708 | 3121.7 | 151.02 | 20.1188 | 3038.34 | 151.02 | 20.1188 | 3038.34 | -83.36 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 6735 Ah├║ 26/10/2026; custo plan=20.6708 db=20.1188; valor plan=3121.7 db=3038.34
+FIL├ë DE PEITO SEM OSSO | 278.74 | 14.834 | 4134.82 | 278.74 | 15.1314 | 4217.73 | 278.74 | 15.1314 | 4217.73 | 82.91 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 182725 Ah├║ 31/10/2026; custo plan=14.834 db=15.1314; valor plan=4134.82 db=4217.73
+CHOCOLATE BRANCO | 57.17 | 20.7086 | 1183.91 | 57.17 | 19.6995 | 1126.22 | 57.17 | 19.6995 | 1126.22 | -57.69 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 6735 Ah├║ 26/10/2026; custo plan=20.7086 db=19.6995; valor plan=1183.91 db=1126.22
+FARINHA DE TRIGO | 360 | 2.6203 | 943.29 | 360 | 2.78 | 1000.8 | 360 | 2.78 | 1000.8 | 57.51 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=2.6203 db=2.78; valor plan=943.29 db=1000.8
+ATUM LATA | 4.9 | 51.3265 | 251.5 | 4.9 | 60.1498 | 294.73 | 4.9 | 60.1498 | 294.73 | 43.23 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1764874 Ah├║ 20/10/2026; custo plan=51.3265 db=60.1498; valor plan=251.5 db=294.73
+CEBOLA | 43.69 | 7.4305 | 324.64 | 43.69 | 6.5 | 283.99 | 43.69 | 6.5 | 283.99 | -40.65 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=7.4305 db=6.5; valor plan=324.64 db=283.99
+QUEIJO PROVOLONE | 24.13 | 34.5392 | 833.43 | 24.13 | 33 | 796.29 | 24.13 | 33 | 796.29 | -37.14 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111221 Ah├║ 19/10/2026; custo plan=34.5392 db=33; valor plan=833.43 db=796.29
+CREME GALAK | 5.05 | 73.8792 | 373.09 | 5.05 | 81.2277 | 410.2 | 5.05 | 81.2277 | 410.2 | 37.11 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 6250608 Ah├║ 14/10/2026; custo plan=73.8792 db=81.2277; valor plan=373.09 db=410.2
+A├ç├ÜCAR | 111.6 | 3.1532 | 351.9 | 111.6 | 2.9 | 323.64 | 111.6 | 2.9 | 323.64 | -28.26 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=3.1532 db=2.9; valor plan=351.9 db=323.64
+QUEIJO PARMES├âO | 24.22 | 33.0363 | 800.14 | 24.22 | 32 | 775.04 | 24.22 | 32 | 775.04 | -25.1 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9241 Ah├║ 26/10/2026; custo plan=33.0363 db=32; valor plan=800.14 db=775.04
+DORITOS | 2.59 | 49.6795 | 128.67 | 2.59 | 58.3268 | 151.07 | 2.59 | 58.3268 | 151.07 | 22.4 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 110569 Ah├║ 12/10/2026; custo plan=49.6795 db=58.3268; valor plan=128.67 db=151.07
+LINGUI├çA CALABRESA | 67.4 | 18.8875 | 1273.02 | 67.4 | 18.65 | 1257.01 | 67.4 | 18.65 | 1257.01 | -16.01 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=18.8875 db=18.65; valor plan=1273.02 db=1257.01
+P├èSSEGO EM CALDA | 11.18 | 19.0939 | 213.47 | 11.18 | 20.2636 | 226.55 | 11.18 | 20.2636 | 226.55 | 13.08 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1768291 Ah├║ 27/10/2026; custo plan=19.0939 db=20.2636; valor plan=213.47 db=226.55
+ESCAROLA (CRUA) | 4.95 | 7.3899 | 36.58 | 4.95 | 9.9 | 49.01 | 4.95 | 9.9 | 49.01 | 12.43 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=7.3899 db=9.9; valor plan=36.58 db=49.01
+BACON (CRU) | 65.02 | 18.0797 | 1175.54 | 65.02 | 17.9 | 1163.86 | 65.02 | 17.9 | 1163.86 | -11.68 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=18.0797 db=17.9; valor plan=1175.54 db=1163.86
+CREME DE LEITE | 5 | 10.736 | 53.68 | 5 | 13 | 65 | 5 | 13 | 65 | 11.32 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1768291 Ah├║ 27/10/2026; custo plan=10.736 db=13; valor plan=53.68 db=65
+AN├ëIS DE CEBOLA | 11.5 | 18.8322 | 216.57 | 11.5 | 18 | 207 | 11.5 | 18 | 207 | -9.57 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=18.8322 db=18; valor plan=216.57 db=207
+├ôLEO | 12.6 | 7.6675 | 96.61 | 12.6 | 8.3222 | 104.86 | 12.6 | 8.3222 | 104.86 | 8.25 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=7.6675 db=8.3222; valor plan=96.61 db=104.86
+PEPPERONI | 2.46 | 50.9309 | 125.29 | 2.46 | 53.98 | 132.79 | 2.46 | 53.98 | 132.79 | 7.5 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=50.9309 db=53.98; valor plan=125.29 db=132.79
+AZEITONA VERDE | 1 | 26.7 | 26.7 | 1 | 19.75 | 19.75 | 1 | 19.75 | 19.75 | -6.95 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9241 Ah├║ 26/10/2026; custo plan=26.7 db=19.75; valor plan=26.7 db=19.75
+CHAMPIGNON | 6.195 | 22.4568 | 139.12 | 6.195 | 23.5 | 145.58 | 6.195 | 23.5 | 145.58 | 6.46 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9241 Ah├║ 26/10/2026; custo plan=22.4568 db=23.5; valor plan=139.12 db=145.58
+COCO RALADO | 0.99 | 37.404 | 37.03 | 0.99 | 30.9 | 30.59 | 0.99 | 30.9 | 30.59 | -6.44 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=37.404 db=30.9; valor plan=37.03 db=30.59
+MOLHO PIZZA | 87 | 4.2808 | 372.43 | 87 | 4.3548 | 378.87 | 87 | 4.3548 | 378.87 | 6.44 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=4.2808 db=4.3548; valor plan=372.43 db=378.87
+CEREJA | 2.2 | 48.6818 | 107.1 | 2.2 | 46.1364 | 101.5 | 2.2 | 46.1364 | 101.5 | -5.6 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 4317733 Ah├║ 21/10/2026; custo plan=48.6818 db=46.1364; valor plan=107.1 db=101.5
+ABACAXI | 5.86 | 33.8823 | 198.55 | 5.86 | 34.75 | 203.64 | 5.86 | 34.75 | 203.64 | 5.09 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1768291 Ah├║ 27/10/2026; custo plan=33.8823 db=34.75; valor plan=198.55 db=203.64
+CARNE EM ISCA (STROGONOFF) | 14.11 | 42.3196 | 597.13 | 14.11 | 41.98 | 592.34 | 14.11 | 41.98 | 592.34 | -4.79 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 153377 Ah├║ 19/10/2026; custo plan=42.3196 db=41.98; valor plan=597.13 db=592.34
+VINAGRE | 24.3 | 2.077 | 50.47 | 24.3 | 1.89 | 45.93 | 24.3 | 1.89 | 45.93 | -4.54 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=2.077 db=1.89; valor plan=50.47 db=45.93
+R├ÜCULA | 2.75 | 20.3091 | 55.85 | 2.75 | 21.9048 | 60.24 | 2.75 | 21.9048 | 60.24 | 4.39 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=20.3091 db=21.9048; valor plan=55.85 db=60.24
+AZEITE DE OLIVA | 5.01 | 25.1477 | 125.99 | 5.01 | 26 | 130.26 | 5.01 | 26 | 130.26 | 4.27 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=25.1477 db=26; valor plan=125.99 db=130.26
+TOMATE | 46.75 | 13.292 | 621.4 | 46.75 | 13.3791 | 625.47 | 46.75 | 13.3791 | 625.47 | 4.07 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=13.292 db=13.3791; valor plan=621.4 db=625.47
+BOLACHA NEGRESCO | 1.29 | 44.3333 | 57.19 | 1.29 | 41.36 | 53.35 | 1.29 | 41.36 | 53.35 | -3.84 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 2147772 Ah├║ 21/10/2026; custo plan=44.3333 db=41.36; valor plan=57.19 db=53.35
+DOCE DE LEITE | 3.8 | 18.9 | 71.82 | 3.8 | 19.801 | 75.24 | 3.8 | 19.801 | 75.24 | 3.42 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111221 Ah├║ 19/10/2026; custo plan=18.9 db=19.801; valor plan=71.82 db=75.24
+ERVILHA | 4.43 | 8.6366 | 38.26 | 4.43 | 9.4059 | 41.67 | 4.43 | 9.4059 | 41.67 | 3.41 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111221 Ah├║ 19/10/2026; custo plan=8.6366 db=9.4059; valor plan=38.26 db=41.67
+MOSTARDA GAL├âO | 4.9 | 11.849 | 58.06 | 4.9 | 12.5 | 61.25 | 4.9 | 12.5 | 61.25 | 3.19 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=11.849 db=12.5; valor plan=58.06 db=61.25
+QUEIJO CREAM CHEESE | 4.59 | 40.0784 | 183.96 | 4.59 | 40.7672 | 187.12 | 4.59 | 40.7672 | 187.12 | 3.16 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1791354 Ah├║ 26/10/2026; custo plan=40.0784 db=40.7672; valor plan=183.96 db=187.12
+MOLHO TOMODORO | 37.4 | 10.2348 | 382.78 | 37.4 | 10.3171 | 385.86 | 37.4 | 10.3171 | 385.86 | 3.08 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1768291 Ah├║ 27/10/2026; custo plan=10.2348 db=10.3171; valor plan=382.78 db=385.86
+PIMENTA CALABRESA | 1.52 | 27 | 41.04 | 1.52 | 29 | 44.08 | 1.52 | 29 | 44.08 | 3.04 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=27 db=29; valor plan=41.04 db=44.08
+OVOS | 32.2 | 9.2972 | 299.37 | 32.2 | 9.3814 | 302.08 | 32.2 | 9.3814 | 302.08 | 2.71 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=9.2972 db=9.3814; valor plan=299.37 db=302.08
+BANANA | 2.8 | 2.1929 | 6.14 | 2.8 | 3.15 | 8.82 | 2.8 | 3.15 | 8.82 | 2.68 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=2.1929 db=3.15; valor plan=6.14 db=8.82
+FIGO EM CALDA | 11 | 29.5627 | 325.19 | 11 | 29.75 | 327.25 | 11 | 29.75 | 327.25 | 2.06 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=29.5627 db=29.75; valor plan=325.19 db=327.25
+QUEIJO RICOTA | 3.7 | 9.9541 | 36.83 | 3.7 | 9.399 | 34.78 | 3.7 | 9.399 | 34.78 | -2.05 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 109941 Ah├║ 05/10/2026; custo plan=9.9541 db=9.399; valor plan=36.83 db=34.78
+AMEIXA | 2.9 | 33.9724 | 98.52 | 2.9 | 34.5 | 100.05 | 2.9 | 34.5 | 100.05 | 1.53 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 735 Ah├║ 20/10/2026; custo plan=33.9724 db=34.5; valor plan=98.52 db=100.05
+CONFETE | 6.69 | 39.4081 | 263.64 | 6.69 | 39.6 | 264.92 | 6.69 | 39.6 | 264.92 | 1.28 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 109941 Ah├║ 05/10/2026; custo plan=39.4081 db=39.6; valor plan=263.64 db=264.92
+CANELA | 0.5 | 34.5 | 17.25 | 0.5 | 32 | 16 | 0.5 | 32 | 16 | -1.25 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=34.5 db=32; valor plan=17.25 db=16
+BR├ôCOLIS | 3.46 | 17.8902 | 61.9 | 3.46 | 18.24 | 63.11 | 3.46 | 18.24 | 63.11 | 1.21 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=17.8902 db=18.24; valor plan=61.9 db=63.11
+TEMPERO COMPLETO | 1.14 | 15.6579 | 17.85 | 1.14 | 14.75 | 16.81 | 1.14 | 14.75 | 16.81 | -1.04 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 735 Ah├║ 20/10/2026; custo plan=15.6579 db=14.75; valor plan=17.85 db=16.81
+QUEIJO CATUPIRY | 29.7 | 24.7694 | 735.65 | 29.7 | 24.8 | 736.56 | 29.7 | 24.8 | 736.56 | 0.91 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9292 Ah├║ 27/10/2026; custo plan=24.7694 db=24.8; valor plan=735.65 db=736.56
+ALHO MO├ìDO | 4 | 24.8575 | 99.43 | 4 | 25 | 100 | 4 | 25 | 100 | 0.57 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=24.8575 db=25; valor plan=99.43 db=100
+TOMATE SECO | 1.4 | 13.6071 | 19.05 | 1.4 | 13.25 | 18.55 | 1.4 | 13.25 | 18.55 | -0.5 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111221 Ah├║ 19/10/2026; custo plan=13.6071 db=13.25; valor plan=19.05 db=18.55
+BATATA SORRISO | 8.9 | 11.5528 | 102.82 | 8.9 | 11.5 | 102.35 | 8.9 | 11.5 | 102.35 | -0.47 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=11.5528 db=11.5; valor plan=102.82 db=102.35
+CARNE MO├ìDA (BOLONHESA) | 6 | 29.9083 | 179.45 | 6 | 29.98 | 179.88 | 6 | 29.98 | 179.88 | 0.43 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 153377 Ah├║ 19/10/2026; custo plan=29.9083 db=29.98; valor plan=179.45 db=179.88
+ALHO CROCANTE | 1.41 | 25.1064 | 35.4 | 1.41 | 25.4 | 35.81 | 1.41 | 25.4 | 35.81 | 0.41 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 735 Ah├║ 20/10/2026; custo plan=25.1064 db=25.4; valor plan=35.4 db=35.81
+OR├ëGANO | 2.94 | 23.881 | 70.21 | 2.94 | 24 | 70.56 | 2.94 | 24 | 70.56 | 0.35 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=23.881 db=24; valor plan=70.21 db=70.56
+CREME CULIN├üRIO | 1 | 8.6 | 8.6 | 1 | 8.865 | 8.87 | 1 | 8.865 | 8.87 | 0.27 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=8.6 db=8.865; valor plan=8.6 db=8.87
+PIMENT├âO VERDE | 0.67 | 12.3731 | 8.29 | 0.67 | 12 | 8.04 | 0.67 | 12 | 8.04 | -0.25 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=12.3731 db=12; valor plan=8.29 db=8.04
+AZEITONA PRETA | 4 | 26.965 | 107.86 | 4 | 27 | 108 | 4 | 27 | 108 | 0.14 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9241 Ah├║ 26/10/2026; custo plan=26.965 db=27; valor plan=107.86 db=108
+SAL | 22.85 | 1.5842 | 36.2 | 22.85 | 1.59 | 36.33 | 22.85 | 1.59 | 36.33 | 0.13 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=1.5842 db=1.59; valor plan=36.2 db=36.33
+BATATA PALHA | 12.65 | 18.4917 | 233.92 | 12.65 | 18.5 | 234.03 | 12.65 | 18.5 | 234.03 | 0.11 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 732 Ah├║ 26/10/2026; custo plan=18.4917 db=18.5; valor plan=233.92 db=234.03
+QUEIJO GORGONZOLA | 1.4 | 48.9786 | 68.57 | 1.4 | 48.9013 | 68.46 | 1.4 | 48.9013 | 68.46 | -0.11 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=48.9786 db=48.9013; valor plan=68.57 db=68.46
+MARGARINA | 37.75 | 7.3113 | 276 | 37.75 | 7.3103 | 275.96 | 37.75 | 7.3103 | 275.96 | -0.04 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=7.3113 db=7.3103; valor plan=276 db=275.96
+BARBECUE | 7 | 8.5457 | 59.82 | 7 | 8.5429 | 59.8 | 7 | 8.5429 | 59.8 | -0.02 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111221 Ah├║ 19/10/2026; custo plan=8.5457 db=8.5429; valor plan=59.82 db=59.8
+PRESUNTO | 26.8 | 16.4993 | 442.18 | 26.8 | 16.5 | 442.2 | 26.8 | 16.5 | 442.2 | 0.02 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026; custo plan=16.4993 db=16.5; valor plan=442.18 db=442.2
+FERMENTO BIOL├ôGICO | 24.5 | 39.4204 | 965.8 | 24.5 | 39.42 | 965.79 | 24.5 | 39.42 | 965.79 | -0.01 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 4321079 Ah├║ 28/10/2026
+AMENDOIM GRANULADO | 2.8 | 18.4214 | 51.58 | 2.8 | 18.4219 | 51.58 | 2.8 | 18.4219 | 51.58 | 0 | custo_pendente | custo origem=PENDENTE
+CATCHUP GAL├âO | 7.2 | 9.8556 | 70.96 | 7.2 | 9.8557 | 70.96 | 7.2 | 9.8557 | 70.96 | 0 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10
+CATCHUP SACHE | 2.68 | 11.153 | 29.89 | 2.68 | 11.1533 | 29.89 | 2.68 | 11.1533 | 29.89 | 0 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10
+CREME  MORANGO | 13.13 | 23.8347 | 312.95 | 13.13 | 23.8348 | 312.95 | 13.13 | 23.8348 | 312.95 | 0 | custo_pendente | custo origem=PENDENTE
+CREME KIT KAT | 6.06 | 71.1089 | 430.92 | 6.06 | 71.1089 | 430.92 | 6.06 | 71.1089 | 430.92 | 0 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 2147772 Ah├║ 21/10/2026
+LEMON PEPPER | 0.26 | 25 | 6.5 | 0.26 | 25 | 6.5 | 0.26 | 25 | 6.5 | 0 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10
+LINGUI├çA BLUMENAU | 10.29 | 33.8999 | 348.83 | 10.29 | 33.9 | 348.83 | 10.29 | 33.9 | 348.83 | 0 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 40959 Ah├║ 27/10/2026
+LOMBO | 6.72 | 22.0997 | 148.51 | 6.72 | 22.1 | 148.51 | 6.72 | 22.1 | 148.51 | 0 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 111764 Ah├║ 26/10/2026
+MAIONESE SACHE | 0.9408 | 1.0948 | 1.03 | 0.9408 | 1.0982 | 1.03 | 0.9408 | 1.0982 | 1.03 | 0 | custo_pendente | custo origem=PENDENTE; custo plan=1.0948 db=1.0982
+MOSTARDA SACHE | 0.402 | 1.194 | 0.48 | 0.402 | 1.2 | 0.48 | 0.402 | 1.2 | 0.48 | 0 | custo_diferente | custo plan=1.194 db=1.2
+PISTACHE | 2.02 | 0 | 0 |  |  |  |  |  | 0 | 0 | sem_match | sem match no cat├ílogo ativo
+SALAME ITALIANO | 0.4 | 73.65 | 29.46 | 0.4 | 73.6612 | 29.46 | 0.4 | 73.6612 | 29.46 | 0 | custo_pendente | custo origem=PENDENTE; custo plan=73.65 db=73.6612
+S├èMOLA | 35 | 12.732 | 445.62 | 35 | 12.732 | 445.62 | 35 | 12.732 | 445.62 | 0 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 1413473 Ah├║ 13/10/2026
+SOMA diffs listados MATERIA_PRIMA: -R$ 253,53
+Gap planilhaÔêÆcard esperado: R$ 253,52 (cardÔêÆplan=-R$ 253,52)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 5. Diferen├ºas ÔÇö BEBIDA (valor nov ÔêÆ valor planilha)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+produto | qtdPlan | custoPlan | valorPlan | qtdDb | custoDb | valorDb | qtdNov | custoNov | valorNov | diff | motivo | detalhe
+SPRITE ZERO 2L | 0 |  | 0 | 21 | 8.4194 | 176.81 | 21 | 8.4194 | 176.81 | 176.81 | so_no_banco | saldo out no banco sem correspondente na planilha (ativo=true)
+PEPSI LATA ZERO | 52 | 2.6402 | 137.29 | 52 | 3.2617 | 169.61 | 52 | 3.2617 | 169.61 | 32.32 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=2.6402 db=3.2617; valor plan=137.29 db=169.61
+GUARAN├ü ANT├üRCTICA 600 ZERO | 35 | 3.6451 | 127.58 | 35 | 4.1746 | 146.11 | 35 | 4.1746 | 146.11 | 18.53 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=3.6451 db=4.1746; valor plan=127.58 db=146.11
+PEPSI 2L | 46 | 7.4652 | 343.4 | 46 | 7.8569 | 361.42 | 46 | 7.8569 | 361.42 | 18.02 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=7.4652 db=7.8569; valor plan=343.4 db=361.42
+PEPSI 2L ZERO | 38 | 7.4205 | 281.98 | 38 | 7.8575 | 298.58 | 38 | 7.8575 | 298.58 | 16.6 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=7.4205 db=7.8575; valor plan=281.98 db=298.58
+COCA 2 LITROS | 138 | 10.2876 | 1419.69 | 138 | 10.4047 | 1435.85 | 138 | 10.4047 | 1435.85 | 16.16 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=10.2876 db=10.4047; valor plan=1419.69 db=1435.85
+CERVEJA ORIGINAL LATA | 27 | 4.0978 | 110.64 | 27 | 4.5942 | 124.04 | 27 | 4.5942 | 124.04 | 13.4 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=4.0978 db=4.5942; valor plan=110.64 db=124.04
+GUARAN├ü ANT├üRCTICA 600 | 29 | 3.7159 | 107.76 | 29 | 4.1746 | 121.06 | 29 | 4.1746 | 121.06 | 13.3 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=3.7159 db=4.1746; valor plan=107.76 db=121.06
+GUARAN├ü ANT├üRCTICA LATA | 40 | 3.5513 | 142.05 | 40 | 3.2525 | 130.1 | 40 | 3.2525 | 130.1 | -11.95 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=3.5513 db=3.2525; valor plan=142.05 db=130.1
+PEPSI 600 | 28 | 3.8079 | 106.62 | 28 | 4.1767 | 116.95 | 28 | 4.1767 | 116.95 | 10.33 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=3.8079 db=4.1767; valor plan=106.62 db=116.95
+CERVEJA STELLA ARTOIS LATA | 16 | 3.76 | 60.16 | 16 | 4.4 | 70.4 | 16 | 4.4 | 70.4 | 10.24 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=3.76 db=4.4; valor plan=60.16 db=70.4
+GUARAN├ü ANT├üRCTICA 2L ZERO | 48 | 8.6656 | 415.95 | 48 | 8.8667 | 425.6 | 48 | 8.8667 | 425.6 | 9.65 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=8.6656 db=8.8667; valor plan=415.95 db=425.6
+CERVEJA BUDWEISER LATA | 18 | 3.6872 | 66.37 | 18 | 4.0425 | 72.77 | 18 | 4.0425 | 72.77 | 6.4 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=3.6872 db=4.0425; valor plan=66.37 db=72.77
+COCA 2 LITROS ZERO | 185 | 10.4397 | 1931.34 | 185 | 10.406 | 1925.11 | 185 | 10.406 | 1925.11 | -6.23 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=10.4397 db=10.406; valor plan=1931.34 db=1925.11
+GUARAN├ü ANT├üRCTICA 2L | 36 | 8.7033 | 313.32 | 36 | 8.8665 | 319.19 | 36 | 8.8665 | 319.19 | 5.87 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 305640 Ah├║ 19/10/2026; custo plan=8.7033 db=8.8665; valor plan=313.32 db=319.19
+KUAT LATA | 2 | 2.575 | 5.15 |  |  |  |  |  | 0 | -5.15 | sem_match | sem match no cat├ílogo ativo
+PEPSI LATA | 22 | 3.0468 | 67.03 | 22 | 3.235 | 71.17 | 22 | 3.235 | 71.17 | 4.14 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=3.0468 db=3.235; valor plan=67.03 db=71.17
+COCA 600 ZERO | 27 | 4.2741 | 115.4 | 27 | 4.1607 | 112.34 | 27 | 4.1607 | 112.34 | -3.06 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9649185 Ah├║ 21/10/2026; custo plan=4.2741 db=4.1607; valor plan=115.4 db=112.34
+COCA 600 | 43 | 4.2281 | 181.81 | 43 | 4.159 | 178.84 | 43 | 4.159 | 178.84 | -2.97 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9649185 Ah├║ 21/10/2026; custo plan=4.2281 db=4.159; valor plan=181.81 db=178.84
+GUARAN├ü ANT├üRCTICA LATA ZERO | 17 | 3.0694 | 52.18 | 17 | 3.2258 | 54.84 | 17 | 3.2258 | 54.84 | 2.66 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 292295 Ah├║ 08/10/2026; custo plan=3.0694 db=3.2258; valor plan=52.18 db=54.84
+COCA 1 LITRO | 27 | 6.4763 | 174.86 | 27 | 6.5492 | 176.83 | 27 | 6.5492 | 176.83 | 1.97 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9619404 Ah├║ 09/10/2026; custo plan=6.4763 db=6.5492; valor plan=174.86 db=176.83
+COCA LATA | 57 | 3.4235 | 195.14 | 57 | 3.3894 | 193.2 | 57 | 3.3894 | 193.2 | -1.94 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=3.4235 db=3.3894; valor plan=195.14 db=193.2
+├üGUA COM G├üS | 22 | 1.7036 | 37.48 | 22 | 1.63 | 35.86 | 22 | 1.63 | 35.86 | -1.62 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=1.7036 db=1.63; valor plan=37.48 db=35.86
+CERVEJA STELLA ARTOIS LONG NECK | 26 | 4.7481 | 123.45 | 26 | 4.8 | 124.8 | 26 | 4.8 | 124.8 | 1.35 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=4.7481 db=4.8; valor plan=123.45 db=124.8
+COCA LATA ZERO | 56 | 3.413 | 191.13 | 56 | 3.3892 | 189.8 | 56 | 3.3892 | 189.8 | -1.33 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=3.413 db=3.3892; valor plan=191.13 db=189.8
+SPRITE 2 LITROS ZERO | 21 | 8.4195 | 176.81 | 21 | 8.4638 | 177.74 | 21 | 8.4638 | 177.74 | 0.93 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=8.4195 db=8.4638; valor plan=176.81 db=177.74
+├üGUA SEM G├üS | 18 | 1.5078 | 27.14 | 18 | 1.5558 | 28 | 18 | 1.5558 | 28 | 0.86 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=1.5078 db=1.5558; valor plan=27.14 db=28
+SUCO P├èSSEGO | 3 | 3.03 | 9.09 | 3 | 3.2825 | 9.85 | 3 | 3.2825 | 9.85 | 0.76 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=3.03 db=3.2825; valor plan=9.09 db=9.85
+FANTA LARANJA 2 LITROS | 53 | 8.4762 | 449.24 | 53 | 8.464 | 448.59 | 53 | 8.464 | 448.59 | -0.65 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=8.4762 db=8.464; valor plan=449.24 db=448.59
+SUCO UVA | 6 | 3.1883 | 19.13 | 6 | 3.2833 | 19.7 | 6 | 3.2833 | 19.7 | 0.57 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=3.1883 db=3.2833; valor plan=19.13 db=19.7
+CH├ü P├èSSEGO 1,5 | 13 | 5.9862 | 77.82 | 13 | 5.9592 | 77.47 | 13 | 5.9592 | 77.47 | -0.35 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=5.9862 db=5.9592; valor plan=77.82 db=77.47
+CH├ü LIM├âO 1,5 | 5 | 6.026 | 30.13 | 5 | 5.9583 | 29.79 | 5 | 5.9583 | 29.79 | -0.34 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=6.026 db=5.9583; valor plan=30.13 db=29.79
+CERVEJA BUDWEISER LONG NECK | 15 | 4.3847 | 65.77 | 15 | 4.4 | 66 | 15 | 4.4 | 66 | 0.23 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10; custo plan=4.3847 db=4.4; valor plan=65.77 db=66
+COCA 1 LITRO ZERO | 16 | 6.5581 | 104.93 | 16 | 6.5467 | 104.75 | 16 | 6.5467 | 104.75 | -0.18 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=6.5581 db=6.5467; valor plan=104.93 db=104.75
+SPRITE 2 LITROS | 47 | 8.4662 | 397.91 | 47 | 8.4639 | 397.8 | 47 | 8.4639 | 397.8 | -0.11 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9677431 Ah├║ 30/10/2026; custo plan=8.4662 db=8.4639; valor plan=397.91 db=397.8
+FANTA LARANJA LATA | 1 | 2.98 | 2.98 | 1 | 2.9972 | 3 | 1 | 2.9972 | 3 | 0.02 | custo_recalculado | origem=ULTIMA_COMPRA_GRUPO NF 9649185 Ah├║ 21/10/2026; custo plan=2.98 db=2.9972; valor plan=2.98 db=3
+FANTA GUARANA LATA | 8 | 2.2912 | 18.33 | 8 | 2.2909 | 18.33 | 8 | 2.2909 | 18.33 | 0 | custo_pendente | custo origem=PENDENTE
+SUCO MARACUJ├ü | 8 | 3.3713 | 26.97 | 8 | 3.371 | 26.97 | 8 | 3.371 | 26.97 | 0 | custo_pendente | custo origem=PENDENTE
+CERVEJA SPATEN LONG NECK | 21 | 4.07 | 85.47 | 21 | 4.0701 | 85.47 | 21 | 4.0701 | 85.47 | 0 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10
+CERVEJA SPATEN LATA | 8 | 3.4425 | 27.54 | 8 | 3.4421 | 27.54 | 8 | 3.4421 | 27.54 | 0 | custo_recalculado | origem=OUTRA_LOJA Saldo Ah├║ 2026-10
+SODA | 21 | 6.1695 | 129.56 | 21 | 6.1696 | 129.56 | 21 | 6.1696 | 129.56 | 0 | custo_pendente | custo origem=PENDENTE
+SOMA diffs listados BEBIDA: R$ 325,24
+Gap planilhaÔêÆcard esperado: -R$ 325,24 (cardÔêÆplan=R$ 325,24)
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 6. Fechamento da conta (planilha ÔêÆ card)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+MATERIA_PRIMA:
+  planilha AH = R$ 31.965,41
+  card UI = R$ 31.711,89 | CMV replicado = R$ 31.711,89 | ini ativo = R$ 31.711,89
+  ÔêÆ fora do card (sem match/inativo/outra se├º├úo) = R$ 450,71
+  + s├│ no card (outra se├º├úo plan ou s├│ banco) = R$ 0,00
+  ┬▒ gap custo/qtd (mesma se├º├úo) = R$ 197,18
+  + compras nov = R$ 0,00
+  reconstruto = R$ 31.711,88 (╬ö vs card R$ 0,01)
+  plan ÔêÆ card = R$ 253,52
+
+BEBIDA:
+  planilha AH = R$ 8.356,60
+  card UI = R$ 8.681,84 | CMV replicado = R$ 8.681,84 | ini ativo = R$ 8.681,84
+  ÔêÆ fora do card (sem match/inativo/outra se├º├úo) = R$ 5,15
+  + s├│ no card (outra se├º├úo plan ou s├│ banco) = R$ 176,81
+  ┬▒ gap custo/qtd (mesma se├º├úo) = R$ 153,58
+  + compras nov = R$ 0,00
+  reconstruto = R$ 8.681,84 (╬ö vs card R$ 0,00)
+  plan ÔêÆ card = -R$ 325,24
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 7. Origem dos custos no saldo out (ativos)
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  OUTRA_LOJA             n=25 R$ 1.722,12
+  PENDENTE               n=14 R$ 746,69
+  PLANILHA               n=8 R$ 0,48
+  ULTIMA_COMPRA_GRUPO    n=93 R$ 43.542,57
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 8. Itens planilha MP/BEB que mudam de se├º├úo no cat├ílogo
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+ 9. Itens planilha MP/BEB sem match ativo
+ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ
+  [MATERIA_PRIMA] CHOCOLATE KIT KAT BARRA valor=R$ 219,45 qtd=2.739 status=nao_encontrado
+  [MATERIA_PRIMA] PISTACHE valor=R$ 0,00 qtd=2.02 status=nao_encontrado
+  [MATERIA_PRIMA] CARNE BOV DESFIADA valor=R$ 231,26 qtd=4.12 status=nao_encontrado
+  [BEBIDA] KUAT LATA valor=R$ 5,15 qtd=2 status=nao_encontrado
